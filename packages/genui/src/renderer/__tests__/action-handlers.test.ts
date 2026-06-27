@@ -1,10 +1,10 @@
 /**
- * action-handlers.test.ts — RED tests for buildActionRegistry (Task 2, Plan 13-04).
+ * action-handlers.test.ts — tests for buildActionRegistry (Task 2, Plan 13-04).
  *
  * Security contracts verified:
  *   D-15: Runtime relative-href re-check — navigate with absolute href is a noop even
  *         if somehow schema-valid (defense-in-depth at the handler layer).
- *   SEAM-02: mutate handler is NOT registered — registry["mutate-*"] is absent.
+ *   SEAM-02: mutate handler is NOT registered — registry["mutate"] is absent.
  *   D-24: No eval/Function/dangerouslySetInnerHTML on action execution path.
  *
  * ActionRegistry from buildActionRegistry must:
@@ -15,14 +15,13 @@
  *   5. query-refresh → calls trpcUtils.invalidate()
  *
  * Test environment: jsdom (matches genui vitest.config.ts).
- * `buildActionRegistry` is the function under test — imported from the yet-to-exist
- * module so this file FAILS (RED) until the implementation is created.
  */
 
 import { describe, expect, it, vi } from "vitest";
 
-// This import will FAIL (RED) until action-handlers.ts is created.
 import { buildActionRegistry } from "../action-handlers";
+import type { RouterLike, TrpcUtilsLike } from "../action-handlers";
+import type { DeclaredStateResult } from "../use-declared-state";
 
 // ---------------------------------------------------------------------------
 // Stub collaborators
@@ -30,35 +29,37 @@ import { buildActionRegistry } from "../action-handlers";
 
 /** Minimal Next.js router stub — only push is needed for navigate tests. */
 function makeRouterStub() {
-  return {
-    push: vi.fn<[string], void>(),
-  };
+  const pushSpy = vi.fn();
+  const stub = { push: pushSpy } as unknown as RouterLike;
+  return { stub, pushSpy };
 }
 
 /** Minimal tRPC utils stub — only invalidate is needed for query-refresh tests. */
 function makeTrpcUtilsStub() {
-  return {
-    invalidate: vi.fn<[], Promise<void>>().mockResolvedValue(undefined),
-  };
+  const invalidateSpy = vi.fn().mockResolvedValue(undefined);
+  const stub = { invalidate: invalidateSpy } as unknown as TrpcUtilsLike;
+  return { stub, invalidateSpy };
 }
 
 /** Minimal DeclaredStateResult stub — dispatch is called by setState handler. */
 function makeDeclaredStateStub() {
-  return {
+  const dispatchSpy = vi.fn();
+  const stub = {
     state: {} as Record<string, unknown>,
-    dispatch: vi.fn<[string, unknown?], void>(),
-  };
+    dispatch: dispatchSpy,
+  } as unknown as DeclaredStateResult;
+  return { stub, dispatchSpy };
 }
 
 // ---------------------------------------------------------------------------
-// Test 1: navigate with valid relative href
+// Test 1 & 2: navigate action
 // ---------------------------------------------------------------------------
 
 describe("buildActionRegistry — navigate action", () => {
   it("Test 1: navigate with valid relative href calls router.push", () => {
-    const router = makeRouterStub();
-    const trpcUtils = makeTrpcUtilsStub();
-    const declaredState = makeDeclaredStateStub();
+    const { stub: router, pushSpy } = makeRouterStub();
+    const { stub: trpcUtils } = makeTrpcUtilsStub();
+    const { stub: declaredState } = makeDeclaredStateStub();
 
     const registry = buildActionRegistry({ router, trpcUtils, declaredState });
 
@@ -69,14 +70,14 @@ describe("buildActionRegistry — navigate action", () => {
     expect(handler).toBeDefined();
     handler?.(navigateAction);
 
-    expect(router.push).toHaveBeenCalledOnce();
-    expect(router.push).toHaveBeenCalledWith("/emails");
+    expect(pushSpy).toHaveBeenCalledOnce();
+    expect(pushSpy).toHaveBeenCalledWith("/emails");
   });
 
   it("Test 2: navigate with absolute href is a noop (D-15 runtime re-check)", () => {
-    const router = makeRouterStub();
-    const trpcUtils = makeTrpcUtilsStub();
-    const declaredState = makeDeclaredStateStub();
+    const { stub: router, pushSpy } = makeRouterStub();
+    const { stub: trpcUtils } = makeTrpcUtilsStub();
+    const { stub: declaredState } = makeDeclaredStateStub();
 
     const registry = buildActionRegistry({ router, trpcUtils, declaredState });
 
@@ -89,7 +90,7 @@ describe("buildActionRegistry — navigate action", () => {
     handler?.(navigateAction);
 
     // router.push must NOT have been called — noop (D-15)
-    expect(router.push).not.toHaveBeenCalled();
+    expect(pushSpy).not.toHaveBeenCalled();
   });
 });
 
@@ -99,9 +100,9 @@ describe("buildActionRegistry — navigate action", () => {
 
 describe("buildActionRegistry — setState action", () => {
   it("Test 3: setState action calls dispatch(key, value) on DeclaredStateResult", () => {
-    const router = makeRouterStub();
-    const trpcUtils = makeTrpcUtilsStub();
-    const declaredState = makeDeclaredStateStub();
+    const { stub: router } = makeRouterStub();
+    const { stub: trpcUtils } = makeTrpcUtilsStub();
+    const { stub: declaredState, dispatchSpy } = makeDeclaredStateStub();
 
     const registry = buildActionRegistry({ router, trpcUtils, declaredState });
 
@@ -115,8 +116,8 @@ describe("buildActionRegistry — setState action", () => {
     expect(handler).toBeDefined();
     handler?.(setStateAction);
 
-    expect(declaredState.dispatch).toHaveBeenCalledOnce();
-    expect(declaredState.dispatch).toHaveBeenCalledWith("showPanel", true);
+    expect(dispatchSpy).toHaveBeenCalledOnce();
+    expect(dispatchSpy).toHaveBeenCalledWith("showPanel", true);
   });
 });
 
@@ -126,9 +127,9 @@ describe("buildActionRegistry — setState action", () => {
 
 describe("buildActionRegistry — SEAM-02 mutate not registered", () => {
   it("Test 4: registry does NOT have a mutate handler (SEAM-02)", () => {
-    const router = makeRouterStub();
-    const trpcUtils = makeTrpcUtilsStub();
-    const declaredState = makeDeclaredStateStub();
+    const { stub: router } = makeRouterStub();
+    const { stub: trpcUtils } = makeTrpcUtilsStub();
+    const { stub: declaredState } = makeDeclaredStateStub();
 
     const registry = buildActionRegistry({ router, trpcUtils, declaredState });
 
@@ -144,9 +145,9 @@ describe("buildActionRegistry — SEAM-02 mutate not registered", () => {
 
 describe("buildActionRegistry — query-refresh action", () => {
   it("Test 5: query-refresh calls trpcUtils.invalidate()", async () => {
-    const router = makeRouterStub();
-    const trpcUtils = makeTrpcUtilsStub();
-    const declaredState = makeDeclaredStateStub();
+    const { stub: router } = makeRouterStub();
+    const { stub: trpcUtils, invalidateSpy } = makeTrpcUtilsStub();
+    const { stub: declaredState } = makeDeclaredStateStub();
 
     const registry = buildActionRegistry({ router, trpcUtils, declaredState });
 
@@ -156,6 +157,6 @@ describe("buildActionRegistry — query-refresh action", () => {
     // Handler may be async (fire-and-forget) — await to settle promises
     await handler?.();
 
-    expect(trpcUtils.invalidate).toHaveBeenCalledOnce();
+    expect(invalidateSpy).toHaveBeenCalledOnce();
   });
 });

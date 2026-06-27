@@ -34,3 +34,7 @@ export type {
 export { useDeclaredState } from "./use-declared-state";
 
 export type { DeclaredStateResult } from "./use-declared-state";
+
+export { buildActionRegistry } from "./action-handlers";
+
+export type { ActionRegistryDeps, RouterLike, TrpcUtilsLike } from "./action-handlers";

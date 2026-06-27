@@ -95,6 +95,19 @@ export interface SpecRendererProps {
    * Defaults to `{}`.
    */
   readonly data?: Record<string, unknown>;
+
+  /**
+   * Optional action handlers to wire into the ActionRegistryContext.
+   *
+   * When provided, SpecRenderer wraps its output in an
+   * <ActionRegistryContext.Provider value={actions}> so that all
+   * button onClick handlers can resolve live handlers from the registry.
+   *
+   * Build with buildActionRegistry() from renderer/action-handlers.ts (Phase 13).
+   * When omitted, the default empty-context {} is used — all action IDs
+   * resolve to the no-op handler (Phase 12 seam / SEAM-02).
+   */
+  readonly actions?: ActionRegistry;
 }
 
 /**
@@ -118,6 +131,7 @@ export function SpecRenderer({
   spec,
   registry = COMPONENT_REGISTRY,
   data = {},
+  actions,
 }: SpecRendererProps): React.ReactElement {
   const declarations = spec.state ?? [];
 
@@ -131,5 +145,17 @@ export function SpecRenderer({
     registry,
   };
 
-  return renderNode(spec.root as Parameters<typeof renderNode>[0], ctx, "root");
+  const tree = renderNode(spec.root as Parameters<typeof renderNode>[0], ctx, "root");
+
+  // Wrap with ActionRegistryContext.Provider when callers supply live handlers.
+  // When `actions` is undefined, fall through to the default empty-context `{}`.
+  if (actions !== undefined) {
+    return (
+      <ActionRegistryContext.Provider value={actions}>
+        {tree}
+      </ActionRegistryContext.Provider>
+    );
+  }
+
+  return tree;
 }
