@@ -233,7 +233,7 @@ export function CatalogBrowserIsland(): React.ReactElement {
       ? entries
       : entries.filter(
           (e) =>
-            e.type.includes(filter.toLowerCase()) ||
+            e.type.toLowerCase().includes(filter.toLowerCase()) ||
             e.description.toLowerCase().includes(filter.toLowerCase()),
         );
 
