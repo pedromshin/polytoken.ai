@@ -11,3 +11,4 @@ export * from "./schema/index";
 export * from "./registry/index";
 export * from "./renderer/index";
 export * from "./generation/index";
+export * from "./studio/index";
