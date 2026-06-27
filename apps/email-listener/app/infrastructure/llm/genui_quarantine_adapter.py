@@ -69,9 +69,10 @@ _QUARANTINE_TOOL_DICT: dict[str, Any] = {
             },
             "intent_summary": {
                 "type": "string",
+                "maxLength": 500,
                 "description": (
-                    "A brief (1-2 sentence) description of what the user wants to display. "
-                    "Written in neutral, factual language. No raw document content."
+                    "A brief (1-2 sentence, max 500 characters) description of what the user "
+                    "wants to display. Written in neutral, factual language. No raw document content."
                 ),
             },
             "confidence": {
@@ -222,9 +223,12 @@ class GenuiQuarantineAdapter:
                 # Clamp to allowed enum (defence-in-depth: model may hallucinate)
                 if entity_type not in _ALLOWED_ENTITY_TYPES:
                     entity_type = "unknown"
+                # Clamp intent_summary to 500 chars (WR-01 / defence-in-depth:
+                # model may ignore maxLength in constrained-decoding mode).
+                intent_summary = str(raw_input.get("intent_summary", ""))[:500]
                 return QuarantineExtraction(
                     entity_type=entity_type,
-                    intent_summary=str(raw_input.get("intent_summary", "")),
+                    intent_summary=intent_summary,
                     confidence=str(raw_input.get("confidence", "low")),
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,
