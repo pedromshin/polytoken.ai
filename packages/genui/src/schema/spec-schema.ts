@@ -82,6 +82,7 @@ const ButtonNodeSchema = z
   .object({
     type: z.literal("button"),
     label: z.string(),
+    "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11) — matches manifest propsSchema
     variant: z
       .enum(["default", "outline", "ghost", "destructive"])
       .optional(),
@@ -94,6 +95,7 @@ const ButtonNodeSchema = z
 const SeparatorNodeSchema = z
   .object({
     type: z.literal("separator"),
+    "aria-hidden": z.literal(true), // locked + a11y-required (D-04 / UI-SPEC §11) — matches manifest propsSchema
     orientation: z.enum(["horizontal", "vertical"]).optional(),
   })
   .strict();
@@ -108,16 +110,17 @@ const AlertNodeSchema = z
   })
   .strict();
 
-/** key-value-list — valueRef is a dotted-path ref, no eval (SPEC-05). */
+/** key-value-list — static key-value pairs rendered as <dl> (a11y label required, D-04). */
 const KeyValueListNodeSchema = z
   .object({
     type: z.literal("key-value-list"),
+    label: z.string(), // a11y-required list aria-label (D-04 / UI-SPEC §11) — matches manifest propsSchema
     items: z
       .array(
         z
           .object({
             key: z.string(),
-            valueRef: z.string(),
+            value: z.string(), // static string value — matches manifest propsSchema
           })
           .strict(),
       )
@@ -356,22 +359,27 @@ export type SpecRoot = z.infer<typeof SpecRootSchema>;
 /**
  * countNodes — counts total nodes in a spec tree (root inclusive).
  * Pure recursive function; used by SpecRootSchema .refine() guard.
+ *
+ * budget parameter provides a stack-depth guard (IN-01): if remaining budget
+ * hits zero the function returns an over-budget value immediately, preventing
+ * a RangeError from propagating out of safeParse as an unhandled exception.
  */
-export function countNodes(node: SpecNode): number {
+export function countNodes(node: SpecNode, budget: number = MAX_SPEC_NODES + 1): number {
+  if (budget <= 0) return MAX_SPEC_NODES + 1; // early-exit: over budget
   let count = 1;
   const n = node as Record<string, unknown>;
 
   if (Array.isArray(n["children"])) {
     for (const child of n["children"] as SpecNode[]) {
-      count += countNodes(child);
+      count += countNodes(child, budget - count);
     }
   }
-  if (n["header"] != null) count += countNodes(n["header"] as SpecNode);
-  if (n["footer"] != null) count += countNodes(n["footer"] as SpecNode);
-  if (n["itemTemplate"] != null) count += countNodes(n["itemTemplate"] as SpecNode);
-  if (n["emptyState"] != null) count += countNodes(n["emptyState"] as SpecNode);
-  if (n["then"] != null) count += countNodes(n["then"] as SpecNode);
-  if (n["else"] != null) count += countNodes(n["else"] as SpecNode);
+  if (n["header"] != null) count += countNodes(n["header"] as SpecNode, budget - count);
+  if (n["footer"] != null) count += countNodes(n["footer"] as SpecNode, budget - count);
+  if (n["itemTemplate"] != null) count += countNodes(n["itemTemplate"] as SpecNode, budget - count);
+  if (n["emptyState"] != null) count += countNodes(n["emptyState"] as SpecNode, budget - count);
+  if (n["then"] != null) count += countNodes(n["then"] as SpecNode, budget - count);
+  if (n["else"] != null) count += countNodes(n["else"] as SpecNode, budget - count);
 
   return count;
 }
@@ -379,8 +387,13 @@ export function countNodes(node: SpecNode): number {
 /**
  * specDepth — returns the maximum nesting depth of a spec tree (root = 1).
  * Pure recursive function; used by SpecRootSchema .refine() guard.
+ *
+ * limit parameter provides a stack-depth guard (IN-01): if the remaining limit
+ * hits zero the function returns an over-limit value immediately, preventing
+ * a RangeError from propagating out of safeParse as an unhandled exception.
  */
-export function specDepth(node: SpecNode): number {
+export function specDepth(node: SpecNode, limit: number = MAX_SPEC_DEPTH + 5): number {
+  if (limit <= 0) return MAX_SPEC_DEPTH + 1; // early-exit: over limit
   const n = node as Record<string, unknown>;
   const children: SpecNode[] = [];
 
@@ -394,7 +407,7 @@ export function specDepth(node: SpecNode): number {
 
   let maxChildDepth = 0;
   for (const child of children) {
-    const d = specDepth(child);
+    const d = specDepth(child, limit - 1);
     if (d > maxChildDepth) maxChildDepth = d;
   }
 
