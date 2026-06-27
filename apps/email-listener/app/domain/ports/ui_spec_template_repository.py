@@ -5,11 +5,18 @@ Phase 14-03, CACHE-01 / D-17:
 - persist: upsert validated spec into ui_spec_templates (D-12, ON CONFLICT cache_key).
 - increment_use_count: increment use_count on a hit row (D-03/D-12).
 
-D-17 contract enforced at the adapter level:
+Phase 16-03, STDO-05/STDO-06:
+- list_recent: paginated list of TemplateSummary rows (D-14: no spec_json); best-effort.
+- find_by_id: single TemplateDetail row with spec_json (D-14); best-effort.
+
+D-15 contract enforced at the adapter level:
 - persist and increment_use_count are best-effort (swallow+log, never raise).
 - find_by_cache_key treats any lookup error as a miss (returns None, never raises).
+- list_recent: any error → return [] (D-15 best-effort).
+- find_by_id: any error → return None (D-15 best-effort).
 
-CachedTemplate and TemplateToPersist are frozen dataclasses (immutable, CLAUDE.md).
+CachedTemplate, TemplateToPersist, TemplateSummary, and TemplateDetail are
+frozen dataclasses (immutable, CLAUDE.md).
 No infrastructure imports are permitted in this module — this is a pure domain port.
 """
 
@@ -28,6 +35,50 @@ class CachedTemplate:
     """
 
     id: str
+    spec_json: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class TemplateSummary:
+    """Immutable summary row for the history list endpoint (D-14: no spec_json).
+
+    Returned by list_recent — lightweight payload without the full spec_json blob.
+    id: Primary key of the ui_spec_templates row.
+    intent_text: The canonical intent text used to generate the spec.
+    created_at: ISO 8601 timestamp string from the DB.
+    registry_version: Catalog content hash in effect when the spec was generated.
+    use_count: Number of times this spec has been served from cache.
+    validation_status: Always 'validated' for surfaced rows.
+    """
+
+    id: str
+    intent_text: str
+    created_at: str
+    registry_version: str
+    use_count: int
+    validation_status: str
+
+
+@dataclass(frozen=True)
+class TemplateDetail:
+    """Immutable detail row for the history detail endpoint (D-14: includes spec_json).
+
+    Returned by find_by_id — full payload including the spec_json blob.
+    id: Primary key of the ui_spec_templates row.
+    intent_text: The canonical intent text used to generate the spec.
+    created_at: ISO 8601 timestamp string from the DB.
+    registry_version: Catalog content hash in effect when the spec was generated.
+    use_count: Number of times this spec has been served from cache.
+    validation_status: Always 'validated' for surfaced rows.
+    spec_json: The full validated SpecRoot JSON.
+    """
+
+    id: str
+    intent_text: str
+    created_at: str
+    registry_version: str
+    use_count: int
+    validation_status: str
     spec_json: dict[str, Any]
 
 
@@ -62,12 +113,14 @@ class TemplateToPersist:
 
 
 class UiSpecTemplateRepository(Protocol):
-    """Port for the exact-match UI spec cache (CACHE-01, D-17).
+    """Port for the exact-match UI spec cache (CACHE-01, D-15/D-17).
 
-    Implementations must honour the best-effort contract (D-17):
+    Implementations must honour the best-effort contract:
     - find_by_cache_key: any lookup error → return None (treat as a miss).
     - persist: failures are logged server-side and swallowed — never raises.
     - increment_use_count: failures are logged server-side and swallowed — never raises.
+    - list_recent: any error → return [] (D-15 best-effort).
+    - find_by_id: any error → return None (D-15 best-effort).
     """
 
     async def find_by_cache_key(self, cache_key: str) -> CachedTemplate | None:
@@ -99,5 +152,44 @@ class UiSpecTemplateRepository(Protocol):
         Called on every cache hit to track reuse frequency for v1.2 promotion (D-03).
 
         Must not raise under any circumstance — failures are swallowed+logged (D-17).
+        """
+        ...
+
+    async def list_recent(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        importer_id: str | None = None,
+    ) -> list[TemplateSummary]:
+        """Return a paginated list of recent TemplateSummary rows (D-14, STDO-05).
+
+        Does NOT include spec_json in the result — lightweight list payload (D-14).
+        Rows are ordered by created_at DESC.
+
+        Args:
+            limit: Number of rows to return. Clamped to [1, 100].
+            offset: Zero-based row offset. Clamped to >= 0.
+            importer_id: When provided, filter to rows matching this importer.
+                         When None, returns rows for all importers (D-16).
+
+        Returns:
+            List of TemplateSummary objects; [] on any error (D-15 best-effort).
+
+        Must not raise under any circumstance — errors are logged server-side (D-15).
+        """
+        ...
+
+    async def find_by_id(self, template_id: str) -> TemplateDetail | None:
+        """Return a single TemplateDetail row by primary key (D-14, STDO-06).
+
+        Includes spec_json in the result — full detail payload (D-14).
+
+        Args:
+            template_id: Primary key UUID of the ui_spec_templates row.
+
+        Returns:
+            TemplateDetail on hit; None on miss or any error (D-15 best-effort).
+
+        Must not raise under any circumstance — errors are logged server-side (D-15).
         """
         ...

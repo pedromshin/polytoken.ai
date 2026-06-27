@@ -8,6 +8,12 @@ Phase 14-03, CACHE-01 / D-17:
 - increment_use_count: UPDATE use_count + 1 + updated_at for the given id.
   Any exception → swallow + log 'genui_use_count_increment_failed' (D-17).
 
+Phase 16-03, STDO-05/STDO-06:
+- list_recent: SELECT summary cols (no spec_json) ORDER BY created_at DESC with pagination.
+  Any exception → return [] (D-15 best-effort); log 'genui_history_list_failed'.
+- find_by_id: SELECT all cols including spec_json WHERE id = $id LIMIT 1.
+  Any exception → return None (D-15 best-effort); log 'genui_history_detail_failed'.
+
 WR-06: The supabase-py Client is synchronous. All calls are offloaded to a thread-pool
 worker via asyncio.to_thread() so the event loop is not blocked during network I/O.
 
@@ -25,7 +31,12 @@ from typing import Any
 import structlog
 from supabase import Client
 
-from app.domain.ports.ui_spec_template_repository import CachedTemplate, TemplateToPersist
+from app.domain.ports.ui_spec_template_repository import (
+    CachedTemplate,
+    TemplateDetail,
+    TemplateSummary,
+    TemplateToPersist,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -192,3 +203,115 @@ class SupabaseUiSpecTemplateRepository:
                 table=_TABLE,
                 template_id=template_id,
             )
+
+    async def list_recent(
+        self,
+        limit: int = 20,
+        offset: int = 0,
+        importer_id: str | None = None,
+    ) -> list[TemplateSummary]:
+        """Return a paginated list of recent TemplateSummary rows (D-14, STDO-05).
+
+        Does NOT select spec_json — lightweight list payload (D-14).
+        Rows are ordered by created_at DESC.
+
+        Args:
+            limit: Number of rows to return. Clamped to [1, 100].
+            offset: Zero-based row offset. Clamped to >= 0.
+            importer_id: When provided, filter to rows matching this importer.
+                         When None, returns rows for all importers.
+
+        Returns:
+            List of TemplateSummary objects; [] on any error (D-15 best-effort).
+
+        Offloads blocking supabase-py call to asyncio.to_thread() (WR-06).
+        """
+        clamped_limit = max(1, min(100, limit))
+        clamped_offset = max(0, offset)
+        range_start = clamped_offset
+        range_end = clamped_offset + clamped_limit - 1
+
+        summary_cols = "id, intent_text, created_at, registry_version, use_count, validation_status"
+
+        try:
+            def _query() -> Any:
+                q = self._client.table(_TABLE).select(summary_cols)
+                if importer_id is not None:
+                    q = q.eq("importer_id", importer_id)
+                return q.order("created_at", desc=True).range(range_start, range_end).execute()
+
+            response = await asyncio.to_thread(_query)
+            rows: list[dict[str, Any]] = response.data or []
+            return [
+                TemplateSummary(
+                    id=str(row["id"]),
+                    intent_text=str(row["intent_text"]),
+                    created_at=str(row["created_at"]),
+                    registry_version=str(row["registry_version"]),
+                    use_count=int(row.get("use_count") or 0),
+                    validation_status=str(row["validation_status"]),
+                )
+                for row in rows
+            ]
+        except Exception:
+            logger.exception(
+                "genui_history_list_failed",
+                table=_TABLE,
+                limit=clamped_limit,
+                offset=clamped_offset,
+                importer_id=importer_id,
+            )
+            return []
+
+    async def find_by_id(self, template_id: str) -> TemplateDetail | None:
+        """Return a single TemplateDetail row by primary key (D-14, STDO-06).
+
+        Includes spec_json in the result — full detail payload (D-14).
+
+        Args:
+            template_id: Primary key UUID of the ui_spec_templates row.
+
+        Returns:
+            TemplateDetail on hit; None on miss or any error (D-15 best-effort).
+
+        Offloads blocking supabase-py call to asyncio.to_thread() (WR-06).
+        WR-02: handles spec_json returned as str or dict.
+        """
+        detail_cols = (
+            "id, intent_text, created_at, registry_version, use_count, validation_status, spec_json"
+        )
+        try:
+            response = await asyncio.to_thread(
+                lambda: (
+                    self._client.table(_TABLE)
+                    .select(detail_cols)
+                    .eq("id", template_id)
+                    .limit(1)
+                    .execute()
+                )
+            )
+            rows: list[dict[str, Any]] = response.data or []
+            if not rows:
+                return None
+            row = rows[0]
+            # WR-02: PostgREST may return JSONB columns as either dict or str.
+            raw_spec = row["spec_json"]
+            if isinstance(raw_spec, str):
+                raw_spec = _json.loads(raw_spec)
+            spec_json: dict[str, Any] = raw_spec
+            return TemplateDetail(
+                id=str(row["id"]),
+                intent_text=str(row["intent_text"]),
+                created_at=str(row["created_at"]),
+                registry_version=str(row["registry_version"]),
+                use_count=int(row.get("use_count") or 0),
+                validation_status=str(row["validation_status"]),
+                spec_json=spec_json,
+            )
+        except Exception:
+            logger.exception(
+                "genui_history_detail_failed",
+                table=_TABLE,
+                template_id=template_id,
+            )
+            return None
