@@ -153,6 +153,16 @@ export function addHrefAbsoluteSchemeGuard(schema: unknown): unknown {
  *   - $refStrategy: "none" — inline all sub-schemas; Bedrock forbids external $ref
  *   - target: "jsonSchema7" — safe baseline; Bedrock accepts JSON Schema draft 7
  *
+ * Root-shape normalization (BUG-B):
+ *   zod-to-json-schema with `name` emits a wrapper root of the form
+ *   `{ "$ref": "#/definitions/SpecRoot", "definitions": { "SpecRoot": {...} } }`.
+ *   That root has NO top-level `"type"`. Anthropic/Bedrock REQUIRES the forced-tool
+ *   `input_schema` root to carry `"type"` (otherwise every generation fails with
+ *   `tools.0.custom.input_schema.type: Field required`). We therefore inline the
+ *   SpecRoot definition up to the root (spreading its type/properties/required/
+ *   additionalProperties) while KEEPING `definitions` so any internal `$ref`s still
+ *   resolve, and retaining `$schema`. Key order is kept stable for the drift gate.
+ *
  * Post-processing steps (applied in order):
  *   1. ensureAdditionalPropertiesFalse — Bedrock requires additionalProperties:false
  *      on every object (D-22 / CURRENCY-2026 §2).
@@ -167,10 +177,53 @@ export function buildSpecSchema(): Record<string, unknown> {
     name: "SpecRoot",
     $refStrategy: "none",
     target: "jsonSchema7",
-  });
+  }) as Record<string, unknown>;
 
-  const withAdditionalProps = ensureAdditionalPropertiesFalse(rawSchema);
+  const rootSchema = inlineNamedRoot(rawSchema, "SpecRoot");
+
+  const withAdditionalProps = ensureAdditionalPropertiesFalse(rootSchema);
   return addHrefAbsoluteSchemeGuard(withAdditionalProps) as Record<string, unknown>;
+}
+
+/**
+ * Normalizes a zod-to-json-schema `{ $ref, definitions, $schema }` wrapper into a
+ * self-contained root object schema (BUG-B).
+ *
+ * Input:  `{ "$ref": "#/definitions/<name>", "definitions": {...}, "$schema": "..." }`
+ * Output: `{ ...definitions[name], "definitions": {...}, "$schema": "..." }`
+ *
+ * The named definition's own fields (type/properties/required/additionalProperties)
+ * are spread to the root so the schema has a top-level `"type"`. `definitions` is
+ * retained so any internal `$ref` (e.g. recursive SpecNode references) still resolve;
+ * `$schema` is preserved last. If the wrapper shape is absent (no root `$ref`), the
+ * schema is returned unchanged. Pure/immutable: returns a new object.
+ */
+export function inlineNamedRoot(
+  schema: Record<string, unknown>,
+  name: string,
+): Record<string, unknown> {
+  const ref = schema["$ref"];
+  const definitions = schema["definitions"];
+  if (ref !== `#/definitions/${name}` || definitions === null || typeof definitions !== "object") {
+    return schema;
+  }
+
+  const defs = definitions as Record<string, unknown>;
+  const named = defs[name];
+  if (named === null || typeof named !== "object" || Array.isArray(named)) {
+    return schema;
+  }
+
+  // Spread the named definition to the root, then re-attach definitions + $schema
+  // (stable key order: definition fields first, then definitions, then $schema).
+  const inlined: Record<string, unknown> = {
+    ...(named as Record<string, unknown>),
+    definitions: defs,
+  };
+  if ("$schema" in schema) {
+    inlined["$schema"] = schema["$schema"];
+  }
+  return inlined;
 }
 
 // ---------------------------------------------------------------------------

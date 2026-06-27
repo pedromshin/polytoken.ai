@@ -76,18 +76,30 @@ describe("spec.schema.json (Bedrock JSON Schema artifact)", () => {
   });
 
   it("root SpecRoot definition has additionalProperties:false (Bedrock requirement, D-22)", () => {
-    // The top-level schema is { "$ref": "#/definitions/SpecRoot", "definitions": { "SpecRoot": {...} } }
-    // The actual schema object to check is inside definitions.SpecRoot.
+    // After BUG-B the SpecRoot definition is inlined at the root, so the top-level
+    // schema itself carries additionalProperties:false (a possible legacy wrapper
+    // shape keeping it under definitions.SpecRoot is also accepted).
     const schema = readCommittedJson(SPEC_SCHEMA_PATH) as {
       definitions?: { SpecRoot?: Record<string, unknown> };
       additionalProperties?: unknown;
     };
-    // Either the top-level wrapper has it, or the SpecRoot definition does (zod-to-json-schema wraps in definitions)
     const specRootDef = schema.definitions?.["SpecRoot"];
     const hasIt =
       schema["additionalProperties"] === false ||
       (specRootDef !== undefined && specRootDef["additionalProperties"] === false);
     expect(hasIt).toBe(true);
+  });
+
+  it("root is a self-contained object schema with type:object and no root $ref (BUG-B / Bedrock input_schema.type)", () => {
+    // Anthropic/Bedrock requires the forced-tool input_schema root to have `type`.
+    // A `{ $ref, definitions }` wrapper root (no top-level type) makes every live
+    // generation fail with `tools.0.custom.input_schema.type: Field required`.
+    const schema = readCommittedJson(SPEC_SCHEMA_PATH) as Record<string, unknown>;
+    expect(schema["type"]).toBe("object");
+    expect("$ref" in schema).toBe(false);
+    // The inlined SpecRoot object surface must be present at the root.
+    expect(schema["properties"]).toBeTypeOf("object");
+    expect(schema["required"]).toEqual(["v", "root"]);
   });
 
   it("contains additionalProperties:false on at least 2 objects (root + nested, D-22)", () => {
