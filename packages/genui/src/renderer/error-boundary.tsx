@@ -81,6 +81,26 @@ export class NodeErrorBoundary extends React.Component<
     return { hasError: true };
   }
 
+  /**
+   * Logs the full error context server-side (or to monitoring sink) so broken
+   * spec nodes are never silently swallowed in production (WR-02 / CLAUDE.md:
+   * "Log detailed errors server-side; show friendly messages client-side").
+   *
+   * In production, replace console.error with the application's monitoring
+   * integration (e.g. Sentry, Datadog).
+   */
+  componentDidCatch(error: Error, info: React.ErrorInfo): void {
+    console.error(
+      "[NodeErrorBoundary] node render failed",
+      {
+        nodeType: this.props.nodeType,
+        error: error.message,
+        stack: error.stack,
+        componentStack: info.componentStack,
+      },
+    );
+  }
+
   render(): React.ReactNode {
     if (this.state.hasError) {
       return (
