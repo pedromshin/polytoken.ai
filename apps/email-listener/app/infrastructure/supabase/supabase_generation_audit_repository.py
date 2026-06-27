@@ -5,10 +5,16 @@ Phase 13-02, GEN-05 / D-19 / T-13-10:
 - Any exception during insert is caught, logged via structlog, and swallowed.
 - The caller (generation pipeline) never receives an exception from this adapter.
 - intent_hash is stored as-is (caller must hash before calling, D-19).
+
+WR-06: The supabase-py Client is synchronous. Calling it directly from an async
+context blocks the event loop for the duration of the network round-trip.
+asyncio.to_thread() offloads the blocking execute() call to a thread-pool worker,
+keeping the event loop free to process other requests while the insert is in-flight.
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import structlog
@@ -55,12 +61,18 @@ class SupabaseGenerationAuditRepository:
     async def record(self, event: GenerationEvent) -> None:
         """Insert a generation event row (best-effort, T-13-10).
 
+        Offloads the blocking synchronous Supabase execute() call to a thread-pool
+        worker via asyncio.to_thread() so the event loop is not blocked during
+        the network round-trip (WR-06).
+
         Swallows all exceptions from the Supabase client and logs them server-side
         via structlog. Never raises to the caller (D-19 audit contract).
         """
         row = _to_row(event)
         try:
-            self._client.table(_TABLE).insert(row).execute()
+            await asyncio.to_thread(
+                lambda: self._client.table(_TABLE).insert(row).execute()
+            )
         except Exception:
             logger.exception(
                 "generation_audit_record_failed",
