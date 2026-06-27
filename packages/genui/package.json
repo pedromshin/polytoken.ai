@@ -8,7 +8,8 @@
     "./catalog": "./src/catalog/index.ts",
     "./schema": "./src/schema/index.ts",
     "./registry": "./src/registry/index.ts",
-    "./renderer": "./src/renderer/index.ts"
+    "./renderer": "./src/renderer/index.ts",
+    "./demo": "./src/demo/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
