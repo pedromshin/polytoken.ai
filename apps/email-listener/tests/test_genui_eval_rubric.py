@@ -13,10 +13,15 @@ They must fail until rubric.py is created (GREEN phase).
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
+# Integration smoke tests gate: only run if RUN_GENUI_EVAL=1 is set.
+# This ensures the harness code is import-covered without requiring Bedrock.
+_RUN_EVAL = os.environ.get("RUN_GENUI_EVAL") == "1"
 
 # ---------------------------------------------------------------------------
 # Fixtures: in-memory spec shapes
@@ -367,6 +372,7 @@ _SMOKE_SPEC: dict = {
 
 
 @pytest.mark.integration
+@pytest.mark.skipif(not _RUN_EVAL, reason="Set RUN_GENUI_EVAL=1 to run harness smoke test")
 def test_run_eval_offline_writes_report(tmp_path: Path) -> None:
     """Integration smoke: run_eval.run() wires rubric + report writer correctly.
 
