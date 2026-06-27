@@ -187,14 +187,24 @@ from the REAL corpus — not AI-invented — to drive exploration).
 **Depends on:** Phase 15 (the `/studio` surface, shared `SpecRenderer`, generation pipeline, and the
 `ui_spec_templates` / `genui_generation_events` tables must already exist)
 **Requirements:** EVAL-03, EVAL-04, EVAL-05, STDO-05, STDO-06, STDO-07, IDEA-01
-**Status:** Not started
+**Status:** Planned (5 plans, 3 waves — 2026-06-27; W1 shared eval assets [16-01] + History backend/tRPC [16-03] in parallel -> W2 eval runner/rubric/judge/baseline [16-02] + Page-Ideas sampler/tab + studio-tabs lift [16-04] in parallel -> W3 History UI tab [16-05]. Eval-driven: this phase RECORDS the baseline, no hard CI gate this phase [D-13]. LOCAL/sandbox only, no deploy. Security gate ON: every plan carries a STRIDE <threat_model>; the no-AI-invented-prompts CI gate, the shared-renderer reuse [STDO-02], and importer-scoped read-only History each are verifiable acceptance criteria. 7/7 reqs covered.)
 **Success Criteria** (what must be TRUE):
   1. A developer can run a single `studio` eval command that replays a golden prompt set (curated from `.planning/research/REAL-PROMPT-CORPUS.md`, with provenance preserved) through the live generation pipeline and produces a per-prompt + aggregate score.
   2. The eval grades each generation with an LLM-as-judge rubric covering at minimum: does it render (no fallback), is it composed-not-placeholder, is it on-intent, and does it pass a11y expectations — emitting a 0.0–1.0 score plus a pass/fail per criterion.
   3. The runner records a baseline score for the current engine and can be re-run to detect drift, so any later phase can show its lift/regression against that baseline.
   4. The History tab lists previous generations (intent, outcome, cache-hit, timestamp) from the persisted tables and opens an individual generation in a detail view that re-renders the stored spec via the shared production `SpecRenderer` beside its spec JSON.
   5. The Page-Ideas tab surfaces realistic curveball prompts seeded from the real corpus (e.g. the soundscape mixer, Bloomberg-terminal, 3D configurator, bill-splitter) and lets a developer send one straight into the generation sandbox.
-**Plans:** TBD
+**Plans:** 5 plans
+
+Plans:
+**Wave 1**
+- [ ] 16-01-PLAN.md — Shared eval assets: golden-set.json (~36 curated subset) + page-ideas.json (all 76 real corpus prompts, provenance) + one Zod schema + CI provenance/coverage gate + ./eval export (EVAL-04, STDO-07, IDEA-01; D-01/02/03/19)
+- [ ] 16-03-PLAN.md — History backend: list_recent/find_by_id on UiSpecTemplateRepository + GET /v1/genui/history(+/{id}) + genui.historyList/historyById tRPC (proxy + SpecRootSchema.safeParse degrade) (STDO-05/06; D-14/15/16/17)
+**Wave 2** *(depends on 16-01)*
+- [ ] 16-02-PLAN.md — Eval harness: pure rubric.py (valid-spec/composed/a11y + weights 0.30/0.30/0.25/0.15) + judge_adapter (escalation model, single structured call) + run_eval.py (drives real GenerateUiSpecUseCase via create_container over the golden set) + report/compare + recorded baseline (autonomous:false — live-Bedrock baseline checkpoint) (EVAL-03/05; D-04..13)
+- [ ] 16-04-PLAN.md — Page-Ideas tab: pure seedable pick-page-idea.ts (curveball 3x/Tier-B 2x/Tier-A 1x) + page-ideas-island (browse/filter + Surprise me) + studio-tabs lift (controlled Tabs + pendingIntent + History/Page-Ideas triggers) + sandbox initialIntent (autonomous:false — browser verify) (STDO-07, IDEA-01; D-20/21/06)
+**Wave 3** *(depends on 16-03, 16-04)*
+- [ ] 16-05-PLAN.md — History UI tab: history-island (newest-first paginated list + read-only detail via the SHARED SpecRendererIsland in the 55/45 split, STDO-02 reuse) wired into the studio-tabs History slot (autonomous:false — browser verify) (STDO-05/06; D-18)
 **UI hint**: yes
 
 ### Phase 17: Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG
@@ -275,7 +285,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 0/0 | Not started | - |
+| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 0/5 | Planned | - |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
 | 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
