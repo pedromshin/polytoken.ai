@@ -34,7 +34,8 @@ COST-04) are explicitly out of this milestone.
 ## Phases
 
 - [x] **Phase 12: Catalog, Spec Schema, and Trusted Interpreter** — The vocabulary contract plus a hardcoded end-to-end render — the first demoable artifact before generation exists (completed 2026-06-27)
-- [x] **Phase 13: Generation Layer and Guardrails** — Bedrock Haiku 4.5 generation pipeline with dual-LLM quarantine, three allowlists, repair loop, and cost controls wired together (completed 2026-06-27)
+- [x] **Phase 13: Generation Layer and Guardrails** — Bedrock Haiku 4.5 generation pipeline with dual-LLM quarantine, three allowlists, repair loop, and cost controls wired together
+ (completed 2026-06-27)
 - [ ] **Phase 14: Exact Cache and Template Store** — SHA-256 exact-match cache backed by Drizzle/Postgres, with auto-invalidation on registry version change
 - [ ] **Phase 15: Studio Surface** — `/studio` route: catalog browser, generation sandbox, spec inspector, and generation-state indicators
 
@@ -103,7 +104,11 @@ Plans:
   1. A generated spec is persisted to the `ui_spec_templates` table (via Drizzle/Postgres) with its intent, registry version, validation status, and metadata immediately after a successful generation — forming the flywheel foundation for v1.2 semantic retrieval.
   2. A second identical intent (same canonical intent + data shape + registry version + context) returns the cached spec with live data re-bound and triggers zero Bedrock calls — observable via the audit log showing no new generation entry.
   3. When the registry version increments (e.g. on deploy), cache keys derived from the old version are automatically invalidated so stale specs are never served without re-generation.
-**Plans:** TBD
+**Plans:** 3 plans (2 waves)
+Plans:
+- [ ] 14-01-PLAN.md — ui_spec_templates Drizzle table + migration 0022 (unique cache_key, validation_status CHECK, RLS deny-all) [CACHE-01]
+- [ ] 14-02-PLAN.md — pure deterministic cache_key module (canonicalize_intent, value-free data_shape_hash, SHA-256 key) [CACHE-02, CACHE-04]
+- [ ] 14-03-PLAN.md — UiSpecTemplateRepository port+adapter + step-0 cache check / validated-only persist in GenerateUiSpecUseCase + DI + cache_hit signal [CACHE-01..04]
 
 ---
 
