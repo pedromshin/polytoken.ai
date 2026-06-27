@@ -39,6 +39,25 @@ import { publicProcedure } from "../../trpc";
 import { getListenerConfig } from "../_listener-config";
 
 // ---------------------------------------------------------------------------
+// Structured server-side logger (WR-03)
+// Writes a single JSON line to stderr — stable event names allow log correlation.
+// Replaces bare console.error calls for consistent structured output.
+// ---------------------------------------------------------------------------
+
+function logError(event: string, detail: unknown): void {
+  process.stderr.write(
+    JSON.stringify({
+      procedure: "genui.generate",
+      event,
+      detail: detail instanceof Error
+        ? { message: detail.message, name: detail.name }
+        : String(detail),
+      ts: new Date().toISOString(),
+    }) + "\n",
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Input schema
 // ---------------------------------------------------------------------------
 
@@ -110,7 +129,7 @@ export const generateProcedure = publicProcedure
       });
     } catch (networkErr) {
       // Network failure — return fallback (T-13-19: no leaked detail)
-      console.error("[genui.generate] network error calling FastAPI", networkErr);
+      logError("genui_generate_network_error", networkErr);
       return {
         outcome: "fallback" as const,
         spec: SAFE_FALLBACK_SPEC,
@@ -127,10 +146,7 @@ export const generateProcedure = publicProcedure
       } catch {
         // ignore parse failure
       }
-      console.error(
-        `[genui.generate] FastAPI returned ${res.status}:`,
-        rawDetail,
-      );
+      logError("genui_generate_non2xx_response", `status=${res.status} detail=${JSON.stringify(rawDetail)}`);
       return {
         outcome: "fallback" as const,
         spec: SAFE_FALLBACK_SPEC,
@@ -144,7 +160,7 @@ export const generateProcedure = publicProcedure
     try {
       body = await res.json();
     } catch (parseErr) {
-      console.error("[genui.generate] failed to parse FastAPI JSON response", parseErr);
+      logError("genui_generate_json_parse_error", parseErr);
       return {
         outcome: "fallback" as const,
         spec: SAFE_FALLBACK_SPEC,
@@ -170,7 +186,7 @@ export const generateProcedure = publicProcedure
       : undefined;
 
     if (rawSpec === undefined) {
-      console.error("[genui.generate] FastAPI response missing data.spec field", body);
+      logError("genui_generate_missing_spec_field", JSON.stringify(body));
       return {
         outcome: "fallback" as const,
         spec: SAFE_FALLBACK_SPEC,
@@ -203,10 +219,7 @@ export const generateProcedure = publicProcedure
 
     if (!parsed.success) {
       // Log the full validation error server-side (not to caller)
-      console.error(
-        "[genui.generate] SpecRootSchema re-validation FAILED (D-08):",
-        JSON.stringify(parsed.error.issues),
-      );
+      logError("genui_generate_revalidation_failed", JSON.stringify(parsed.error.issues));
       return {
         outcome: "fallback" as const,
         spec: SAFE_FALLBACK_SPEC,
