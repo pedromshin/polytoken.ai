@@ -155,6 +155,13 @@
       "when": 1782548889541,
       "tag": "0021_genui_generation_events",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782558618925,
+      "tag": "0022_right_firedrake",
+      "breakpoints": true
     }
   ]
 }
