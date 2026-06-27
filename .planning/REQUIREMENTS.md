@@ -57,20 +57,20 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 ### Generation Layer (GEN)
 
-- [ ] **GEN-01**: Given an intent, the engine calls Bedrock (Haiku 4.5) via `streamText` + `Output.object` to emit a spec constrained to the registry
-- [ ] **GEN-02**: Model output is validated with Zod `safeParse`; invalid output triggers a bounded repair loop (≤3 attempts) that feeds the validation error back
+- [x] **GEN-01**: Given an intent, the engine calls Bedrock (Haiku 4.5) via `streamText` + `Output.object` to emit a spec constrained to the registry
+- [x] **GEN-02**: Model output is validated with Zod `safeParse`; invalid output triggers a bounded repair loop (≤3 attempts) that feeds the validation error back
 - [x] **GEN-03**: On repeated failure the engine returns a safe fallback spec — never raw model output
 - [ ] **GEN-04**: Generation streams partial specs for progressive preview
 - [x] **GEN-05**: Every generation (intent, model, tokens, outcome) is recorded to an audit log
-- [ ] **GEN-06**: Generation can escalate to Sonnet 4.6 when the runtime model cannot produce a valid spec
+- [x] **GEN-06**: Generation can escalate to Sonnet 4.6 when the runtime model cannot produce a valid spec
 
 ### Safety & Guardrails (SAFE)
 
-- [ ] **SAFE-01**: Untrusted content (e.g. email) is processed by a separate quarantine/extraction model with a constrained schema; raw prose never reaches the generator
+- [x] **SAFE-01**: Untrusted content (e.g. email) is processed by a separate quarantine/extraction model with a constrained schema; raw prose never reaches the generator
 - [x] **SAFE-02**: The spec schema enforces a component allowlist (only registry keys are valid)
 - [x] **SAFE-03**: Data bindings are restricted to an allowlist of tRPC procedures; arbitrary data sources fail validation
 - [x] **SAFE-04**: Actions are restricted to an allowlist (navigate-relative-only / allowlisted mutate / setState); `javascript:` and external URLs fail validation
-- [ ] **SAFE-05**: Every Bedrock call sets explicit `max_tokens` and an `AbortController` timeout (application-level circuit breaker)
+- [x] **SAFE-05**: Every Bedrock call sets explicit `max_tokens` and an `AbortController` timeout (application-level circuit breaker)
 - [x] **SAFE-06**: Spec tree depth and node count are bounded to prevent resource exhaustion
 
 ### Exact Cache & Template Store (CACHE)

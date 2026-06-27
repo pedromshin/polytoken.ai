@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T08:38:11.959Z"
+last_updated: "2026-06-27T09:19:16.362Z"
 progress:
   total_phases: 4
   completed_phases: 1
@@ -84,7 +84,9 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 
 - **13-02 ✓ EXECUTED 2026-06-27:** Audit-log foundation. Drizzle `genui_generation_events` table (D-19 column set: intent_hash, model_id, tokens, attempts, outcome, spec_validation, node/depth count, registry_version, latency_ms, importer_id) + migration 0021 with outcome CHECK constraint (ok|fallback|escalated, T-13-11) + IF NOT EXISTS guards. Applied to local Postgres (14 columns verified via information_schema); staging+prod PENDING DEPLOY. Python `GenerationAuditRepository` Protocol port + frozen `GenerationEvent` dataclass (D-19 privacy, CLAUDE.md immutability) + `SupabaseGenerationAuditRepository` best-effort adapter (swallows insert exceptions, logs `generation_audit_record_failed` via structlog, T-13-10). TDD: 4/4 tests green; ruff/mypy/bandit/lint-imports clean. Commits 11afb5d (task 1), 2ee7cb4 (RED), ad0ed0a (GREEN). See 13-02-SUMMARY.md.
 
-- **Decisions:** COMPONENT_REGISTRY must never cross Next.js server→client boundary (Zod classes unserializable); dynamic(ssr:false) island imports it directly via default prop. REGISTRY_VERSION consumed server-side only (Node.js crypto module, T-12-15). Migration 0021 staging+prod deploy is DEFERRED — apply before Phase 14 W1 executes (ui_spec_templates table depends on same migration chain).
+- **13-03 ✓ EXECUTED 2026-06-27:** Dual-LLM generation pipeline (Call A quarantine + Call B generator + audit). Python adapters: `GenuiQuarantineAdapter` (Call A — Bedrock forced-tool-use, extracts enum-constrained `QuarantineExtraction`; raw prose never crosses to generator, SAFE-01/D-09) + `GenuiGeneratorAdapter` (Call B — `emit_ui_spec` forced-tool-use, up to 3-attempt JSON-schema repair loop, Haiku-4.5 → Sonnet-4.6 escalation on repair failure; schema loaded from genui artifacts via `ArtifactLoader`; returns SAFE_FALLBACK_SPEC hardcoded constant on total failure, D-07/SAFE-02). `GenerateUiSpecUseCase` (domain-pure, zero infra imports — adapters typed `Any` via lint-imports contract; SHA-256 intent hash, best-effort audit, T-13-10/D-19). FastAPI endpoint `POST /v1/genui/generate` (X-API-Key auth, `ApiResponse[GenerateUiSpecView]` envelope; omits `from __future__ import annotations` to avoid Pydantic ForwardRef at route registration). Dishka DI (Scope.APP providers for all 4 components; wired in container.py + main.py). Security gates: D-24 (no eval/exec/compile on generation path), D-19 (SHA-256 hash only), SAFE-01/02 (dual-LLM quarantine), T-13-10 (audit failure swallowed+logged). Quality: 19 tests green (13 use-case TDD + 6 endpoint); ruff/bandit/lint-imports clean; mypy 2 pre-existing errors in genui_generator_adapter.py (jsonschema `Any` typing — deferred). Commits 454ea6e, e19505d, 707a731. See 13-03-SUMMARY.md.
+
+- **Decisions:** COMPONENT_REGISTRY must never cross Next.js server→client boundary (Zod classes unserializable); dynamic(ssr:false) island imports it directly via default prop. REGISTRY_VERSION consumed server-side only (Node.js crypto module, T-12-15). Migration 0021 staging+prod deploy is DEFERRED — apply before Phase 14 W1 executes (ui_spec_templates table depends on same migration chain). Repair loop is adapter-owned (not use-case-owned) — GenuiGeneratorAdapter handles Bedrock-specific retry logic; use case stays domain-pure and calls generate() once.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 

@@ -79,14 +79,14 @@ Plans:
   3. A spec referencing an unregistered component type, a non-allowlisted tRPC procedure, or a non-relative action href fails Zod validation and is rejected before reaching the renderer.
   4. Every Bedrock call carries an explicit `max_tokens` limit and an `AbortController` timeout; every generation event (intent, model, tokens, outcome) is written to the audit log; spec tree depth and node count are bounded by the schema.
   5. The system prompt (catalog + examples) is cached via Bedrock `cachePoint` so per-request input carries only intent + data-shape; the binding/action layer schema has both query and mutation paths defined (v1.1 wires queries only; the mutation path exists but is empty).
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**
 - [x] 13-01-PLAN.md -- TS contract layer: three allowlists at the Zod schema level (component-type/D-12, procedure-enum+no-UUID/D-13/13a, action discriminated-union relative-href + empty-mutate seam/D-14) + SAFE_FALLBACK_SPEC (D-07) + Bedrock artifact emit (spec.schema.json + compact-catalog/procedures, D-03/D-22) with CI drift gate (SAFE-02/03/04/06, SEAM-02, GEN-03, COST-01/03) [EXECUTED 2026-06-27]
 - [x] 13-02-PLAN.md -- Audit foundation: genui_generation_events Drizzle table + migration 0021 (D-19) + GenerationAuditRepository port + best-effort Supabase adapter (GEN-05)
 **Wave 2** *(depends on 13-01, 13-02)*
-- [ ] 13-03-PLAN.md -- Python generation service: dual-LLM quarantine (Call A enum-extraction) + generator adapter (emit_ui_spec forced tool-use, cache_control, max_tokens/timeout/temp0, Haiku->Sonnet 4.6 escalation) + GenerateUiSpecUseCase (repair <=3 -> SAFE_FALLBACK -> audit) + POST /v1/genui/generate (X-API-Key) + DI + settings (GEN-01/02/03/06, SAFE-01/05, COST-01)
+- [x] 13-03-PLAN.md -- Python generation service: dual-LLM quarantine (Call A enum-extraction) + generator adapter (emit_ui_spec forced tool-use, cache_control, max_tokens/timeout/temp0, Haiku->Sonnet 4.6 escalation) + GenerateUiSpecUseCase (repair <=3 -> SAFE_FALLBACK -> audit) + POST /v1/genui/generate (X-API-Key) + DI + settings (GEN-01/02/03/06, SAFE-01/05, COST-01)
 **Wave 3** *(depends on 13-01, 13-03)*
 - [ ] 13-04-PLAN.md -- Web wiring: genui tRPC router proxy + SpecRootSchema.safeParse at the web boundary -> SAFE_FALLBACK (D-08) + ActionRegistry binding layer (query/setState/navigate wired with runtime relative-href re-check; mutate left unregistered = SEAM-02) + vitest (GEN-03/04, SAFE-02/03/04, SEAM-02)
 **UI hint**: yes
@@ -128,6 +128,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 12. Catalog, Spec Schema, and Trusted Interpreter | 4/4 | Complete   | 2026-06-27 |
-| 13. Generation Layer and Guardrails | 2/4 | In Progress|  |
+| 13. Generation Layer and Guardrails | 3/4 | In Progress|  |
 | 14. Exact Cache and Template Store | 0/TBD | Not started | - |
 | 15. Studio Surface | 0/TBD | Not started | - |
