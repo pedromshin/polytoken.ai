@@ -11,6 +11,8 @@
  *      prototype-pollution key guard
  *   5. useDeclaredState unit tests: all 5 mutation types
  *   6. NodeErrorBoundary unit tests: catches throws, renders fallback with role="alert"
+ *   7. Round-trip regression: all 10 catalog types render without NodeErrorFallback
+ *      when SHOWCASE_SPEC is used (D-17 / CR-01 / CR-02 / CR-03 regression guard)
  *
  * Testing approach: react-dom/server renderToStaticMarkup (no @testing-library/react
  * dependency — only jsdom + react-dom available in this package).
@@ -34,6 +36,8 @@ import { NodeErrorBoundary, NodeErrorFallback } from "../renderer/error-boundary
 
 import type { SpecRoot } from "../schema/spec-schema";
 import type { RenderContext } from "../renderer/render-node";
+
+import { SHOWCASE_SPEC } from "../demo/showcase-spec";
 
 // ===========================================================================
 // Block 1: SPEC-02 happy path — card → stack → [text, badge]
@@ -696,5 +700,208 @@ describe("NodeErrorBoundary (SPEC-03 / D-14)", () => {
     expect(typeof NodeErrorBoundary.getDerivedStateFromError).toBe("function");
     const result = NodeErrorBoundary.getDerivedStateFromError(new Error("test"));
     expect(result).toEqual({ hasError: true });
+  });
+});
+
+// ===========================================================================
+// Block 7: Round-trip regression — all 10 catalog types render without NodeErrorFallback
+//
+// Regression guard for CR-01 (button aria-label), CR-02 (separator aria-hidden),
+// CR-03 (key-value-list label + value), and the full SHOWCASE_SPEC fixture (D-17).
+//
+// If any catalog node's spec schema diverges from its manifest propsSchema again,
+// renderNode will produce a NodeErrorFallback containing the "[!]" prefix text and
+// these tests will catch it immediately. Each test covers exactly one catalog type
+// with the minimum valid props required by the manifest's .strict() propsSchema.
+//
+// NOTE: The marker used is "[!]" (NodeErrorFallback copy), NOT 'role="alert"'.
+// The catalog's `alert` component legitimately renders with role="alert" as an
+// ARIA landmark attribute — that is not a failure. NodeErrorFallback renders
+// `[!] "${nodeType}" node — reason` which is unique to the error path.
+// ===========================================================================
+
+describe("Round-trip regression: all 10 catalog types render without NodeErrorFallback (D-17 / CR-01 / CR-02 / CR-03)", () => {
+  /**
+   * Full SHOWCASE_SPEC round-trip — the primary fixture.
+   * Covers all 12 node kinds (10 catalog + list + conditional) in a single render.
+   * If ANY node in the tree fails propsSchema, the "[!]" fallback text will appear
+   * in the output (NodeErrorFallback renders: [!] "nodeType" node — reason).
+   */
+  it("SHOWCASE_SPEC renders without any NodeErrorFallback ([!] marker)", () => {
+    const html = renderToStaticMarkup(
+      <SpecRenderer
+        spec={SHOWCASE_SPEC}
+        registry={COMPONENT_REGISTRY}
+        data={{
+          demo: {
+            rows: [
+              { id: "row-1", name: "Button", category: "Action", status: "Live" },
+            ],
+          },
+        }}
+      />,
+    );
+
+    // NodeErrorFallback renders "[!] ..." — catalog alert legitimately uses role="alert"
+    expect(html).not.toContain("[!]");
+  });
+
+  /**
+   * Individual minimal-props tests — one per catalog type.
+   * Each spec contains exactly the required fields from the manifest propsSchema.
+   * These provide precise regression coverage: if one type regresses, only its test fails.
+   */
+
+  it("text: renders without NodeErrorFallback (minimal: content only)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "text", content: "Hello" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Hello");
+  });
+
+  it("badge: renders without NodeErrorFallback (minimal: label only)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "badge", label: "Active" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Active");
+  });
+
+  it("button: renders without NodeErrorFallback (requires label + aria-label — CR-01)", () => {
+    // CR-01 regression: button without aria-label would produce NodeErrorFallback before the fix
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "button",
+        label: "Submit",
+        "aria-label": "Submit the form",
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Submit");
+  });
+
+  it("separator: renders without NodeErrorFallback (requires aria-hidden: true — CR-02)", () => {
+    // CR-02 regression: separator without aria-hidden would produce NodeErrorFallback before the fix
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "stack",
+        children: [
+          { type: "text", content: "Above" },
+          // aria-hidden: true is required by SeparatorNodeSchema (CR-02 fix).
+          // SpecRoot.root is typed `any` (z.ZodTypeAny cast), so no TS error here.
+          { type: "separator", "aria-hidden": true },
+          { type: "text", content: "Below" },
+        ],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Above");
+    expect(html).toContain("Below");
+  });
+
+  it("key-value-list: renders without NodeErrorFallback (requires label + value items — CR-03)", () => {
+    // CR-03 regression: key-value-list without label, or with valueRef instead of value,
+    // would produce NodeErrorFallback before the fix
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "key-value-list",
+        label: "Email headers",
+        items: [
+          { key: "From", value: "alice@example.com" },
+          { key: "Subject", value: "Re: Quarterly report" },
+        ],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("From");
+    expect(html).toContain("alice@example.com");
+  });
+
+  it("alert: renders without NodeErrorFallback (requires title; alert uses role='alert' legitimately)", () => {
+    // The `alert` catalog component renders role="alert" as an ARIA landmark — that is correct.
+    // We assert absence of the NodeErrorFallback "[!]" marker, not absence of role="alert".
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "alert", title: "Info message" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Info message");
+    // Verify it rendered as the real Alert component (role="alert" is present as ARIA landmark)
+    expect(html).toContain('role="alert"');
+  });
+
+  it("card: renders without NodeErrorFallback (all props optional, empty card)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "card" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+  });
+
+  it("table: renders without NodeErrorFallback (requires caption + columns + rows)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "table",
+        caption: "Test table",
+        columns: [{ key: "name", header: "Name" }],
+        rows: [{ name: "Alice" }],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+    expect(html).toContain("Test table");
+    expect(html).toContain("Alice");
+  });
+
+  it("stack: renders without NodeErrorFallback (all props optional, empty stack)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "stack" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
+  });
+
+  it("grid: renders without NodeErrorFallback (all props optional, empty grid)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "grid" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("[!]");
   });
 });
