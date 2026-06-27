@@ -51,6 +51,7 @@ class GenerateUiSpecResult:
 
     spec: dict[str, Any]
     cache_hit: bool = False
+    outcome: Literal["ok", "fallback", "escalated"] = "ok"
 
 
 class GenerateUiSpecUseCase:
@@ -140,7 +141,7 @@ class GenerateUiSpecUseCase:
                 await self._templates.increment_use_count(cached.id)
             except Exception:
                 log.warning("genui_use_count_increment_failed", exc_info=True)
-            return GenerateUiSpecResult(spec=cached.spec_json, cache_hit=True)
+            return GenerateUiSpecResult(spec=cached.spec_json, cache_hit=True, outcome="ok")
 
         log.info("genui_generate_start")
 
@@ -223,7 +224,7 @@ class GenerateUiSpecUseCase:
         except Exception:
             log.warning("genui_audit_failed", exc_info=True)
 
-        return GenerateUiSpecResult(spec=gen_result.spec, cache_hit=False)
+        return GenerateUiSpecResult(spec=gen_result.spec, cache_hit=False, outcome=outcome)
 
 
 def _determine_outcome(

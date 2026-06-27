@@ -594,3 +594,103 @@ async def test_persist_error_is_swallowed(
         catalog_id="global",
     )
     assert result.spec == _valid_spec()
+
+
+# ---------------------------------------------------------------------------
+# D-05 outcome field tests (Phase 15-01)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cache_hit_outcome_is_ok(
+    mock_quarantine: MagicMock,
+    mock_generator: MagicMock,
+    mock_audit: MagicMock,
+    mock_templates: MagicMock,
+) -> None:
+    """D-05.2: cache hit must set outcome='ok' (cached spec is pre-validated, never a fallback)."""
+    cached_spec = {"v": 1, "root": {"type": "card", "title": "Cached"}}
+    mock_templates.find_by_cache_key = AsyncMock(
+        return_value=CachedTemplate(id="tmpl-x", spec_json=cached_spec)
+    )
+    use_case = GenerateUiSpecUseCase(
+        quarantine=mock_quarantine,
+        generator=mock_generator,
+        audit=mock_audit,
+        templates=mock_templates,
+    )
+
+    result = await use_case.execute(
+        intent="Show invoice",
+        raw_content="Invoice #123",
+        registry_version="v1",
+        importer_id=None,
+        catalog_id="global",
+    )
+
+    assert result.cache_hit is True
+    assert result.outcome == "ok"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cold_ok_outcome(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """D-05.2: cold path with is_fallback=False, escalated=False => outcome='ok', cache_hit=False."""
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
+    )
+
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+    )
+
+    assert result.outcome == "ok"
+    assert result.cache_hit is False
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cold_escalated_outcome(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """D-05.2: cold path with escalated=True, is_fallback=False => outcome='escalated'."""
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=_valid_spec(), attempts=3, escalated=True, is_fallback=False)
+    )
+
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+    )
+
+    assert result.outcome == "escalated"
+    assert result.cache_hit is False
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cold_fallback_outcome(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """D-05.2: cold path with is_fallback=True => outcome='fallback'."""
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=SAFE_FALLBACK_SPEC, attempts=3, escalated=True, is_fallback=True)
+    )
+
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+    )
+
+    assert result.outcome == "fallback"
+    assert result.cache_hit is False

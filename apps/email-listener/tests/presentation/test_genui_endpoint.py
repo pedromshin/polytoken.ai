@@ -179,3 +179,54 @@ def test_generate_returns_fallback_spec_when_use_case_returns_fallback(
     body = resp.json()
     assert body["success"] is True
     assert body["data"]["spec"]["root"]["type"] == "alert"
+
+
+@pytest.mark.unit()
+def test_generate_response_includes_outcome_and_cache_hit(
+    client: TestClient,
+    mock_use_case: MagicMock,
+) -> None:
+    """D-05.1: the 200 response body must include data.outcome and data.cache_hit (GenerateUiSpecView)."""
+    valid_spec = {"v": 1, "root": {"type": "card", "title": "Test"}}
+    mock_use_case.execute = AsyncMock(
+        return_value=GenerateUiSpecResult(spec=valid_spec, cache_hit=True, outcome="ok")
+    )
+    resp = client.post(
+        "/v1/genui/generate",
+        json={
+            "intent": "Show summary",
+            "raw_content": "",
+            "registry_version": "v1",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    assert "outcome" in body["data"], "data.outcome must be present in the response"
+    assert "cache_hit" in body["data"], "data.cache_hit must be present in the response"
+    assert body["data"]["outcome"] == "ok"
+    assert body["data"]["cache_hit"] is True
+
+
+@pytest.mark.unit()
+def test_generate_response_outcome_escalated(
+    client: TestClient,
+    mock_use_case: MagicMock,
+) -> None:
+    """D-05.1: endpoint correctly serialises outcome='escalated' from use-case result."""
+    valid_spec = {"v": 1, "root": {"type": "alert", "title": "Escalated"}}
+    mock_use_case.execute = AsyncMock(
+        return_value=GenerateUiSpecResult(spec=valid_spec, cache_hit=False, outcome="escalated")
+    )
+    resp = client.post(
+        "/v1/genui/generate",
+        json={
+            "intent": "Show summary",
+            "raw_content": "",
+            "registry_version": "v1",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["data"]["outcome"] == "escalated"
+    assert body["data"]["cache_hit"] is False

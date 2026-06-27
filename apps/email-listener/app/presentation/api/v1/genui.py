@@ -15,7 +15,7 @@ a ForwardRef that Pydantic cannot resolve at runtime (PydanticUserError: TypeAda
 is not fully defined).
 """
 
-from typing import Any
+from typing import Any, Literal
 
 import structlog
 from dishka.integrations.fastapi import FromDishka, inject
@@ -73,6 +73,7 @@ class GenerateUiSpecView(BaseModel):
 
     spec: dict[str, Any]
     cache_hit: bool = False
+    outcome: Literal["ok", "fallback", "escalated"] = "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -103,4 +104,4 @@ async def generate_ui_spec(
         importer_id=body.importer_id,
     )
 
-    return ApiResponse.ok(GenerateUiSpecView(spec=result.spec, cache_hit=result.cache_hit))
+    return ApiResponse.ok(GenerateUiSpecView(spec=result.spec, cache_hit=result.cache_hit, outcome=result.outcome))
