@@ -1,1 +1,308 @@
-[]
+[
+  {
+    "id": 1,
+    "prompt": "A simple React landing page with a hero section, a call-to-action button, and a features section.",
+    "category": "Landing / Marketing",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://dev.to/ceafive/building-a-react-landing-page-with-v0dev-a-step-by-step-guide-296p [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 5,
+    "prompt": "Build a full landing page with a hero section, feature grid, pricing table, testimonial carousel, and CTA.",
+    "category": "Landing / Marketing",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://vercel.com/blog/how-to-prompt-v0 [verbatim — listed as \"Basic\" test]",
+    "curveball": false
+  },
+  {
+    "id": 7,
+    "prompt": "Build a user profile page showing: profile photo, display name, username, email, bio, member since date, activity stats (posts, comments, followers), recent activity feed with timestamps, edit profile and settings buttons.",
+    "category": "SaaS App Shell",
+    "complexity": "medium",
+    "tier": "B",
+    "source": "https://vercel.com/blog/how-to-prompt-v0 [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 8,
+    "prompt": "Build a support ticket dashboard. Shows: open tickets, response time, agent performance, recent activity. Mobile-first design (team leads check this on phones while on the floor). Light theme, high contrast. Color code: red for urgent (>24h), yellow for medium, green for on-time. Maximum 3-column layout. Include loading states for real-time data.",
+    "category": "Dashboard / Admin",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://vercel.com/blog/how-to-prompt-v0 [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 9,
+    "prompt": "Dashboard displaying: top 5 performers with names and revenue, team revenue vs quota progress bar, deal pipeline with stages (Leads → Qualified → Demo → Closed), 6-month revenue trend chart.",
+    "category": "Dashboard / Admin",
+    "complexity": "medium",
+    "tier": "B",
+    "source": "https://vercel.com/blog/how-to-prompt-v0 [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 11,
+    "prompt": "I want to build a todo list app. It's for people who love timeblocking and the pomodoro productivity method. Its features should include: adding and scheduling todos, and a pomodoro timer. It should have a modern, clean, but colorful aesthetic. Users should be able to add, edit, and delete todos. Users should be able to schedule the time and date for their todos. Users should be able to view both their unscheduled task list, and a daily schedule with any scheduled tasks. Users will access the application in their browser, so make sure it's suitable for hosting on Netlify.",
+    "category": "SaaS App Shell",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://support.bolt.new/building/build-your-first-app [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 12,
+    "prompt": "Build a SaaS landing page with hero, features grid, pricing table, and sign-up CTA.",
+    "category": "Landing / Marketing",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://bolt.new/use-cases/ai-landing-page-builder [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 14,
+    "prompt": "Make a personal brand landing page with bio, featured work, testimonials, and contact.",
+    "category": "Portfolio",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://bolt.new/use-cases/ai-landing-page-builder [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 18,
+    "prompt": "Build a client onboarding portal where new clients fill a form with their business name, project goals, budget range, and preferred contact time. Store all responses in Supabase. Build an admin dashboard where the team can see all submissions in a table, mark them as reviewed, and filter by status.",
+    "category": "Internal Tool",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://gaincafe.com/blog/apps-built-with-lovable-dev-real-examples [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 20,
+    "prompt": "Build an invoice generator where I can enter my business name and logo, client name and email, project name, multiple line items with descriptions and rates, a tax percentage, and a due date. Auto-calculate subtotal and total. Let me preview the invoice and download it as a clean PDF.",
+    "category": "Internal Tool",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://gaincafe.com/blog/apps-built-with-lovable-dev-real-examples [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 21,
+    "prompt": "Build an internal leave tracker. Employees log in with their email and can submit leave requests with start date, end date, and leave type (sick, casual, or earned). Managers see a dashboard with a calendar view showing all pending and approved requests color-coded by type. Managers can approve or reject requests from the dashboard.",
+    "category": "Internal Tool",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://gaincafe.com/blog/apps-built-with-lovable-dev-real-examples [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 22,
+    "prompt": "Build a blog brief generator. I enter a topic and a target keyword. The app sends both to the OpenAI API and returns a structured brief containing a recommended title, meta description, five H2 subheadings with short descriptions, a target word count, and three competitor content angles to beat. Save each brief to Supabase so I can view my brief history.",
+    "category": "SaaS App Shell",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://gaincafe.com/blog/apps-built-with-lovable-dev-real-examples [verbatim]",
+    "curveball": true
+  },
+  {
+    "id": 25,
+    "prompt": "Build a two-step lead capture page for real estate. On step one the user selects the type of property they are looking for from a visual option selector. On step two they enter their name, phone number, and email address. Store each lead in Supabase with a timestamp and their property preference. Send an instant email notification to the agent when a new lead submits.",
+    "category": "Form / Multi-step",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://gaincafe.com/blog/apps-built-with-lovable-dev-real-examples [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 28,
+    "prompt": "Build a mobile bill-splitting app called 'Billy' with a sleek off-white theme and lime-green accents. Use Poppins typography and 3D icons. The home screen must feature a donut chart for split bills and expense tracking, with bottom-tab navigation to 'Split Bill,' 'Monthly Expenses' (including graphs), and 'Profile.' The 'Split Bill' flow should allow users to create expenses, add friends, tag categories, and calculate splits with real-time updates. Ensure smooth navigation and a dark mode toggle.",
+    "category": "SaaS App Shell",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://www.banani.co/blog/lovable-vs-bolt-comparison [verbatim — same prompt tested in both Lovable and Bolt]",
+    "curveball": true
+  },
+  {
+    "id": 30,
+    "prompt": "https://notion.com clone this website with out missing anything",
+    "category": "Clone",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://v0.app/chat/notion-website-clone-y7BmnBdoafB [verbatim — actual v0 community chat URL]",
+    "curveball": true
+  },
+  {
+    "id": 35,
+    "prompt": "Build one-page site for a budgeting app targeted at Gen Z freelancers. The main CTA should be \"Start Saving Smarter.\" Focus on a bold, expressive aesthetic with large text and punchy colors.",
+    "category": "Landing / Marketing",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://docs.lovable.dev/prompting/prompting-one [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 36,
+    "prompt": "Create a floating menu bar with glassmorphism effect. Include Home, Search, Music, Favorites, Add, Profile, and Settings icons. Add gentle floating animation and smooth hover interactions.",
+    "category": "UI Component",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://docs.lovable.dev/prompting/prompting-one [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 37,
+    "prompt": "Create a card with a user profile picture, name, and a follow button. Add a badge for verified users, and show a tooltip when hovering over the badge.",
+    "category": "UI Component",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://docs.lovable.dev/prompting/prompting-one [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 38,
+    "prompt": "Design a landing page hero that feels premium and cinematic. Use layered depth, translucent surfaces, soft motion blur, and dramatic contrast between headline and background.",
+    "category": "Landing / Marketing",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://docs.lovable.dev/prompting/prompting-one [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 44,
+    "prompt": "Design a cohort retention heatmap table for a SaaS analytics dashboard. Rows: signup month (Jan–Jun). Columns: Month 0 through Month 6. Cell values: retention percentages. Color cells from white (0%) to #6366F1 (100%) using opacity steps. Show exact percentage values inside each cell. Include a sticky first column with cohort labels. Output: React + Tailwind.",
+    "category": "Data Tables / Grids",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://blog.stackfindover.com/ai-prompts-saas-dashboard-ui-design/ [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 45,
+    "prompt": "Design a B2B admin panel data table for 'User Management'. Columns: Name (with avatar), Email, Role (badge), Last Active, Status (Active/Inactive toggle), Actions (Edit, Delete icons). Features: sortable column headers, checkbox row selection, bulk action bar appearing on selection, pagination (showing '1–25 of 847 users'). Zebra striping with gray-50 alternating rows. Sticky header. Output: React + Tailwind + shadcn/ui Table.",
+    "category": "Data Tables / Grids",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://blog.stackfindover.com/ai-prompts-saas-dashboard-ui-design/ [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 46,
+    "prompt": "Design a right-side drawer component for viewing a user profile in a SaaS admin panel. Sections: Profile Info (avatar, name, email, role badge), Account Activity (last login, total sessions, plan), Danger Zone (Deactivate Account, Reset Password — red outlined buttons). Drawer width: 420px. Smooth slide-in transition. Include a close icon (X) top right. Output: React + Tailwind with shadcn/ui Sheet component.",
+    "category": "SaaS App Shell",
+    "complexity": "medium",
+    "tier": "B",
+    "source": "https://blog.stackfindover.com/ai-prompts-saas-dashboard-ui-design/ [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 49,
+    "prompt": "Design a collapsible sidebar navigation for a B2B SaaS dashboard. Expanded width: 240px. Collapsed width: 60px (icons only). Nav items: Dashboard, Analytics, Reports, Users, Integrations, Settings. Active state: filled background, accent color #6366F1. Icons: outlined, 20px. Include workspace switcher at top (logo + name + chevron) and user profile menu at bottom (avatar + name + logout). Output: React + Tailwind.",
+    "category": "SaaS App Shell",
+    "complexity": "medium",
+    "tier": "B",
+    "source": "https://blog.stackfindover.com/ai-prompts-saas-dashboard-ui-design/ [verbatim]",
+    "curveball": false
+  },
+  {
+    "id": 50,
+    "prompt": "Design and build a portfolio site for a top-tier design agency that feels modern, minimal, and premium.",
+    "category": "Portfolio",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark, Easy tier]",
+    "curveball": false
+  },
+  {
+    "id": 54,
+    "prompt": "Design and build the browser UI for a real-time collaborative whiteboard.",
+    "category": "Weird / Curveball",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark]",
+    "curveball": true
+  },
+  {
+    "id": 55,
+    "prompt": "Design a marketer-friendly A/B testing control panel for landing pages.",
+    "category": "Dashboard / Admin",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark]",
+    "curveball": false
+  },
+  {
+    "id": 57,
+    "prompt": "Build a web soundscape mixer that feels like a physical desktop console.",
+    "category": "Weird / Curveball",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark]",
+    "curveball": true
+  },
+  {
+    "id": 58,
+    "prompt": "We're kicking off a fast, content-first microsite for the DevCon 2024 virtual event.",
+    "category": "Landing / Marketing",
+    "complexity": "medium",
+    "tier": "A",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark]",
+    "curveball": false
+  },
+  {
+    "id": 61,
+    "prompt": "Our furniture product pages feel flat with static photos. We need a web-based 3D configurator.",
+    "category": "E-commerce",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark, Hard tier]",
+    "curveball": true
+  },
+  {
+    "id": 62,
+    "prompt": "Build the main project dashboard as a Kanban board so users can track work.",
+    "category": "Internal Tool",
+    "complexity": "medium",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/MiniMaxAI/VIBE [verbatim — VIBE benchmark]",
+    "curveball": false
+  },
+  {
+    "id": 66,
+    "prompt": "Create a fully functional Bloomberg Terminal-style dashboard with all the features outlined below.",
+    "category": "Weird / Curveball",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/AfterQuery/App-Bench [verbatim — App-Bench benchmark]",
+    "curveball": true
+  },
+  {
+    "id": 67,
+    "prompt": "Create a multi-user patient tracking board for a hospital with all the features outlined below.",
+    "category": "Dashboard / Admin",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/AfterQuery/App-Bench [verbatim — App-Bench benchmark]",
+    "curveball": false
+  },
+  {
+    "id": 69,
+    "prompt": "Create a multiplayer vocabulary-drawing game for elementary students with all the features outlined below.",
+    "category": "Weird / Curveball",
+    "complexity": "complex",
+    "tier": "B",
+    "source": "https://huggingface.co/datasets/AfterQuery/App-Bench [verbatim — App-Bench benchmark]",
+    "curveball": true
+  },
+  {
+    "id": 75,
+    "prompt": "Create a SaaS pricing table but use Material UI React components where possible.",
+    "category": "Landing / Marketing",
+    "complexity": "simple",
+    "tier": "A",
+    "source": "https://vercel.com/blog/maximizing-outputs-with-v0-from-ui-generation-to-code-creation [verbatim]",
+    "curveball": false
+  }
+]
