@@ -45,14 +45,24 @@ COST-04) are explicitly out of this milestone.
 **Goal:** The vocabulary contract is established and a hardcoded spec renders live `@nauta/ui` components in `/studio` with zero eval — the first observable, demoable artifact before the generation layer is wired.
 **Depends on:** Phase 11 (existing monorepo shell and `packages/` layout)
 **Requirements:** CTLG-01, CTLG-02, CTLG-03, CTLG-04, CTLG-05, SPEC-01, SPEC-02, SPEC-03, SPEC-04, SPEC-05, SPEC-06, SEAM-01, SEAM-03, COST-02, COST-03
-**Status:** Not started
+**Status:** Planned (4 plans, 4 waves — 2026-06-27; foundation+schema W1 → catalog+registry+CTLG-04 test W2 → trusted interpreter W3 → demo specs + /studio/preview + sidebar + human-verify W4; zero-eval renderer per SPEC-02/GR-01)
 **Success Criteria** (what must be TRUE):
   1. A developer can read the `packages/genui` catalog manifest and see every whitelisted `@nauta/ui` component with its Zod prop schema, slot rules, LLM-settable vs locked props, and an a11y-required prop marker — and every example in the manifest passes CI validation against its own schema.
   2. A hardcoded sample spec (manually authored JSON with `v: 1` envelope) renders as real `@nauta/ui` components in `/studio/preview` via `createElement` with no `eval`, `Function`, or `dangerouslySetInnerHTML` anywhere in the renderer path.
   3. One malformed node in a spec does not crash the surface — the error boundary isolates it and sibling nodes continue rendering.
   4. Declared state primitives in the spec (name / type / initial / actions) are materialized into a store by the interpreter, and dotted-path data references resolve via safe lookup against the provided scope — no executable code in the spec.
   5. The registry exposes a version identifier, and the spec envelope carries a `v` field and a per-catalog-id capability so downstream cache keys and future tenant catalogs slot in without schema changes.
-**Plans:** TBD
+**Plans:** 4 plans
+
+Plans:
+**Wave 1**
+- [ ] 12-01-PLAN.md — Foundation: @nauta/genui package scaffold + catalog/types.ts (SpecNodeType, ManifestEntry) + schema/spec-schema.ts (v:1 discriminated-union tree, state primitives, dataRef strings, .strict() + MAX_SPEC_NODES/DEPTH bounds) (SPEC-01/04/05, SEAM-01, COST-02; D-08..12/22/24)
+**Wave 2** *(depends on 12-01)*
+- [ ] 12-02-PLAN.md — Catalog + registry: NAUTA_CATALOG ~10 real entries (strict propsSchema, a11y-required, locked props) + COMPONENT_REGISTRY + UnknownComponentPlaceholder + SHA-256 {catalogId,version} REGISTRY_VERSION + [CTLG-04] manifest-example CI test (CTLG-01..05, COST-03, SEAM-03; D-01..07/21/23)
+**Wave 3** *(depends on 12-01, 12-02)*
+- [ ] 12-03-PLAN.md — Trusted interpreter: recursive renderNode → createElement (zero eval) + per-node NodeErrorBoundary + useDeclaredState (useReducer, 5-mutation enum) + resolveDataRef + conditional/list control-flow + SpecRenderer + empty ActionRegistry seam (SPEC-02/03/04/05; D-13..16)
+**Wave 4** *(depends on 12-01, 12-02, 12-03; autonomous:false — human-verify)*
+- [ ] 12-04-PLAN.md — Demo + surface: SHOWCASE_SPEC (every node type + state/action + dataRef) + MALFORMED_SPEC + /studio/preview route (render + JSON side-by-side island, ssr:false) + live Studio sidebar nav + browser human-verify (SPEC-06; D-17..20)
 **UI hint**: yes
 
 ---
@@ -107,7 +117,7 @@ COST-04) are explicitly out of this milestone.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. Catalog, Spec Schema, and Trusted Interpreter | 0/TBD | Not started | - |
+| 12. Catalog, Spec Schema, and Trusted Interpreter | 0/4 | Planned | - |
 | 13. Generation Layer and Guardrails | 0/TBD | Not started | - |
 | 14. Exact Cache and Template Store | 0/TBD | Not started | - |
 | 15. Studio Surface | 0/TBD | Not started | - |
