@@ -49,8 +49,8 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 ### Spec Schema & Interpreter (SPEC)
 
 - [x] **SPEC-01**: A typed (Zod) discriminated-union spec describes a UI tree (layout, leaf components, lists, conditionals) referencing only registry components
-- [ ] **SPEC-02**: A recursive interpreter renders a valid spec into live `@nauta/ui` components via `createElement` with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output
-- [ ] **SPEC-03**: Each rendered node is wrapped in an error boundary so one malformed node cannot crash the surface
+- [x] **SPEC-02**: A recursive interpreter renders a valid spec into live `@nauta/ui` components via `createElement` with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output
+- [x] **SPEC-03**: Each rendered node is wrapped in an error boundary so one malformed node cannot crash the surface
 - [x] **SPEC-04**: Declared state primitives (name/type/initial/actions) are materialized into a store by the interpreter; the spec contains no executable code
 - [x] **SPEC-05**: Data/state references resolve via safe dotted-path lookup against a provided scope (no `eval`)
 - [ ] **SPEC-06**: A hardcoded sample spec renders correctly end-to-end, proving the interpreter before generation is wired

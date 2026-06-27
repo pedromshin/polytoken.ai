@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T05:50:00.000Z"
+last_updated: "2026-06-27T06:20:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
@@ -64,7 +64,9 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 
 - **12-02 ✓ EXECUTED 2026-06-27:** 10-entry depth-first NAUTA_CATALOG manifest (manifest.ts) with fully-real React components using React.createElement; a11y props enforced as non-optional (button/aria-label, alert/title, table/caption, key-value-list/label, separator/aria-hidden:literal(true)); all propsSchemas .strict(); COMPONENT_REGISTRY + UnknownComponentPlaceholder (role=alert fallback); computeRegistryHash SHA-256 content-hash + REGISTRY_VERSION {catalogId:"global",version:<64-hex>}; compactEntry/toCompactCatalog SEAM for COST-03 subsetting; vitest jsdom config + 30-test CTLG-04 CI gate (10 example tests + 6 a11y negative + 7 allowlist + 7 hash determinism). tsc clean, 30/30 tests green. Commits 91ab872, 87abd55, df7fecd. See 12-02-SUMMARY.md.
 
-- **Next:** 12-03 recursive renderNode→createElement (zero eval) + NodeErrorBoundary + useDeclaredState + resolveDataRef.
+- **12-03 ✓ EXECUTED 2026-06-27:** Recursive `renderNode`→`createElement` (zero eval, GR-01/SPEC-02 grep gate: 0 functional matches) + per-node `NodeErrorBoundary` class component (`getDerivedStateFromError`, D-14) + `useDeclaredState` useReducer (5-mutation enum: toggle/set/reset/increment/decrement, all branches return new objects via spread, D-11) + `resolveDataRef` dotted-path resolver (FORBIDDEN_KEYS: __proto__/constructor/prototype, D-12) + `SpecRenderer` entry component (`"use client"` line 1, D-20) + empty `ActionRegistryContext` seam (`React.createContext<ActionRegistry>({})`, SEAM-02) + `src/index.ts` package root barrel. safeParse-only render path (SPEC-03). Structural-position keys (D-15). Named slots + positional children (D-16). Control-flow nodes (conditional/list) handled before registry dispatch. 30 new tests, 60/60 green; tsc clean. Security grep gate: 0 functional matches. Commits 27a10d7, 76f13bd. See 12-03-SUMMARY.md.
+
+- **Next:** 12-04 SHOWCASE_SPEC + MALFORMED_SPEC fixtures + /studio/preview route (render + JSON island, ssr:false) + live Studio sidebar nav + browser human-verify (SPEC-06; D-17..20).
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
