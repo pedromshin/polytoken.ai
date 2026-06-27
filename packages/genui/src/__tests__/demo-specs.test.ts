@@ -69,15 +69,7 @@ function collectDataRefs(node: SpecNode): ReadonlyArray<string> {
       }
     }
 
-    // key-value-list items valueRef
-    if (n.type === "key-value-list") {
-      const items = (n as Record<string, unknown>)["items"] as Array<Record<string, unknown>> | undefined;
-      if (Array.isArray(items)) {
-        for (const item of items) {
-          if (typeof item["valueRef"] === "string") refs.push(item["valueRef"] as string);
-        }
-      }
-    }
+    // key-value-list items use static `value` strings (no dataRef per CR-03 fix)
 
     // Recurse into all sub-trees
     if (Array.isArray(raw["children"])) {

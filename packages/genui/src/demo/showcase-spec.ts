@@ -9,17 +9,16 @@
  * D-17 hard requirements:
  *   - >=1 declared state primitive + action (isExpanded boolean + toggle)
  *   - >=1 dotted-path dataRef ("state.isExpanded" in conditional condition)
- *   - A11y-required props satisfied: alert title, table caption (so SpecRootSchema.safeParse succeeds)
+ *   - A11y-required props satisfied: button aria-label, separator aria-hidden,
+ *     key-value-list label, alert title, table caption (UI-SPEC §11 / D-04)
  *   - Generic showcase — NOT Nauta-flavored (D-17)
  *
  * Schema conformance: All nodes use .strict() schemas — no extra props allowed.
- * Removed: aria-label (not in StackNodeSchema/GridNodeSchema/ButtonNodeSchema),
- *           aria-hidden (not in SeparatorNodeSchema),
- *           label (not in KeyValueListNodeSchema).
+ * All a11y-required fields are present to match manifest propsSchemas (CR-01/02/03 fixed).
  *
  * The `data.demo.rows` array feeds the `list` node iteration and `table` rows.
- * The `state.isExpanded` boolean feeds the `conditional` node.
- * `key-value-list` items use `valueRef` dotted-paths (D-12/SPEC-05).
+ * The `state.isExpanded` boolean feeds the `conditional` node (D-17 dataRef proof).
+ * key-value-list items use static `value` strings; dynamic resolution is Phase 13+.
  *
  * SpecRootSchema.safeParse(SHOWCASE_SPEC).success === true.
  */
@@ -80,16 +79,20 @@ export const SHOWCASE_SPEC: SpecRoot = {
    * plus `list` and `conditional` control-flow nodes (D-17).
    *
    * All nodes conform to .strict() schemas — no unrecognized fields.
+   * All a11y-required props are present (CR-01/02/03 fix applied):
+   *   - button: aria-label required (D-04 / UI-SPEC §11)
+   *   - separator: aria-hidden: true required (D-04 / UI-SPEC §11)
+   *   - key-value-list: label required (D-04 / UI-SPEC §11)
    *
    * Structure:
    *   stack (root)
    *     ├── text (heading — showcase title)
    *     ├── badge (version label)
-   *     ├── separator (visual divider)
-   *     ├── button (toggle action, no aria-label — not in ButtonNodeSchema)
+   *     ├── separator (visual divider, aria-hidden: true)
+   *     ├── button (toggle action, aria-label required)
    *     ├── alert (with required title)
    *     ├── card (with title + footer slot + children)
-   *     │   └── key-value-list (inside card body, items use valueRef)
+   *     │   └── key-value-list (inside card body, label + static value items)
    *     ├── table (with caption + columns + rows)
    *     ├── grid (2-column layout)
    *     │   ├── text (grid cell 1)
@@ -119,16 +122,18 @@ export const SHOWCASE_SPEC: SpecRoot = {
         variant: "secondary",
       },
 
-      // ---- separator node ---------------------------------------------------
+      // ---- separator node (aria-hidden: true — locked, decorative) ----------
       {
         type: "separator",
+        "aria-hidden": true,
         orientation: "horizontal",
       },
 
-      // ---- button node (action wired to toggle) -----------------------------
+      // ---- button node (aria-label required — D-04 / UI-SPEC §11) ----------
       {
         type: "button",
         label: "Toggle Section",
+        "aria-label": "Toggle the expanded section",
         variant: "outline",
         action: "toggle",
       },
@@ -147,14 +152,14 @@ export const SHOWCASE_SPEC: SpecRoot = {
         title: "Component Details",
         description: "Metadata about this showcase.",
         children: [
-          // key-value-list inside card body (items use valueRef — D-12/SPEC-05)
-          // Note: KeyValueListNodeSchema does NOT have a `label` field — .strict()
+          // key-value-list: label required (a11y aria-label); items use static values (CR-03 fix)
           {
             type: "key-value-list",
+            label: "Showcase metadata",
             items: [
-              { key: "Version", valueRef: "data.demo.metadata.version" },
-              { key: "Author", valueRef: "data.demo.metadata.author" },
-              { key: "Updated", valueRef: "data.demo.metadata.updated" },
+              { key: "Version", value: "1.0.0" },
+              { key: "Author", value: "Nauta" },
+              { key: "Updated", value: "2026-06-27" },
             ],
           },
         ],
