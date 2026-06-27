@@ -27,6 +27,7 @@ import React from "react";
 import dynamic from "next/dynamic";
 
 import type { SpecRoot } from "@nauta/genui/schema";
+import type { ActionRegistry } from "@nauta/genui/renderer";
 
 const SpecRendererDynamic = dynamic(
   () =>
@@ -42,18 +43,27 @@ const SpecRendererDynamic = dynamic(
 export interface SpecRendererIslandProps {
   readonly spec: SpecRoot;
   readonly data?: Record<string, unknown>;
+  /**
+   * Optional action handlers forwarded to SpecRenderer via ActionRegistryContext.
+   * Build with buildActionRegistry() from @nauta/genui/renderer (Phase 13 / D-08).
+   * When omitted, the default empty-context {} is used — all action IDs resolve to noop.
+   */
+  readonly actions?: ActionRegistry;
 }
 
 export function SpecRendererIsland({
   spec,
   data,
+  actions,
 }: SpecRendererIslandProps): React.ReactElement {
   // registry omitted — SpecRenderer defaults to COMPONENT_REGISTRY (NAUTA_CATALOG)
   // This avoids serializing Zod schema objects across the server/client boundary.
+  // actions forwarded when present so the sandbox can wire live query/setState/navigate (D-08).
   return (
     <SpecRendererDynamic
       spec={spec}
       data={data}
+      actions={actions}
     />
   );
 }
