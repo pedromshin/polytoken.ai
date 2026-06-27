@@ -148,6 +148,13 @@
       "when": 1781541327169,
       "tag": "0020_knowledge_node_edges_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782548889541,
+      "tag": "0021_genui_generation_events",
+      "breakpoints": true
     }
   ]
 }

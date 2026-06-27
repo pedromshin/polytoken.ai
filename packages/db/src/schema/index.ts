@@ -21,3 +21,4 @@ export * from "./entity-instances";
 export * from "./sender-profiles";
 export * from "./component-links";
 export * from "./knowledge-node-edges";
+export * from "./genui-generation-events";
