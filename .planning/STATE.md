@@ -21,7 +21,10 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 **Core value:** Reliably receive every inbound email and make it observable.
 **Current focus:** Milestone v1.1 COMPLETE — all 4 phases (12-15) executed 2026-06-27
 
-## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
+## Milestone v1.1 — Generative UI Engine — 🎉 COMPLETE 2026-06-27 (4 phases, 15 plans; autonomous run)
+
+> **Milestone audit: PASSED** (.planning/v1.1-MILESTONE-AUDIT.md) — full spine connects E2E across all 6 cross-phase seams (catalog→generation→cache→render→studio), 0 orphaned/missing/broken, 3 E2E flows (cold/cache-hit/fallback) complete. 36/37 in-scope v1.1 requirements delivered (GEN-04 progressive streaming deferred to v1.2). Each phase executed → code-reviewed → fixed → verified. **9 CRITICAL bugs were caught by the code-review pass that the verifiers missed** (3 in Phase 12 schema↔manifest mismatch, 3 in Phase 13 dead tRPC↔FastAPI integration, 3 in Phase 14 cache correctness) — all fixed with regression tests added. Roadmap archived → .planning/milestones/v1.1-ROADMAP.md.
+> **DEFERRED (require user / a connected environment):** (1) browser visual verification of /studio + /studio/preview (Phases 12 + 15); (2) **PENDING DEPLOY** — migrations 0021 (genui_generation_events) + 0022 (ui_spec_templates) to staging+prod, and a live Bedrock generation smoke test (offline-mocked only this run); (3) `/gsd:cleanup` (file deletion) was intentionally NOT run — left for review.
 
 Runtime, spec-first generative-UI engine (Catalog → Spec → Registry → Renderer, no eval) in a new
 `packages/genui` consumed by a `/studio` route. v1.1 scope = spine + exact cache (components 1–5 + 7);

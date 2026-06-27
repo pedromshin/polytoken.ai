@@ -77,15 +77,15 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 - [x] **CACHE-01**: A persisted template store (Drizzle/Postgres) holds every generated spec with metadata (intent, registry version, validation status)
 - [x] **CACHE-02**: A SHA-256 key over (canonical intent + data-shape + registry version + context) yields exact-match cache hits that skip the LLM
-- [ ] **CACHE-03**: A cache hit re-renders the stored spec with live data re-bound and no Bedrock call
+- [x] **CACHE-03**: A cache hit re-renders the stored spec with live data re-bound and no Bedrock call
 - [x] **CACHE-04**: A registry-version change invalidates affected cache keys automatically (no manual flush)
 
 ### Studio Surface (STDO)
 
-- [ ] **STDO-01**: A `/studio` route (in `apps/web`, backed by `packages/genui`) lets a developer browse the component catalog
-- [ ] **STDO-02**: A developer can enter an intent and see the generated UI rendered live in a preview sandbox
-- [ ] **STDO-03**: The studio shows the underlying spec (JSON) alongside the rendered output for inspection
-- [ ] **STDO-04**: The studio surfaces generation states: streaming, validation-failure + fallback, and cache-hit vs cold-generation
+- [x] **STDO-01**: A `/studio` route (in `apps/web`, backed by `packages/genui`) lets a developer browse the component catalog
+- [x] **STDO-02**: A developer can enter an intent and see the generated UI rendered live in a preview sandbox
+- [x] **STDO-03**: The studio shows the underlying spec (JSON) alongside the rendered output for inspection
+- [x] **STDO-04**: The studio surfaces generation states: streaming, validation-failure + fallback, and cache-hit vs cold-generation
 
 ### Cost & Token Efficiency (COST)
 
@@ -142,22 +142,22 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 | DEVX-01..02 | Phase 1 | Complete |
 | INFRA-01..04 | Phase 2 | Complete (ECS Fargate live; staging :8080 + prod :80 /health 200) |
 | EMAIL-01..02 | Phase 3 | Complete (verified live end-to-end 2026-06-11) |
-| CTLG-01..05 | Phase 12 | Pending |
-| SPEC-01..06 | Phase 12 | Pending |
+| CTLG-01..05 | Phase 12 | Complete |
+| SPEC-01..06 | Phase 12 | Complete |
 | SEAM-01 | Phase 12 | Complete |
 | SEAM-03 | Phase 12 | Complete |
 | COST-02 | Phase 12 | Complete |
 | COST-03 | Phase 12 | Complete |
 | GEN-03 | Phase 13 plan 01 | Complete (SAFE_FALLBACK_SPEC) |
-| GEN-01,02,04,05,06 | Phase 13 plans 02-04 | Pending |
+| GEN-01,02,05,06 | Phase 13 plans 02-04 | Complete (GEN-04 streaming deferred to v1.2) |
 | SAFE-02,03,04,06 | Phase 13 plan 01 | Complete (allowlists at Zod layer) |
-| SAFE-01,05 | Phase 13 plans 02-04 | Pending |
+| SAFE-01,05 | Phase 13 plans 02-04 | Complete |
 | COST-01 | Phase 13 plan 01 | Complete (genui-prompt.json cache payload) |
 | SEAM-02 | Phase 13 plan 01 | Complete (ALLOWED_MUTATIONS empty seam) |
-| CACHE-01..04 | Phase 14 | Pending |
-| STDO-01..04 | Phase 15 | Pending |
+| CACHE-01..04 | Phase 14 | Complete |
+| STDO-01..04 | Phase 15 | Complete (browser visual verify deferred) |
 
-**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped (Complete) + v1.1: 37 mapped (Pending) = 50 total, unmapped: 0 ✓
+**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped (Complete) + v1.1: 36 mapped Complete + GEN-04 streaming deferred to v1.2 = 50 total, unmapped: 0 ✓
 **Note:** Phases 4–8 (Email Intelligence backend, Review UI, region edit ops,
 click-to-autofill UI, key_terms extractor) are **decision-driven** — scoped via
 each phase's CONTEXT.md D-IDs, no REQ-IDs mapped (per ROADMAP). Verified via
