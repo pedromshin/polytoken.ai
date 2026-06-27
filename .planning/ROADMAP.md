@@ -145,3 +145,138 @@ Plans:
 | 13. Generation Layer and Guardrails | 4/4 | Complete   | 2026-06-27 |
 | 14. Exact Cache and Template Store | 3/3 | Complete   | 2026-06-27 |
 | 15. Studio Surface | 3/3 | Complete   | 2026-06-27 |
+
+---
+
+# Milestone v1.2 — Generative UI: Realism & Interactivity
+
+**Goal:** Break the v1.1 ceiling — make `/studio` generations read as *real, custom-styled, interactive*
+apps instead of generic shadcn card-stacks — without abandoning v1.1's zero-eval safety where it belongs.
+Architecture = **HYBRID** (decided, see `.planning/research/GENUI-VNEXT-RESEARCH.md`): keep the declarative
+spec for layout/static content, add a **declarative JSON-Schema form engine** for forms + business logic
+(still no eval), and gate a **sandboxed code-island** behind explicit user sign-off for the genuinely-custom
+interactive widgets. Every generation-quality change is measured against an **eval harness built first**
+(eval-driven development), not vibes.
+
+**Scope:** LOCAL + `/studio` sandbox only. **No deploy, no product convergence** (per user direction —
+[[genui-vnext-direction]]). The eval harness is a first-class deliverable and the gate for every Tier-A
+change; Tier B-2 (jailed-eval) is the one new high-risk subsystem and is fenced behind a SPIKE + sign-off.
+
+**Phases:** 16–20 (continuing from v1.1's Phase 15)
+**Coverage:** 24/24 v1.2 requirements mapped (EVAL-01..05, STDO-05..07, IDEA-01, STYLE-01..04, RAG-01..02, CTLG-06..09, FORM-01..05, CODE-01)
+
+## Phases
+
+- [ ] **Phase 16: Studio Foundation — Eval Harness + History & Page-Ideas Tabs** — Eval-driven dev: golden prompt set (from the real corpus) + LLM-as-judge UI-quality rubric + a `studio` eval runner that baselines generations, plus History and Page-Ideas tabs over already-persisted data
+- [ ] **Phase 17: Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG** — Ground generation in an explicit design system + W3C-DTCG design tokens varied per generation + retrieved exemplars (v0's "registry" method), measured as a lift on the golden set
+- [ ] **Phase 18: Tier A — Catalog Expansion** — Real domain components (avatar, list/feed-item, nav, tabs, input primitives) so composition stops reading as generic cards; depth-first, a11y-marked, CI-validated
+- [ ] **Phase 19: Tier B-1 — Declarative JSON-Schema Form Engine** — A `form` node backed by a schema-driven engine (RJSF/JSONForms/Formily-style) for fields, conditional logic, and customizable validation/business rules — fully declarative, no eval
+- [ ] **Phase 20: Tier B-2 — Sandboxed Code-Island (SPIKE → phase, USER SIGN-OFF GATE)** — Emit real code into an isolated sandbox (iframe/Sandpack/WebContainer) with a v0-style AST-validate/autofix/self-heal harness, for truly custom interactive widgets only; CHANGES the safety model from no-eval to jailed-eval — MUST NOT start without explicit user sign-off
+
+## Phase Details
+
+### Phase 16: Studio Foundation — Eval Harness + History & Page-Ideas Tabs
+
+**Goal:** The eval harness exists FIRST (eval-driven development): a golden prompt set built from the real
+user-prompt corpus, an LLM-as-judge UI-quality rubric, and a `studio` eval runner that scores generations
+and records a baseline — so no Tier-A change ships without a measured before/after. Alongside it, two
+near-term Studio tabs land over already-persisted data: a **History tab** (browse previous generations +
+an individual detail view from `ui_spec_templates` + `genui_generation_events`, re-rendered through the
+shared `SpecRenderer` in the 55/45 split) and a **Page-Ideas tab** (realistic curveball prompts seeded
+from the REAL corpus — not AI-invented — to drive exploration).
+**Depends on:** Phase 15 (the `/studio` surface, shared `SpecRenderer`, generation pipeline, and the
+`ui_spec_templates` / `genui_generation_events` tables must already exist)
+**Requirements:** EVAL-03, EVAL-04, EVAL-05, STDO-05, STDO-06, STDO-07, IDEA-01
+**Status:** Not started
+**Success Criteria** (what must be TRUE):
+  1. A developer can run a single `studio` eval command that replays a golden prompt set (curated from `.planning/research/REAL-PROMPT-CORPUS.md`, with provenance preserved) through the live generation pipeline and produces a per-prompt + aggregate score.
+  2. The eval grades each generation with an LLM-as-judge rubric covering at minimum: does it render (no fallback), is it composed-not-placeholder, is it on-intent, and does it pass a11y expectations — emitting a 0.0–1.0 score plus a pass/fail per criterion.
+  3. The runner records a baseline score for the current engine and can be re-run to detect drift, so any later phase can show its lift/regression against that baseline.
+  4. The History tab lists previous generations (intent, outcome, cache-hit, timestamp) from the persisted tables and opens an individual generation in a detail view that re-renders the stored spec via the shared production `SpecRenderer` beside its spec JSON.
+  5. The Page-Ideas tab surfaces realistic curveball prompts seeded from the real corpus (e.g. the soundscape mixer, Bloomberg-terminal, 3D configurator, bill-splitter) and lets a developer send one straight into the generation sandbox.
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 17: Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG
+
+**Goal:** Generation is grounded in an explicit, machine-readable design system + **W3C-DTCG design tokens**
+that vary per generation ("style packs"), plus retrieved exemplars injected before generation — v0's
+"registry" method — so output stops always reading as default shadcn and instead varies by brand/style.
+The win is measured: a demonstrable lift on the golden set versus the Phase-16 baseline.
+**Depends on:** Phase 16 (the eval harness + baseline must exist to measure the lift; this phase is gated on it)
+**Requirements:** STYLE-01, STYLE-02, STYLE-03, STYLE-04, RAG-01, RAG-02
+**Status:** Not started
+**Success Criteria** (what must be TRUE):
+  1. The generator is conditioned on an explicit, machine-readable design-system + a W3C-DTCG-shaped token set (semantic color/type/spacing tokens, not free-form "navy blue") that the renderer consumes so the output reflects the chosen tokens.
+  2. A small library of distinct "style packs" (token sets) exists and the engine can be told which to use (or pick one) so two generations of the same intent visibly differ in look-and-feel rather than both reading as generic shadcn.
+  3. Before generation, relevant exemplars/components are retrieved and injected into the prompt (assembly RAG over the catalog + promoted templates), and the spec the model emits references the retrieved structure.
+  4. Re-running the Phase-16 eval shows a measurable lift in the rubric's "composed-not-placeholder" / on-intent / style-distinctiveness scores versus the recorded baseline, with no a11y regression.
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 18: Tier A — Catalog Expansion
+
+**Goal:** The catalog gains real domain components — avatar, list/feed-item, nav, tabs, input primitives,
+and similar — so generated compositions stop reading as a stack of generic cards and start resembling real
+app surfaces. Built depth-first to the Phase-12 catalog rigor: each new entry is fully real, a11y-marked,
+with a strict Zod prop schema, a CI-validated example, and registry registration.
+**Depends on:** Phase 16 (eval gate) and Phase 17 (new components should honor the token/theme layer so they style with the active style pack)
+**Requirements:** CTLG-06, CTLG-07, CTLG-08, CTLG-09
+**Status:** Not started
+**Success Criteria** (what must be TRUE):
+  1. The catalog manifest gains real domain components (at minimum avatar, list/feed-item, nav, tabs, and input primitives), each a fully-real `@nauta/ui` component with a strict Zod prop schema and locked vs LLM-settable props — matching the Phase-12 manifest contract.
+  2. Every new entry marks its accessibility props as required and ships a CI-verified example that parses against its own prop schema and renders a real component (not a fallback) through the shared renderer.
+  3. Each new component is registered in `COMPONENT_REGISTRY`, the registry version bumps accordingly, and the existing cache-invalidation-on-version-change behavior continues to hold.
+  4. Re-running the Phase-16 eval on prompts that previously degraded to generic cards (e.g. profile, feed, navigation prompts from the corpus) shows the new components being composed, with a measurable rubric lift over the Phase-17 score.
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 19: Tier B-1 — Declarative JSON-Schema Form Engine
+
+**Goal:** A new `form` node, backed by a schema-driven engine (react-jsonschema-form / JSONForms / Formily
+style), expresses fields, conditional logic, and customizable validation/business rules **fully
+declaratively — no eval**. This covers forms and complex form controls (the bulk of the corpus's Tier-B
+interactivity: lead-capture, onboarding, invoice, leave-tracker, multi-step) inside the safe model, without
+reaching for code-emit.
+**Depends on:** Phase 16 (eval gate); composes with Phases 17–18 (the form should adopt the active style pack + new input primitives)
+**Requirements:** FORM-01, FORM-02, FORM-03, FORM-04, FORM-05
+**Status:** Not started
+**Success Criteria** (what must be TRUE):
+  1. A `form` spec node carries a JSON Schema (fields + types) and a UI schema (layout/widgets), and the interpreter renders it as a working form through a schema-driven engine — with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output, preserving the zero-eval guarantee.
+  2. The form supports conditional logic (show/hide/require fields based on other field values) expressed declaratively as data, not code.
+  3. Validation and business rules (required, formats, ranges, cross-field constraints) are declarative and enforced at submit/change, surfacing inline field-level errors.
+  4. Form submit binds only to the existing allowlisted action/mutation seam (SEAM-02) — no arbitrary endpoints — and a corpus form prompt (e.g. the client-onboarding or lead-capture prompt) generates and renders end-to-end in the sandbox.
+  5. Re-running the Phase-16 eval on form-heavy corpus prompts shows them now rendering real interactive forms (pass) where they previously degraded, with a measurable rubric lift.
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 20: Tier B-2 — Sandboxed Code-Island (SPIKE → phase, USER SIGN-OFF GATE)
+
+**Goal:** For truly custom / arbitrarily-interactive widgets only (bespoke charts, novel interactions,
+the corpus's curveballs — soundscape mixer, 3D configurator, real-time whiteboard), emit real code into an
+**isolated sandbox** (iframe / Sandpack / WebContainer) running a v0-style harness (AST validate → autofix →
+run → self-heal). The code-island runs jailed; it cannot regress the trusted declarative core.
+**⚠️ SAFETY-MODEL CHANGE:** this phase changes the model from **no-eval to jailed-eval** and is the one
+genuinely new high-risk subsystem. It **MUST NOT start without explicit user sign-off**, and should begin
+as a **SPIKE** (prove the sandbox + repair loop in isolation) before being committed to as a full phase.
+**Depends on:** Phase 16 (eval gate, incl. the adversarial-injection + a11y fixtures) and explicit USER SIGN-OFF; the declarative tiers (17–19) should be exhausted first so the island is reserved for what they genuinely cannot express
+**Requirements:** CODE-01, EVAL-01, EVAL-02
+**Status:** Not started (BLOCKED — requires user sign-off before planning)
+**Success Criteria** (what must be TRUE):
+  1. A spec can reference a code-island node whose generated code runs inside an isolated sandbox (iframe/Sandpack/WebContainer) that cannot touch the host page, the parent DOM, or app credentials — the trusted declarative core is provably unaffected if the island misbehaves.
+  2. Generated island code passes through a v0-style harness — AST/parse validation → autofix → run → self-heal on runtime error — before it is shown, and code that cannot be repaired falls back to a safe placeholder rather than rendering broken or unsafe output.
+  3. Adversarial-injection regression fixtures (EVAL-01) confirm that prompt/data injection cannot escape the sandbox or reach the trusted core, and these fixtures run as part of the eval harness.
+  4. Automated a11y checks (axe-core, EVAL-02) run against generated UI — including island output — and surface violations in the eval rubric.
+  5. A curveball corpus prompt that the declarative tiers cannot express (e.g. the soundscape mixer or 3D configurator) generates a working interactive widget in the sandbox, scored by the eval harness against the baseline.
+**Plans:** TBD
+**UI hint**: yes
+
+## Progress Table (v1.2)
+
+| Phase | Plans Complete | Status | Completed |
+|-------|----------------|--------|-----------|
+| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 0/0 | Not started | - |
+| 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
+| 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
+| 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
+| 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase, USER SIGN-OFF GATE) | 0/0 | Not started (blocked: user sign-off) | - |

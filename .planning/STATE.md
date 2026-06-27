@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Generative UI Engine
-status: complete
-last_updated: "2026-06-27T14:00:00.000Z"
+milestone: v1.2
+milestone_name: "Generative UI: Realism & Interactivity"
+status: planning
+last_updated: "2026-06-27T19:00:00.000Z"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 5
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State
@@ -40,6 +40,8 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 > Phase-11 and prior notes below are retained as history.
 
 ## GenUI v-next (post-v1.1) — PLANNING / research done 2026-06-27 (local+sandbox only)
+
+> **FORMALIZED 2026-06-27:** roadmap authored as **Milestone v1.2 — "Generative UI: Realism & Interactivity"** (Phases 16–20, status: planning) in `.planning/ROADMAP.md`; requirements (EVAL/STDO/IDEA/STYLE/RAG/CTLG/FORM/CODE, 24 mapped) in `.planning/REQUIREMENTS.md`. Frontmatter flipped milestone→v1.2 / status→planning. Phase 20 (sandboxed code-island, jailed-eval) is BLOCKED on explicit user sign-off. The notes below are the source synthesis this roadmap was built from.
 
 User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence). **Tier A** = more authentic/custom-styled layouts (escape generic shadcn), richer catalog, assembly intelligence. **Tier B** (harder) = real interactive apps — state, API calls, business rules, calendars/tables/forms with customizable form business logic; wants a brutally-rigorous research-driven process for Opus 4.8. Generator prompt already tuned (build-concrete/no-placeholders + catalog payload injected, commit 57028cb).
 

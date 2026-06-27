@@ -101,7 +101,68 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 - [x] **SEAM-02**: The binding/action layer is shaped for both **queries and mutations** from day one (v1.1 wires queries only; the mutation allowlist path exists but is empty)
 - [x] **SEAM-03**: The catalog + cache key are **per-catalog-id capable** (one global catalog in v1.1; tenant/importer-scoped catalogs later)
 
-## Future Requirements (v1.2 — deferred this milestone)
+## Milestone v1.2 Requirements — Generative UI: Realism & Interactivity
+
+**Defined:** 2026-06-27 · **Status:** planning · **Scope:** LOCAL + `/studio` sandbox only (no deploy, no
+product convergence). **Architecture decided = HYBRID** (declarative spec + declarative JSON-Schema form
+engine + sandboxed code-island). Source of truth: `.planning/research/GENUI-VNEXT-RESEARCH.md` +
+`.planning/research/REAL-PROMPT-CORPUS.md`.
+**Core value (this milestone):** Generations read as *real, custom-styled, interactive* apps — measured by
+an eval harness built first (eval-driven development), not vibes.
+**Process gate:** the eval harness (EVAL-03/04/05) lands first; every Tier-A change (Phases 17–18) and the
+form engine (Phase 19) is measured against the recorded baseline. Tier B-2 (CODE-01) is fenced behind a
+SPIKE + explicit user sign-off (it changes the safety model from no-eval to jailed-eval).
+
+### Evaluation Harness (EVAL) — *eval-driven development; built first*
+
+- **EVAL-03**: Eval rubric + drift detection for generation quality — an LLM-as-judge UI-quality rubric (renders / composed-not-placeholder / on-intent / a11y) emitting a 0.0–1.0 score + pass/fail per criterion *(promoted from v1.1 deferral)*
+- **EVAL-04**: A golden prompt set curated from the real user-prompt corpus (`REAL-PROMPT-CORPUS.md`, provenance preserved) that the eval replays through the live generation pipeline
+- **EVAL-05**: A `studio` eval runner scores generations against the golden set, records a baseline for the current engine, and is re-runnable so later phases can show measurable lift/regression
+- **EVAL-01**: Adversarial-injection regression fixtures for the quarantine/guardrails — run as part of the eval harness; confirm injection cannot escape the sandbox or reach the trusted core *(promoted; folded into Phase 20)*
+- **EVAL-02**: Automated a11y checks (axe-core) on generated UI — including code-island output — surfaced in the eval rubric *(promoted; folded into Phase 20)*
+
+### Studio Surface — History & Page-Ideas (STDO, continued)
+
+- **STDO-05**: A History tab lists previous generations (intent, outcome, cache-hit, timestamp) from the persisted `ui_spec_templates` + `genui_generation_events` data (FastAPI list → tRPC proxy)
+- **STDO-06**: An individual generation detail view re-renders the stored spec via the shared production `SpecRenderer` beside its spec JSON (55/45 split), reusing the existing renderer — no second renderer
+- **STDO-07**: A Page-Ideas tab surfaces realistic curveball prompts seeded from the real corpus (not AI-invented) and can send one straight into the generation sandbox
+
+### Page Ideas (IDEA)
+
+- **IDEA-01**: The page-ideas seed is sourced from `REAL-PROMPT-CORPUS.md` (real prompts with provenance), not synthetic/AI-invented prompts
+
+### Design Tokens & Style Packs (STYLE) — *Tier A*
+
+- **STYLE-01**: The generator is conditioned on an explicit, machine-readable design system + a W3C-DTCG-shaped token set (semantic color/type/spacing tokens, not free-form descriptions) that the renderer consumes
+- **STYLE-02**: A library of distinct "style packs" (token sets) exists; the engine can be told which to use (or pick one) so two generations of the same intent visibly differ in look-and-feel
+- **STYLE-03**: Token specificity is enforced (semantic hex/aliases over prose like "navy blue") so the model picks from existing aliases rather than substituting its own defaults
+- **STYLE-04**: A measurable lift on the golden set (style-distinctiveness / composed-not-placeholder) versus the Phase-16 baseline, with no a11y regression
+
+### Assembly RAG (RAG) — *Tier A*
+
+- **RAG-01**: Before generation, relevant exemplars/components are retrieved and injected into the prompt (assembly RAG over the catalog + promoted templates) — v0's "registry" pattern
+- **RAG-02**: The emitted spec references the retrieved structure (retrieval demonstrably influences generation, not inert context)
+
+### Catalog Expansion (CTLG, continued) — *Tier A*
+
+- **CTLG-06**: Real domain components added to the catalog (at minimum avatar, list/feed-item, nav, tabs, input primitives) as fully-real `@nauta/ui` components with strict Zod prop schemas + locked vs LLM-settable props (Phase-12 manifest rigor)
+- **CTLG-07**: Every new entry marks a11y props as required and ships a CI-verified example that parses against its own schema AND renders a real component (not a fallback) through the shared renderer
+- **CTLG-08**: Each new component is registered in `COMPONENT_REGISTRY`; the registry version bumps and existing cache-invalidation-on-version-change continues to hold
+- **CTLG-09**: New components honor the Phase-17 token/theme layer (style with the active style pack)
+
+### Declarative Form Engine (FORM) — *Tier B-1, no eval*
+
+- **FORM-01**: A `form` spec node carries a JSON Schema (fields + types) + a UI schema (layout/widgets); the interpreter renders a working form via a schema-driven engine (RJSF/JSONForms/Formily-style) with NO eval/Function/dangerouslySetInnerHTML on model output
+- **FORM-02**: Conditional logic (show/hide/require fields based on other fields) expressed declaratively as data, not code
+- **FORM-03**: Validation + business rules (required, formats, ranges, cross-field constraints) are declarative and enforced at change/submit with inline field-level errors
+- **FORM-04**: Form submit binds only to the existing allowlisted action/mutation seam (SEAM-02) — no arbitrary endpoints
+- **FORM-05**: A corpus form prompt (e.g. client-onboarding / lead-capture) generates and renders a real interactive form end-to-end in the sandbox; measurable rubric lift on form-heavy corpus prompts
+
+### Code-Emit / Sandboxed Island (CODE) — *Tier B-2, jailed-eval; USER SIGN-OFF GATE*
+
+- **CODE-01**: Sandboxed code-island generation path — emit real code into an isolated sandbox (iframe/Sandpack/WebContainer) with a v0-style AST-validate → autofix → run → self-heal harness, jailed so it cannot regress the trusted declarative core; falls back to a safe placeholder when unrepairable *(promoted from v1.1 deferral; changes the safety model from no-eval to jailed-eval — MUST NOT start without explicit user sign-off; recommend a SPIKE first)*
+
+## Future Requirements (still deferred beyond v1.2)
 
 ### Template Flywheel (FLY)
 
@@ -109,19 +170,17 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 - **FLY-02**: Promotion loop — generated specs become reusable templates based on validation + acceptance signals
 - **FLY-03**: Parameterized templates with binding slots re-bound to live data on reuse
 
-### Evaluation (EVAL)
+> Note: v1.2 RAG-01/02 (assembly retrieval over the catalog + promoted templates) is the lightweight,
+> local precursor to the full FLY flywheel; FLY-01..03 (embeddings/promotion/parameterization) remain
+> deferred until real usage data + the deploy path exist.
 
-- **EVAL-01**: Adversarial-injection regression fixtures for the quarantine/guardrails
-- **EVAL-02**: Automated a11y checks (axe-core) on generated UI
-- **EVAL-03**: Eval rubric + drift detection for generation quality
+### Generation (GEN, continued)
 
-### Code-Emit Experiment (CODE)
+- **GEN-04**: Generation streams partial specs for progressive preview *(deferred from v1.1; not in v1.2 scope)*
 
-- **CODE-01**: Sandboxed raw-TSX generation path (isolated iframe/worker) compared against the spec-first spine
+### Cost (deferred)
 
-### Cost (v1.2 — deferred)
-
-- **COST-04**: Spec edits emit JSON-Patch (RFC-6902) deltas instead of full regeneration; offline batch pre-warming of templates (Bedrock batch, 50% off)
+- **COST-04**: Spec edits emit JSON-Patch (RFC-6902) deltas instead of full regeneration; offline batch pre-warming of templates (Bedrock batch, 50% off) *(needs the deploy path; out of the local-only v1.2 scope)*
 
 ## Out of Scope
 
@@ -156,8 +215,17 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 | SEAM-02 | Phase 13 plan 01 | Complete (ALLOWED_MUTATIONS empty seam) |
 | CACHE-01..04 | Phase 14 | Complete |
 | STDO-01..04 | Phase 15 | Complete (browser visual verify deferred) |
+| EVAL-03,04,05 | Phase 16 | Planned |
+| STDO-05,06,07 | Phase 16 | Planned |
+| IDEA-01 | Phase 16 | Planned |
+| STYLE-01..04 | Phase 17 | Planned |
+| RAG-01,02 | Phase 17 | Planned |
+| CTLG-06..09 | Phase 18 | Planned |
+| FORM-01..05 | Phase 19 | Planned |
+| CODE-01 | Phase 20 | Planned (blocked: user sign-off) |
+| EVAL-01,02 | Phase 20 | Planned |
 
-**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped (Complete) + v1.1: 36 mapped Complete + GEN-04 streaming deferred to v1.2 = 50 total, unmapped: 0 ✓
+**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped (Complete) + v1.1: 36 mapped Complete + GEN-04 streaming deferred to v1.2; v1.2: 24 mapped (Planned: EVAL-01..05, STDO-05..07, IDEA-01, STYLE-01..04, RAG-01,02, CTLG-06..09, FORM-01..05, CODE-01) across Phases 16–20, unmapped: 0 ✓
 **Note:** Phases 4–8 (Email Intelligence backend, Review UI, region edit ops,
 click-to-autofill UI, key_terms extractor) are **decision-driven** — scoped via
 each phase's CONTEXT.md D-IDs, no REQ-IDs mapped (per ROADMAP). Verified via
@@ -166,3 +234,4 @@ per-phase VERIFICATION.md (4 + 8 passed; 5/6/7 human_needed — visual UAT only)
 ---
 *Requirements defined: 2026-06-10*
 *Last updated: 2026-06-27 — added milestone v1.1 (Generative UI Engine): CTLG/SPEC/GEN/SAFE/CACHE/STDO/COST (32 reqs) + SEAM-01..03 future-proofing constraints; v1.2 deferrals FLY/EVAL/CODE/COST-04. Traceability for v1.1 filled by roadmap (Phases 12–15).*
+*Last updated: 2026-06-27 — added milestone v1.2 (Generative UI: Realism & Interactivity, status: planning, local+sandbox only): EVAL-03/04/05 + STDO-05/06/07 + IDEA-01 + STYLE-01..04 + RAG-01/02 + CTLG-06..09 + FORM-01..05; promoted CODE-01 + EVAL-01/02 from v1.1 deferrals (CODE-01 gated on user sign-off). Traceability for v1.2 filled by roadmap (Phases 16–20). FLY/COST-04 + GEN-04 remain deferred.*
