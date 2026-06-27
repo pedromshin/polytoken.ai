@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T14:00:00.000Z"
+last_updated: "2026-06-27T13:44:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 14
-  completed_plans: 13
-  percent: 93
+  completed_plans: 14
+  percent: 85
 ---
 
 # State
@@ -110,6 +110,8 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **Plan waves:** W1 `15-01` D-05 outcome signal thread-through + studio helpers (DONE) → W2 `15-02` studio shell + generation panel → W3 `15-03` prop inspector + live preview wiring.
 
 - **15-01 ✓ EXECUTED 2026-06-27:** D-05 outcome signal thread-through and studio helpers (TDD). Added `outcome: Literal["ok", "fallback", "escalated"] = "ok"` to `GenerateUiSpecResult` frozen dataclass and `GenerateUiSpecView` Pydantic model; cache-hit path hardcodes `outcome="ok"` (D-14), cold path reuses already-computed `_determine_outcome()` variable. Replaced tRPC `GenerateOutputSchema` discriminatedUnion with flat `z.object({outcome, spec, cacheHit, reason?})`; `SpecRootSchema.safeParse` failure overrides to `outcome="fallback"` (D-08/D-15 authoritative). Shipped two pure framework-free TypeScript helpers in `packages/genui/src/studio/`: `deriveGenerationState` (§9 state transitions: in_progress/fallback/cache_hit/cold + escalated sub-flavor, D-03d) + `describePropsSchema` (§12 prop introspection via Zod _def.typeName string comparison). `./studio` subpath export added to `packages/genui/package.json`. Additive only — no new gen/cache/renderer logic (D-05). No new packages. TDD: 6 Python tests + 5 api-client tests + 27 studio tests; all green. Typecheck + no-eval gate clean. Commits c7200f0, 0864f3e, be831d8. See 15-01-SUMMARY.md.
+
+- **15-02 ✓ EXECUTED 2026-06-27:** /studio landing route — server shell + StudioTabs client + CatalogBrowserIsland. (1) Lifted `SpecRendererIsland` to shared `studio/_components/` (STDO-02: exactly one `dynamic(ssr:false)` wrapper); preview re-exports; sidebar Studio nav href repointed from `/studio/preview` to `/studio` (D-14). (2) `/studio/page.tsx` server component — h-12 header with static `v1` Badge + `Registry {REGISTRY_VERSION.version.slice(0,8)}` Badge (T-12-15: REGISTRY_VERSION server-only); delegates to `<StudioTabs />`. `studio-tabs.tsx` — `"use client"` Tabs with Catalog + Sandbox TabsTriggers + `next/link` Showcase affordance (aria-label="Open Component Showcase"); catalog TabsContent renders `CatalogBrowserIsland`; sandbox TabsContent placeholder "coming in 15-03". (3) `CatalogBrowserIsland` — `"use client"` island imports `NAUTA_CATALOG` directly (D-10: Zod schemas/React refs not serializable); filter input (aria-label="Filter catalog components"); card grid (aria-live="polite"); four facets per card: type chip + description, live `SpecRendererIsland` example (role=region aria-label="Live example: {type}"), `describePropsSchema` prop table (role=region aria-label="Props for {type}"), slot chips. Typecheck clean. STDO-02 + T-12-15 + D-15 gates all passing. Commits d500614, 43a4010, a441861. See 15-02-SUMMARY.md.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
