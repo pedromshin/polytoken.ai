@@ -142,8 +142,20 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 | DEVX-01..02 | Phase 1 | Complete |
 | INFRA-01..04 | Phase 2 | Complete (ECS Fargate live; staging :8080 + prod :80 /health 200) |
 | EMAIL-01..02 | Phase 3 | Complete (verified live end-to-end 2026-06-11) |
+| CTLG-01..05 | Phase 12 | Pending |
+| SPEC-01..06 | Phase 12 | Pending |
+| SEAM-01 | Phase 12 | Pending |
+| SEAM-03 | Phase 12 | Pending |
+| COST-02 | Phase 12 | Pending |
+| COST-03 | Phase 12 | Pending |
+| GEN-01..06 | Phase 13 | Pending |
+| SAFE-01..06 | Phase 13 | Pending |
+| COST-01 | Phase 13 | Pending |
+| SEAM-02 | Phase 13 | Pending |
+| CACHE-01..04 | Phase 14 | Pending |
+| STDO-01..04 | Phase 15 | Pending |
 
-**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped, unmapped: 0 ✓
+**Coverage:** v1: 11 total + v2 EMAIL: 2 = 13 mapped (Complete) + v1.1: 37 mapped (Pending) = 50 total, unmapped: 0 ✓
 **Note:** Phases 4–8 (Email Intelligence backend, Review UI, region edit ops,
 click-to-autofill UI, key_terms extractor) are **decision-driven** — scoped via
 each phase's CONTEXT.md D-IDs, no REQ-IDs mapped (per ROADMAP). Verified via
@@ -151,4 +163,4 @@ per-phase VERIFICATION.md (4 + 8 passed; 5/6/7 human_needed — visual UAT only)
 
 ---
 *Requirements defined: 2026-06-10*
-*Last updated: 2026-06-27 — added milestone v1.1 (Generative UI Engine): CTLG/SPEC/GEN/SAFE/CACHE/STDO/COST (32 reqs) + SEAM-01..03 future-proofing constraints; v1.2 deferrals FLY/EVAL/CODE/COST-04. Traceability for v1.1 filled by roadmap.*
+*Last updated: 2026-06-27 — added milestone v1.1 (Generative UI Engine): CTLG/SPEC/GEN/SAFE/CACHE/STDO/COST (32 reqs) + SEAM-01..03 future-proofing constraints; v1.2 deferrals FLY/EVAL/CODE/COST-04. Traceability for v1.1 filled by roadmap (Phases 12–15).*

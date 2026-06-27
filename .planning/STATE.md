@@ -5,12 +5,12 @@ milestone_name: Generative UI Engine
 status: planning
 last_updated: 2026-06-27T00:00:00.000Z
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
   percent: 0
-stopped_at: Milestone v1.1 started — defining requirements (roadmap pending)
+stopped_at: Milestone v1.1 roadmapped (Phases 12–15) — ready to plan Phase 12
 ---
 
 # State
