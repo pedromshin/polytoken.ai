@@ -194,7 +194,7 @@ from the REAL corpus — not AI-invented — to drive exploration).
   3. The runner records a baseline score for the current engine and can be re-run to detect drift, so any later phase can show its lift/regression against that baseline.
   4. The History tab lists previous generations (intent, outcome, cache-hit, timestamp) from the persisted tables and opens an individual generation in a detail view that re-renders the stored spec via the shared production `SpecRenderer` beside its spec JSON.
   5. The Page-Ideas tab surfaces realistic curveball prompts seeded from the real corpus (e.g. the soundscape mixer, Bloomberg-terminal, 3D configurator, bill-splitter) and lets a developer send one straight into the generation sandbox.
-**Plans:** 3/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -202,7 +202,7 @@ Plans:
 - [x] 16-03-PLAN.md — History backend: list_recent/find_by_id on UiSpecTemplateRepository + GET /v1/genui/history(+/{id}) + genui.historyList/historyById tRPC (proxy + SpecRootSchema.safeParse degrade) (STDO-05/06; D-14/15/16/17)
 **Wave 2** *(depends on 16-01)*
 - [x] 16-02-PLAN.md — Eval harness: pure rubric.py (valid-spec/composed/a11y + weights 0.30/0.30/0.25/0.15) + judge_adapter (escalation model, single structured call) + run_eval.py (drives real GenerateUiSpecUseCase via create_container over the golden set) + report/compare + recorded baseline (autonomous:false — live-Bedrock baseline checkpoint) (EVAL-03/05; D-04..13)
-- [ ] 16-04-PLAN.md — Page-Ideas tab: pure seedable pick-page-idea.ts (curveball 3x/Tier-B 2x/Tier-A 1x) + page-ideas-island (browse/filter + Surprise me) + studio-tabs lift (controlled Tabs + pendingIntent + History/Page-Ideas triggers) + sandbox initialIntent (autonomous:false — browser verify) (STDO-07, IDEA-01; D-20/21/06)
+- [x] 16-04-PLAN.md — Page-Ideas tab: pure seedable pick-page-idea.ts (curveball 3x/Tier-B 2x/Tier-A 1x) + page-ideas-island (browse/filter + Surprise me) + studio-tabs lift (controlled Tabs + pendingIntent + History/Page-Ideas triggers) + sandbox initialIntent (autonomous:false — browser verify) (STDO-07, IDEA-01; D-20/21/06)
 **Wave 3** *(depends on 16-03, 16-04)*
 - [ ] 16-05-PLAN.md — History UI tab: history-island (newest-first paginated list + read-only detail via the SHARED SpecRendererIsland in the 55/45 split, STDO-02 reuse) wired into the studio-tabs History slot (autonomous:false — browser verify) (STDO-05/06; D-18)
 **UI hint**: yes
@@ -285,7 +285,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 3/5 | In Progress|  |
+| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 4/5 | In Progress|  |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
 | 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
