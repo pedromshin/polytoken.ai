@@ -20,6 +20,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # the prior claude-sonnet-4-20250514 id is legacy.
 DEFAULT_BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
 
+# GenUI generation layer model IDs (D-04, D-05)
+DEFAULT_GENUI_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+DEFAULT_GENUI_ESCALATION_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
+
 
 def parse_secret_value(value: str | None, key: str, environment: str) -> str:
     """Extract a value from an AWS Secrets Manager JSON envelope.
@@ -94,6 +98,13 @@ class BaseAppSettings(BaseSettings):
     # --- Tenant (single-tenant for now; D-05 keeps rows importer-scoped) ---
     DEFAULT_IMPORTER_ID: str = "00000000-0000-0000-0000-000000000001"
 
+    # --- GenUI generation layer (D-04, D-05, D-16, D-17) ---
+    GENUI_MODEL_ID: str = ""  # quarantine (Call A) + generator (Call B) primary model
+    GENUI_ESCALATION_MODEL_ID: str = ""  # generator escalation on attempt 3 (D-05)
+    GENUI_TIMEOUT_SECONDS: float = 15.0  # per-call asyncio.timeout (D-17)
+    GENUI_QUARANTINE_MAX_TOKENS: int = 1024  # Call A max_tokens (D-16)
+    GENUI_GENERATOR_MAX_TOKENS: int = 3000  # Call B max_tokens (D-16)
+
     @property
     def api_key(self) -> str:
         return parse_secret_value(self.API_KEY, "API_KEY", self.ENVIRONMENT.value)
@@ -130,6 +141,16 @@ class BaseAppSettings(BaseSettings):
     def bedrock_model_id(self) -> str:
         """Bedrock Claude model id; overridable via env, sensible default otherwise."""
         return (self.BEDROCK_MODEL_ID or DEFAULT_BEDROCK_MODEL_ID).strip()
+
+    @property
+    def genui_model_id(self) -> str:
+        """Primary model for GenUI quarantine (Call A) and generator (Call B, attempts 1-2)."""
+        return (self.GENUI_MODEL_ID or DEFAULT_GENUI_MODEL_ID).strip()
+
+    @property
+    def genui_escalation_model_id(self) -> str:
+        """Escalation model for GenUI generator on attempt 3 (D-05)."""
+        return (self.GENUI_ESCALATION_MODEL_ID or DEFAULT_GENUI_ESCALATION_MODEL_ID).strip()
 
 
 class DevSettings(BaseAppSettings):
