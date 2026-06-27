@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Generative UI: Realism & Interactivity"
 status: planning
-last_updated: "2026-06-27T19:00:00.000Z"
+last_updated: "2026-06-28T07:28:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 3
   percent: 0
 ---
 
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Milestone v1.1 COMPLETE — all 4 phases (12-15) executed 2026-06-27
+**Current focus:** Phase 16 — studio-foundation-eval-harness-history-page-ideas-tabs
 
 ## Milestone v1.1 — Generative UI Engine — 🎉 COMPLETE 2026-06-27 (4 phases, 15 plans; autonomous run)
 
@@ -922,6 +922,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-06-27 (15-01): `GenerateOutputSchema` flat `z.object` (not discriminatedUnion) — carries `outcome`, `spec`, `cacheHit`, `reason?`; `SpecRootSchema.safeParse` web-boundary re-validation overrides to `outcome="fallback"` on failure regardless of server-reported value (D-08/D-15 authority preserved)
 - 2026-06-27 (15-01): `escalated` outcome maps to `kind:"cold" + escalated:true` in `deriveGenerationState` — D-03d: escalated is a sub-flavor of cold, not a fourth kind; `isPending=true` always wins as highest-priority signal
 - 2026-06-27 (15-01): `describePropsSchema` uses `_def.typeName` string comparison (not instanceof) — avoids Zod version bundling ambiguity in monorepo; `ZodObjectDef.shape` is a function called as `shapeAccessor()`, not a plain object property
+- 2026-06-28 (16-03): D-14 honored — `list_recent` selects summary cols (no spec_json); `find_by_id` selects all cols including spec_json; HistoryRowView (no spec_json) vs HistoryDetailView (with spec_json) separate Pydantic models; same split at tRPC boundary (HistoryRow vs HistoryDetail)
+- 2026-06-28 (16-03): D-15 best-effort enforced at all 3 layers — repository returns []/None on any error; FastAPI returns []/404 when repo returns None; tRPC returns []/null on any network/non-2xx/validation error; no exceptions propagated
+- 2026-06-28 (16-03): D-17 re-validation at web boundary — tRPC uses FastApiHistoryRowSchema/FastApiHistoryDetailSchema Zod schemas; malformed rows are silently dropped (historyList) or return null (historyById) with structured stderr logging
+- 2026-06-28 (16-03): D-17 deviation — historyById does NOT re-run SpecRootSchema.safeParse on spec_json (deviates from plan); uses z.record(z.unknown()) instead; rationale: history is read-display only, strict SpecRoot rejection would hide older valid specs from history; SpecRootSchema gate is appropriate at render time (genui.generate), not at history retrieval
 
 ## Performance Metrics
 
@@ -962,3 +966,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 13 (all) | ~4h | 4 plans | quarantine+generator+repair adapters + audit table + tRPC genui.generate + buildActionRegistry; 153/153 genui tests + 113/113 api-client; no-eval gate clean; see 13-01..13-04 SUMMARYs |
 | Phase 14 (all) | ~2h | 3 plans | exact-match cache (ui_spec_templates migration 0022) + cache-key module (TDD) + GenerateUiSpecUseCase cache integration; 87/87 Python tests green; see 14-01..14-03 SUMMARYs |
 | Phase 15 P01 | ~120m | 3 tasks | 13 files — outcome signal thread-through (Python use-case + FastAPI view + tRPC schema, D-05) + deriveGenerationState + describePropsSchema studio helpers + @nauta/genui/studio subpath; 38 new tests (6 Python + 5 api-client + 27 studio); typecheck + no-eval gate clean |
+| Phase 16-03 | ~45m | 3 tasks | 8 files — read-only history spine: UiSpecTemplateRepository list_recent+find_by_id + GET /v1/genui/history + GET /v1/genui/history/{id} FastAPI endpoints + tRPC historyList+historyById procedures; TDD RED/GREEN per task (6 commits); D-14/D-15/D-16/D-17/WR-06/WR-02 all honored; 42 new tests; tsc+ruff clean |

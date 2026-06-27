@@ -216,7 +216,8 @@ SPIKE + explicit user sign-off (it changes the safety model from no-eval to jail
 | CACHE-01..04 | Phase 14 | Complete |
 | STDO-01..04 | Phase 15 | Complete (browser visual verify deferred) |
 | EVAL-03,04,05 | Phase 16 | Planned |
-| STDO-05,06,07 | Phase 16 | Planned |
+| STDO-05,06 | Phase 16 plan 03 | In Progress (data spine complete: list_recent+find_by_id repo, FastAPI GET /history+/{id}, tRPC historyList+historyById; UI tab rendering in plan 05) |
+| STDO-07 | Phase 16 | Planned |
 | IDEA-01 | Phase 16 | Planned |
 | STYLE-01..04 | Phase 17 | Planned |
 | RAG-01,02 | Phase 17 | Planned |

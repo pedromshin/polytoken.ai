@@ -199,7 +199,7 @@ from the REAL corpus — not AI-invented — to drive exploration).
 Plans:
 **Wave 1**
 - [x] 16-01-PLAN.md — Shared eval assets: golden-set.json (~36 curated subset) + page-ideas.json (all 76 real corpus prompts, provenance) + one Zod schema + CI provenance/coverage gate + ./eval export (EVAL-04, STDO-07, IDEA-01; D-01/02/03/19)
-- [ ] 16-03-PLAN.md — History backend: list_recent/find_by_id on UiSpecTemplateRepository + GET /v1/genui/history(+/{id}) + genui.historyList/historyById tRPC (proxy + SpecRootSchema.safeParse degrade) (STDO-05/06; D-14/15/16/17)
+- [x] 16-03-PLAN.md — History backend: list_recent/find_by_id on UiSpecTemplateRepository + GET /v1/genui/history(+/{id}) + genui.historyList/historyById tRPC (proxy + SpecRootSchema.safeParse degrade) (STDO-05/06; D-14/15/16/17)
 **Wave 2** *(depends on 16-01)*
 - [ ] 16-02-PLAN.md — Eval harness: pure rubric.py (valid-spec/composed/a11y + weights 0.30/0.30/0.25/0.15) + judge_adapter (escalation model, single structured call) + run_eval.py (drives real GenerateUiSpecUseCase via create_container over the golden set) + report/compare + recorded baseline (autonomous:false — live-Bedrock baseline checkpoint) (EVAL-03/05; D-04..13)
 - [ ] 16-04-PLAN.md — Page-Ideas tab: pure seedable pick-page-idea.ts (curveball 3x/Tier-B 2x/Tier-A 1x) + page-ideas-island (browse/filter + Surprise me) + studio-tabs lift (controlled Tabs + pendingIntent + History/Page-Ideas triggers) + sandbox initialIntent (autonomous:false — browser verify) (STDO-07, IDEA-01; D-20/21/06)
@@ -285,7 +285,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 1/5 | In Progress|  |
+| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 2/5 | In Progress|  |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
 | 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
