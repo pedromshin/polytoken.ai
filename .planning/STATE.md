@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: planning
-last_updated: "2026-06-27T04:22:34.729Z"
+last_updated: "2026-06-27T05:10:06.521Z"
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 4
   completed_plans: 0
   percent: 0
 ---
@@ -32,6 +32,35 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 > **Note (milestone v1.0):** complete — Phases 1–11 shipped. The v1.0 completion/cleanup lifecycle was
 > never formally run, so Phase directories `02–11` remain under `.planning/phases/` (not archived). The
 > Phase-11 and prior notes below are retained as history.
+
+## Phase 12 — Catalog, Spec Schema, and Trusted Interpreter — PLANNED 2026-06-27 (4 plans, 4 waves)
+
+- **Planned:** 4 plans authored (gsd-planner, opus) + verified (gsd-plan-checker **PASSED**, 0 blockers, iter 1).
+  Inputs: 12-CONTEXT.md (D-01..D-24) + 12-UI-SPEC.md + generated 12-PATTERNS.md (column-defs.ts north-star).
+  Research skipped (config research:false; `.planning/research/SPEC-RENDERER.md` is the primary doc the planner
+  read directly). Requirements coverage 15/15. Decision coverage 20/20 trackable (D-NN ids cited into plan
+  must_haves after the gate flagged prose-only references). Security gate ON: every plan carries a STRIDE
+  `<threat_model>`; Plan 03 makes the GR-01/SPEC-02 no-eval guarantee a grep-able acceptance criterion. Ready to execute.
+
+- **Goal:** vocabulary contract established + a hardcoded spec renders live `@nauta/ui` components in `/studio/preview`
+  via `createElement` with **zero eval** — first observable, demoable artifact before the generation layer (Phase 13).
+  New package `packages/genui` (catalog + schema + registry + renderer) consumed by a thin `/studio` route in `apps/web`.
+
+- **Plan waves (strict sequential chain — no false parallelism):**
+  W1 `12-01` `@nauta/genui` scaffold + `catalog/types.ts` (`SpecNodeType`/`ManifestEntry`) + full Zod discriminated-union
+  `spec-schema.ts` (v:z.literal(1) root, `.strict()` everywhere, z.lazy recursion w/ ZodType annotation, MAX_SPEC_NODES=200/
+  MAX_SPEC_DEPTH=8 bounds, leading `_plan` field — Bedrock-compatible per D-22) [SPEC-01/04/05, SEAM-01, COST-02] →
+  W2 `12-02` ~10 fully-real hand-authored catalog entries + `COMPONENT_REGISTRY` + SHA-256 `{catalogId,version}` content-hash +
+  **CTLG-04** manifest-example CI test [CTLG-01..05, COST-03, SEAM-03] →
+  W3 `12-03` recursive `renderNode`→`createElement` (zero eval) + per-node `NodeErrorBoundary` class + `useDeclaredState`
+  (useReducer, 5-mutation enum) + safe `resolveDataRef` dotted-path [SPEC-02/03/04/05] →
+  W4 `12-04` `SHOWCASE_SPEC` + `MALFORMED_SPEC` fixtures + `/studio/preview` render/JSON split (dynamic ssr:false island) +
+  live Studio sidebar nav (**autonomous:false** browser human-verify) [SPEC-06].
+
+- **Deferred (honored, no leakage):** LLM/Bedrock generation → Phase 13; exact cache + `ui_spec_templates` store → Phase 14;
+  full `/studio` browser/sandbox + Nauta-flavored real demo → Phase 15. This phase's demo is a generic showcase (D-17).
+
+- **Next:** `/gsd:execute-phase 12` (4 plans; W4 ends in a browser human-verify checkpoint).
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
@@ -94,7 +123,7 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** .planning/phases/12-catalog-spec-schema-and-trusted-interpreter/12-CONTEXT.md
+- **Resume file:** .planning/phases/12-catalog-spec-schema-and-trusted-interpreter/12-UI-SPEC.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
