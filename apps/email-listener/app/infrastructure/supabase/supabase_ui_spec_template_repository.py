@@ -18,6 +18,7 @@ keep the domain port lint-imports clean — matching the audit repo convention.
 from __future__ import annotations
 
 import asyncio
+import json as _json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -88,9 +89,16 @@ class SupabaseUiSpecTemplateRepository:
             if not rows:
                 return None
             row = rows[0]
+            # WR-02: PostgREST may return JSONB columns as either dict or str,
+            # depending on supabase-py version and server configuration. Handle
+            # both defensively: parse str with json.loads, pass dict as-is.
+            raw_spec = row["spec_json"]
+            if isinstance(raw_spec, str):
+                raw_spec = _json.loads(raw_spec)
+            spec_json: dict[str, Any] = raw_spec
             return CachedTemplate(
                 id=str(row["id"]),
-                spec_json=dict(row["spec_json"]),
+                spec_json=spec_json,
             )
         except Exception:
             logger.exception(
@@ -131,22 +139,49 @@ class SupabaseUiSpecTemplateRepository:
     async def increment_use_count(self, template_id: str) -> None:
         """Increment use_count for the given template row (D-03/D-12, best-effort).
 
-        Uses a Supabase RPC call to atomically increment use_count and set updated_at
-        on the database side.  The RPC function 'increment_ui_spec_template_use_count'
-        must exist in the Supabase project (see 14-01 migration).
+        CR-01: Implements a best-effort read-modify-write approach since
+        supabase-py does not support column arithmetic (SET use_count = use_count + 1)
+        in the .update() builder.
 
-        NOTE: This is a best-effort operation. A failure is swallowed + logged.
-        The use_count is a tracking metric, not a correctness requirement (D-17).
+        Steps:
+          1. SELECT use_count WHERE id = template_id (read)
+          2. UPDATE SET use_count = current + 1, updated_at = now (write)
 
-        Offloads the blocking call to asyncio.to_thread() (WR-06).
-        Swallows all exceptions and logs server-side (best-effort, D-17).
+        Under concurrent cache-hits the count may drift slightly — this is
+        acceptable because use_count is a tracking metric, not a correctness
+        requirement (D-17). Use strict atomicity only if exact counts are required.
+
+        NOTE: This is a best-effort operation. Any failure is swallowed + logged.
+        Offloads blocking supabase-py calls to asyncio.to_thread() (WR-06).
         """
         now_iso = datetime.now(UTC).isoformat()
         try:
+            # Step 1: read current use_count
+            select_resp = await asyncio.to_thread(
+                lambda: (
+                    self._client.table(_TABLE)
+                    .select("use_count")
+                    .eq("id", template_id)
+                    .limit(1)
+                    .execute()
+                )
+            )
+            rows: list[dict[str, Any]] = select_resp.data or []
+            if not rows:
+                # Row not found — nothing to increment; log and return gracefully.
+                logger.warning(
+                    "genui_use_count_increment_row_not_found",
+                    table=_TABLE,
+                    template_id=template_id,
+                )
+                return
+            current_use_count: int = int(rows[0].get("use_count") or 0)
+
+            # Step 2: write incremented value
             await asyncio.to_thread(
                 lambda: (
                     self._client.table(_TABLE)
-                    .update({"updated_at": now_iso})
+                    .update({"use_count": current_use_count + 1, "updated_at": now_iso})
                     .eq("id", template_id)
                     .execute()
                 )
