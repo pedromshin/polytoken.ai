@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 import jsonschema
@@ -167,6 +168,30 @@ def _validate_spec(candidate: dict[str, Any]) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# GeneratorResult — structured output from generate() (WR-03/04/05)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class GeneratorResult:
+    """Immutable result of a GenuiGeneratorAdapter.generate() call.
+
+    Exposes the actual spec, number of attempts made, and whether the
+    escalation model (Sonnet) was used on the final attempt — enabling the
+    use case to record accurate audit data (WR-03/04/05).
+    """
+
+    spec: dict[str, Any]
+    """The validated SpecRoot dict, or SAFE_FALLBACK_SPEC on total failure."""
+
+    attempts: int
+    """Number of repair-loop attempts made (1–3)."""
+
+    escalated: bool
+    """True when the Sonnet escalation model was used on attempt 3."""
+
+
+# ---------------------------------------------------------------------------
 # Adapter
 # ---------------------------------------------------------------------------
 
@@ -199,7 +224,7 @@ class GenuiGeneratorAdapter:
         extraction: QuarantineExtraction,
         registry_version: str,
         raw_prose_for_test_assertion: str | None = None,
-    ) -> dict[str, Any]:
+    ) -> GeneratorResult:
         """Generate a validated SpecRoot dict from the quarantine extraction.
 
         Args:
@@ -209,7 +234,9 @@ class GenuiGeneratorAdapter:
                 can verify the adapter does NOT include raw prose in its prompts.
 
         Returns:
-            A validated SpecRoot dict, or SAFE_FALLBACK_SPEC on total failure.
+            GeneratorResult with spec (validated SpecRoot or SAFE_FALLBACK_SPEC),
+            the number of attempts made, and whether Sonnet escalation occurred.
+            Never raises — returns a fallback GeneratorResult on any exception.
         """
         try:
             return await self._repair_loop(extraction=extraction)
@@ -220,14 +247,18 @@ class GenuiGeneratorAdapter:
                 registry_version=registry_version,
                 exc_info=True,
             )
-            return SAFE_FALLBACK_SPEC
+            return GeneratorResult(spec=SAFE_FALLBACK_SPEC, attempts=1, escalated=False)
 
     async def _repair_loop(
         self,
         *,
         extraction: QuarantineExtraction,
-    ) -> dict[str, Any]:
-        """Run up to 3 attempts; feed validation errors back for repair (D-06/GEN-02)."""
+    ) -> GeneratorResult:
+        """Run up to 3 attempts; feed validation errors back for repair (D-06/GEN-02).
+
+        Tracks the number of attempts made and whether the Sonnet escalation model
+        was used, so the caller can record accurate audit data (WR-03/04/05).
+        """
         spec_schema = load_spec_schema()
         emit_tool = _build_emit_tool(spec_schema)
         system_blocks = _build_system_blocks()
@@ -253,7 +284,8 @@ class GenuiGeneratorAdapter:
         _max_attempts = 3
         for attempt in range(_max_attempts):
             # Attempt 3 (index 2) escalates to Sonnet (D-05)
-            model_id = self._escalation_model_id if attempt == 2 else self._model_id
+            escalated_this_attempt = attempt == 2
+            model_id = self._escalation_model_id if escalated_this_attempt else self._model_id
 
             if TYPE_CHECKING:
                 emit_tool_typed: ToolParam = cast("ToolParam", emit_tool)
@@ -283,8 +315,12 @@ class GenuiGeneratorAdapter:
                 # Validate against schema + bounds (D-13, D-20)
                 error_msg = _validate_spec(candidate)
                 if error_msg is None:
-                    # Valid spec — return immediately
-                    return candidate
+                    # Valid spec — return with actual attempt count and escalation flag
+                    return GeneratorResult(
+                        spec=candidate,
+                        attempts=attempt + 1,
+                        escalated=escalated_this_attempt,
+                    )
 
             logger.warning(
                 "genui_generator_invalid_spec",
@@ -316,7 +352,7 @@ class GenuiGeneratorAdapter:
             "genui_generator_all_attempts_failed",
             max_attempts=_max_attempts,
         )
-        return SAFE_FALLBACK_SPEC
+        return GeneratorResult(spec=SAFE_FALLBACK_SPEC, attempts=_max_attempts, escalated=True)
 
     def _parse_response(self, response: Any) -> dict[str, Any] | None:
         """Extract the spec dict from the emit_ui_spec tool_use block.
