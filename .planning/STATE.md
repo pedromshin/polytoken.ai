@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T09:47:19.406Z"
+last_updated: "2026-06-27T12:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 50
+  total_plans: 11
+  completed_plans: 10
+  percent: 55
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 13 — generation-layer-and-guardrails
+**Current focus:** Phase 14 — exact-cache-and-template-store
 
 ## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
 
@@ -92,6 +92,11 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **13-04 ✓ EXECUTED 2026-06-27:** genui.generate tRPC procedure (D-08 SpecRootSchema re-validation + SAFE_FALLBACK_SPEC fallback on any failure, T-13-19 no detail leak) + buildActionRegistry (navigate/setState/query-refresh wired; mutate absent, SEAM-02; D-15 runtime href re-check; D-24 no-eval gate clean). 12 new tests; api-client 109/109 + genui 153/153 green; tsc clean both packages. Commits 3109eae, 01c5bb3, c0d8e90, ef334d2. See 13-04-SUMMARY.md.
 
 - **Decisions:** COMPONENT_REGISTRY must never cross Next.js server→client boundary (Zod classes unserializable); dynamic(ssr:false) island imports it directly via default prop. REGISTRY_VERSION consumed server-side only (Node.js crypto module, T-12-15). Migration 0021 staging+prod deploy is DEFERRED — apply before Phase 14 W1 executes (ui_spec_templates table depends on same migration chain). Repair loop is adapter-owned (not use-case-owned) — GenuiGeneratorAdapter handles Bedrock-specific retry logic; use case stays domain-pure and calls generate() once. Web boundary re-validation: SpecRootSchema.safeParse at tRPC layer (D-08); SAFE_FALLBACK_SPEC on any failure. mutate intentionally absent from ActionRegistry (SEAM-02); ALLOWED_MUTATIONS=[] keeps the branch inert in v1.1. api-client tsconfig needs jsx:preserve + dom.iterable because workspace symlink to genui pulls React/JSX transitively.
+
+## Phase 14 — Exact Cache and Template Store — IN PROGRESS 2026-06-27 (1/? plans executed)
+
+- **14-01 ✓ EXECUTED 2026-06-27:** Drizzle `ui_spec_templates` table (exact-match cache/template store, CACHE-01). 14 D-10 v1.1 columns: id, cache_key (UNIQUE), intent_text, data_shape_hash, registry_version, catalog_id, spec_json, validation_status (CHECK IN ('validated')), spec_node_count, spec_depth, use_count, importer_id, created_at, updated_at. No deferred v1.2 columns (embedding, binding_slots, promotion columns — scope fence enforced). Migration 0022_right_firedrake.sql: IF NOT EXISTS guards (T-14-04 idempotency), inline CHECK constraint (T-14-03 cache-poisoning second line), RESTRICTIVE RLS deny-all for anon + authenticated (T-14-01/T-14-02). Applied to LOCAL Supabase (port 54322) — staging+prod PENDING DEPLOY. Verified: 14 columns, CHECK rejection live, UNIQUE+btree indexes, RLS enabled, 2 deny-all policies. UNIQUE declared as uniqueIndex() (named idx_ui_spec_templates_cache_key) for explicit ON CONFLICT target in Plan 14-03. tsc clean. Commits b1886a8 (schema + barrel), ea9c335 (migration). See 14-01-SUMMARY.md.
+- **PENDING DEPLOY (from 14-01):** `npm run migrate:staging` / `migrate:prod` to apply 0022_right_firedrake to staging+prod before Plan 14-03 Supabase adapter code deploys.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 

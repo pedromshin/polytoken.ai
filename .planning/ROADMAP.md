@@ -104,9 +104,9 @@ Plans:
   1. A generated spec is persisted to the `ui_spec_templates` table (via Drizzle/Postgres) with its intent, registry version, validation status, and metadata immediately after a successful generation — forming the flywheel foundation for v1.2 semantic retrieval.
   2. A second identical intent (same canonical intent + data shape + registry version + context) returns the cached spec with live data re-bound and triggers zero Bedrock calls — observable via the audit log showing no new generation entry.
   3. When the registry version increments (e.g. on deploy), cache keys derived from the old version are automatically invalidated so stale specs are never served without re-generation.
-**Plans:** 3 plans (2 waves)
+**Plans:** 1/3 plans executed
 Plans:
-- [ ] 14-01-PLAN.md — ui_spec_templates Drizzle table + migration 0022 (unique cache_key, validation_status CHECK, RLS deny-all) [CACHE-01]
+- [x] 14-01-PLAN.md — ui_spec_templates Drizzle table + migration 0022 (unique cache_key, validation_status CHECK, RLS deny-all) [CACHE-01]
 - [ ] 14-02-PLAN.md — pure deterministic cache_key module (canonicalize_intent, value-free data_shape_hash, SHA-256 key) [CACHE-02, CACHE-04]
 - [ ] 14-03-PLAN.md — UiSpecTemplateRepository port+adapter + step-0 cache check / validated-only persist in GenerateUiSpecUseCase + DI + cache_hit signal [CACHE-01..04]
 
@@ -134,5 +134,5 @@ Plans:
 |-------|----------------|--------|-----------|
 | 12. Catalog, Spec Schema, and Trusted Interpreter | 4/4 | Complete   | 2026-06-27 |
 | 13. Generation Layer and Guardrails | 4/4 | Complete   | 2026-06-27 |
-| 14. Exact Cache and Template Store | 0/TBD | Not started | - |
+| 14. Exact Cache and Template Store | 1/3 | In Progress|  |
 | 15. Studio Surface | 0/TBD | Not started | - |
