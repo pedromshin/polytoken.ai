@@ -194,11 +194,11 @@ from the REAL corpus — not AI-invented — to drive exploration).
   3. The runner records a baseline score for the current engine and can be re-run to detect drift, so any later phase can show its lift/regression against that baseline.
   4. The History tab lists previous generations (intent, outcome, cache-hit, timestamp) from the persisted tables and opens an individual generation in a detail view that re-renders the stored spec via the shared production `SpecRenderer` beside its spec JSON.
   5. The Page-Ideas tab surfaces realistic curveball prompts seeded from the real corpus (e.g. the soundscape mixer, Bloomberg-terminal, 3D configurator, bill-splitter) and lets a developer send one straight into the generation sandbox.
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
-- [ ] 16-01-PLAN.md — Shared eval assets: golden-set.json (~36 curated subset) + page-ideas.json (all 76 real corpus prompts, provenance) + one Zod schema + CI provenance/coverage gate + ./eval export (EVAL-04, STDO-07, IDEA-01; D-01/02/03/19)
+- [x] 16-01-PLAN.md — Shared eval assets: golden-set.json (~36 curated subset) + page-ideas.json (all 76 real corpus prompts, provenance) + one Zod schema + CI provenance/coverage gate + ./eval export (EVAL-04, STDO-07, IDEA-01; D-01/02/03/19)
 - [ ] 16-03-PLAN.md — History backend: list_recent/find_by_id on UiSpecTemplateRepository + GET /v1/genui/history(+/{id}) + genui.historyList/historyById tRPC (proxy + SpecRootSchema.safeParse degrade) (STDO-05/06; D-14/15/16/17)
 **Wave 2** *(depends on 16-01)*
 - [ ] 16-02-PLAN.md — Eval harness: pure rubric.py (valid-spec/composed/a11y + weights 0.30/0.30/0.25/0.15) + judge_adapter (escalation model, single structured call) + run_eval.py (drives real GenerateUiSpecUseCase via create_container over the golden set) + report/compare + recorded baseline (autonomous:false — live-Bedrock baseline checkpoint) (EVAL-03/05; D-04..13)
@@ -285,7 +285,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 0/5 | Planned | - |
+| 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 1/5 | In Progress|  |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
 | 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
