@@ -59,7 +59,7 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 - [ ] **GEN-01**: Given an intent, the engine calls Bedrock (Haiku 4.5) via `streamText` + `Output.object` to emit a spec constrained to the registry
 - [ ] **GEN-02**: Model output is validated with Zod `safeParse`; invalid output triggers a bounded repair loop (≤3 attempts) that feeds the validation error back
-- [ ] **GEN-03**: On repeated failure the engine returns a safe fallback spec — never raw model output
+- [x] **GEN-03**: On repeated failure the engine returns a safe fallback spec — never raw model output
 - [ ] **GEN-04**: Generation streams partial specs for progressive preview
 - [ ] **GEN-05**: Every generation (intent, model, tokens, outcome) is recorded to an audit log
 - [ ] **GEN-06**: Generation can escalate to Sonnet 4.6 when the runtime model cannot produce a valid spec
@@ -67,11 +67,11 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 ### Safety & Guardrails (SAFE)
 
 - [ ] **SAFE-01**: Untrusted content (e.g. email) is processed by a separate quarantine/extraction model with a constrained schema; raw prose never reaches the generator
-- [ ] **SAFE-02**: The spec schema enforces a component allowlist (only registry keys are valid)
-- [ ] **SAFE-03**: Data bindings are restricted to an allowlist of tRPC procedures; arbitrary data sources fail validation
-- [ ] **SAFE-04**: Actions are restricted to an allowlist (navigate-relative-only / allowlisted mutate / setState); `javascript:` and external URLs fail validation
+- [x] **SAFE-02**: The spec schema enforces a component allowlist (only registry keys are valid)
+- [x] **SAFE-03**: Data bindings are restricted to an allowlist of tRPC procedures; arbitrary data sources fail validation
+- [x] **SAFE-04**: Actions are restricted to an allowlist (navigate-relative-only / allowlisted mutate / setState); `javascript:` and external URLs fail validation
 - [ ] **SAFE-05**: Every Bedrock call sets explicit `max_tokens` and an `AbortController` timeout (application-level circuit breaker)
-- [ ] **SAFE-06**: Spec tree depth and node count are bounded to prevent resource exhaustion
+- [x] **SAFE-06**: Spec tree depth and node count are bounded to prevent resource exhaustion
 
 ### Exact Cache & Template Store (CACHE)
 
@@ -89,7 +89,7 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 ### Cost & Token Efficiency (COST)
 
-- [ ] **COST-01**: The catalog/system prompt is cached via Bedrock prompt caching (`cachePoint`); per-request input carries only the intent + data-shape
+- [x] **COST-01**: The catalog/system prompt is cached via Bedrock prompt caching (`cachePoint`); per-request input carries only the intent + data-shape
 - [x] **COST-02**: The spec JSON schema is kept stable (no recursion / external `$ref`) so Bedrock reuses its compiled grammar across requests, raising first-pass validity and cutting repair loops
 - [x] **COST-03**: The catalog is encoded compactly for the model, with candidate-component subsetting once the catalog exceeds a size threshold (send relevant components, not all of them)
 
@@ -98,7 +98,7 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 These are *design constraints* on the above, not extra build — they keep v1.2 (interactivity, API-write, tenant catalogs, the flywheel) a drop-in rather than a refactor:
 
 - [x] **SEAM-01**: The spec envelope carries a `v` (version) field so the node grammar can grow without breaking cached specs
-- [ ] **SEAM-02**: The binding/action layer is shaped for both **queries and mutations** from day one (v1.1 wires queries only; the mutation allowlist path exists but is empty)
+- [x] **SEAM-02**: The binding/action layer is shaped for both **queries and mutations** from day one (v1.1 wires queries only; the mutation allowlist path exists but is empty)
 - [x] **SEAM-03**: The catalog + cache key are **per-catalog-id capable** (one global catalog in v1.1; tenant/importer-scoped catalogs later)
 
 ## Future Requirements (v1.2 — deferred this milestone)
@@ -148,10 +148,12 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 | SEAM-03 | Phase 12 | Complete |
 | COST-02 | Phase 12 | Complete |
 | COST-03 | Phase 12 | Complete |
-| GEN-01..06 | Phase 13 | Pending |
-| SAFE-01..06 | Phase 13 | Pending |
-| COST-01 | Phase 13 | Pending |
-| SEAM-02 | Phase 13 | Pending |
+| GEN-03 | Phase 13 plan 01 | Complete (SAFE_FALLBACK_SPEC) |
+| GEN-01,02,04,05,06 | Phase 13 plans 02-04 | Pending |
+| SAFE-02,03,04,06 | Phase 13 plan 01 | Complete (allowlists at Zod layer) |
+| SAFE-01,05 | Phase 13 plans 02-04 | Pending |
+| COST-01 | Phase 13 plan 01 | Complete (genui-prompt.json cache payload) |
+| SEAM-02 | Phase 13 plan 01 | Complete (ALLOWED_MUTATIONS empty seam) |
 | CACHE-01..04 | Phase 14 | Pending |
 | STDO-01..04 | Phase 15 | Pending |
 

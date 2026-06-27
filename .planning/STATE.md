@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T06:39:58.175Z"
+last_updated: "2026-06-27T12:00:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
-  percent: 50
+  total_plans: 8
+  completed_plans: 6
+  percent: 31
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 12 — catalog-spec-schema-and-trusted-interpreter
+**Current focus:** Phase 13 — generation-layer-and-guardrails
 
 ## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
 
@@ -73,6 +73,14 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **12-04 ✓ EXECUTED 2026-06-27:** SHOWCASE_SPEC (all 12 node types + state/action/dataRef, D-17) + MALFORMED_SPEC (one broken node among valid siblings, D-18) exported from @nauta/genui/demo; 25 TDD tests (RED 859da3a, GREEN 350632e) validate schema conformance, node-type coverage, state/action presence, and dataRef usage. /studio/preview server component (page.tsx) + dynamic(ssr:false) SpecRendererIsland (spec-renderer-island.tsx) — 55/45 ResizablePanelGroup render+JSON split (D-19/D-20). REGISTRY_VERSION server-side only (T-12-15). Studio live sidebar nav item (FlaskConical, /studio/preview, LIVE_NAV_ITEMS — UI-SPEC §7). Auto-fixed: (1) removed aria-label/aria-hidden/label from strict Zod schemas; (2) removed COMPONENT_REGISTRY from server→client prop (Next.js serialization boundary). 85/85 tests green; tsc clean; web:build green (/studio/preview static 3.92 kB). Browser visual verification deferred (autonomous overnight run, user asleep — see 12-04-SUMMARY.md). Commits 859da3a, 350632e, a06f124, 450e092. See 12-04-SUMMARY.md.
 
 - **Phase 12 ✓ ALL 4 PLANS EXECUTED 2026-06-27.** Pending: phase-level verification + browser visual check (12-04 Task 4). Next phase: 13 (LLM generation layer).
+
+## Phase 13 — Generation Layer and Guardrails — IN PROGRESS 2026-06-27 (4 plans, 3 waves)
+
+- **Planned:** 4 plans (gsd-planner, 13-CONTEXT.md). Inputs: 13-CONTEXT.md (D-01..D-24) + generated 13-PATTERNS.md. Research: .planning/research/SUMMARY.md + 6 research docs (BEDROCK-GENERATION, BEDROCK-PROMPT-CACHING, etc.). Security gate ON: every plan carries a STRIDE threat_model. Requirements: 14/14 reqs (GEN-01..06, SAFE-01..06, COST-01, SEAM-02). Decisions: 26/26 tracked. Ready to execute Waves 2+3.
+
+- **Plan waves:** W1 `13-01` TS contract layer (parallel with 13-02) → W2 `13-03` Python quarantine+generator+repair (depends on 13-01+13-02) → W3 `13-04` web proxy+ActionRegistry (depends on 13-01+13-03). W1 also has `13-02` audit table running in parallel.
+
+- **13-01 ✓ EXECUTED 2026-06-27:** @nauta/genui TypeScript contract layer. Three allowlists at Zod schema level: RegisteredTypeSchema (D-12, component-type enum), AllowedProcedureSchema (D-13, 9 tRPC queries), ActionSchema (D-14, navigate/setState/mutate discriminated-union with relative-href enforcement + no-UUID params). ALLOWED_MUTATIONS=[]=const seam (SEAM-02, z.never() mutate branch). DataBindingSchema (D-13a UUID rejection via RFC-4122 regex .refine()), SAFE_FALLBACK_SPEC (D-07, Object.freeze alert spec, GEN-03). ButtonNodeSchema extended with onClick:ActionSchema.optional(); SpecRootSchema extended with bindings:z.record(DataBindingSchema).optional(). Bedrock artifact emit: spec.schema.json (22x additionalProperties:false, no external $ref) + genui-prompt.json (compact catalog + 9 allowedProcedures + REGISTRY_VERSION + actionRules). CI drift gate (TDD): 12 artifact freshness tests + 40 allowlist unit tests; 148/148 tests green; tsc clean (genui). Commits 56fedca (Task 1), b511caa (Task 2 RED), 37da20a (Task 2 GREEN). See 13-01-SUMMARY.md.
 
 - **Decisions:** COMPONENT_REGISTRY must never cross Next.js server→client boundary (Zod classes unserializable); dynamic(ssr:false) island imports it directly via default prop. REGISTRY_VERSION consumed server-side only (Node.js crypto module, T-12-15).
 
