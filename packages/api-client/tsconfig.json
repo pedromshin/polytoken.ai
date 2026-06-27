@@ -13,7 +13,9 @@
     "rootDir": "./src",
     "baseUrl": ".",
     "paths": {
-      "~/*": ["./src/*"]
+      "~/*": ["./src/*"],
+      "@nauta/genui": ["../genui/src/index.ts"],
+      "@nauta/genui/*": ["../genui/src/*"]
     }
   },
   "include": ["src"],
