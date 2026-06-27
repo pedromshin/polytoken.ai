@@ -46,6 +46,7 @@ import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import { api } from "~/trpc/react";
 import { buildActionRegistry } from "@nauta/genui/renderer";
+import type { SpecRoot } from "@nauta/genui/schema";
 
 import { SpecRendererIsland } from "./spec-renderer-island";
 import { GenerationStateChrome } from "./generation-state-chrome";
@@ -57,7 +58,7 @@ import { GenerationStateChrome } from "./generation-state-chrome";
 /** Tracks generation result across refetch cycles. */
 interface GenerationResult {
   readonly outcome: "ok" | "fallback" | "escalated";
-  readonly spec: unknown;
+  readonly spec: SpecRoot;
   readonly cacheHit: boolean;
   readonly reason?: string;
 }
@@ -80,6 +81,9 @@ export function GenerationSandboxIsland(): React.ReactElement {
   const [lastResult, setLastResult] = useState<GenerationResult | undefined>(
     undefined,
   );
+
+  // WR-01: transport/query error state — set when refetch completes with no data
+  const [lastError, setLastError] = useState<string | undefined>(undefined);
 
   // Router for buildActionRegistry (navigate handler)
   const router = useRouter();
@@ -107,14 +111,20 @@ export function GenerationSandboxIsland(): React.ReactElement {
   const handleGenerate = useCallback(async (): Promise<void> => {
     const trimmed = intent.trim();
     if (trimmed.length === 0) return;
+    // WR-01: clear any prior error before each attempt
+    setLastError(undefined);
     const result = await q.refetch();
     if (result.data !== undefined) {
+      setLastError(undefined);
       setLastResult({
         outcome: result.data.outcome,
         spec: result.data.spec,
         cacheHit: result.data.cacheHit,
         ...(result.data.reason !== undefined && { reason: result.data.reason }),
       });
+    } else if (result.error !== null && result.error !== undefined) {
+      // WR-01: surface transport/query error — no data came back at all
+      setLastError("Generation failed. Please try again.");
     }
   }, [intent, q]);
 
@@ -132,9 +142,10 @@ export function GenerationSandboxIsland(): React.ReactElement {
   // Whether to show the chrome row (isPending or a result exists)
   const showChrome = q.isFetching || lastResult !== undefined;
 
-  // The spec to render: last successful data from the query, or undefined
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const specToRender = (q.data?.spec ?? lastResult?.spec) as any;
+  // The spec to render: last successful data from the query, or undefined.
+  // WR-02: typed as SpecRoot — q.data.spec is SpecRoot (tRPC output validated),
+  // lastResult.spec is SpecRoot (interface field typed above). No cast needed.
+  const specToRender: SpecRoot | undefined = q.data?.spec ?? lastResult?.spec;
 
   // Chrome props derived from live query state + lastResult
   const chromeProps = {
@@ -181,8 +192,15 @@ export function GenerationSandboxIsland(): React.ReactElement {
         </Button>
       </div>
 
+      {/* WR-01: transport/query error alert — shown when generation fails with no spec */}
+      {!showChrome && lastError !== undefined && (
+        <div role="alert" className="px-4 pt-2 text-sm text-destructive">
+          {lastError}
+        </div>
+      )}
+
       {/* Empty state — before any generation (§8) */}
-      {!showChrome && (
+      {!showChrome && lastError === undefined && (
         <div
           className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
           aria-live="polite"
