@@ -1,10 +1,11 @@
 ---
 phase: 12
 phase_name: catalog-spec-schema-and-trusted-interpreter
-status: draft
+status: approved
 design_system: shadcn (existing — detected via packages/ui + globals.css tokens)
 registry: shadcn official only
 generated: "2026-06-27"
+reviewed_at: "2026-06-27"
 ---
 
 # UI-SPEC — Phase 12: Catalog, Spec Schema, and Trusted Interpreter
