@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T12:00:00.000Z"
+last_updated: "2026-06-27T11:30:49.850Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 11
   completed_plans: 10
-  percent: 55
+  percent: 50
 ---
 
 # State
@@ -93,10 +93,11 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 
 - **Decisions:** COMPONENT_REGISTRY must never cross Next.js server→client boundary (Zod classes unserializable); dynamic(ssr:false) island imports it directly via default prop. REGISTRY_VERSION consumed server-side only (Node.js crypto module, T-12-15). Migration 0021 staging+prod deploy is DEFERRED — apply before Phase 14 W1 executes (ui_spec_templates table depends on same migration chain). Repair loop is adapter-owned (not use-case-owned) — GenuiGeneratorAdapter handles Bedrock-specific retry logic; use case stays domain-pure and calls generate() once. Web boundary re-validation: SpecRootSchema.safeParse at tRPC layer (D-08); SAFE_FALLBACK_SPEC on any failure. mutate intentionally absent from ActionRegistry (SEAM-02); ALLOWED_MUTATIONS=[] keeps the branch inert in v1.1. api-client tsconfig needs jsx:preserve + dom.iterable because workspace symlink to genui pulls React/JSX transitively.
 
-## Phase 14 — Exact Cache and Template Store — IN PROGRESS 2026-06-27 (1/? plans executed)
+## Phase 14 — Exact Cache and Template Store — IN PROGRESS 2026-06-27 (2/? plans executed)
 
 - **14-01 ✓ EXECUTED 2026-06-27:** Drizzle `ui_spec_templates` table (exact-match cache/template store, CACHE-01). 14 D-10 v1.1 columns: id, cache_key (UNIQUE), intent_text, data_shape_hash, registry_version, catalog_id, spec_json, validation_status (CHECK IN ('validated')), spec_node_count, spec_depth, use_count, importer_id, created_at, updated_at. No deferred v1.2 columns (embedding, binding_slots, promotion columns — scope fence enforced). Migration 0022_right_firedrake.sql: IF NOT EXISTS guards (T-14-04 idempotency), inline CHECK constraint (T-14-03 cache-poisoning second line), RESTRICTIVE RLS deny-all for anon + authenticated (T-14-01/T-14-02). Applied to LOCAL Supabase (port 54322) — staging+prod PENDING DEPLOY. Verified: 14 columns, CHECK rejection live, UNIQUE+btree indexes, RLS enabled, 2 deny-all policies. UNIQUE declared as uniqueIndex() (named idx_ui_spec_templates_cache_key) for explicit ON CONFLICT target in Plan 14-03. tsc clean. Commits b1886a8 (schema + barrel), ea9c335 (migration). See 14-01-SUMMARY.md.
 - **PENDING DEPLOY (from 14-01):** `npm run migrate:staging` / `migrate:prod` to apply 0022_right_firedrake to staging+prod before Plan 14-03 Supabase adapter code deploys.
+- **14-02 ✓ EXECUTED 2026-06-27:** Pure, deterministic cache-key module (CACHE-02/CACHE-04). `app/application/use_cases/cache_key.py`: three stdlib-only (hashlib/json/re/unicodedata) named exports — `canonicalize_intent` (NFC+strip+lower+collapse whitespace, D-05), `compute_data_shape_hash` (SHA-256 over value-free recursive shape: sorted keys+type-names, depth-cap=8, "text"/"∅" sentinels, D-06), `compute_cache_key` (SHA-256 over 0x1f-delimited canonical_intent‖data_shape_hash‖registry_version‖context_descriptor, D-04/D-08). Keyword-only signature, context_descriptor=f"{importer_id or '__system__'}|{catalog_id}". TDD: 15/15 tests green (RED 733dcc8 → GREEN 8571fd5). Mitigates T-14-05 (cross-tenant isolation), T-14-06 (delimiter anti-collision), T-14-07 (value-free hash), T-14-08 (registry_version invalidation). ruff+mypy clean; 0 infra imports. See 14-02-SUMMARY.md.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 

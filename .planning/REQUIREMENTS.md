@@ -76,9 +76,9 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 ### Exact Cache & Template Store (CACHE)
 
 - [x] **CACHE-01**: A persisted template store (Drizzle/Postgres) holds every generated spec with metadata (intent, registry version, validation status)
-- [ ] **CACHE-02**: A SHA-256 key over (canonical intent + data-shape + registry version + context) yields exact-match cache hits that skip the LLM
+- [x] **CACHE-02**: A SHA-256 key over (canonical intent + data-shape + registry version + context) yields exact-match cache hits that skip the LLM
 - [ ] **CACHE-03**: A cache hit re-renders the stored spec with live data re-bound and no Bedrock call
-- [ ] **CACHE-04**: A registry-version change invalidates affected cache keys automatically (no manual flush)
+- [x] **CACHE-04**: A registry-version change invalidates affected cache keys automatically (no manual flush)
 
 ### Studio Surface (STDO)
 
