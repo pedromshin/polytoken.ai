@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T05:35:38.701Z"
+last_updated: "2026-06-27T05:50:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 3
   percent: 0
 ---
 
@@ -62,7 +62,9 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 
 - **12-01 ✓ EXECUTED 2026-06-27:** @nauta/genui workspace package scaffold + catalog/types.ts (SpecNodeType 12-key union, ManifestEntry<TProps> readonly interface, ComponentRegistry) + schema/spec-schema.ts (full 12-node ZodDiscriminatedUnion, z.lazy proxy recursion, ChildrenSchema:z.ZodType<SpecNode[]> explicit annotation, StateDeclarationSchema 5-mutation restricted enum, SpecRootSchema v:z.literal(1) + _plan + .strict() + MAX_SPEC_NODES=200/MAX_SPEC_DEPTH=8 bound refinements, countNodes/specDepth walkers). Zod v3 only (Bedrock-compatible, D-09). All z.object() .strict() (D-22/COST-02). tsc clean. Commits e65a23c, 1d84766, bef6dbc. See 12-01-SUMMARY.md.
 
-- **Next:** 12-02 catalog entries + COMPONENT_REGISTRY + SHA-256 content-hash + CTLG-04 manifest CI test.
+- **12-02 ✓ EXECUTED 2026-06-27:** 10-entry depth-first NAUTA_CATALOG manifest (manifest.ts) with fully-real React components using React.createElement; a11y props enforced as non-optional (button/aria-label, alert/title, table/caption, key-value-list/label, separator/aria-hidden:literal(true)); all propsSchemas .strict(); COMPONENT_REGISTRY + UnknownComponentPlaceholder (role=alert fallback); computeRegistryHash SHA-256 content-hash + REGISTRY_VERSION {catalogId:"global",version:<64-hex>}; compactEntry/toCompactCatalog SEAM for COST-03 subsetting; vitest jsdom config + 30-test CTLG-04 CI gate (10 example tests + 6 a11y negative + 7 allowlist + 7 hash determinism). tsc clean, 30/30 tests green. Commits 91ab872, 87abd55, df7fecd. See 12-02-SUMMARY.md.
+
+- **Next:** 12-03 recursive renderNode→createElement (zero eval) + NodeErrorBoundary + useDeclaredState + resolveDataRef.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 

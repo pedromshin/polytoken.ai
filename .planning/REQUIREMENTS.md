@@ -40,11 +40,11 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 ### Component Catalog & Registry (CTLG)
 
-- [ ] **CTLG-01**: A machine-readable manifest describes each whitelisted `@nauta/ui` component with a Zod prop schema, slot/children rules, and which props are LLM-settable vs locked
-- [ ] **CTLG-02**: Manifest entries mark accessibility props (label/caption/alt) as required so a spec omitting them fails validation
-- [ ] **CTLG-03**: A static registry maps each spec type-key to its real React component; only registered components can be rendered
-- [ ] **CTLG-04**: Each manifest entry carries an example that is CI-verified to parse against its own prop schema
-- [ ] **CTLG-05**: The registry exposes a version identifier consumed downstream for cache invalidation
+- [x] **CTLG-01**: A machine-readable manifest describes each whitelisted `@nauta/ui` component with a Zod prop schema, slot/children rules, and which props are LLM-settable vs locked
+- [x] **CTLG-02**: Manifest entries mark accessibility props (label/caption/alt) as required so a spec omitting them fails validation
+- [x] **CTLG-03**: A static registry maps each spec type-key to its real React component; only registered components can be rendered
+- [x] **CTLG-04**: Each manifest entry carries an example that is CI-verified to parse against its own prop schema
+- [x] **CTLG-05**: The registry exposes a version identifier consumed downstream for cache invalidation
 
 ### Spec Schema & Interpreter (SPEC)
 
@@ -91,7 +91,7 @@ catalog — safely (no eval, no injection) and reusably (cache good specs). Rese
 
 - [ ] **COST-01**: The catalog/system prompt is cached via Bedrock prompt caching (`cachePoint`); per-request input carries only the intent + data-shape
 - [x] **COST-02**: The spec JSON schema is kept stable (no recursion / external `$ref`) so Bedrock reuses its compiled grammar across requests, raising first-pass validity and cutting repair loops
-- [ ] **COST-03**: The catalog is encoded compactly for the model, with candidate-component subsetting once the catalog exceeds a size threshold (send relevant components, not all of them)
+- [x] **COST-03**: The catalog is encoded compactly for the model, with candidate-component subsetting once the catalog exceeds a size threshold (send relevant components, not all of them)
 
 ### Future-proofing seams (build empty, document — v1.1)
 
@@ -99,7 +99,7 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 
 - [x] **SEAM-01**: The spec envelope carries a `v` (version) field so the node grammar can grow without breaking cached specs
 - [ ] **SEAM-02**: The binding/action layer is shaped for both **queries and mutations** from day one (v1.1 wires queries only; the mutation allowlist path exists but is empty)
-- [ ] **SEAM-03**: The catalog + cache key are **per-catalog-id capable** (one global catalog in v1.1; tenant/importer-scoped catalogs later)
+- [x] **SEAM-03**: The catalog + cache key are **per-catalog-id capable** (one global catalog in v1.1; tenant/importer-scoped catalogs later)
 
 ## Future Requirements (v1.2 — deferred this milestone)
 
@@ -145,9 +145,9 @@ These are *design constraints* on the above, not extra build — they keep v1.2 
 | CTLG-01..05 | Phase 12 | Pending |
 | SPEC-01..06 | Phase 12 | Pending |
 | SEAM-01 | Phase 12 | Complete |
-| SEAM-03 | Phase 12 | Pending |
+| SEAM-03 | Phase 12 | Complete |
 | COST-02 | Phase 12 | Complete |
-| COST-03 | Phase 12 | Pending |
+| COST-03 | Phase 12 | Complete |
 | GEN-01..06 | Phase 13 | Pending |
 | SAFE-01..06 | Phase 13 | Pending |
 | COST-01 | Phase 13 | Pending |

@@ -52,13 +52,13 @@ COST-04) are explicitly out of this milestone.
   3. One malformed node in a spec does not crash the surface — the error boundary isolates it and sibling nodes continue rendering.
   4. Declared state primitives in the spec (name / type / initial / actions) are materialized into a store by the interpreter, and dotted-path data references resolve via safe lookup against the provided scope — no executable code in the spec.
   5. The registry exposes a version identifier, and the spec envelope carries a `v` field and a per-catalog-id capability so downstream cache keys and future tenant catalogs slot in without schema changes.
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 **Wave 1**
 - [x] 12-01-PLAN.md — Foundation: @nauta/genui package scaffold + catalog/types.ts (SpecNodeType, ManifestEntry) + schema/spec-schema.ts (v:1 discriminated-union tree, state primitives, dataRef strings, .strict() + MAX_SPEC_NODES/DEPTH bounds) (SPEC-01/04/05, SEAM-01, COST-02; D-08..12/22/24)
 **Wave 2** *(depends on 12-01)*
-- [ ] 12-02-PLAN.md — Catalog + registry: NAUTA_CATALOG ~10 real entries (strict propsSchema, a11y-required, locked props) + COMPONENT_REGISTRY + UnknownComponentPlaceholder + SHA-256 {catalogId,version} REGISTRY_VERSION + [CTLG-04] manifest-example CI test (CTLG-01..05, COST-03, SEAM-03; D-01..07/21/23)
+- [x] 12-02-PLAN.md — Catalog + registry: NAUTA_CATALOG ~10 real entries (strict propsSchema, a11y-required, locked props) + COMPONENT_REGISTRY + UnknownComponentPlaceholder + SHA-256 {catalogId,version} REGISTRY_VERSION + [CTLG-04] manifest-example CI test (CTLG-01..05, COST-03, SEAM-03; D-01..07/21/23)
 **Wave 3** *(depends on 12-01, 12-02)*
 - [ ] 12-03-PLAN.md — Trusted interpreter: recursive renderNode → createElement (zero eval) + per-node NodeErrorBoundary + useDeclaredState (useReducer, 5-mutation enum) + resolveDataRef + conditional/list control-flow + SpecRenderer + empty ActionRegistry seam (SPEC-02/03/04/05; D-13..16)
 **Wave 4** *(depends on 12-01, 12-02, 12-03; autonomous:false — human-verify)*
@@ -117,7 +117,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 12. Catalog, Spec Schema, and Trusted Interpreter | 1/4 | In Progress|  |
+| 12. Catalog, Spec Schema, and Trusted Interpreter | 2/4 | In Progress|  |
 | 13. Generation Layer and Guardrails | 0/TBD | Not started | - |
 | 14. Exact Cache and Template Store | 0/TBD | Not started | - |
 | 15. Studio Surface | 0/TBD | Not started | - |
