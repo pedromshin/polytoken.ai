@@ -100,8 +100,10 @@ def test_generate_missing_intent_returns_422(client: TestClient) -> None:
 
 
 @pytest.mark.unit()
-def test_generate_missing_raw_content_returns_422(client: TestClient) -> None:
-    """422 when 'raw_content' field is missing from the request body."""
+def test_generate_missing_raw_content_is_accepted_intent_only(
+    client: TestClient, mock_use_case: MagicMock
+) -> None:
+    """raw_content is optional (default=""); omitting it enables intent-only generation (CR-01)."""
     resp = client.post(
         "/v1/genui/generate",
         json={
@@ -109,7 +111,16 @@ def test_generate_missing_raw_content_returns_422(client: TestClient) -> None:
             "registry_version": "v1",
         },
     )
-    assert resp.status_code == 422
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["success"] is True
+    # The use case is called with raw_content="" (the default)
+    mock_use_case.execute.assert_called_once_with(
+        intent="Show summary",
+        raw_content="",
+        registry_version="v1",
+        importer_id=None,
+    )
 
 
 @pytest.mark.unit()

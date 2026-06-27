@@ -16,9 +16,9 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase, GenerateUiSpecResult
+from app.application.use_cases.generate_ui_spec import GenerateUiSpecResult, GenerateUiSpecUseCase
 from app.domain.ports.generation_audit_repository import GenerationEvent
-from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC
+from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC, GeneratorResult
 from app.infrastructure.llm.genui_quarantine_adapter import QuarantineExtraction
 
 
@@ -58,7 +58,9 @@ def mock_quarantine() -> MagicMock:
 @pytest.fixture
 def mock_generator() -> MagicMock:
     generator = MagicMock()
-    generator.generate = AsyncMock(return_value=_valid_spec())
+    generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
+    )
     return generator
 
 
@@ -135,7 +137,9 @@ async def test_execute_returns_spec_and_metadata(
 ) -> None:
     """execute() returns GenerateUiSpecResult with the spec dict."""
     expected_spec = _valid_spec()
-    mock_generator.generate = AsyncMock(return_value=expected_spec)
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=expected_spec, attempts=1, escalated=False)
+    )
 
     result = await use_case.execute(
         intent="Test",
@@ -190,7 +194,9 @@ async def test_audit_event_outcome_ok_on_valid_spec(
     mock_generator: MagicMock,
 ) -> None:
     """GenerationEvent.outcome must be 'ok' when generator returns a valid spec."""
-    mock_generator.generate = AsyncMock(return_value=_valid_spec())
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
+    )
 
     await use_case.execute(
         intent="Show details",
@@ -209,7 +215,9 @@ async def test_audit_event_outcome_fallback_when_generator_returns_fallback(
     mock_generator: MagicMock,
 ) -> None:
     """GenerationEvent.outcome must be 'fallback' when SAFE_FALLBACK_SPEC is returned."""
-    mock_generator.generate = AsyncMock(return_value=SAFE_FALLBACK_SPEC)
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=SAFE_FALLBACK_SPEC, attempts=3, escalated=True)
+    )
 
     await use_case.execute(
         intent="Show details",
@@ -249,7 +257,9 @@ async def test_execute_returns_fallback_spec_when_quarantine_returns_unknown(
     """When quarantine returns entity_type='unknown', generator still runs (best-effort)."""
     empty_extraction = QuarantineExtraction()  # entity_type='unknown', confidence='low'
     mock_quarantine.extract = AsyncMock(return_value=empty_extraction)
-    mock_generator.generate = AsyncMock(return_value=SAFE_FALLBACK_SPEC)
+    mock_generator.generate = AsyncMock(
+        return_value=GeneratorResult(spec=SAFE_FALLBACK_SPEC, attempts=3, escalated=True)
+    )
 
     result = await use_case.execute(
         intent="Unknown intent",

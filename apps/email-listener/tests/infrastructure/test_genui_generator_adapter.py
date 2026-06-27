@@ -227,8 +227,8 @@ async def test_happy_path_returns_valid_spec(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result["v"] == 1
-    assert result["root"]["type"] == "alert"
+    assert result.spec["v"] == 1
+    assert result.spec["root"]["type"] == "alert"
     assert mock_bedrock_client.messages.create.call_count == 1
 
 
@@ -250,7 +250,9 @@ async def test_invalid_spec_retries_up_to_3(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result == SAFE_FALLBACK_SPEC
+    assert result.spec == SAFE_FALLBACK_SPEC
+    assert result.attempts == 3
+    assert result.escalated is True
     assert mock_bedrock_client.messages.create.call_count == 3, "Must attempt exactly 3 times"
 
 
@@ -275,8 +277,8 @@ async def test_repair_loop_succeeds_on_second_attempt(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result["v"] == 1
-    assert result["root"]["type"] == "alert"
+    assert result.spec["v"] == 1
+    assert result.spec["root"]["type"] == "alert"
     assert mock_bedrock_client.messages.create.call_count == 2
 
 
@@ -366,7 +368,8 @@ async def test_spec_exceeding_max_nodes_triggers_fallback(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result == SAFE_FALLBACK_SPEC
+    assert result.spec == SAFE_FALLBACK_SPEC
+    assert result.escalated is True
 
 
 # ---------------------------------------------------------------------------
@@ -385,7 +388,8 @@ async def test_timeout_returns_fallback(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result == SAFE_FALLBACK_SPEC
+    assert result.spec == SAFE_FALLBACK_SPEC
+    assert result.escalated is False
 
 
 @pytest.mark.unit()
@@ -399,7 +403,8 @@ async def test_exception_returns_fallback(
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
-    assert result == SAFE_FALLBACK_SPEC
+    assert result.spec == SAFE_FALLBACK_SPEC
+    assert result.escalated is False
 
 
 # ---------------------------------------------------------------------------
