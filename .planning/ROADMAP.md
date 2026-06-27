@@ -38,7 +38,7 @@ COST-04) are explicitly out of this milestone.
  (completed 2026-06-27)
 - [x] **Phase 14: Exact Cache and Template Store** — SHA-256 exact-match cache backed by Drizzle/Postgres, with auto-invalidation on registry version change
  (completed 2026-06-27)
-- [ ] **Phase 15: Studio Surface** — `/studio` route: catalog browser, generation sandbox, spec inspector, and generation-state indicators
+- [x] **Phase 15: Studio Surface** — `/studio` route: catalog browser, generation sandbox, spec inspector, and generation-state indicators (completed 2026-06-27)
 
 ## Phase Details
 
@@ -118,21 +118,21 @@ Plans:
 **Goal:** A developer can open `/studio`, browse the full component catalog, enter a natural-language intent, see the generated UI rendered live in a preview sandbox alongside the underlying spec JSON, and observe generation states (streaming, validation failure + fallback, cache-hit vs cold) — all in one surface.
 **Depends on:** Phase 14 (full spine must be wired: catalog → generation → cache → render)
 **Requirements:** STDO-01, STDO-02, STDO-03, STDO-04
-**Status:** Planned (3 plans, 3 waves — 2026-06-27; W1 additive signal contract [D-05] + pure studio helpers → W2 /studio shell + catalog browser + shared renderer island → W3 generation sandbox + four-state chrome + browser human-verify. Reuse-only demo surface: no new generation/cache/renderer logic; same production SpecRenderer + COMPONENT_REGISTRY + NAUTA_CATALOG; Phase 12 design system verbatim, no new tokens. Security gate ON: every plan carries a STRIDE <threat_model> [reuse-not-stub / no-new-sink / no-secret-leak as verifiable criteria]. 4/4 STDO reqs + D-01..D-15 covered.)
+**Status:** Complete (3 plans, 3 waves — 2026-06-27; W1 additive signal contract [D-05] + pure studio helpers → W2 /studio shell + catalog browser + shared renderer island → W3 generation sandbox + four-state chrome. Reuse-only demo surface: no new generation/cache/renderer logic; same production SpecRenderer + COMPONENT_REGISTRY + NAUTA_CATALOG; Phase 12 design system verbatim, no new tokens. Security gates all CLEAN. 4/4 STDO reqs met.)
 **Success Criteria** (what must be TRUE):
-  1. A developer navigating to `/studio` sees a browseable catalog of all whitelisted `@nauta/ui` components, each with its prop schema, slot rules, and rendered example.
-  2. Entering an intent in the studio's generation sandbox produces a live rendered UI preview backed by the same `packages/genui` `SpecRenderer` and `COMPONENT_REGISTRY` used in production — not a separate or stub renderer.
-  3. The spec JSON that produced the rendered output is visible alongside the preview for inspection, so a developer can confirm the interpreter is rendering what the model emitted.
-  4. The studio surface visibly distinguishes four generation states: in-progress streaming, validation-failure + fallback, cache-hit (zero LLM cost), and cold generation — so a developer can observe the full engine behavior without external tooling.
-**Plans:** 2/3 plans executed
+  1. [x] A developer navigating to `/studio` sees a browseable catalog of all whitelisted `@nauta/ui` components, each with its prop schema, slot rules, and rendered example. (CatalogBrowserIsland, 15-02)
+  2. [x] Entering an intent in the studio's generation sandbox produces a live rendered UI preview backed by the same `packages/genui` `SpecRenderer` and `COMPONENT_REGISTRY` used in production — not a separate or stub renderer. (GenerationSandboxIsland + SpecRendererIsland, 15-03)
+  3. [x] The spec JSON that produced the rendered output is visible alongside the preview for inspection, so a developer can confirm the interpreter is rendering what the model emitted. (45-panel Spec JSON, 15-03)
+  4. [x] The studio surface visibly distinguishes four generation states: in-progress streaming, validation-failure + fallback, cache-hit (zero LLM cost), and cold generation — so a developer can observe the full engine behavior without external tooling. (GenerationStateChrome, 15-03)
+**Plans:** 3/3 plans complete
 
 Plans:
 **Wave 1**
 - [x] 15-01-PLAN.md — Additive signal contract (D-05): outcome on GenerateUiSpecResult + GenerateUiSpecView + tRPC GenerateOutputSchema {outcome,spec,cacheHit,reason?} (safeParse stays authoritative) + pure unit-tested deriveGenerationState + describePropsSchema helpers in @nauta/genui/studio (STDO-04, STDO-01; D-04/D-05/D-11/D-15)
 **Wave 2** *(depends on 15-01)*
 - [x] 15-02-PLAN.md — /studio server shell + Tabs[Catalog,Sandbox]+Showcase link + shared SpecRendererIsland lift + CatalogBrowserIsland (direct NAUTA_CATALOG import, four facets per entry, live examples via the production renderer) + sidebar repoint (STDO-01, STDO-02; D-01/D-07/D-10/D-11/D-12/D-13/D-14)
-**Wave 3** *(depends on 15-01, 15-02; autonomous:false — human-verify)*
-- [ ] 15-03-PLAN.md — GenerationSandboxIsland (intent → genui.generate query → production SpecRenderer + buildActionRegistry + ResizablePanelGroup render/JSON split) + four-state chrome (in-progress/fallback/cache-hit/cold+escalated) + browser human-verify (STDO-02, STDO-03, STDO-04; D-02/D-03/D-06/D-08/D-09)
+**Wave 3** *(depends on 15-01, 15-02)*
+- [x] 15-03-PLAN.md — GenerationStateChrome (four-state chrome: in-progress/fallback/cache-hit/cold+escalated, deriveGenerationState, aria-live/role=alert) + SpecRendererIsland extended with optional actions prop + GenerationSandboxIsland (intent → enabled:false tRPC query + refetch() + buildActionRegistry + 55/45 ResizablePanelGroup render/JSON split) wired into studio-tabs.tsx (STDO-02, STDO-03, STDO-04; D-02/D-03/D-06/D-08/D-09). Browser visual verify: deferred per plan directive (DO NOT BLOCK).
 **UI hint**: yes
 
 ---
@@ -144,4 +144,4 @@ Plans:
 | 12. Catalog, Spec Schema, and Trusted Interpreter | 4/4 | Complete   | 2026-06-27 |
 | 13. Generation Layer and Guardrails | 4/4 | Complete   | 2026-06-27 |
 | 14. Exact Cache and Template Store | 3/3 | Complete   | 2026-06-27 |
-| 15. Studio Surface | 2/3 | In Progress|  |
+| 15. Studio Surface | 3/3 | Complete   | 2026-06-27 |

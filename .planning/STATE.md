@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
-status: in_progress
-last_updated: "2026-06-27T13:44:00.000Z"
+status: complete
+last_updated: "2026-06-27T14:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 3
-  total_plans: 14
-  completed_plans: 14
-  percent: 85
+  completed_phases: 4
+  total_plans: 15
+  completed_plans: 15
+  percent: 100
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 15 — studio-surface
+**Current focus:** Milestone v1.1 COMPLETE — all 4 phases (12-15) executed 2026-06-27
 
 ## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
 
@@ -103,7 +103,7 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **14-02 ✓ EXECUTED 2026-06-27:** Pure, deterministic cache-key module (CACHE-02/CACHE-04). `app/application/use_cases/cache_key.py`: three stdlib-only (hashlib/json/re/unicodedata) named exports — `canonicalize_intent` (NFC+strip+lower+collapse whitespace, D-05), `compute_data_shape_hash` (SHA-256 over value-free recursive shape: sorted keys+type-names, depth-cap=8, "text"/"∅" sentinels, D-06), `compute_cache_key` (SHA-256 over 0x1f-delimited canonical_intent‖data_shape_hash‖registry_version‖context_descriptor, D-04/D-08). Keyword-only signature, context_descriptor=f"{importer_id or '__system__'}|{catalog_id}". TDD: 15/15 tests green (RED 733dcc8 → GREEN 8571fd5). Mitigates T-14-05 (cross-tenant isolation), T-14-06 (delimiter anti-collision), T-14-07 (value-free hash), T-14-08 (registry_version invalidation). ruff+mypy clean; 0 infra imports. See 14-02-SUMMARY.md.
 - **14-03 ✓ EXECUTED 2026-06-27:** Exact-match cache integration (CACHE-01, D-02/D-03/D-08/D-11/D-12/D-15/D-17). `UiSpecTemplateRepository` Protocol port + two frozen DTOs (`CachedTemplate`, `TemplateToPersist`). `SupabaseUiSpecTemplateRepository` adapter: `asyncio.to_thread` wrapping (WR-06), `upsert(on_conflict="cache_key")` (D-12), direct `.update()` for use_count increment (soft metric, D-17). `GenerateUiSpecUseCase` rewritten: step 0 cache CHECK (D-02, zero-Bedrock-on-hit), `catalog_id="global"` param (D-08), persist only on `outcome != "fallback"` (D-11), `GenerateUiSpecResult.cache_hit: bool = False`. DI: `_provide_ui_spec_template_repository` factory + `UiSpecTemplateRepository` registered in `_build_provider()`; `templates` wired into use-case factory. `GenerateUiSpecView.cache_hit` field added to endpoint response. TDD: 11 adapter tests + 6 new use-case cache tests (25 total in Phase 14-03). Full regression: 624 passed, 8 skipped, 0 failures. ruff clean. Commits 6ed05f4, 6a40117, 1107771. See 14-03-SUMMARY.md.
 
-## Phase 15 — Studio Surface — ◆ IN PROGRESS 2026-06-27 (3 plans, 1 wave)
+## Phase 15 — Studio Surface — ✓ EXECUTED 2026-06-27 (3 plans, 1 wave)
 
 - **Goal:** Wire the outcome/cacheHit/reason signals from the generation layer through to the studio surface (D-05), and ship two pure studio helpers (`deriveGenerationState`, `describePropsSchema`) that drive studio UI state without coupling to the renderer.
 
@@ -112,6 +112,10 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **15-01 ✓ EXECUTED 2026-06-27:** D-05 outcome signal thread-through and studio helpers (TDD). Added `outcome: Literal["ok", "fallback", "escalated"] = "ok"` to `GenerateUiSpecResult` frozen dataclass and `GenerateUiSpecView` Pydantic model; cache-hit path hardcodes `outcome="ok"` (D-14), cold path reuses already-computed `_determine_outcome()` variable. Replaced tRPC `GenerateOutputSchema` discriminatedUnion with flat `z.object({outcome, spec, cacheHit, reason?})`; `SpecRootSchema.safeParse` failure overrides to `outcome="fallback"` (D-08/D-15 authoritative). Shipped two pure framework-free TypeScript helpers in `packages/genui/src/studio/`: `deriveGenerationState` (§9 state transitions: in_progress/fallback/cache_hit/cold + escalated sub-flavor, D-03d) + `describePropsSchema` (§12 prop introspection via Zod _def.typeName string comparison). `./studio` subpath export added to `packages/genui/package.json`. Additive only — no new gen/cache/renderer logic (D-05). No new packages. TDD: 6 Python tests + 5 api-client tests + 27 studio tests; all green. Typecheck + no-eval gate clean. Commits c7200f0, 0864f3e, be831d8. See 15-01-SUMMARY.md.
 
 - **15-02 ✓ EXECUTED 2026-06-27:** /studio landing route — server shell + StudioTabs client + CatalogBrowserIsland. (1) Lifted `SpecRendererIsland` to shared `studio/_components/` (STDO-02: exactly one `dynamic(ssr:false)` wrapper); preview re-exports; sidebar Studio nav href repointed from `/studio/preview` to `/studio` (D-14). (2) `/studio/page.tsx` server component — h-12 header with static `v1` Badge + `Registry {REGISTRY_VERSION.version.slice(0,8)}` Badge (T-12-15: REGISTRY_VERSION server-only); delegates to `<StudioTabs />`. `studio-tabs.tsx` — `"use client"` Tabs with Catalog + Sandbox TabsTriggers + `next/link` Showcase affordance (aria-label="Open Component Showcase"); catalog TabsContent renders `CatalogBrowserIsland`; sandbox TabsContent placeholder "coming in 15-03". (3) `CatalogBrowserIsland` — `"use client"` island imports `NAUTA_CATALOG` directly (D-10: Zod schemas/React refs not serializable); filter input (aria-label="Filter catalog components"); card grid (aria-live="polite"); four facets per card: type chip + description, live `SpecRendererIsland` example (role=region aria-label="Live example: {type}"), `describePropsSchema` prop table (role=region aria-label="Props for {type}"), slot chips. Typecheck clean. STDO-02 + T-12-15 + D-15 gates all passing. Commits d500614, 43a4010, a441861. See 15-02-SUMMARY.md.
+
+- **15-03 ✓ EXECUTED 2026-06-27:** GenerationStateChrome (four-state chrome driven by `deriveGenerationState` — in_progress/fallback/cache_hit/cold+escalated, UI-SPEC §9, aria-live/role=alert, D-02/D-04/D-13) + SpecRendererIsland extended with `readonly actions?: ActionRegistry` (additive, D-08) + GenerationSandboxIsland (`enabled:false` tRPC query + `await refetch()` manual trigger, `buildActionRegistry` with minimal declaredState seam D-08/SEAM-02, 55/45 ResizablePanelGroup mirroring /studio/preview D-09, spec JSON panel STDO-03) wired into studio-tabs.tsx (sandbox tab replaces placeholder). Auto-fix: wrong tRPC alias `@/trpc/react` → `~/trpc/react`. Automated verification: tsc PASS, genui 180/180 tests PASS, api-client 118/118 PASS, Next.js build PASS, security gates (no-eval, SEAM-02, D-02, T-12-15, NEXT_PUBLIC_) all CLEAN. Browser visual verification deferred per plan directive (DO NOT BLOCK). Commits adad843, d034c1b, c3c23d7. See 15-03-SUMMARY.md.
+
+- **MILESTONE v1.1 COMPLETE:** All 4 phases (12-15) executed 2026-06-27. All 15 plans committed. Full generative-UI engine (Catalog → Spec → Registry → Renderer → Generation → Cache → Studio) operational. Pending: deploy migrations 0021+0022 to staging+prod; human browser visual check of /studio Sandbox tab.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
