@@ -35,6 +35,7 @@ from app.application.use_cases.edit_region import (
     RejectRegionUseCase,
     SplitRegionUseCase,
 )
+from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
 from app.application.use_cases.manage_entity_types import (
     CreateEntityTypeUseCase,
@@ -65,6 +66,7 @@ from app.domain.ports.entity_instance_repository import EntityInstanceRepository
 from app.domain.ports.entity_type_classifier_protocol import EntityTypeClassifierProtocol
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
+from app.domain.ports.generation_audit_repository import GenerationAuditRepository
 from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import RawEmailStore
@@ -74,6 +76,8 @@ from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
+from app.infrastructure.llm.genui_generator_adapter import GenuiGeneratorAdapter
+from app.infrastructure.llm.genui_quarantine_adapter import GenuiQuarantineAdapter
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.ocr.textract_adapter import TextractOcrAdapter
 from app.infrastructure.pdf.parser_registry import get_parser, register
@@ -90,6 +94,7 @@ from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTyp
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.retrieval_repository import SupabaseRetrievalRepository
+from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.settings import get_settings
 
 
@@ -363,6 +368,47 @@ def _provide_ingest_use_case(
     )
 
 
+def _provide_genui_quarantine_adapter(client: AsyncAnthropicBedrock) -> GenuiQuarantineAdapter:
+    """GenuiQuarantineAdapter — Call A of the dual-LLM generation pipeline (D-09, SAFE-01)."""
+    settings = get_settings()
+    return GenuiQuarantineAdapter(
+        client=client,
+        model_id=settings.genui_model_id,
+        max_tokens=settings.GENUI_QUARANTINE_MAX_TOKENS,
+        timeout_seconds=settings.GENUI_TIMEOUT_SECONDS,
+    )
+
+
+def _provide_genui_generator_adapter(client: AsyncAnthropicBedrock) -> GenuiGeneratorAdapter:
+    """GenuiGeneratorAdapter — Call B of the dual-LLM generation pipeline (D-09, SAFE-02)."""
+    settings = get_settings()
+    return GenuiGeneratorAdapter(
+        client=client,
+        model_id=settings.genui_model_id,
+        escalation_model_id=settings.genui_escalation_model_id,
+        max_tokens=settings.GENUI_GENERATOR_MAX_TOKENS,
+        timeout_seconds=settings.GENUI_TIMEOUT_SECONDS,
+    )
+
+
+def _provide_generation_audit_repository(client: Client) -> GenerationAuditRepository:
+    """SupabaseGenerationAuditRepository — best-effort audit for generation events (GEN-05, D-19)."""
+    return SupabaseGenerationAuditRepository(client=client)
+
+
+def _provide_generate_ui_spec_use_case(
+    quarantine: GenuiQuarantineAdapter,
+    generator: GenuiGeneratorAdapter,
+    audit: GenerationAuditRepository,
+) -> GenerateUiSpecUseCase:
+    """Factory for GenerateUiSpecUseCase — orchestrates the quarantine→generate→audit pipeline."""
+    return GenerateUiSpecUseCase(
+        quarantine=quarantine,
+        generator=generator,
+        audit=audit,
+    )
+
+
 def _build_provider() -> Provider:  # noqa: PLR0915
     """Return a configured dishka Provider with all app-scoped bindings."""
     provider = Provider(scope=Scope.APP)
@@ -456,6 +502,17 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(ConfirmMergeUseCase)
     provider.provide(RejectMergeUseCase)
     provider.provide(UnmergeEntityUseCase)
+
+    # ── GenUI generation layer (Phase 13-03) ──────────────────────────────────
+    # Dual-LLM quarantine pipeline (D-09, SAFE-01/SAFE-02, D-02, D-05/D-06/D-07).
+    # GenuiQuarantineAdapter (Call A) + GenuiGeneratorAdapter (Call B) both use
+    # the shared AsyncAnthropicBedrock client (already bound above as singleton).
+    provider.provide(_provide_genui_quarantine_adapter, provides=GenuiQuarantineAdapter)
+    provider.provide(_provide_genui_generator_adapter, provides=GenuiGeneratorAdapter)
+    # GenerationAuditRepository: Protocol port → SupabaseGenerationAuditRepository adapter.
+    provider.provide(_provide_generation_audit_repository, provides=GenerationAuditRepository)
+    # GenerateUiSpecUseCase factory: quarantine + generator + audit all resolved first.
+    provider.provide(_provide_generate_ui_spec_use_case, provides=GenerateUiSpecUseCase)
 
     return provider
 
