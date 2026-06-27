@@ -124,11 +124,11 @@ Plans:
   2. Entering an intent in the studio's generation sandbox produces a live rendered UI preview backed by the same `packages/genui` `SpecRenderer` and `COMPONENT_REGISTRY` used in production — not a separate or stub renderer.
   3. The spec JSON that produced the rendered output is visible alongside the preview for inspection, so a developer can confirm the interpreter is rendering what the model emitted.
   4. The studio surface visibly distinguishes four generation states: in-progress streaming, validation-failure + fallback, cache-hit (zero LLM cost), and cold generation — so a developer can observe the full engine behavior without external tooling.
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 
 Plans:
 **Wave 1**
-- [ ] 15-01-PLAN.md — Additive signal contract (D-05): outcome on GenerateUiSpecResult + GenerateUiSpecView + tRPC GenerateOutputSchema {outcome,spec,cacheHit,reason?} (safeParse stays authoritative) + pure unit-tested deriveGenerationState + describePropsSchema helpers in @nauta/genui/studio (STDO-04, STDO-01; D-04/D-05/D-11/D-15)
+- [x] 15-01-PLAN.md — Additive signal contract (D-05): outcome on GenerateUiSpecResult + GenerateUiSpecView + tRPC GenerateOutputSchema {outcome,spec,cacheHit,reason?} (safeParse stays authoritative) + pure unit-tested deriveGenerationState + describePropsSchema helpers in @nauta/genui/studio (STDO-04, STDO-01; D-04/D-05/D-11/D-15)
 **Wave 2** *(depends on 15-01)*
 - [ ] 15-02-PLAN.md — /studio server shell + Tabs[Catalog,Sandbox]+Showcase link + shared SpecRendererIsland lift + CatalogBrowserIsland (direct NAUTA_CATALOG import, four facets per entry, live examples via the production renderer) + sidebar repoint (STDO-01, STDO-02; D-01/D-07/D-10/D-11/D-12/D-13/D-14)
 **Wave 3** *(depends on 15-01, 15-02; autonomous:false — human-verify)*
@@ -144,4 +144,4 @@ Plans:
 | 12. Catalog, Spec Schema, and Trusted Interpreter | 4/4 | Complete   | 2026-06-27 |
 | 13. Generation Layer and Guardrails | 4/4 | Complete   | 2026-06-27 |
 | 14. Exact Cache and Template Store | 3/3 | Complete   | 2026-06-27 |
-| 15. Studio Surface | 0/3 | Planned | - |
+| 15. Studio Surface | 1/3 | In Progress|  |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Generative UI Engine
 status: in_progress
-last_updated: "2026-06-27T12:30:00.000Z"
+last_updated: "2026-06-27T14:00:00.000Z"
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 11
-  completed_plans: 11
-  percent: 55
+  completed_phases: 3
+  total_plans: 14
+  completed_plans: 13
+  percent: 93
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 14 — exact-cache-and-template-store
+**Current focus:** Phase 15 — studio-surface
 
 ## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
 
@@ -102,6 +102,14 @@ Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Tita
 - **PENDING DEPLOY (from 14-01):** `npm run migrate:staging` / `migrate:prod` to apply 0022_right_firedrake to staging+prod before Plan 14-03 Supabase adapter code deploys.
 - **14-02 ✓ EXECUTED 2026-06-27:** Pure, deterministic cache-key module (CACHE-02/CACHE-04). `app/application/use_cases/cache_key.py`: three stdlib-only (hashlib/json/re/unicodedata) named exports — `canonicalize_intent` (NFC+strip+lower+collapse whitespace, D-05), `compute_data_shape_hash` (SHA-256 over value-free recursive shape: sorted keys+type-names, depth-cap=8, "text"/"∅" sentinels, D-06), `compute_cache_key` (SHA-256 over 0x1f-delimited canonical_intent‖data_shape_hash‖registry_version‖context_descriptor, D-04/D-08). Keyword-only signature, context_descriptor=f"{importer_id or '__system__'}|{catalog_id}". TDD: 15/15 tests green (RED 733dcc8 → GREEN 8571fd5). Mitigates T-14-05 (cross-tenant isolation), T-14-06 (delimiter anti-collision), T-14-07 (value-free hash), T-14-08 (registry_version invalidation). ruff+mypy clean; 0 infra imports. See 14-02-SUMMARY.md.
 - **14-03 ✓ EXECUTED 2026-06-27:** Exact-match cache integration (CACHE-01, D-02/D-03/D-08/D-11/D-12/D-15/D-17). `UiSpecTemplateRepository` Protocol port + two frozen DTOs (`CachedTemplate`, `TemplateToPersist`). `SupabaseUiSpecTemplateRepository` adapter: `asyncio.to_thread` wrapping (WR-06), `upsert(on_conflict="cache_key")` (D-12), direct `.update()` for use_count increment (soft metric, D-17). `GenerateUiSpecUseCase` rewritten: step 0 cache CHECK (D-02, zero-Bedrock-on-hit), `catalog_id="global"` param (D-08), persist only on `outcome != "fallback"` (D-11), `GenerateUiSpecResult.cache_hit: bool = False`. DI: `_provide_ui_spec_template_repository` factory + `UiSpecTemplateRepository` registered in `_build_provider()`; `templates` wired into use-case factory. `GenerateUiSpecView.cache_hit` field added to endpoint response. TDD: 11 adapter tests + 6 new use-case cache tests (25 total in Phase 14-03). Full regression: 624 passed, 8 skipped, 0 failures. ruff clean. Commits 6ed05f4, 6a40117, 1107771. See 14-03-SUMMARY.md.
+
+## Phase 15 — Studio Surface — ◆ IN PROGRESS 2026-06-27 (3 plans, 1 wave)
+
+- **Goal:** Wire the outcome/cacheHit/reason signals from the generation layer through to the studio surface (D-05), and ship two pure studio helpers (`deriveGenerationState`, `describePropsSchema`) that drive studio UI state without coupling to the renderer.
+
+- **Plan waves:** W1 `15-01` D-05 outcome signal thread-through + studio helpers (DONE) → W2 `15-02` studio shell + generation panel → W3 `15-03` prop inspector + live preview wiring.
+
+- **15-01 ✓ EXECUTED 2026-06-27:** D-05 outcome signal thread-through and studio helpers (TDD). Added `outcome: Literal["ok", "fallback", "escalated"] = "ok"` to `GenerateUiSpecResult` frozen dataclass and `GenerateUiSpecView` Pydantic model; cache-hit path hardcodes `outcome="ok"` (D-14), cold path reuses already-computed `_determine_outcome()` variable. Replaced tRPC `GenerateOutputSchema` discriminatedUnion with flat `z.object({outcome, spec, cacheHit, reason?})`; `SpecRootSchema.safeParse` failure overrides to `outcome="fallback"` (D-08/D-15 authoritative). Shipped two pure framework-free TypeScript helpers in `packages/genui/src/studio/`: `deriveGenerationState` (§9 state transitions: in_progress/fallback/cache_hit/cold + escalated sub-flavor, D-03d) + `describePropsSchema` (§12 prop introspection via Zod _def.typeName string comparison). `./studio` subpath export added to `packages/genui/package.json`. Additive only — no new gen/cache/renderer logic (D-05). No new packages. TDD: 6 Python tests + 5 api-client tests + 27 studio tests; all green. Typecheck + no-eval gate clean. Commits c7200f0, 0864f3e, be831d8. See 15-01-SUMMARY.md.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
@@ -881,6 +889,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-06-14 (09-gap C MED): RESOLVED the 09-09 dual-toolbar deferral via the minimal remove-dead-controls path (not full single-toolbar consolidation) — PdfPreviewPane keeps its own working page/zoom/Fit toolbar as the single PDF control surface; the shell CanvasToolbar drops the page-nav/zoom/Fit controls that were dead (numPages=null/scale=1/no-op handlers) and keeps only the shell-level Select/Draw + Regions/History/Unrelated controls. This reverses the 09-09 "both toolbars render" decision (the shell copy was non-functional, not a deliberate split). Lower-risk than lifting page/zoom state up under the no-break constraint; gates stayed green
 - 2026-06-14 (09-gap C MED): overlay visibility (Show regions) made a SINGLE source of truth — the shell owns showRegions and passes it DOWN to PdfPreviewPane as a controlled read-only showOverlays prop; the pane's own showOverlays useState + its duplicate toggle are deleted. No onShowOverlaysChange setter is threaded (would be a dead prop — the shell toolbar owns the only toggle), so the pane is purely controlled. Unrelated stays a single source of truth via the existing showUnrelated path (Bundle B)
 - 2026-06-14 (09-gap C LOW): FieldRelationshipRequest ids typed UUID|None at the Pydantic boundary (422 on malformed) while SetComponentFieldRelationshipUseCase keeps str|None ids — the route coerces UUID→str (and passes None through for the D-11 clear). Tightened only this request (the one D-04 uuid-FK boundary the residual flagged); EntityTypeRequest.entity_type_id left as str|None (out of the stated scope, not a confirmed defect)
+- 2026-06-27 (15-01): D-05 additive signal contract — `outcome` field added to `GenerateUiSpecResult` frozen dataclass + `GenerateUiSpecView`; cache-hit path hardcodes `outcome="ok"` (D-14 fallbacks never cached); cold path reuses already-computed `_determine_outcome()` variable, never recomputes; no `from __future__ import annotations` added (Pydantic ForwardRef constraint)
+- 2026-06-27 (15-01): `GenerateOutputSchema` flat `z.object` (not discriminatedUnion) — carries `outcome`, `spec`, `cacheHit`, `reason?`; `SpecRootSchema.safeParse` web-boundary re-validation overrides to `outcome="fallback"` on failure regardless of server-reported value (D-08/D-15 authority preserved)
+- 2026-06-27 (15-01): `escalated` outcome maps to `kind:"cold" + escalated:true` in `deriveGenerationState` — D-03d: escalated is a sub-flavor of cold, not a fourth kind; `isPending=true` always wins as highest-priority signal
+- 2026-06-27 (15-01): `describePropsSchema` uses `_def.typeName` string comparison (not instanceof) — avoids Zod version bundling ambiguity in monorepo; `ZodObjectDef.shape` is a function called as `shapeAccessor()`, not a plain object property
 
 ## Performance Metrics
 
@@ -917,3 +929,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 09 GAP-A | ~35m | 4 defects | 16 files — CRIT-1 EntityTypeField.id + autofill writes field uuid into FK; CRIT-2 hide soft-deactivated fields from active reads + autofill prompt; HIGH-3 FieldView id end-to-end; WR-03 update-field per-type slug uniqueness; 3 commits, full Python+api-client+web gates green |
 | Phase 09 GAP-C | ~25m | 2 defects | 6 files — MED remove dead canvas-shell toolbar controls (page-nav/zoom/Fit) + unify Show-regions to one source of truth (shell→pane controlled showOverlays); LOW field-relationship ids UUID|None at the Pydantic boundary (422 on malformed) + TDD; 2 commits, apps/web tsc 0 + web:build EXIT 0, pytest 436 passed 86.97% cov, full Python gate green |
 | Phase 09 GAP-D2 | ~30m | 6 defects | 8 files — MEDIUM-A InboxRow no nested interactive (div role=button + keys); MEDIUM-B toast.warning on unanchorable drag-to-draw; MEDIUM-C neutral deactivate-vs-delete pre-delete copy; MEDIUM-D emails.list explicit projection (drop bodyHtml/raw + truncated bodyText); MEDIUM-E Confirm All Fields = N confirms + ONE invalidate; LOW dead autofill machine + dead use-canvas-state API + CanvasShell emailId removed; 6 commits, apps/web tsc 0 + web:build EXIT 0, api-client build 0 + vitest 56/56 |
+| Phase 12 (all) | ~4h | 4 plans | 27 files — @nauta/genui scaffold + spec-schema + catalog/registry + renderer + studio/preview; 96/96 genui tests green; tsc + web:build green; no-eval gate clean; see 12-01..12-04 SUMMARYs |
+| Phase 13 (all) | ~4h | 4 plans | quarantine+generator+repair adapters + audit table + tRPC genui.generate + buildActionRegistry; 153/153 genui tests + 113/113 api-client; no-eval gate clean; see 13-01..13-04 SUMMARYs |
+| Phase 14 (all) | ~2h | 3 plans | exact-match cache (ui_spec_templates migration 0022) + cache-key module (TDD) + GenerateUiSpecUseCase cache integration; 87/87 Python tests green; see 14-01..14-03 SUMMARYs |
+| Phase 15 P01 | ~120m | 3 tasks | 13 files — outcome signal thread-through (Python use-case + FastAPI view + tRPC schema, D-05) + deriveGenerationState + describePropsSchema studio helpers + @nauta/genui/studio subpath; 38 new tests (6 Python + 5 api-client + 27 studio); typecheck + no-eval gate clean |
