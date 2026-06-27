@@ -1,26 +1,38 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: milestone_complete
-last_updated: 2026-06-15T16:39:10.019Z
+milestone: v1.1
+milestone_name: Generative UI Engine
+status: planning
+last_updated: 2026-06-27T00:00:00.000Z
 progress:
-  total_phases: 1
+  total_phases: 0
   completed_phases: 0
-  total_plans: 3
-  completed_plans: 51
+  total_plans: 0
+  completed_plans: 0
   percent: 0
-stopped_at: Milestone complete (Phase 11 was final phase)
+stopped_at: Milestone v1.1 started — defining requirements (roadmap pending)
 ---
 
 # State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-10)
+See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Milestone complete
+**Current focus:** v1.1 Generative UI Engine — defining requirements (research complete; roadmap pending)
+
+## Milestone v1.1 — Generative UI Engine — ◆ PLANNING (started 2026-06-27)
+
+Runtime, spec-first generative-UI engine (Catalog → Spec → Registry → Renderer, no eval) in a new
+`packages/genui` consumed by a `/studio` route. v1.1 scope = spine + exact cache (components 1–5 + 7);
+semantic retrieval/promotion + evals + code-emit deferred to v1.2. Research in `.planning/research/`
+(SUMMARY.md + 6 docs, verified 2026-06-27). Phases continue at 12+. Decisions: spec-first over code-emit;
+Haiku 4.5 runtime / Sonnet 4.6 escalation via Bedrock IAM; reuse pgvector + Titan V1 (1536) + RRF.
+
+> **Note (milestone v1.0):** complete — Phases 1–11 shipped. The v1.0 completion/cleanup lifecycle was
+> never formally run, so Phase directories `02–11` remain under `.planning/phases/` (not archived). The
+> Phase-11 and prior notes below are retained as history.
 
 ## Phase 11 — Knowledge-node graph view (4e knowledge graph) — ✓ COMPLETE 2026-06-15 (3 plans, 3 waves)
 
