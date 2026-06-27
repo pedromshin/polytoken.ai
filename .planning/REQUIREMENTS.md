@@ -32,6 +32,97 @@
 - [x] **EMAIL-01**: agent@magnitudetech.com.br forwards full inbound emails to the service (SES inbound or equivalent)
 - [x] **EMAIL-02**: Durable receipt path (S3 + SQS) so no email is lost or double-processed
 
+## Milestone v1.1 Requirements — Generative UI Engine
+
+**Defined:** 2026-06-27 · **Scope:** spine + exact cache (8-component spine: 1–5 + 7).
+**Core value (this milestone):** Generate and render a working UI on the fly from a constrained
+catalog — safely (no eval, no injection) and reusably (cache good specs). Research: `.planning/research/SUMMARY.md`.
+
+### Component Catalog & Registry (CTLG)
+
+- [ ] **CTLG-01**: A machine-readable manifest describes each whitelisted `@nauta/ui` component with a Zod prop schema, slot/children rules, and which props are LLM-settable vs locked
+- [ ] **CTLG-02**: Manifest entries mark accessibility props (label/caption/alt) as required so a spec omitting them fails validation
+- [ ] **CTLG-03**: A static registry maps each spec type-key to its real React component; only registered components can be rendered
+- [ ] **CTLG-04**: Each manifest entry carries an example that is CI-verified to parse against its own prop schema
+- [ ] **CTLG-05**: The registry exposes a version identifier consumed downstream for cache invalidation
+
+### Spec Schema & Interpreter (SPEC)
+
+- [ ] **SPEC-01**: A typed (Zod) discriminated-union spec describes a UI tree (layout, leaf components, lists, conditionals) referencing only registry components
+- [ ] **SPEC-02**: A recursive interpreter renders a valid spec into live `@nauta/ui` components via `createElement` with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output
+- [ ] **SPEC-03**: Each rendered node is wrapped in an error boundary so one malformed node cannot crash the surface
+- [ ] **SPEC-04**: Declared state primitives (name/type/initial/actions) are materialized into a store by the interpreter; the spec contains no executable code
+- [ ] **SPEC-05**: Data/state references resolve via safe dotted-path lookup against a provided scope (no `eval`)
+- [ ] **SPEC-06**: A hardcoded sample spec renders correctly end-to-end, proving the interpreter before generation is wired
+
+### Generation Layer (GEN)
+
+- [ ] **GEN-01**: Given an intent, the engine calls Bedrock (Haiku 4.5) via `streamText` + `Output.object` to emit a spec constrained to the registry
+- [ ] **GEN-02**: Model output is validated with Zod `safeParse`; invalid output triggers a bounded repair loop (≤3 attempts) that feeds the validation error back
+- [ ] **GEN-03**: On repeated failure the engine returns a safe fallback spec — never raw model output
+- [ ] **GEN-04**: Generation streams partial specs for progressive preview
+- [ ] **GEN-05**: Every generation (intent, model, tokens, outcome) is recorded to an audit log
+- [ ] **GEN-06**: Generation can escalate to Sonnet 4.6 when the runtime model cannot produce a valid spec
+
+### Safety & Guardrails (SAFE)
+
+- [ ] **SAFE-01**: Untrusted content (e.g. email) is processed by a separate quarantine/extraction model with a constrained schema; raw prose never reaches the generator
+- [ ] **SAFE-02**: The spec schema enforces a component allowlist (only registry keys are valid)
+- [ ] **SAFE-03**: Data bindings are restricted to an allowlist of tRPC procedures; arbitrary data sources fail validation
+- [ ] **SAFE-04**: Actions are restricted to an allowlist (navigate-relative-only / allowlisted mutate / setState); `javascript:` and external URLs fail validation
+- [ ] **SAFE-05**: Every Bedrock call sets explicit `max_tokens` and an `AbortController` timeout (application-level circuit breaker)
+- [ ] **SAFE-06**: Spec tree depth and node count are bounded to prevent resource exhaustion
+
+### Exact Cache & Template Store (CACHE)
+
+- [ ] **CACHE-01**: A persisted template store (Drizzle/Postgres) holds every generated spec with metadata (intent, registry version, validation status)
+- [ ] **CACHE-02**: A SHA-256 key over (canonical intent + data-shape + registry version + context) yields exact-match cache hits that skip the LLM
+- [ ] **CACHE-03**: A cache hit re-renders the stored spec with live data re-bound and no Bedrock call
+- [ ] **CACHE-04**: A registry-version change invalidates affected cache keys automatically (no manual flush)
+
+### Studio Surface (STDO)
+
+- [ ] **STDO-01**: A `/studio` route (in `apps/web`, backed by `packages/genui`) lets a developer browse the component catalog
+- [ ] **STDO-02**: A developer can enter an intent and see the generated UI rendered live in a preview sandbox
+- [ ] **STDO-03**: The studio shows the underlying spec (JSON) alongside the rendered output for inspection
+- [ ] **STDO-04**: The studio surfaces generation states: streaming, validation-failure + fallback, and cache-hit vs cold-generation
+
+### Cost & Token Efficiency (COST)
+
+- [ ] **COST-01**: The catalog/system prompt is cached via Bedrock prompt caching (`cachePoint`); per-request input carries only the intent + data-shape
+- [ ] **COST-02**: The spec JSON schema is kept stable (no recursion / external `$ref`) so Bedrock reuses its compiled grammar across requests, raising first-pass validity and cutting repair loops
+- [ ] **COST-03**: The catalog is encoded compactly for the model, with candidate-component subsetting once the catalog exceeds a size threshold (send relevant components, not all of them)
+
+### Future-proofing seams (build empty, document — v1.1)
+
+These are *design constraints* on the above, not extra build — they keep v1.2 (interactivity, API-write, tenant catalogs, the flywheel) a drop-in rather than a refactor:
+
+- [ ] **SEAM-01**: The spec envelope carries a `v` (version) field so the node grammar can grow without breaking cached specs
+- [ ] **SEAM-02**: The binding/action layer is shaped for both **queries and mutations** from day one (v1.1 wires queries only; the mutation allowlist path exists but is empty)
+- [ ] **SEAM-03**: The catalog + cache key are **per-catalog-id capable** (one global catalog in v1.1; tenant/importer-scoped catalogs later)
+
+## Future Requirements (v1.2 — deferred this milestone)
+
+### Template Flywheel (FLY)
+
+- **FLY-01**: Semantic retrieval of promoted templates (Bedrock embeddings + BlendedRAG + RRF over pgvector)
+- **FLY-02**: Promotion loop — generated specs become reusable templates based on validation + acceptance signals
+- **FLY-03**: Parameterized templates with binding slots re-bound to live data on reuse
+
+### Evaluation (EVAL)
+
+- **EVAL-01**: Adversarial-injection regression fixtures for the quarantine/guardrails
+- **EVAL-02**: Automated a11y checks (axe-core) on generated UI
+- **EVAL-03**: Eval rubric + drift detection for generation quality
+
+### Code-Emit Experiment (CODE)
+
+- **CODE-01**: Sandboxed raw-TSX generation path (isolated iframe/worker) compared against the spec-first spine
+
+### Cost (v1.2 — deferred)
+
+- **COST-04**: Spec edits emit JSON-Patch (RFC-6902) deltas instead of full regeneration; offline batch pre-warming of templates (Bedrock batch, 50% off)
+
 ## Out of Scope
 
 | Feature | Reason |
@@ -39,6 +130,9 @@
 | Email parsing/classification | Walkthrough stage 3+; service is passive listener for now |
 | Persistence/storage | Later stage |
 | web app, packages content | Placeholders until needed |
+| Runtime raw-TSX code execution (no sandbox) | Categorically unsafe with model output; spec-first (no eval) is the v1.1 spine, sandboxed code-emit is a v1.2 experiment (CODE-01) |
+| Wiring the engine into Nauta's real review surfaces | v1.1 is standalone-in-`/studio` by decision; integration-seamed but not wired until convergence |
+| Semantic template retrieval / promotion / evals | Deferred to v1.2 (FLY/EVAL) — needs the exact-cache foundation + real usage data first |
 
 ## Traceability
 
@@ -57,4 +151,4 @@ per-phase VERIFICATION.md (4 + 8 passed; 5/6/7 human_needed — visual UAT only)
 
 ---
 *Requirements defined: 2026-06-10*
-*Last updated: 2026-06-13 — milestone audit checked off INFRA/EMAIL (Phases 2–3 complete + live-verified)*
+*Last updated: 2026-06-27 — added milestone v1.1 (Generative UI Engine): CTLG/SPEC/GEN/SAFE/CACHE/STDO/COST (32 reqs) + SEAM-01..03 future-proofing constraints; v1.2 deferrals FLY/EVAL/CODE/COST-04. Traceability for v1.1 filled by roadmap.*
