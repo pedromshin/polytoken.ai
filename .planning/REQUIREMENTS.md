@@ -140,8 +140,8 @@ SPIKE + explicit user sign-off (it changes the safety model from no-eval to jail
 
 ### Assembly RAG (RAG) — *Tier A*
 
-- **RAG-01**: Before generation, relevant exemplars/components are retrieved and injected into the prompt (assembly RAG over the catalog + promoted templates) — v0's "registry" pattern
-- **RAG-02**: The emitted spec references the retrieved structure (retrieval demonstrably influences generation, not inert context)
+- **RAG-01** ✓ (Phase 17-04): Before generation, relevant exemplars/components are retrieved and injected into the prompt (assembly RAG over the catalog + promoted templates) — v0's "registry" pattern
+- **RAG-02** ✓ (Phase 17-04): The emitted spec references the retrieved structure (retrieval demonstrably influences generation, not inert context)
 
 ### Catalog Expansion (CTLG, continued) — *Tier A*
 
