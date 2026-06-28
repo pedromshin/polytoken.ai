@@ -71,7 +71,7 @@ def validate_spec(candidate: dict[str, Any]) -> str | None:
     validator = jsonschema.Draft7Validator(spec_schema)
     errors = list(validator.iter_errors(candidate))
     if errors:
-        return errors[0].message
+        return str(errors[0].message)
 
     root_node = candidate.get("root")
     if root_node is not None:
