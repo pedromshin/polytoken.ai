@@ -336,7 +336,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=None, help="Max prompts to evaluate")
     parser.add_argument("--no-judge", action="store_true", help="Skip LLM-as-judge scoring")
     parser.add_argument("--label", type=str, default="eval", help="Label for this report")
-    parser.add_argument(
+    pack_group = parser.add_mutually_exclusive_group()
+    pack_group.add_argument(
         "--style-pack",
         type=str,
         default=None,
@@ -344,7 +345,7 @@ def _parse_args() -> argparse.Namespace:
         help="Run eval with a specific style pack (e.g. nauta-teal). "
         "Mutually exclusive with --all-packs.",
     )
-    parser.add_argument(
+    pack_group.add_argument(
         "--all-packs",
         action="store_true",
         help="Run eval over all 6 style packs and aggregate (D-19). "
