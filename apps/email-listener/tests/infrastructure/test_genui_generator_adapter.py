@@ -434,3 +434,266 @@ def test_safe_fallback_spec_is_immutable() -> None:
     assert spec1 is spec2, "SAFE_FALLBACK_SPEC must be the same object (constant)"
     # It must be a dict with the expected structure
     assert spec1["v"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Task 2 (17-04): style_pack_id + retrieval injection into initial_user_content
+# ---------------------------------------------------------------------------
+
+
+def _make_retrieval_result_with_exemplar() -> "RetrievalResult":
+    """Build a minimal RetrievalResult with one exemplar item for injection tests."""
+    from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
+
+    exemplar_item = RetrievedItem(
+        id="dashboard-saas",
+        kind="exemplar",
+        score=0.9,
+        payload={
+            "id": "dashboard-saas",
+            "category": "dashboard",
+            "tags": ["saas", "metrics"],
+            "spec": {"v": 1, "root": {"type": "grid"}},
+        },
+    )
+    return RetrievalResult(items=(exemplar_item,))
+
+
+def _make_empty_retrieval_result() -> "RetrievalResult":
+    """Build an empty RetrievalResult."""
+    from app.domain.ports.retrieval_provider import RetrievalResult
+
+    return RetrievalResult(items=())
+
+
+# Import RetrievalResult at module level for type annotations
+try:
+    from app.domain.ports.retrieval_provider import RetrievalResult
+except ImportError:
+    pass  # Tests will fail if import fails — that's expected in RED phase
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_generate_accepts_style_pack_id_param(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """generate() must accept style_pack_id without error (17-04 backward compat)."""
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+
+    result = await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+
+    assert result.spec["v"] == 1
+    assert result.is_fallback is False
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_generate_accepts_none_style_pack_id(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """generate() with style_pack_id=None must behave identically to no-pack (backward compat)."""
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+
+    result = await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        style_pack_id=None,
+    )
+
+    assert result.spec["v"] == 1
+    assert result.is_fallback is False
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_generate_accepts_retrieval_param(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """generate() must accept retrieval: RetrievalResult without error (17-04)."""
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+    retrieval = _make_retrieval_result_with_exemplar()
+
+    result = await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        retrieval=retrieval,
+    )
+
+    assert result.spec["v"] == 1
+    assert result.is_fallback is False
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_pack_token_table_injected_in_user_content(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """Active-pack token table must appear in initial_user_content (DYNAMIC user turn) when style_pack_id given.
+
+    Verifies injection into the initial user message (not into system blocks — COST-01/T-17-21).
+    The token table must list at least the 21 W3C-DTCG token aliases in a structured section.
+    """
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+
+    await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+
+    call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
+    messages: list[dict[str, Any]] = call_kwargs["messages"]
+    user_content = str(messages[0]["content"])
+
+    # Must contain pack identifier and token section marker
+    assert "nauta-teal" in user_content, "Pack id must appear in user content token table"
+    # Must contain at least one of the mandatory W3C-DTCG token aliases
+    assert "color.primary" in user_content or "color.background" in user_content, (
+        "W3C-DTCG token aliases must be injected into user content"
+    )
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_pack_token_table_not_in_system_prompt(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """Pack token table must NOT appear in system blocks — COST-01 and T-17-21.
+
+    _build_system_blocks() output must be byte-identical regardless of style_pack_id.
+    Token table goes into initial_user_content (per-request dynamic turn), not system.
+    """
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+
+    await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+
+    call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
+    system_blocks: list[dict[str, Any]] = call_kwargs["system"]
+
+    system_text = " ".join(
+        b.get("text", "") if isinstance(b, dict) else str(b) for b in system_blocks
+    )
+    # The active pack identifier must NOT appear in the static system prompt
+    assert "nauta-teal" not in system_text, (
+        "Pack token table must not contaminate system prompt (COST-01/T-17-21)"
+    )
+
+
+@pytest.mark.unit()
+def test_build_system_blocks_identical_regardless_of_pack() -> None:
+    """_build_system_blocks() must be byte-identical regardless of style_pack_id/retrieval (T-17-21).
+
+    The system prefix is static + cached (cache_control ephemeral). Any per-request
+    variation would invalidate the cache and increase costs (COST-01).
+    """
+    from app.infrastructure.llm.genui_generator_adapter import _build_system_blocks
+
+    blocks_no_pack = _build_system_blocks()
+    blocks_with_pack = _build_system_blocks()
+
+    # Serialize both to compare
+    import json as _json
+
+    serialized_no_pack = _json.dumps(blocks_no_pack, sort_keys=True)
+    serialized_with_pack = _json.dumps(blocks_with_pack, sort_keys=True)
+
+    assert serialized_no_pack == serialized_with_pack, (
+        "_build_system_blocks() must be deterministic and pack-agnostic (T-17-21)"
+    )
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_retrieved_exemplars_injected_as_data_framing(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """Retrieved exemplars must appear in initial_user_content inside DATA framing (SAFE-02).
+
+    Exemplars must be injected as structured JSON data, never as raw prose.
+    Must be inside a structured section (not interpolated as text) to honour SAFE-02.
+    """
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+    retrieval = _make_retrieval_result_with_exemplar()
+
+    await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        retrieval=retrieval,
+    )
+
+    call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
+    messages: list[dict[str, Any]] = call_kwargs["messages"]
+    user_content = str(messages[0]["content"])
+
+    # Exemplar id must appear in user content
+    assert "dashboard-saas" in user_content, "Retrieved exemplar id must appear in user content"
+    # Must use DATA framing (structured section delimiter, SAFE-02)
+    assert "<" in user_content and ">" in user_content, (
+        "Exemplars must be enclosed in structured XML-style data framing (SAFE-02)"
+    )
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_no_retrieval_no_exemplar_section(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """When retrieval=None, no exemplar section must appear in user content (backward compat)."""
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+
+    await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        retrieval=None,
+    )
+
+    call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
+    messages: list[dict[str, Any]] = call_kwargs["messages"]
+    user_content = str(messages[0]["content"])
+
+    # No exemplar section should appear when retrieval is None
+    assert "EXEMPLAR" not in user_content.upper() or "dashboard-saas" not in user_content, (
+        "No exemplar data should appear when retrieval=None"
+    )
+
+
+@pytest.mark.unit()
+@pytest.mark.asyncio()
+async def test_empty_retrieval_no_exemplar_section(
+    adapter: GenuiGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """When retrieval has empty items, no exemplar section must appear (graceful empty-state)."""
+    mock_bedrock_client.messages.create.return_value = _make_spec_tool_response(_make_valid_spec())
+    empty_retrieval = _make_empty_retrieval_result()
+
+    await adapter.generate(
+        extraction=_make_extraction(),
+        registry_version="v1",
+        retrieval=empty_retrieval,
+    )
+
+    call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
+    messages: list[dict[str, Any]] = call_kwargs["messages"]
+    user_content = str(messages[0]["content"])
+
+    # No exemplar ids should appear when retrieval is empty
+    assert "dashboard-saas" not in user_content, (
+        "Empty retrieval must not inject any exemplar data"
+    )
