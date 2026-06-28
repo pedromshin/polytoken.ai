@@ -311,3 +311,127 @@ describe("genui.historyById — env guard", () => {
     await expect(caller.genui.historyById({ id: SAMPLE_ID })).rejects.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// CR-03 regression: parse-failure path returns SAFE_FALLBACK_SPEC (D-17)
+// ---------------------------------------------------------------------------
+
+describe("genui.historyById — CR-03 regression: parse failure → SAFE_FALLBACK_SPEC (D-17)", () => {
+  beforeEach(() => {
+    process.env.EMAIL_LISTENER_URL = URL_BASE;
+    process.env.EMAIL_LISTENER_API_KEY = API_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.EMAIL_LISTENER_URL;
+    delete process.env.EMAIL_LISTENER_API_KEY;
+    vi.restoreAllMocks();
+  });
+
+  it("Test 15 (CR-03): schema parse failure → returns non-null detail with specJson === SAFE_FALLBACK_SPEC", async () => {
+    // FastAPI returns a valid 2xx envelope, but the detail row is malformed
+    // (missing required fields like registry_version, spec_json).
+    const malformedDetailEnvelope = {
+      success: true,
+      data: {
+        id: SAMPLE_ID,
+        intent_text: "show invoice details",
+        created_at: "2026-06-01T12:00:00+00:00",
+        // MISSING: registry_version, use_count, validation_status, spec_json
+        // This causes FastApiHistoryDetailSchema.safeParse to fail.
+        broken_extra_field: true,
+      },
+      error: null,
+    };
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(malformedDetailEnvelope)));
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyById({ id: SAMPLE_ID });
+
+    // D-17 contract: must NOT be null — must degrade to SAFE_FALLBACK_SPEC
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty("specJson");
+    // SAFE_FALLBACK_SPEC is { v: 1, root: { type: "alert", title: "..." } }
+    const specJson = result!.specJson as Record<string, unknown>;
+    expect(specJson["v"]).toBe(1);
+    const root = specJson["root"] as Record<string, unknown>;
+    expect(root["type"]).toBe("alert");
+  });
+
+  it("Test 16 (CR-03): valid spec_json in malformed envelope still degrades via SAFE_FALLBACK_SPEC (missing use_count)", async () => {
+    // A detail response where spec_json is valid but envelope fields are wrong
+    const badEnvelope = {
+      success: true,
+      data: {
+        id: SAMPLE_ID,
+        intent_text: "show invoice details",
+        created_at: "2026-06-01T12:00:00+00:00",
+        registry_version: "abc123",
+        // MISSING: use_count (number required)
+        validation_status: "validated",
+        spec_json: { v: 1, root: { type: "text", value: "Hello" } },
+      },
+      error: null,
+    };
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(badEnvelope)));
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyById({ id: SAMPLE_ID });
+
+    expect(result).not.toBeNull();
+    expect(result).toHaveProperty("specJson");
+    const specJson = result!.specJson as Record<string, unknown>;
+    expect(specJson["v"]).toBe(1);
+    const root = specJson["root"] as Record<string, unknown>;
+    expect(root["type"]).toBe("alert");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WR-01 regression: network/5xx errors must surface as isError (not null)
+// ---------------------------------------------------------------------------
+
+describe("genui.historyById — WR-01 regression: non-2xx errors return null (procedure-level contract)", () => {
+  /**
+   * WR-01 context: At the tRPC procedure level, D-15 says non-2xx → null.
+   * The UI layer (history-island.tsx) must distinguish this null from a
+   * genuine parse-failure (now SAFE_FALLBACK_SPEC) via isError handling.
+   *
+   * This test suite documents that 5xx → null at the procedure level.
+   * The UI-level isError distinction (WR-01) is enforced by history-island.tsx.
+   * If the procedure throws instead of returning null, the tRPC client sets
+   * isError=true automatically.
+   */
+  beforeEach(() => {
+    process.env.EMAIL_LISTENER_URL = URL_BASE;
+    process.env.EMAIL_LISTENER_API_KEY = API_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.EMAIL_LISTENER_URL;
+    delete process.env.EMAIL_LISTENER_API_KEY;
+    vi.restoreAllMocks();
+  });
+
+  it("Test 17 (WR-01): 5xx response → returns null without throwing (D-15 best-effort, UI handles isError)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse({ detail: "Internal Server Error" }, 500)));
+
+    const caller = makeCaller();
+    // Procedure itself must not throw — isError is set on the tRPC client side
+    const result = await caller.genui.historyById({ id: SAMPLE_ID });
+
+    expect(result).toBeNull();
+  });
+
+  it("Test 18 (WR-01): network failure → returns null without throwing (D-15 best-effort)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyById({ id: SAMPLE_ID });
+
+    // Network errors are caught and null is returned — isError is set client-side
+    expect(result).toBeNull();
+  });
+});

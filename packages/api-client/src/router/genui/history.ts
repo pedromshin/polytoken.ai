@@ -21,6 +21,7 @@
 
 import { z } from "zod";
 
+import { SAFE_FALLBACK_SPEC } from "@nauta/genui/schema";
 import { publicProcedure } from "../../trpc";
 import { getListenerConfig } from "../_listener-config";
 
@@ -302,7 +303,12 @@ export const historyByIdProcedure = publicProcedure
       return null;
     }
 
-    // D-17: re-validate at the web boundary
+    // D-17: re-validate at the web boundary.
+    // CR-03: On parse failure, degrade to SAFE_FALLBACK_SPEC (D-17 requirement).
+    // We still return a HistoryDetail so the UI can render the fallback spec
+    // with contextual metadata (id, intentText, etc.) rather than a 404 message.
+    // The UI-layer parseSpecSafe() also guards the spec field, but the procedure
+    // must supply a non-null detail for that guard to fire (T-16-05-T).
     const parsed = FastApiHistoryDetailSchema.safeParse(dataField);
     if (!parsed.success) {
       logError(
@@ -310,7 +316,19 @@ export const historyByIdProcedure = publicProcedure
         "genui_history_detail_validation_failed",
         JSON.stringify(parsed.error.issues),
       );
-      return null;
+      // Substitute SAFE_FALLBACK_SPEC for the malformed spec_json field.
+      // All other envelope fields are extracted from the raw dataField if present,
+      // falling back to safe defaults so mapDetail can produce a well-typed object.
+      const fallbackRaw = {
+        id: typeof dataField["id"] === "string" ? dataField["id"] : input.id,
+        intent_text: typeof dataField["intent_text"] === "string" ? dataField["intent_text"] : "",
+        created_at: typeof dataField["created_at"] === "string" ? dataField["created_at"] : new Date().toISOString(),
+        registry_version: typeof dataField["registry_version"] === "string" ? dataField["registry_version"] : "unknown",
+        use_count: typeof dataField["use_count"] === "number" ? dataField["use_count"] : 0,
+        validation_status: typeof dataField["validation_status"] === "string" ? dataField["validation_status"] : "unknown",
+        spec_json: SAFE_FALLBACK_SPEC as Record<string, unknown>,
+      };
+      return mapDetail(fallbackRaw);
     }
 
     return mapDetail(parsed.data);
