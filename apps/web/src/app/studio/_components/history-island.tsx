@@ -324,7 +324,11 @@ function HistoryMasterList({
           Previous
         </Button>
         <span className="text-xs text-muted-foreground">
-          {offset + 1}–{offset + (rows?.length ?? 0)}
+          {/* WR-02: show "0" when the list is empty/loading so we never render
+              the nonsensical "1–0" range. */}
+          {rows !== undefined && rows.length > 0
+            ? `${offset + 1}–${offset + rows.length}`
+            : "0"}
         </span>
         <Button
           variant="ghost"
