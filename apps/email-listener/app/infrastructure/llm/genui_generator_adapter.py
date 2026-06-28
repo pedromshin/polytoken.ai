@@ -30,14 +30,9 @@ from typing import TYPE_CHECKING, Any, cast
 import structlog
 
 from app.domain.ports.retrieval_provider import RetrievalResult
-from app.infrastructure.llm.genui_artifacts import load_prompt_payload
+from app.infrastructure.llm.genui_artifacts import load_prompt_payload, load_spec_schema
 from app.infrastructure.llm.genui_quarantine_adapter import QuarantineExtraction
-from app.infrastructure.llm.genui_spec_utils import (
-    MAX_SPEC_DEPTH,
-    MAX_SPEC_NODES,
-    count_nodes as _count_nodes,
-    validate_spec as _validate_spec,
-)
+from app.infrastructure.llm.genui_spec_utils import validate_spec as _validate_spec
 
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropicBedrock
@@ -46,9 +41,9 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Bounds constants (D-20) — defined in genui_spec_utils, re-imported here
-# for backward compatibility with any code that accesses them via this module.
-# MAX_SPEC_NODES and MAX_SPEC_DEPTH are imported from genui_spec_utils above.
+# Bounds constants (D-20) — defined in genui_spec_utils (WR-02).
+# Callers that need MAX_SPEC_NODES / MAX_SPEC_DEPTH should import them from
+# app.infrastructure.llm.genui_spec_utils directly.
 
 # ---------------------------------------------------------------------------
 # SAFE_FALLBACK_SPEC (D-07) — hardcoded constant, NOT loaded from file.
@@ -280,11 +275,9 @@ def _build_exemplar_section(retrieval: RetrievalResult) -> str:
 # ---------------------------------------------------------------------------
 # Spec validation helpers (D-13, D-20)
 # ---------------------------------------------------------------------------
-# _count_nodes and _validate_spec are imported from genui_spec_utils (WR-02).
-# The underscore-prefixed aliases are kept here so that existing call-sites
-# inside this module continue to work without change.
-# rubric.py and any other external callers should import the PUBLIC names
-# (count_nodes / validate_spec) from genui_spec_utils directly.
+# _validate_spec is imported from genui_spec_utils (WR-02).
+# External callers should import the PUBLIC name (validate_spec / count_nodes)
+# from app.infrastructure.llm.genui_spec_utils directly.
 
 
 # ---------------------------------------------------------------------------
