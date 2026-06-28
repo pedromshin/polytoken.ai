@@ -9,14 +9,14 @@
  *     cleared to undefined once seeded into GenerationSandboxIsland.
  *     NEVER auto-triggers generation (D-06).
  *   - Four tabs: Catalog | Sandbox | History | Page Ideas
- *   - History TabsContent is a placeholder slot (16-05 will drop its island in).
+ *   - History TabsContent renders HistoryIsland (landed by 16-05).
  *
  * Contains:
  *   - TabsList with four TabsTriggers: Catalog, Sandbox, History, Page Ideas
  *   - A next/link "Showcase" affordance (link to /studio/preview, NOT a TabsContent)
  *   - TabsContent "catalog"    → CatalogBrowserIsland
  *   - TabsContent "sandbox"    → GenerationSandboxIsland (receives pendingIntent)
- *   - TabsContent "history"    → placeholder slot (16-05 will fill)
+ *   - TabsContent "history"    → HistoryIsland (landed in 16-05)
  *   - TabsContent "page-ideas" → PageIdeasIsland (onUseIdea seeds pendingIntent)
  *
  * "use client" — controlled Tabs + useState require client context.
@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nauta/ui/tabs";
 
 import { CatalogBrowserIsland } from "./catalog-browser-island";
 import { GenerationSandboxIsland } from "./generation-sandbox-island";
+import { HistoryIsland } from "./history-island";
 import { PageIdeasIsland } from "./page-ideas-island";
 
 // ---------------------------------------------------------------------------
@@ -39,21 +40,6 @@ import { PageIdeasIsland } from "./page-ideas-island";
 // ---------------------------------------------------------------------------
 
 type TabValue = "catalog" | "sandbox" | "history" | "page-ideas";
-
-// ---------------------------------------------------------------------------
-// History placeholder (16-05 will replace this with its island)
-// ---------------------------------------------------------------------------
-
-function HistoryPlaceholder(): React.ReactElement {
-  return (
-    <div
-      className="flex h-full items-center justify-center text-sm text-muted-foreground"
-      aria-live="polite"
-    >
-      Generation history will appear here (coming in Phase 16-05).
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // StudioTabs
@@ -143,13 +129,13 @@ export function StudioTabs(): React.ReactElement {
         <GenerationSandboxIsland initialIntent={pendingIntent} />
       </TabsContent>
 
-      {/* History tab — placeholder slot (16-05 will replace HistoryPlaceholder) */}
+      {/* History tab — HistoryIsland (landed by 16-05; replaces former placeholder) */}
       <TabsContent
         value="history"
         aria-label="Generation history"
         className="flex flex-col flex-1 min-h-0 m-0 border-0"
       >
-        <HistoryPlaceholder />
+        <HistoryIsland />
       </TabsContent>
 
       {/* Page Ideas tab — browse + filter 76-entry corpus; onUseIdea → sandbox */}
