@@ -8,6 +8,17 @@
       "type": "number",
       "const": 1
     },
+    "style_pack_id": {
+      "type": "string",
+      "enum": [
+        "nauta-teal",
+        "linear-clean",
+        "warm-editorial",
+        "brutalist",
+        "corporate-saas",
+        "playful-rounded"
+      ]
+    },
     "data": {
       "type": "object",
       "additionalProperties": {}
@@ -616,6 +627,17 @@
         "v": {
           "type": "number",
           "const": 1
+        },
+        "style_pack_id": {
+          "type": "string",
+          "enum": [
+            "nauta-teal",
+            "linear-clean",
+            "warm-editorial",
+            "brutalist",
+            "corporate-saas",
+            "playful-rounded"
+          ]
         },
         "data": {
           "type": "object",
