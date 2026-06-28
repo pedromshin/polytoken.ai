@@ -99,7 +99,10 @@ const PACK_OPTIONS: ReadonlyArray<{ readonly value: string; readonly label: stri
  * Distribution: uniform random across all known packs (including nauta-teal).
  */
 export function pickSurprisePack(): StylePackId {
-  const idx = Math.floor(Math.random() * STYLE_PACK_IDS.length);
+  // % length guards against the theoretical edge case where Math.random() returns
+  // exactly 1.0 (some JS engines), which would make Math.floor yield length and
+  // produce an out-of-bounds undefined instead of a valid StylePackId (IN-04).
+  const idx = Math.floor(Math.random() * STYLE_PACK_IDS.length) % STYLE_PACK_IDS.length;
   return STYLE_PACK_IDS[idx] as StylePackId;
 }
 
