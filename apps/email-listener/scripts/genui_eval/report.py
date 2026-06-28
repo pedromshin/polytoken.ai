@@ -44,7 +44,14 @@ class PromptReport:
 
 @dataclass(frozen=True)
 class EvalReport:
-    """Aggregate eval report for a full run."""
+    """Aggregate eval report for a full run.
+
+    WR-05: prompt_reports is a tuple, not a list, so that the frozen=True
+    immutability contract is not violated at runtime. Python's frozen=True
+    prevents field reassignment but cannot prevent mutation of a mutable
+    container stored in a field — using tuple eliminates that loophole.
+    Tuple is fully JSON-serialisable via asdict() (produces a list in JSON).
+    """
 
     label: str
     run_at: str
@@ -57,7 +64,7 @@ class EvalReport:
     mean_composed: float
     mean_on_intent: float | None
     mean_a11y: float
-    prompt_reports: list[PromptReport]
+    prompt_reports: tuple[PromptReport, ...]
 
 
 # ---------------------------------------------------------------------------
@@ -101,26 +108,31 @@ def build_report(
     *,
     label: str,
     model_id: str,
-    prompt_reports: list[PromptReport],
+    prompt_reports: list[PromptReport] | tuple[PromptReport, ...],
 ) -> EvalReport:
     """Build an EvalReport from per-prompt results.
 
     Args:
         label: Human-readable label for this run (e.g. 'baseline-16-02').
         model_id: The model ID used for generation.
-        prompt_reports: Per-prompt results from the runner.
+        prompt_reports: Per-prompt results from the runner (list or tuple).
 
     Returns:
         EvalReport with aggregated metrics.
+        prompt_reports is stored as a tuple to satisfy frozen=True immutability
+        (WR-05: a list inside a frozen dataclass is still mutable at runtime).
     """
-    completed = [r for r in prompt_reports if r.error is None]
-    failed = [r for r in prompt_reports if r.error is not None]
+    # Materialise into a tuple for immutable storage inside the frozen dataclass.
+    reports_tuple: tuple[PromptReport, ...] = tuple(prompt_reports)
+
+    completed = [r for r in reports_tuple if r.error is None]
+    failed = [r for r in reports_tuple if r.error is not None]
 
     return EvalReport(
         label=label,
         run_at=datetime.now(tz=UTC).isoformat(),
         model_id=model_id,
-        total_prompts=len(prompt_reports),
+        total_prompts=len(reports_tuple),
         completed_prompts=len(completed),
         failed_prompts=len(failed),
         mean_overall=_mean([r.overall_score for r in completed]),
@@ -128,7 +140,7 @@ def build_report(
         mean_composed=_mean([r.composed_score for r in completed]),
         mean_on_intent=_optional_mean([r.on_intent_score for r in completed]),
         mean_a11y=_mean([r.a11y_score for r in completed]),
-        prompt_reports=prompt_reports,
+        prompt_reports=reports_tuple,
     )
 
 

@@ -115,6 +115,7 @@ from scripts.genui_eval.rubric import (  # noqa: E402
     composed_not_placeholder,
     valid_spec,
 )
+from scripts.genui_eval.report import EvalReport, PromptReport, build_report  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # CriterionResult — basic shape
@@ -329,6 +330,112 @@ def test_aggregate_returns_one_for_all_pass() -> None:
     ]
     score = aggregate(sub_scores)
     assert abs(score - 1.0) < 1e-6
+
+
+# ---------------------------------------------------------------------------
+# WR-05 regression: EvalReport.prompt_reports is an immutable tuple
+# ---------------------------------------------------------------------------
+
+_SAMPLE_PROMPT_REPORT = PromptReport(
+    prompt_id="wr05-01",
+    prompt="Show me a dashboard",
+    category="data-display",
+    complexity="simple",
+    tier="A",
+    outcome="ok",
+    overall_score=0.9,
+    valid_spec_score=1.0,
+    composed_score=0.8,
+    on_intent_score=None,
+    a11y_score=1.0,
+    judge_rationale="Looks good",
+    error=None,
+)
+
+
+@pytest.mark.unit
+def test_eval_report_prompt_reports_is_tuple() -> None:
+    """WR-05: EvalReport.prompt_reports must be tuple, not list.
+
+    A frozen dataclass cannot prevent mutation of a mutable list field at
+    runtime. Storing a tuple eliminates that loophole.
+    """
+    report = build_report(
+        label="wr05-regression",
+        model_id="test-model",
+        prompt_reports=[_SAMPLE_PROMPT_REPORT],
+    )
+    assert isinstance(report.prompt_reports, tuple), (
+        f"Expected tuple, got {type(report.prompt_reports).__name__}. "
+        "EvalReport.prompt_reports must be a tuple to honour frozen=True contract (WR-05)."
+    )
+
+
+@pytest.mark.unit
+def test_eval_report_prompt_reports_tuple_accepts_list_input() -> None:
+    """WR-05: build_report() accepts list input and coerces to tuple internally."""
+    input_list = [_SAMPLE_PROMPT_REPORT, _SAMPLE_PROMPT_REPORT]
+    report = build_report(
+        label="wr05-regression-list",
+        model_id="test-model",
+        prompt_reports=input_list,
+    )
+    assert isinstance(report.prompt_reports, tuple)
+    assert len(report.prompt_reports) == 2
+
+
+@pytest.mark.unit
+def test_eval_report_prompt_reports_tuple_accepts_tuple_input() -> None:
+    """WR-05: build_report() also accepts tuple input directly."""
+    input_tuple = (_SAMPLE_PROMPT_REPORT,)
+    report = build_report(
+        label="wr05-regression-tuple",
+        model_id="test-model",
+        prompt_reports=input_tuple,
+    )
+    assert isinstance(report.prompt_reports, tuple)
+    assert len(report.prompt_reports) == 1
+
+
+@pytest.mark.unit
+def test_eval_report_is_frozen_and_prompt_reports_cannot_be_reassigned() -> None:
+    """WR-05: EvalReport is frozen — field reassignment must raise FrozenInstanceError."""
+    report = build_report(
+        label="wr05-frozen",
+        model_id="test-model",
+        prompt_reports=[_SAMPLE_PROMPT_REPORT],
+    )
+    with pytest.raises((AttributeError, TypeError)):
+        report.prompt_reports = ()  # type: ignore[misc]
+
+
+@pytest.mark.unit
+def test_eval_report_counts_match_prompt_reports() -> None:
+    """WR-05: build_report() correctly counts completed vs failed from the tuple."""
+    failed_report = PromptReport(
+        prompt_id="wr05-fail",
+        prompt="Broken prompt",
+        category="other",
+        complexity="simple",
+        tier="B",
+        outcome="error",
+        overall_score=0.0,
+        valid_spec_score=0.0,
+        composed_score=0.0,
+        on_intent_score=None,
+        a11y_score=0.0,
+        judge_rationale="",
+        error="Timeout",
+    )
+    report = build_report(
+        label="wr05-counts",
+        model_id="test-model",
+        prompt_reports=[_SAMPLE_PROMPT_REPORT, failed_report],
+    )
+    assert report.total_prompts == 2
+    assert report.completed_prompts == 1  # error=None
+    assert report.failed_prompts == 1  # error="Timeout"
+    assert isinstance(report.prompt_reports, tuple)
 
 
 # ---------------------------------------------------------------------------
