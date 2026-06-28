@@ -10,16 +10,19 @@ Functions exported:
   compute_data_shape_hash — SHA-256 over VALUE-FREE structural shape (D-06)
   compute_cache_key    — SHA-256 over 0x1f-delimited fixed-order fields (D-04/D-08)
 
-Cache-key formula (D-04):
-  cache_key = SHA-256(canonical_intent ‖ 0x1f ‖ data_shape_hash ‖ 0x1f
-                      ‖ registry_version ‖ 0x1f ‖ context_descriptor)
+Cache-key formula (D-04 / 17-04):
+  cache_key = SHA-256(canonical_intent || 0x1f || data_shape_hash || 0x1f
+                      || registry_version || 0x1f || context_descriptor
+                      || 0x1f || pack_descriptor)
   where context_descriptor = f"{importer_id or '__system__'}|{catalog_id}"
+        pack_descriptor     = style_pack_id or "__no_pack__"
 
 Threat mitigations implemented here:
-  T-14-05: importer_id in context_descriptor → cross-tenant key isolation (D-08)
-  T-14-06: 0x1f field delimiter → boundary-collision prevention (D-04)
-  T-14-07: values never enter data_shape_hash → no value leakage (D-06)
-  T-14-08: registry_version in key → automatic stale-spec invalidation (CACHE-04/D-13)
+  T-14-05: importer_id in context_descriptor -> cross-tenant key isolation (D-08)
+  T-14-06: 0x1f field delimiter -> boundary-collision prevention (D-04)
+  T-14-07: values never enter data_shape_hash -> no value leakage (D-06)
+  T-14-08: registry_version in key -> automatic stale-spec invalidation (CACHE-04/D-13)
+  T-17-20: style_pack_id in key -> pack swap yields a cache miss (D-08 / 17-04)
 """
 
 from __future__ import annotations
@@ -42,6 +45,10 @@ _SENTINEL_TEXT = "text"
 
 # System importer sentinel when importer_id is None (D-08).
 _SYSTEM_IMPORTER = "__system__"
+
+# Style-pack sentinel when style_pack_id is None (17-04 / T-17-20).
+# Distinct from any real pack id; prevents None from aliasing an actual pack.
+_NO_PACK_SENTINEL = "__no_pack__"
 
 
 def canonicalize_intent(intent: str) -> str:
@@ -115,24 +122,31 @@ def compute_cache_key(
     registry_version: str,
     importer_id: str | None,
     catalog_id: str,
+    style_pack_id: str | None = None,
 ) -> str:
-    """Return the SHA-256 exact-match cache key for a generation request (D-04/D-08).
+    """Return the SHA-256 exact-match cache key for a generation request (D-04/D-08/17-04).
 
-    Key formula (D-04):
-        SHA-256(canonical_intent ‖ 0x1f ‖ data_shape_hash ‖ 0x1f
-                ‖ registry_version ‖ 0x1f ‖ context_descriptor)
+    Key formula (D-04 / 17-04):
+        SHA-256(canonical_intent || 0x1f || data_shape_hash || 0x1f
+                || registry_version || 0x1f || context_descriptor
+                || 0x1f || pack_descriptor)
     where:
         context_descriptor = f"{importer_id or '__system__'}|{catalog_id}"
+        pack_descriptor    = style_pack_id or "__no_pack__"
 
     The 0x1f (unit-separator) delimiter prevents field-boundary collisions (T-14-06).
     Fixed field order ensures determinism (D-04 / CACHE-02).
 
+    style_pack_id is a cache-key dimension (T-17-20): two packs -> two distinct entries.
+    A nauta-teal spec can never be served for a linear-clean request.
+
     Args:
         intent: Raw intent string (will be canonicalized internally).
-        raw_content: Raw document content (shape extracted; values excluded — D-06).
+        raw_content: Raw document content (shape extracted; values excluded -- D-06).
         registry_version: Catalog version string; a change yields a new key (CACHE-04 / D-07).
         importer_id: Tenant scope UUID; None maps to '__system__' sentinel (D-08 / T-14-05).
         catalog_id: Catalog identifier, e.g. 'global' (D-08 / SEAM-03).
+        style_pack_id: Active style pack; None maps to '__no_pack__' sentinel (17-04 / T-17-20).
 
     Returns:
         A 64-character lowercase hex SHA-256 digest.
@@ -140,8 +154,11 @@ def compute_cache_key(
     canonical = canonicalize_intent(intent)
     shape_hash = compute_data_shape_hash(raw_content)
     context_descriptor = f"{importer_id or _SYSTEM_IMPORTER}|{catalog_id}"
+    pack_descriptor = style_pack_id if style_pack_id is not None else _NO_PACK_SENTINEL
 
-    payload = _FIELD_SEP.join([canonical, shape_hash, registry_version, context_descriptor])
+    payload = _FIELD_SEP.join(
+        [canonical, shape_hash, registry_version, context_descriptor, pack_descriptor]
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
