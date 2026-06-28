@@ -1,4 +1,4 @@
-"""Tests for GenerateUiSpecUseCase (Task 3 + Task 14-03 TDD RED).
+"""Tests for GenerateUiSpecUseCase (Task 3 + Task 14-03 + Task 17-04 TDD RED).
 
 Verifies:
 - quarantine → generator pipeline orchestration
@@ -15,6 +15,13 @@ Cache tests (Phase 14-03, CACHE-01..04):
 - D-13: Registry-version in key → new version yields a miss (cold regen)
 - D-17: Template persist errors never propagate
 - cache_hit=True in result on cache hit; cache_hit=False on cold regen
+
+Pack + RAG tests (Phase 17-04, D-08/RAG-01/RAG-02):
+- style_pack_id is a cache-key dimension (T-17-20)
+- retrieve() called before generate() on cache MISS (RAG-01)
+- retrieved_ids + style_pack_id on result + GenerationEvent (D-08/D-14)
+- cache HIT still short-circuits — no retrieval/generate/audit (Phase-14 semantics)
+- _count_retrieved_overlap computed + logged per generation (RAG-02)
 """
 
 from __future__ import annotations
@@ -26,6 +33,7 @@ import pytest
 
 from app.application.use_cases.generate_ui_spec import GenerateUiSpecResult, GenerateUiSpecUseCase
 from app.domain.ports.generation_audit_repository import GenerationEvent
+from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
 from app.domain.ports.ui_spec_template_repository import CachedTemplate
 from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC, GeneratorResult
 from app.infrastructure.llm.genui_quarantine_adapter import QuarantineExtraction
@@ -89,6 +97,28 @@ def mock_templates() -> MagicMock:
     return templates
 
 
+def _make_retrieval_result(
+    *,
+    item_ids: list[str] | None = None,
+) -> RetrievalResult:
+    """Return a RetrievalResult with synthetic component items."""
+    if item_ids is None:
+        item_ids = ["card", "grid"]
+    items = tuple(
+        RetrievedItem(id=item_id, kind="component", score=0.8, payload={"type": item_id})
+        for item_id in item_ids
+    )
+    return RetrievalResult(items=items)
+
+
+@pytest.fixture
+def mock_retrieval() -> MagicMock:
+    """Mock RetrievalProvider — default: returns 2-item RetrievalResult."""
+    retrieval = MagicMock()
+    retrieval.retrieve = AsyncMock(return_value=_make_retrieval_result())
+    return retrieval
+
+
 @pytest.fixture
 def use_case(
     mock_quarantine: MagicMock,
@@ -101,6 +131,24 @@ def use_case(
         generator=mock_generator,
         audit=mock_audit,
         templates=mock_templates,
+    )
+
+
+@pytest.fixture
+def use_case_with_retrieval(
+    mock_quarantine: MagicMock,
+    mock_generator: MagicMock,
+    mock_audit: MagicMock,
+    mock_templates: MagicMock,
+    mock_retrieval: MagicMock,
+) -> GenerateUiSpecUseCase:
+    """Use case with a retrieval provider wired in (Task 17-04)."""
+    return GenerateUiSpecUseCase(
+        quarantine=mock_quarantine,
+        generator=mock_generator,
+        audit=mock_audit,
+        templates=mock_templates,
+        retrieval_provider=mock_retrieval,
     )
 
 
@@ -134,7 +182,8 @@ async def test_execute_calls_generator_with_extraction(
     mock_generator: MagicMock,
     mock_quarantine: MagicMock,
 ) -> None:
-    """Generator adapter must receive the quarantine extraction + registry_version."""
+    """Generator adapter must receive the quarantine extraction + registry_version
+    (and optionally style_pack_id + retrieval when a retrieval_provider is wired)."""
     extraction = _make_extraction(entity_type="table", intent_summary="Show data table")
     mock_quarantine.extract = AsyncMock(return_value=extraction)
 
@@ -143,10 +192,9 @@ async def test_execute_calls_generator_with_extraction(
         raw_content="col1, col2\nval1, val2",
         registry_version="v2",
     )
-    mock_generator.generate.assert_called_once_with(
-        extraction=extraction,
-        registry_version="v2",
-    )
+    call_kwargs = mock_generator.generate.call_args.kwargs
+    assert call_kwargs["extraction"] == extraction
+    assert call_kwargs["registry_version"] == "v2"
 
 
 @pytest.mark.unit
@@ -694,3 +742,346 @@ async def test_cold_fallback_outcome(
 
     assert result.outcome == "fallback"
     assert result.cache_hit is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 17-04 tests: pack-aware cache + RAG-grounded generation
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_execute_accepts_style_pack_id_param(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """execute() must accept style_pack_id as a keyword arg (D-08)."""
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="brutalist",
+    )
+    assert result.spec is not None
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_execute_style_pack_id_none_uses_default(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """execute() with style_pack_id=None must resolve to a default pack (no error)."""
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id=None,
+    )
+    assert result.spec is not None
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_two_packs_yield_two_distinct_cache_keys(
+    mock_quarantine: MagicMock,
+    mock_generator: MagicMock,
+    mock_audit: MagicMock,
+    mock_templates: MagicMock,
+) -> None:
+    """D-08/T-17-20: a pack swap must MISS a spec cached under the other pack."""
+    # Use case without retrieval — just testing cache-key isolation
+    uc = GenerateUiSpecUseCase(
+        quarantine=mock_quarantine,
+        generator=mock_generator,
+        audit=mock_audit,
+        templates=mock_templates,
+    )
+
+    # Capture the first cache-key lookup arg (nauta-teal)
+    key_calls: list[str] = []
+    original_find = mock_templates.find_by_cache_key
+
+    async def capture_key(key: str) -> None:  # type: ignore[return]
+        key_calls.append(key)
+        return await original_find(key)
+
+    mock_templates.find_by_cache_key = capture_key
+
+    await uc.execute(
+        intent="Show invoice",
+        raw_content="Invoice #1",
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+    await uc.execute(
+        intent="Show invoice",
+        raw_content="Invoice #1",
+        registry_version="v1",
+        style_pack_id="brutalist",
+    )
+
+    # Two distinct cache keys must have been used
+    assert len(key_calls) == 2
+    assert key_calls[0] != key_calls[1], (
+        "Different style_pack_ids must produce different cache keys (T-17-20/D-08)"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cache_miss_calls_retrieve_before_generate(
+    use_case_with_retrieval: GenerateUiSpecUseCase,
+    mock_retrieval: MagicMock,
+    mock_generator: MagicMock,
+) -> None:
+    """RAG-01: on cache MISS, retrieve() must be called BEFORE generator.generate()."""
+    call_order: list[str] = []
+
+    original_retrieve = mock_retrieval.retrieve.side_effect or mock_retrieval.retrieve.return_value
+
+    async def track_retrieve(**kwargs: object) -> RetrievalResult:
+        call_order.append("retrieve")
+        return _make_retrieval_result()
+
+    async def track_generate(**kwargs: object) -> GeneratorResult:
+        call_order.append("generate")
+        return GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
+
+    mock_retrieval.retrieve = AsyncMock(side_effect=track_retrieve)
+    mock_generator.generate = AsyncMock(side_effect=track_generate)
+
+    await use_case_with_retrieval.execute(
+        intent="Show invoice",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+
+    assert call_order == ["retrieve", "generate"], (
+        f"retrieve() must be called BEFORE generate(). Got order: {call_order}"
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_retrieve_passes_style_pack_id_and_intent(
+    use_case_with_retrieval: GenerateUiSpecUseCase,
+    mock_retrieval: MagicMock,
+) -> None:
+    """RAG-01: retrieve() must be called with the intent and style_pack_id."""
+    await use_case_with_retrieval.execute(
+        intent="Show invoice table",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="warm-editorial",
+    )
+
+    call_kwargs = mock_retrieval.retrieve.call_args.kwargs
+    assert call_kwargs["intent"] == "Show invoice table"
+    assert call_kwargs["style_pack_id"] == "warm-editorial"
+    assert "top_k" in call_kwargs
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_generate_receives_retrieval_and_style_pack_id(
+    use_case_with_retrieval: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+    mock_retrieval: MagicMock,
+) -> None:
+    """RAG-01: generator.generate() must receive retrieval + style_pack_id kwargs."""
+    retrieval_result = _make_retrieval_result(item_ids=["card", "table"])
+    mock_retrieval.retrieve = AsyncMock(return_value=retrieval_result)
+
+    await use_case_with_retrieval.execute(
+        intent="Show invoice",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="linear-clean",
+    )
+
+    call_kwargs = mock_generator.generate.call_args.kwargs
+    assert call_kwargs.get("style_pack_id") == "linear-clean"
+    assert call_kwargs.get("retrieval") == retrieval_result
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_result_carries_style_pack_id_and_retrieved_ids(
+    use_case_with_retrieval: GenerateUiSpecUseCase,
+    mock_retrieval: MagicMock,
+) -> None:
+    """D-08/D-14: GenerateUiSpecResult must carry style_pack_id + retrieved_ids."""
+    retrieval_result = _make_retrieval_result(item_ids=["card", "grid", "button"])
+    mock_retrieval.retrieve = AsyncMock(return_value=retrieval_result)
+
+    result = await use_case_with_retrieval.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="brutalist",
+    )
+
+    assert hasattr(result, "style_pack_id"), "GenerateUiSpecResult must have style_pack_id field"
+    assert hasattr(result, "retrieved_ids"), "GenerateUiSpecResult must have retrieved_ids field"
+    assert result.style_pack_id == "brutalist"
+    assert set(result.retrieved_ids) == {"card", "grid", "button"}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_generation_event_carries_style_pack_id_and_retrieved_ids(
+    use_case_with_retrieval: GenerateUiSpecUseCase,
+    mock_audit: MagicMock,
+    mock_retrieval: MagicMock,
+) -> None:
+    """D-14: GenerationEvent must record style_pack_id + retrieved_ids (RAG-02 audit)."""
+    retrieval_result = _make_retrieval_result(item_ids=["table", "card"])
+    mock_retrieval.retrieve = AsyncMock(return_value=retrieval_result)
+
+    await use_case_with_retrieval.execute(
+        intent="Show invoice",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="corporate-saas",
+    )
+
+    event: GenerationEvent = mock_audit.record.call_args[0][0]
+    assert hasattr(event, "style_pack_id"), "GenerationEvent must have style_pack_id field"
+    assert hasattr(event, "retrieved_ids"), "GenerationEvent must have retrieved_ids field"
+    assert hasattr(event, "retrieved_overlap_count"), "GenerationEvent must have retrieved_overlap_count field"
+    assert event.style_pack_id == "corporate-saas"
+    assert set(event.retrieved_ids) == {"table", "card"}
+    assert isinstance(event.retrieved_overlap_count, int)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cache_hit_still_short_circuits_with_pack(
+    mock_quarantine: MagicMock,
+    mock_generator: MagicMock,
+    mock_audit: MagicMock,
+    mock_templates: MagicMock,
+    mock_retrieval: MagicMock,
+) -> None:
+    """Phase-14 semantics preserved: cache HIT skips retrieval, generate, and audit."""
+    cached_spec = {"v": 1, "root": {"type": "card", "title": "Cached"}}
+    mock_templates.find_by_cache_key = AsyncMock(
+        return_value=CachedTemplate(id="tmpl-hit", spec_json=cached_spec)
+    )
+    uc = GenerateUiSpecUseCase(
+        quarantine=mock_quarantine,
+        generator=mock_generator,
+        audit=mock_audit,
+        templates=mock_templates,
+        retrieval_provider=mock_retrieval,
+    )
+
+    result = await uc.execute(
+        intent="Show invoice",
+        raw_content="Invoice #123",
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+
+    assert result.cache_hit is True
+    assert result.spec == cached_spec
+    mock_retrieval.retrieve.assert_not_called()
+    mock_quarantine.extract.assert_not_called()
+    mock_generator.generate.assert_not_called()
+    mock_audit.record.assert_not_called()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_no_retrieval_provider_wired_still_works(
+    use_case: GenerateUiSpecUseCase,
+    mock_generator: MagicMock,
+) -> None:
+    """Use case without retrieval_provider must degrade gracefully (no error, retrieval=None to generate)."""
+    result = await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+    )
+    assert result.spec is not None
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_generation_event_style_pack_id_none_when_no_pack(
+    use_case: GenerateUiSpecUseCase,
+    mock_audit: MagicMock,
+) -> None:
+    """GenerationEvent.style_pack_id may be the resolved default when style_pack_id=None."""
+    await use_case.execute(
+        intent="Show details",
+        raw_content="content",
+        registry_version="v1",
+    )
+    event: GenerationEvent = mock_audit.record.call_args[0][0]
+    # style_pack_id field must exist on GenerationEvent
+    assert hasattr(event, "style_pack_id")
+
+
+@pytest.mark.unit
+def test_generation_event_has_style_pack_and_retrieved_fields() -> None:
+    """GenerationEvent frozen dataclass must have style_pack_id + retrieved_ids + retrieved_overlap_count fields."""
+    event = GenerationEvent(
+        intent_hash="abc123",
+        model_id="model-x",
+        input_tokens=10,
+        output_tokens=5,
+        attempts=1,
+        outcome="ok",
+        spec_validation_passed=True,
+        registry_version="v1",
+        style_pack_id="nauta-teal",
+        retrieved_ids=("card", "grid"),
+        retrieved_overlap_count=1,
+    )
+    assert event.style_pack_id == "nauta-teal"
+    assert event.retrieved_ids == ("card", "grid")
+    assert event.retrieved_overlap_count == 1
+
+
+@pytest.mark.unit
+def test_generation_event_new_fields_have_defaults() -> None:
+    """New GenerationEvent fields must have defaults so existing callers keep working."""
+    event = GenerationEvent(
+        intent_hash="abc123",
+        model_id="model-x",
+        input_tokens=10,
+        output_tokens=5,
+        attempts=1,
+        outcome="ok",
+        spec_validation_passed=True,
+        registry_version="v1",
+    )
+    assert event.style_pack_id is None
+    assert event.retrieved_ids == ()
+    assert event.retrieved_overlap_count == 0
+
+
+@pytest.mark.unit
+def test_generate_ui_spec_result_has_style_pack_and_retrieved_ids() -> None:
+    """GenerateUiSpecResult must carry style_pack_id + retrieved_ids with defaults."""
+    result = GenerateUiSpecResult(spec={"v": 1, "root": {"type": "card"}})
+    assert hasattr(result, "style_pack_id")
+    assert hasattr(result, "retrieved_ids")
+    assert result.style_pack_id is None
+    assert result.retrieved_ids == ()
+
+
+@pytest.mark.unit
+def test_generate_ui_spec_result_accepts_style_pack_and_retrieved_ids() -> None:
+    """GenerateUiSpecResult must accept style_pack_id + retrieved_ids values."""
+    result = GenerateUiSpecResult(
+        spec={"v": 1, "root": {"type": "card"}},
+        style_pack_id="brutalist",
+        retrieved_ids=("card", "grid"),
+    )
+    assert result.style_pack_id == "brutalist"
+    assert result.retrieved_ids == ("card", "grid")
