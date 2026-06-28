@@ -30,6 +30,7 @@ from typing import TYPE_CHECKING, Any, cast
 import jsonschema
 import structlog
 
+from app.domain.ports.retrieval_provider import RetrievalResult
 from app.infrastructure.llm.genui_artifacts import (
     load_prompt_payload,
     load_spec_schema,
@@ -175,6 +176,108 @@ def _build_system_blocks() -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
+# Dynamic user-turn injection helpers (17-04 / COST-01 / T-17-21 / SAFE-02)
+#
+# These functions build per-request content injected into initial_user_content
+# ONLY. _build_system_blocks() MUST NOT be called or modified here.
+# ---------------------------------------------------------------------------
+
+# W3C-DTCG token aliases shared by all style packs (21 canonical slots).
+# Injected per-request so the model knows which token names to use for theming.
+_TOKEN_ALIASES: tuple[str, ...] = (
+    "color.background",
+    "color.foreground",
+    "color.card",
+    "color.cardForeground",
+    "color.popover",
+    "color.popoverForeground",
+    "color.primary",
+    "color.primaryForeground",
+    "color.secondary",
+    "color.secondaryForeground",
+    "color.muted",
+    "color.mutedForeground",
+    "color.accent",
+    "color.accentForeground",
+    "color.destructive",
+    "color.destructiveForeground",
+    "color.border",
+    "color.input",
+    "color.ring",
+    "radius.base",
+    "typography.body.family",
+)
+
+
+def _build_pack_token_section(style_pack_id: str) -> str:
+    """Build the pack token table for injection into initial_user_content (DYNAMIC user turn).
+
+    Injects the active pack identifier and 21 W3C-DTCG token aliases so the model
+    can reference them in the generated spec. This is per-request content — it goes
+    into the DYNAMIC user turn, never into _build_system_blocks() (COST-01/T-17-21).
+
+    No eval/exec/compile used (D-24). Pure string construction from trusted constants.
+
+    Args:
+        style_pack_id: The validated active style pack identifier.
+
+    Returns:
+        A structured text section to prepend to initial_user_content.
+    """
+    token_lines = "\n".join(f"  - {alias}" for alias in _TOKEN_ALIASES)
+    return (
+        f"<STYLE_PACK_SECTION>\n"
+        f"Active style pack: {style_pack_id}\n"
+        f"Use the following W3C-DTCG design token aliases when referencing colors, "
+        f"radius, and typography in the spec:\n"
+        f"{token_lines}\n"
+        f"</STYLE_PACK_SECTION>"
+    )
+
+
+def _build_exemplar_section(retrieval: RetrievalResult) -> str:
+    """Build the retrieved exemplars section for injection into initial_user_content.
+
+    Exemplars are injected as structured JSON data inside <EXEMPLARS_SECTION> framing
+    (SAFE-02: structured data, never raw prose). Only items with kind='exemplar' or
+    kind='template' are included — component-catalog items are already in the system
+    prompt via _format_catalog_reference(), so duplicating them would waste tokens.
+
+    No eval/exec/compile used (D-24). JSON serialized from trusted RetrievedItem payloads.
+
+    Args:
+        retrieval: RetrievalResult from the active RetrievalProvider.retrieve() call.
+            Must have at least one item (caller asserts retrieval.items is non-empty).
+
+    Returns:
+        A structured text section to append to initial_user_content.
+    """
+    exemplar_items = [
+        item for item in retrieval.items if item.kind in ("exemplar", "template")
+    ]
+    if not exemplar_items:
+        return ""
+
+    items_data = [
+        {
+            "id": item.id,
+            "kind": item.kind,
+            "score": item.score,
+            "payload": item.payload,
+        }
+        for item in exemplar_items
+    ]
+    items_json = json.dumps(items_data, ensure_ascii=False, separators=(", ", ": "))
+    return (
+        f"<EXEMPLARS_SECTION>\n"
+        f"Retrieved exemplars for reference (use as structural inspiration only — "
+        f"do NOT copy raw content verbatim):\n"
+        f"{items_json}\n"
+        f"</EXEMPLARS_SECTION>"
+    )
+
+
+# ---------------------------------------------------------------------------
 # Spec validation helpers (D-13, D-20)
 # ---------------------------------------------------------------------------
 
@@ -291,6 +394,8 @@ class GenuiGeneratorAdapter:
         extraction: QuarantineExtraction,
         registry_version: str,
         raw_prose_for_test_assertion: str | None = None,
+        style_pack_id: str | None = None,
+        retrieval: RetrievalResult | None = None,
     ) -> GeneratorResult:
         """Generate a validated SpecRoot dict from the quarantine extraction.
 
@@ -299,6 +404,12 @@ class GenuiGeneratorAdapter:
             registry_version: Registry/catalog version string for audit.
             raw_prose_for_test_assertion: IGNORED at runtime — accepted only so tests
                 can verify the adapter does NOT include raw prose in its prompts.
+            style_pack_id: Active style pack identifier (17-04). When provided, the
+                W3C-DTCG token table for this pack is injected into initial_user_content
+                (DYNAMIC user turn). Must NOT affect _build_system_blocks() (COST-01/T-17-21).
+            retrieval: Ranked retrieval result from the RetrievalProvider (17-04/RAG-02).
+                Retrieved exemplars are injected as structured data into initial_user_content
+                (SAFE-02 DATA framing). None = no exemplar injection (backward compat).
 
         Returns:
             GeneratorResult with spec (validated SpecRoot or SAFE_FALLBACK_SPEC),
@@ -306,7 +417,11 @@ class GenuiGeneratorAdapter:
             Never raises — returns a fallback GeneratorResult on any exception.
         """
         try:
-            return await self._repair_loop(extraction=extraction)
+            return await self._repair_loop(
+                extraction=extraction,
+                style_pack_id=style_pack_id,
+                retrieval=retrieval,
+            )
         except Exception:
             logger.warning(
                 "genui_generator_failed",
@@ -320,11 +435,16 @@ class GenuiGeneratorAdapter:
         self,
         *,
         extraction: QuarantineExtraction,
+        style_pack_id: str | None = None,
+        retrieval: RetrievalResult | None = None,
     ) -> GeneratorResult:
         """Run up to 3 attempts; feed validation errors back for repair (D-06/GEN-02).
 
         Tracks the number of attempts made and whether the Sonnet escalation model
         was used, so the caller can record accurate audit data (WR-03/04/05).
+
+        style_pack_id and retrieval are injected into initial_user_content ONLY —
+        _build_system_blocks() is never touched (COST-01 / T-17-21).
         """
         spec_schema = load_spec_schema()
         emit_tool = _build_emit_tool(spec_schema)
@@ -343,6 +463,16 @@ class GenuiGeneratorAdapter:
             f"<DATA_SECTION>{data_section}</DATA_SECTION>\n\n"
             "Generate a SpecRoot JSON using the emit_ui_spec tool."
         )
+
+        # Inject pack token table into DYNAMIC user turn (COST-01 / T-17-21 — NOT system)
+        if style_pack_id is not None:
+            token_section = _build_pack_token_section(style_pack_id)
+            initial_user_content = token_section + "\n\n" + initial_user_content
+
+        # Inject retrieved exemplars as structured DATA framing (SAFE-02 / RAG-02)
+        if retrieval is not None and retrieval.items:
+            exemplar_section = _build_exemplar_section(retrieval)
+            initial_user_content = initial_user_content + "\n\n" + exemplar_section
 
         messages: list[dict[str, Any]] = [
             {"role": "user", "content": initial_user_content},
