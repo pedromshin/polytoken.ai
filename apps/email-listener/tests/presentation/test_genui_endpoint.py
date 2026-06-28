@@ -115,12 +115,12 @@ def test_generate_missing_raw_content_is_accepted_intent_only(
     body = resp.json()
     assert body["success"] is True
     # The use case is called with raw_content="" (the default)
-    mock_use_case.execute.assert_called_once_with(
-        intent="Show summary",
-        raw_content="",
-        registry_version="v1",
-        importer_id=None,
-    )
+    # Use flexible assertion so adding new optional kwargs (style_pack_id) doesn't break this test.
+    call_kwargs = mock_use_case.execute.call_args.kwargs
+    assert call_kwargs["intent"] == "Show summary"
+    assert call_kwargs["raw_content"] == ""
+    assert call_kwargs["registry_version"] == "v1"
+    assert call_kwargs["importer_id"] is None
 
 
 @pytest.mark.unit()
@@ -150,12 +150,12 @@ def test_generate_calls_use_case_with_correct_args(
             "registry_version": "catalog-v1.2",
         },
     )
-    mock_use_case.execute.assert_called_once_with(
-        intent="Display the invoice",
-        raw_content="Invoice details here",
-        registry_version="catalog-v1.2",
-        importer_id=None,
-    )
+    # Use flexible assertion so adding new optional kwargs (style_pack_id) doesn't break this test.
+    call_kwargs = mock_use_case.execute.call_args.kwargs
+    assert call_kwargs["intent"] == "Display the invoice"
+    assert call_kwargs["raw_content"] == "Invoice details here"
+    assert call_kwargs["registry_version"] == "catalog-v1.2"
+    assert call_kwargs["importer_id"] is None
 
 
 @pytest.mark.unit()
