@@ -343,11 +343,19 @@ function GridComponent({
     gap === "sm" ? "gap-2" :
     gap === "lg" ? "gap-6" :
     "gap-4"; // md default
+  // Layout-robustness clamp: never request more columns than there are children.
+  // The model frequently emits `cols: 12` (Bootstrap-style mental model) with a
+  // single wide child — without this clamp that child lands in a 1/12-wide cell
+  // and its text wraps one word per line. Clamping to the child count makes a
+  // few-children grid degrade to fewer, full-width columns instead of collapsing.
+  const childCount = React.Children.count(children);
+  const requestedCols = Number.isFinite(cols) ? Math.floor(cols) : 2;
+  const effectiveCols = Math.max(1, Math.min(requestedCols, childCount || 1));
   return React.createElement(
     "div",
     {
       className: `grid ${gapClass}`,
-      style: { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` },
+      style: { gridTemplateColumns: `repeat(${effectiveCols}, minmax(0, 1fr))` },
       "aria-label": ariaLabel,
     },
     children,
@@ -555,7 +563,7 @@ export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
   stack: {
     type: "stack",
     description:
-      "Flex column or row layout container. Accepts positional children. Use aria-label when the stack acts as a landmark region.",
+      "Flex column (or row) layout container — the PRIMARY primitive for overall page and section structure. Stack sections and cards vertically; nest stacks to build a page. Accepts positional children. Use aria-label when the stack acts as a landmark region.",
     example: {
       direction: "vertical",
       gap: "md",
@@ -575,7 +583,7 @@ export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
   grid: {
     type: "grid",
     description:
-      "CSS grid layout container. cols sets the number of equal columns (1–12). Accepts positional children. Use aria-label when acting as a landmark.",
+      "CSS grid of EQUAL-width columns where EACH child fills exactly ONE cell — there is NO column spanning. Set cols to the number of items per row (2–4 is typical for card galleries). cols larger than the child count automatically collapses to fewer, wider columns. Do NOT use grid as a page wrapper or to hold a single wide region — use stack for overall page structure. Use aria-label when acting as a landmark.",
     example: {
       cols: 2,
       gap: "md",

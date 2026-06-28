@@ -1,7 +1,7 @@
 {
   "registryVersion": {
     "catalogId": "global",
-    "version": "f84f065d1ca6f162a0b96b62dc891a49ae5f026c361a83cb22a9a43e8c853a36"
+    "version": "40b5d21d845c5f331730dd902be9e951bc6b924f708410a59135be1239b38b0e"
   },
   "components": [
     {
@@ -70,14 +70,14 @@
     },
     {
       "type": "stack",
-      "description": "Flex column or row layout container. Accepts positional children. Use aria-label when the stack acts as a landmark region.",
+      "description": "Flex column (or row) layout container — the PRIMARY primitive for overall page and section structure. Stack sections and cards vertically; nest stacks to build a page. Accepts positional children. Use aria-label when the stack acts as a landmark region.",
       "acceptsChildren": true,
       "slots": [],
       "lockedProps": []
     },
     {
       "type": "grid",
-      "description": "CSS grid layout container. cols sets the number of equal columns (1–12). Accepts positional children. Use aria-label when acting as a landmark.",
+      "description": "CSS grid of EQUAL-width columns where EACH child fills exactly ONE cell — there is NO column spanning. Set cols to the number of items per row (2–4 is typical for card galleries). cols larger than the child count automatically collapses to fewer, wider columns. Do NOT use grid as a page wrapper or to hold a single wide region — use stack for overall page structure. Use aria-label when acting as a landmark.",
       "acceptsChildren": true,
       "slots": [],
       "lockedProps": []

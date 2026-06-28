@@ -904,4 +904,39 @@ describe("Round-trip regression: all 10 catalog types render without NodeErrorFa
     );
     expect(html).not.toContain("[!]");
   });
+
+  it("grid: clamps cols to child count — a 12-col grid with one child renders one full-width column (layout robustness)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "grid",
+        cols: 12,
+        children: [{ type: "card", title: "Solo" }],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).toContain("repeat(1,");
+    expect(html).not.toContain("repeat(12,");
+  });
+
+  it("grid: keeps requested cols when children meet or exceed them", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "grid",
+        cols: 12,
+        children: [
+          { type: "card", title: "A" },
+          { type: "card", title: "B" },
+          { type: "card", title: "C" },
+        ],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).toContain("repeat(3,");
+  });
 });
