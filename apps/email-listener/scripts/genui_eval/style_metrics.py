@@ -72,8 +72,14 @@ def _hsl_to_rgb(h: float, s: float, lum: float) -> tuple[float, float, float]:
 
 
 def _linearise(channel: float) -> float:
-    """Convert a sRGB gamma-encoded value [0,1] to linear light."""
-    if channel <= 0.03928:
+    """Convert a sRGB gamma-encoded value [0,1] to linear light.
+
+    Threshold 0.04045 is the IEC 61966-2-1:1999 / WCAG 2.x specification value.
+    The older 0.03928 figure (IN-01) came from an earlier IEC draft and is
+    slightly incorrect; the difference is negligible in practice but we use the
+    authoritative value to stay spec-compliant.
+    """
+    if channel <= 0.04045:
         return channel / 12.92
     return float(((channel + 0.055) / 1.055) ** 2.4)
 
