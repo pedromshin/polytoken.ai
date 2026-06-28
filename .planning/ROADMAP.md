@@ -269,11 +269,11 @@ The win is measured: a demonstrable lift on the golden set versus the Phase-16 b
   3. Before generation, relevant exemplars/components are retrieved and injected into the prompt (assembly RAG over the catalog + promoted templates), and the spec the model emits references the retrieved structure.
   4. Re-running the Phase-16 eval shows a measurable lift in the rubric's "composed-not-placeholder" / on-intent / style-distinctiveness scores versus the recorded baseline, with no a11y regression.
 
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 Plans:
 **Wave 1**
 
-- [ ] 17-01-PLAN.md — TS token/theme contract: >=5 DTCG style packs (nauta-teal baseline) + fourth TOKEN allowlist + style_pack_id envelope + re-emit Bedrock artifacts
+- [x] 17-01-PLAN.md — TS token/theme contract: >=5 DTCG style packs (nauta-teal baseline) + fourth TOKEN allowlist + style_pack_id envelope + re-emit Bedrock artifacts
 - [ ] 17-02-PLAN.md — Python assembly-RAG seam: source-agnostic RetrievalProvider port + deterministic lexical adapter + hand-authored exemplar assets
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -355,7 +355,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 5/5 | Complete    | 2026-06-28 |
-| 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 0/0 | Not started | - |
+| 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 1/5 | In Progress|  |
 | 18. Tier A — Catalog Expansion | 0/0 | Not started | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
 | 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase, USER SIGN-OFF GATE) | 0/0 | Not started (blocked: user sign-off) | - |

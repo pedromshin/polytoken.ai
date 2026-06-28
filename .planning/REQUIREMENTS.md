@@ -133,9 +133,9 @@ SPIKE + explicit user sign-off (it changes the safety model from no-eval to jail
 
 ### Design Tokens & Style Packs (STYLE) — *Tier A*
 
-- **STYLE-01**: The generator is conditioned on an explicit, machine-readable design system + a W3C-DTCG-shaped token set (semantic color/type/spacing tokens, not free-form descriptions) that the renderer consumes
-- **STYLE-02**: A library of distinct "style packs" (token sets) exists; the engine can be told which to use (or pick one) so two generations of the same intent visibly differ in look-and-feel
-- **STYLE-03**: Token specificity is enforced (semantic hex/aliases over prose like "navy blue") so the model picks from existing aliases rather than substituting its own defaults
+- **STYLE-01** ✓ (Phase 17-01): The generator is conditioned on an explicit, machine-readable design system + a W3C-DTCG-shaped token set (semantic color/type/spacing tokens, not free-form descriptions) that the renderer consumes
+- **STYLE-02** ✓ (Phase 17-01): A library of distinct "style packs" (token sets) exists; the engine can be told which to use (or pick one) so two generations of the same intent visibly differ in look-and-feel
+- **STYLE-03** ✓ (Phase 17-01): Token specificity is enforced (semantic hex/aliases over prose like "navy blue") so the model picks from existing aliases rather than substituting its own defaults
 - **STYLE-04**: A measurable lift on the golden set (style-distinctiveness / composed-not-placeholder) versus the Phase-16 baseline, with no a11y regression
 
 ### Assembly RAG (RAG) — *Tier A*
