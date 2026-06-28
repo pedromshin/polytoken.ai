@@ -195,6 +195,10 @@ def write_report(report: EvalReport, *, out_dir: Path | None = None) -> tuple[Pa
         "mean_composed": round(report.mean_composed, 4),
         "mean_on_intent": round(report.mean_on_intent, 4) if report.mean_on_intent is not None else None,
         "mean_a11y": round(report.mean_a11y, 4),
+        # Additive style aggregates (D-15, WR-01): required by compare_reports.py
+        "mean_brand_score": round(report.mean_brand_score, 4) if report.mean_brand_score is not None else None,
+        "mean_distinctiveness": round(report.mean_distinctiveness, 4) if report.mean_distinctiveness is not None else None,
+        "mean_retrieval_overlap": round(report.mean_retrieval_overlap, 4) if report.mean_retrieval_overlap is not None else None,
         "prompt_reports": [asdict(pr) for pr in report.prompt_reports],
     }
     json_path.write_text(json.dumps(report_dict, indent=2), encoding="utf-8")
@@ -227,6 +231,15 @@ def _render_markdown(report: EvalReport) -> str:
         f"| composed | {report.mean_composed:.3f} |",
         f"| on-intent | {on_intent_str} |",
         f"| a11y | {report.mean_a11y:.3f} |",
+    ]
+    # Additive style aggregate rows (IN-05: only append when values are present)
+    if report.mean_brand_score is not None:
+        lines.append(f"| brand score | {report.mean_brand_score:.3f} |")
+    if report.mean_distinctiveness is not None:
+        lines.append(f"| distinctiveness | {report.mean_distinctiveness:.3f} |")
+    if report.mean_retrieval_overlap is not None:
+        lines.append(f"| retrieval overlap | {report.mean_retrieval_overlap:.3f} |")
+    lines += [
         "",
         "## Per-Prompt Results",
         "",
