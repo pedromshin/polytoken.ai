@@ -164,9 +164,16 @@ export function SpecRenderer({
   // ThemedRoot is outermost, ActionRegistryContext.Provider is inside it.
   // When no style_pack_id, skip the wrapper to avoid an extra DOM element (backward compat).
   if (spec.style_pack_id !== undefined && spec.style_pack_id !== null) {
+    // Page-shell: frame generated pages in a centered, max-width, padded
+    // container so output reads as a designed page instead of raw content
+    // dumped flush-left / full-bleed. Scoped to themed generations only —
+    // catalog component examples carry no style_pack_id, so they render at
+    // their natural size without the shell.
     return (
       <ThemedRoot packId={spec.style_pack_id}>
-        {innerTree}
+        <div className="genui-page-shell mx-auto w-full max-w-4xl px-6 py-8">
+          {innerTree}
+        </div>
       </ThemedRoot>
     );
   }

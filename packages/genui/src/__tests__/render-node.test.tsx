@@ -940,3 +940,29 @@ describe("Round-trip regression: all 10 catalog types render without NodeErrorFa
     expect(html).toContain("repeat(3,");
   });
 });
+
+describe("SpecRenderer page-shell (Phase 17 layout robustness)", () => {
+  it("frames themed generations in the centered, max-width, padded page-shell", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      style_pack_id: "nauta-teal",
+      root: { type: "text", content: "Hello", variant: "body" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).toContain("genui-page-shell");
+    expect(html).toContain("max-w-4xl");
+  });
+
+  it("does NOT add the page-shell to unthemed specs (catalog examples render at natural size)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: { type: "text", content: "Hello", variant: "body" },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).not.toContain("genui-page-shell");
+  });
+});
