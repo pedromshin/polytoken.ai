@@ -16,6 +16,7 @@ Named exports: Exemplar, load_exemplars
 
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -158,7 +159,7 @@ def load_exemplars() -> tuple[Exemplar, ...]:
             id=meta_id,
             category=category,
             tags=tags,
-            spec=dict(spec_asset),
+            spec=copy.deepcopy(dict(spec_asset)),
         )
         for (meta_id, category, tags), spec_asset in zip(_EXEMPLAR_META, EXEMPLAR_ASSETS, strict=True)
     )
