@@ -33,6 +33,7 @@
 
 import { SAFE_FALLBACK_SPEC, SpecRootSchema } from "@nauta/genui/schema";
 import { REGISTRY_VERSION } from "@nauta/genui/registry";
+import { STYLE_PACK_IDS } from "@nauta/genui/theme";
 import { z } from "zod";
 
 import { publicProcedure } from "../../trpc";
@@ -73,6 +74,15 @@ const GenerateInput = z.object({
   rawContent: z.string().default(""),
   /** Optional importer context forwarded to the audit row (D-19). */
   importerId: z.string().optional(),
+  /**
+   * Style pack id for the visual theme applied by ThemedRoot (Phase 17-03 / D-04).
+   * Validated at the web boundary via z.enum(STYLE_PACK_IDS) — unknown ids are
+   * rejected before reaching FastAPI (T-17-04).
+   * When omitted, FastAPI uses the default pack ("nauta-teal").
+   * D-08: the "auto" sentinel is NEVER sent to FastAPI — callers must resolve
+   * Auto/Surprise to a concrete pack id via pickSurprisePack() before calling.
+   */
+  stylePackId: z.enum(STYLE_PACK_IDS as [string, ...string[]]).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -125,6 +135,10 @@ export const generateProcedure = publicProcedure
           raw_content: input.rawContent,
           registry_version: REGISTRY_VERSION.version,
           importer_id: input.importerId ?? null,
+          // D-04/D-08: forward validated pack id as snake_case; null when omitted
+          // so FastAPI can apply the default pack. "auto" is never sent here —
+          // callers must resolve to a concrete pack id before calling (D-08).
+          style_pack_id: input.stylePackId ?? null,
         }),
       });
     } catch (networkErr) {

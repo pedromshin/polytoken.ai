@@ -537,12 +537,10 @@ describe("genui.generate — stylePackId threading (D-08/T-17-04/Phase 17-03)", 
     const caller = makeCaller();
 
     // Zod should reject unknown pack ids before reaching FastAPI
+    // Cast via unknown to simulate a runtime value that bypasses TypeScript's type narrowing
+    const invalidInput = { intent: "Test", stylePackId: "not-a-valid-pack" } as unknown as Parameters<typeof caller.genui.generate>[0];
     await expect(
-      caller.genui.generate({
-        intent: "Test",
-        // @ts-expect-error intentionally invalid pack id
-        stylePackId: "not-a-valid-pack",
-      }),
+      caller.genui.generate(invalidInput),
     ).rejects.toThrow();
   });
 
