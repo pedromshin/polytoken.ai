@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Generative UI: Realism & Interactivity"
 status: ready_to_plan
-last_updated: "2026-06-28T05:05:06.536Z"
+last_updated: "2026-06-28T08:00:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 7
-  percent: 20
+  completed_plans: 8
+  percent: 22
 ---
 
 # State
@@ -51,7 +51,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 - **Process:** eval-driven development (Anthropic/OpenAI) — build the eval harness FIRST (golden prompt set from the real corpus + LLM-as-judge UI-quality rubric, UI-Bench-style), gate every GSD phase on it.
 - **Proposed v1.2 phases:** (1) eval harness, (2) Tier-A token/theme + style packs + assembly RAG, (3) catalog expansion (avatar/feed-item/nav/tabs/inputs), (4) declarative form engine, (5) sandboxed code-island [SPIKE→phase, user sign-off]. History + page-ideas tabs = small early phase (data already in ui_spec_templates / genui_generation_events; ideas seeded from the pending real corpus).
 - **PROGRESS (rate limit recovered):** real-prompt corpus gathered (`.planning/research/REAL-PROMPT-CORPUS.md`, 76 real prompts w/ provenance); v1.2 milestone formalized (roadmap phases 16-20 + requirements, commit cc6ab1a); **Phase 16 CONTEXT authored** (21 decisions, commit 7fd8dc1) and **PLANNED — 5 plans / 3 waves (commit 5600181)**: 16-01 eval+page-ideas assets, 16-02 eval runner/rubric/judge/baseline, 16-03 History backend+tRPC, 16-04 Page-Ideas tab, 16-05 History UI.
-- **CURRENT POSITION / NEXT:** Phase 16 plans 16-01..16-05 ALL EXECUTED (autonomous run 2026-06-27/28). 16-03 (history spine), 16-02 (eval harness), 16-04 (page-ideas tab + controlled tabs lift), 16-05 (history tab UI) committed. Deferred to connected env: 16-02 Task 4 live Bedrock baseline; 16-05 Task 3 browser-verify; any plans for 16-01 (eval+page-ideas assets). **Phase 17 17-01 EXECUTED 2026-06-28**: 6 WCAG-AA DTCG packs + fourth TOKEN allowlist (Zod enum) + style_pack_id on spec envelope + regenerated drift-gate-green Bedrock artifacts; 289/289 tests green. **Next: 17-02** (TypeScript theme renderer — CSS-var injection + pack application). Then 17-03..17-05, then 18 (catalog expansion) → 19 (declarative form engine) → 20 (sandboxed code-island, USER SIGN-OFF GATE). Keep local/sandbox; eval-gate later phases on Phase-16 baseline.
+- **CURRENT POSITION / NEXT:** Phase 16 plans 16-01..16-05 ALL EXECUTED (autonomous run 2026-06-27/28). 16-03 (history spine), 16-02 (eval harness), 16-04 (page-ideas tab + controlled tabs lift), 16-05 (history tab UI) committed. Deferred to connected env: 16-02 Task 4 live Bedrock baseline; 16-05 Task 3 browser-verify; any plans for 16-01 (eval+page-ideas assets). **Phase 17 17-01 EXECUTED 2026-06-28**: 6 WCAG-AA DTCG packs + fourth TOKEN allowlist (Zod enum) + style_pack_id on spec envelope + regenerated drift-gate-green Bedrock artifacts; 289/289 tests green. **Phase 17 17-02 EXECUTED 2026-06-28**: RetrievalProvider port + LexicalRetrievalProvider + 5 hand-authored exemplar specs; 42/42 tests green (TDD RED→GREEN all 3 tasks). **Next: 17-03** (TypeScript theme renderer — CSS-var injection + pack application). Then 17-04..17-05, then 18 (catalog expansion) → 19 (declarative form engine) → 20 (sandboxed code-island, USER SIGN-OFF GATE). Keep local/sandbox; eval-gate later phases on Phase-16 baseline.
 
 ## Phase 12 — Catalog, Spec Schema, and Trusted Interpreter — ✓ EXECUTED 2026-06-27 (4 plans, 4 waves; human visual verify deferred)
 
