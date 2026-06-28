@@ -133,7 +133,7 @@ export function StudioTabs(): React.ReactElement {
       <TabsContent
         value="history"
         aria-label="Generation history"
-        className="flex flex-col flex-1 min-h-0 m-0 border-0"
+        className="flex-1 min-h-0 overflow-y-auto m-0 border-0"
       >
         <HistoryIsland />
       </TabsContent>
@@ -142,7 +142,7 @@ export function StudioTabs(): React.ReactElement {
       <TabsContent
         value="page-ideas"
         aria-label="Page idea browser"
-        className="flex flex-col flex-1 min-h-0 m-0 border-0"
+        className="flex-1 min-h-0 overflow-y-auto m-0 border-0"
       >
         <PageIdeasIsland onUseIdea={handleUseIdea} />
       </TabsContent>
