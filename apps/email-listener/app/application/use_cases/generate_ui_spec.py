@@ -154,7 +154,12 @@ class GenerateUiSpecUseCase:
                 await self._templates.increment_use_count(cached.id)
             except Exception:
                 log.warning("genui_use_count_increment_failed", exc_info=True)
-            return GenerateUiSpecResult(spec=cached.spec_json, cache_hit=True, outcome="ok")
+            return GenerateUiSpecResult(
+                spec=cached.spec_json,
+                cache_hit=True,
+                outcome="ok",
+                style_pack_id=style_pack_id,  # propagate requested pack (CR-01)
+            )
 
         log.info("genui_generate_start")
 
