@@ -20,6 +20,7 @@ import {
   REGISTERED_TYPES,
 } from "../registry/component-registry";
 import { computeRegistryHash, REGISTRY_VERSION } from "../registry/registry-version";
+import { SpecNodeSchema } from "../schema/spec-schema";
 import type { AnyManifestEntry } from "../catalog/types";
 
 // ===========================================================================
@@ -261,4 +262,60 @@ describe("computeRegistryHash content-hash (D-07)", () => {
   it("REGISTRY_VERSION.version is a 64-char hex string", () => {
     expect(REGISTRY_VERSION.version).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it("REGISTRY_VERSION.version differs from the 10-entry pre-Phase-18 catalog (Phase-14 cache auto-invalidation)", () => {
+    // All 6 Phase-18 keys are present in COMPONENT_REGISTRY — proves the key set
+    // changed, which is what guarantees a different SHA-256 hash and triggers the
+    // Phase-14 cache to discard stale specs (CTLG-08 / D-05).
+    const phase18Keys = ["avatar", "input", "nav", "feed-item", "tabs", "section"] as const;
+    for (const key of phase18Keys) {
+      expect(
+        key in COMPONENT_REGISTRY,
+        `Expected COMPONENT_REGISTRY to contain "${key}" (Phase-18 addition)`,
+      ).toBe(true);
+    }
+
+    // The hash must be a 64-char SHA-256 hex — the mechanism that ties the version
+    // to the key set is already proven by the "is sensitive to an added entry" test above.
+    expect(REGISTRY_VERSION.version).toMatch(/^[0-9a-f]{64}$/);
+    expect(Object.keys(COMPONENT_REGISTRY).length).toBe(16);
+  });
+});
+
+// ===========================================================================
+// Block 5: Wire/render schema parity (Phase-18 D-05 / T-18-09)
+//
+// Every catalog example, when spread into { type, ...example }, must pass
+// SpecNodeSchema (the wire discriminated union). This is the standing regression
+// guard against the Phase-17 onClick-class drift: if a field exists in the
+// manifest propsSchema but not the wire schema (or vice versa), this test fails
+// with the offending type name and the exact Zod error.
+//
+// Container entries (acceptsChildren: true) get children: [] injected — matching
+// what buildCatalogExampleSpec does — so the wire schema's required children
+// array does not cause false negatives.
+// ===========================================================================
+
+describe("Wire/render schema parity (Phase-18 D-05)", () => {
+  for (const [type, entry] of Object.entries(COMPONENT_REGISTRY)) {
+    const typedEntry = entry as AnyManifestEntry;
+    it(`${type}: example passes SpecNodeSchema (wire)`, () => {
+      const node: Record<string, unknown> = { type, ...typedEntry.example };
+
+      // Inject children: [] for container entries — mirrors buildCatalogExampleSpec.
+      // Without this, wire schemas like SectionNodeSchema (required children: array)
+      // would fail because catalog examples omit the empty array.
+      if (typedEntry.acceptsChildren === true && !("children" in node)) {
+        node["children"] = [];
+      }
+
+      const result = SpecNodeSchema.safeParse(node);
+      if (!result.success) {
+        throw new Error(
+          `${type} example failed SpecNodeSchema (wire/render drift detected!):\n${JSON.stringify(result.error.format(), null, 2)}`,
+        );
+      }
+      expect(result.success).toBe(true);
+    });
+  }
 });
