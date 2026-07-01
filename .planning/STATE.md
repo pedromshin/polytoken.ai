@@ -19,7 +19,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 18 ✓ complete (deferred connected-env eval DEF-18-03-01) — next: Phase 19 (declarative form engine)
+**Current focus:** ◆ **Phase 20 — Sandboxed Code-Island (SPIKE)** — REORDERED ahead of Phase 19 after user sign-off 2026-07-01.
+
+## 🔀 PIVOT / DECISION 2026-07-01 (during `/gsd:autonomous --from 19`)
+
+**North-star restated by user:** *"Let the user create absolutely any design they want — not locked to any pattern — from raw pure empty HTML to making their page look like anything. Better than WordPress / Lovable, where it's hard to break out of the tool's natural design. I want this from day 0."*
+
+**Decisions:**
+1. **Phase 20 (sandboxed code-island) USER SIGN-OFF = GRANTED.** The no-eval → jailed-eval safety-model change is accepted. Begins as a SPIKE.
+2. **REORDER: Phase 20 runs BEFORE Phase 19.** The code-island is the only architecture piece that escapes the fixed catalog "natural design"; it becomes the primary day-0 path. Target architecture = HYBRID (reliable declarative core as fast-path + arbitrary sandboxed code-island for the long tail) — matches the v0/Bolt + Google A2UI + sandboxed-MCP-App research already in this doc.
+3. **Phase 19 form engine DEFERRED to after Phase 20.** Form-engine library (JSONForms / custom+AJV / RJSF) left OPEN — forms may end up expressed inside code-islands rather than a separate declarative engine. Revisit post-spike.
+4. **SPIKE scope:** prove (a) isolated sandbox that cannot touch host DOM/creds, (b) v0-style AST-validate→autofix→run→self-heal repair loop with safe-placeholder fallback, (c) adversarial-injection + a11y (axe-core) fixtures, (d) one "curveball" corpus prompt renders a working interactive widget the declarative tiers cannot express. Then formalize Phase 20 as a full phase.
 
 ## Milestone v1.1 — Generative UI Engine — 🎉 COMPLETE 2026-06-27 (4 phases, 15 plans; autonomous run)
 

@@ -321,7 +321,7 @@ interactivity: lead-capture, onboarding, invoice, leave-tracker, multi-step) ins
 reaching for code-emit.
 **Depends on:** Phase 16 (eval gate); composes with Phases 17–18 (the form should adopt the active style pack + new input primitives)
 **Requirements:** FORM-01, FORM-02, FORM-03, FORM-04, FORM-05
-**Status:** Not started
+**Status:** Deferred — REORDERED to run AFTER Phase 20 (decision 2026-07-01). Per the user's "arbitrary design from day 0" north-star, the sandboxed code-island (Phase 20) is the headline capability and is built first; forms then compose within/after it (a locked-in form engine shipped first would contradict the north-star). Form-engine library choice (JSONForms vs custom+AJV vs RJSF) left OPEN pending the spike — forms may be expressed inside code-islands rather than as a separate declarative engine.
 **Success Criteria** (what must be TRUE):
 
   1. A `form` spec node carries a JSON Schema (fields + types) and a UI schema (layout/widgets), and the interpreter renders it as a working form through a schema-driven engine — with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output, preserving the zero-eval guarantee.
@@ -342,9 +342,9 @@ run → self-heal). The code-island runs jailed; it cannot regress the trusted d
 **⚠️ SAFETY-MODEL CHANGE:** this phase changes the model from **no-eval to jailed-eval** and is the one
 genuinely new high-risk subsystem. It **MUST NOT start without explicit user sign-off**, and should begin
 as a **SPIKE** (prove the sandbox + repair loop in isolation) before being committed to as a full phase.
-**Depends on:** Phase 16 (eval gate, incl. the adversarial-injection + a11y fixtures) and explicit USER SIGN-OFF; the declarative tiers (17–19) should be exhausted first so the island is reserved for what they genuinely cannot express
+**Depends on:** Phase 16 (eval gate, incl. the adversarial-injection + a11y fixtures) and explicit USER SIGN-OFF.
 **Requirements:** CODE-01, EVAL-01, EVAL-02
-**Status:** Not started (BLOCKED — requires user sign-off before planning)
+**Status:** ✅ USER SIGN-OFF GRANTED 2026-07-01 → In progress (SPIKE first). **REORDERED ahead of Phase 19.** The jailed-eval safety-model change is accepted. Rationale for the reorder: the user's north-star is "let the user create absolutely any design — from raw empty HTML to anything — better than WordPress/Lovable, from day 0"; the code-island is the only part of the architecture that escapes the catalog's fixed 'natural design', so it becomes the primary day-0 path (hybrid: reliable declarative core as fast-path + arbitrary code-island for the long tail). Begins as a SPIKE (prove isolated sandbox + AST-validate→autofix→run→self-heal repair loop + adversarial-injection/a11y fixtures + one curveball prompt) before committing to the full phase.
 **Success Criteria** (what must be TRUE):
 
   1. A spec can reference a code-island node whose generated code runs inside an isolated sandbox (iframe/Sandpack/WebContainer) that cannot touch the host page, the parent DOM, or app credentials — the trusted declarative core is provably unaffected if the island misbehaves.
@@ -363,8 +363,8 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 | 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 5/5 | Complete    | 2026-06-28 |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 5/5 | Complete   | 2026-06-28 |
 | 18. Tier A — Catalog Expansion | 3/3 | Complete   | 2026-07-01 |
-| 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Not started | - |
-| 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase, USER SIGN-OFF GATE) | 0/0 | Not started (blocked: user sign-off) | - |
+| 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase) | 0/0 | ◆ In progress (SPIKE) — sign-off granted, reordered ahead of 19 | - |
+| 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Deferred — runs after Phase 20 | - |
 
 ## Backlog
 
