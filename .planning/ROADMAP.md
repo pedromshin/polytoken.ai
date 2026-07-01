@@ -321,7 +321,7 @@ interactivity: lead-capture, onboarding, invoice, leave-tracker, multi-step) ins
 reaching for code-emit.
 **Depends on:** Phase 16 (eval gate); composes with Phases 17–18 (the form should adopt the active style pack + new input primitives)
 **Requirements:** FORM-01, FORM-02, FORM-03, FORM-04, FORM-05
-**Status:** Deferred — REORDERED to run AFTER Phase 20 (decision 2026-07-01). Per the user's "arbitrary design from day 0" north-star, the sandboxed code-island (Phase 20) is the headline capability and is built first; forms then compose within/after it (a locked-in form engine shipped first would contradict the north-star). Form-engine library choice (JSONForms vs custom+AJV vs RJSF) left OPEN pending the spike — forms may be expressed inside code-islands rather than as a separate declarative engine.
+**Status:** ✅ COMPLETE 2026-07-01 (ran after Phase 20 per the reorder). Resolved as the **hybrid**: a declarative zero-eval `form` node is the reliable fast-path; the Phase-20 code-island is the exotic-form escape hatch. **AJV was rejected** (compiles model JSON Schema via `new Function` → breaks the zero-eval invariant GR-01/D-24); a bounded custom no-eval validator is used instead. Conditional logic (`visibleWhen`/`requiredWhen`) as data; submit via the SEAM-02 ActionRegistry seam. See [phases/19-.../19-SUMMARY.md]. Eval lift-vs-baseline deferred (DEF-19-01, connected-env).
 **Success Criteria** (what must be TRUE):
 
   1. A `form` spec node carries a JSON Schema (fields + types) and a UI schema (layout/widgets), and the interpreter renders it as a working form through a schema-driven engine — with no `eval`/`Function`/`dangerouslySetInnerHTML` on model output, preserving the zero-eval guarantee.
@@ -364,7 +364,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 5/5 | Complete   | 2026-06-28 |
 | 18. Tier A — Catalog Expansion | 3/3 | Complete   | 2026-07-01 |
 | 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase) | ✓ | ✅ COMPLETE 2026-07-01 — SPIKE→full phase; live intent→code gen wired, adversarially reviewed (0 high/crit unmitigated); connected-env smoke/eval deferred (DEF-20-01) | 2026-07-01 |
-| 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Deferred — runs after Phase 20 | - |
+| 19. Tier B-1 — Declarative JSON-Schema Form Engine | ✓ | ✅ COMPLETE 2026-07-01 — zero-eval `form` node (no-eval validator, conditional logic, SEAM-02 submit); 463 genui tests; eval lift deferred (DEF-19-01) | 2026-07-01 |
 
 ## Backlog
 

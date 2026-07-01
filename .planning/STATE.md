@@ -6,10 +6,10 @@ status: ready_to_plan
 last_updated: "2026-07-01T00:43:00Z"
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 13
   completed_plans: 13
-  percent: 80
+  percent: 100
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** ✅ **Phase 20 — Sandboxed Code-Island — COMPLETE** (SPIKE→full phase, 2026-07-01). Next: **Phase 19** (declarative form engine) — the only remaining v1.2 phase; its engine fork is open (revisit post-island).
+**Current focus:** 🎉 **Milestone v1.2 — ALL 5 PHASES COMPLETE** (16,17,18,20,19 — 2026-07-01). Remaining: milestone lifecycle (audit → complete → cleanup) + connected-env eval deferrals (DEF-17-05-01/18-03-01/19-01/20-01). Phase 19 (declarative zero-eval form node, hybrid fast-path) ✅ committed ecc7a46.
 
 ## 🔀 PIVOT / DECISION 2026-07-01 (during `/gsd:autonomous --from 19`)
 
