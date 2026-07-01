@@ -1,9 +1,10 @@
 /**
  * catalog/manifest.ts — Hand-authored NAUTA_CATALOG manifest.
  *
- * Contains exactly 11 catalog entries (D-01, D-02):
+ * Contains exactly 16 catalog entries (D-01, D-02):
  *   - 3 layout primitives: stack, grid, section (house-built, no @nauta/ui import)
- *   - 8 leaf components: text, badge, button, card, key-value-list, separator, alert, table
+ *   - 8 legacy leaf components: text, badge, button, card, key-value-list, separator, alert, table
+ *   - 5 Phase-18 domain components: avatar, input, nav, feed-item, tabs (CTLG-06)
  *
  * Each entry is a fully-real ManifestEntry<TProps>:
  *   - strict Zod propsSchema (Bedrock additionalProperties:false — D-22 / COST-02)
@@ -42,9 +43,14 @@ import {
   TableHeader,
   TableRow,
 } from "@nauta/ui/table";
+// Phase 18 — @nauta/ui primitives for domain leaf components (CTLG-06)
+import { Avatar, AvatarImage, AvatarFallback } from "@nauta/ui/avatar";
+import { Input } from "@nauta/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@nauta/ui/tabs";
 
 import type { AnyManifestEntry, ComponentRegistry } from "./types";
 import { ActionSchema } from "../schema/action-schema";
+import { SpecNodeSchema } from "../schema/spec-schema";
 
 // ---------------------------------------------------------------------------
 // Prop type declarations (one per catalog entry)
@@ -138,6 +144,60 @@ type SectionProps = {
   readonly gap?: "none" | "sm" | "md" | "lg";
   readonly "aria-label"?: string; // optional landmark label (UI-SPEC §11)
   readonly children?: React.ReactNode;
+};
+
+/** avatar — @nauta/ui/avatar leaf (CTLG-06); alt is a11y-required (D-04) */
+type AvatarProps = {
+  readonly alt: string; // a11y-required (D-04 / UI-SPEC §11)
+  readonly src?: string;
+  readonly size?: "sm" | "md" | "lg";
+};
+
+/** input — @nauta/ui/input leaf with label wrapper (CTLG-06); label+name required */
+type InputProps = {
+  readonly label: string; // a11y-required (D-04 / UI-SPEC §11)
+  readonly name: string;
+  readonly inputType?: "text" | "email" | "number" | "password" | "search" | "tel" | "url";
+  readonly placeholder?: string;
+  readonly value?: string;
+  readonly disabled?: boolean;
+};
+
+/** nav — house-built semantic <nav> (CTLG-06); aria-label is a11y-required (D-04) */
+type NavItem = {
+  readonly label: string;
+  readonly href: string;
+  readonly icon?: string;
+  readonly active?: boolean;
+};
+type NavProps = {
+  readonly "aria-label": string; // a11y-required (D-04 / UI-SPEC §11)
+  readonly items: ReadonlyArray<NavItem>;
+};
+
+/** feed-item — house-built flex-row leaf (CTLG-06); title required */
+type FeedItemProps = {
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly body?: string;
+  readonly timestamp?: string;
+  readonly avatarSrc?: string;
+  readonly avatarAlt?: string;
+  readonly badge?: string;
+  readonly unread?: boolean;
+};
+
+/** tabs — @nauta/ui/tabs wrapper (CTLG-06); aria-label is a11y-required (D-04) */
+type TabItem = {
+  readonly value: string;
+  readonly label: string;
+  readonly content: z.infer<typeof SpecNodeSchema>;
+};
+type TabsProps = {
+  readonly "aria-label": string; // a11y-required (D-04 / UI-SPEC §11)
+  readonly tabs: ReadonlyArray<TabItem>;
+  readonly defaultValue?: string;
+  readonly children?: React.ReactNode; // injected by renderer for TabsContent slots
 };
 
 // ---------------------------------------------------------------------------
@@ -393,12 +453,239 @@ function SectionComponent({
   );
 }
 
+/** Size → Tailwind className map for Avatar (CTLG-09: CSS-variable tokens only). */
+const AVATAR_SIZE_CLASS: Readonly<Record<"sm" | "md" | "lg", string>> = {
+  sm: "h-8 w-8",
+  md: "h-10 w-10",
+  lg: "h-14 w-14",
+} as const;
+
+function AvatarComponent({ alt, src, size = "md" }: AvatarProps): React.ReactElement {
+  const sizeClass = AVATAR_SIZE_CLASS[size];
+  // Derive 2-char fallback text from alt (accessibility — visible when src missing/broken)
+  const fallbackText = alt.trim().slice(0, 2).toUpperCase();
+  return React.createElement(
+    Avatar,
+    { className: sizeClass },
+    src
+      ? React.createElement(AvatarImage, { src, alt })
+      : null,
+    React.createElement(
+      AvatarFallback,
+      { className: "text-foreground bg-muted text-xs font-medium" },
+      fallbackText,
+    ),
+  );
+}
+
+function InputComponent({
+  label,
+  name,
+  inputType = "text",
+  placeholder,
+  value,
+  disabled = false,
+}: InputProps): React.ReactElement {
+  // Derive a stable, lowercase-slug id from the label for label→input association
+  const id = `input-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+  return React.createElement(
+    "div",
+    { className: "flex flex-col gap-1" },
+    React.createElement(
+      "label",
+      {
+        htmlFor: id,
+        className: "text-sm font-medium text-foreground",
+      },
+      label,
+    ),
+    React.createElement(Input, {
+      id,
+      name,
+      type: inputType,
+      placeholder,
+      defaultValue: value,
+      disabled,
+      className: "w-full",
+      readOnly: value !== undefined, // treat value as a display hint, not a controlled binding
+    }),
+  );
+}
+
+/**
+ * Regex to detect absolute URLs or scheme-relative URLs — mirrors
+ * NAV_ABSOLUTE_OR_SCHEME in spec-schema.ts (inlined to avoid circular import).
+ */
+const _NAV_ABSOLUTE_OR_SCHEME = /^([a-z][a-z0-9+\-.]*:|\/\/)/i;
+
+function NavComponent({ "aria-label": ariaLabel, items }: NavProps): React.ReactElement {
+  return React.createElement(
+    "nav",
+    { "aria-label": ariaLabel },
+    React.createElement(
+      "ul",
+      { className: "flex flex-col gap-1" },
+      ...items.map((item) => {
+        // Safety: strip absolute/scheme URLs server-side to prevent open-redirect
+        const safeHref = _NAV_ABSOLUTE_OR_SCHEME.test(item.href) ? "/" : item.href;
+        return React.createElement(
+          "li",
+          { key: item.href },
+          React.createElement(
+            "a",
+            {
+              href: safeHref,
+              "aria-current": item.active === true ? "page" : undefined,
+              className: [
+                "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
+                item.active
+                  ? "bg-muted font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              ].join(" "),
+            },
+            item.icon
+              ? React.createElement(
+                  "span",
+                  { className: "text-base", "aria-hidden": true },
+                  item.icon,
+                )
+              : null,
+            item.label,
+          ),
+        );
+      }),
+    ),
+  );
+}
+
+function FeedItemComponent({
+  title,
+  subtitle,
+  body,
+  timestamp,
+  avatarSrc,
+  avatarAlt,
+  badge,
+  unread = false,
+}: FeedItemProps): React.ReactElement {
+  const hasBold = unread;
+  return React.createElement(
+    "div",
+    {
+      className: [
+        "flex flex-row gap-3 rounded-lg p-3 border border-border",
+        unread ? "bg-muted" : "bg-background",
+      ].join(" "),
+    },
+    // Leading avatar (optional)
+    avatarSrc && avatarAlt
+      ? React.createElement(
+          Avatar,
+          { className: "h-10 w-10 shrink-0" },
+          React.createElement(AvatarImage, { src: avatarSrc, alt: avatarAlt }),
+          React.createElement(
+            AvatarFallback,
+            { className: "text-foreground bg-muted text-xs font-medium" },
+            avatarAlt.trim().slice(0, 2).toUpperCase(),
+          ),
+        )
+      : null,
+    // Title / subtitle / body / meta stack
+    React.createElement(
+      "div",
+      { className: "flex flex-col gap-0.5 flex-1 min-w-0" },
+      React.createElement(
+        "div",
+        { className: "flex items-center justify-between gap-2" },
+        React.createElement(
+          "span",
+          {
+            className: [
+              "text-sm truncate text-foreground",
+              hasBold ? "font-semibold" : "font-medium",
+            ].join(" "),
+          },
+          title,
+        ),
+        timestamp
+          ? React.createElement(
+              "span",
+              { className: "text-xs text-muted-foreground shrink-0" },
+              timestamp,
+            )
+          : null,
+      ),
+      subtitle
+        ? React.createElement(
+            "span",
+            { className: "text-xs text-muted-foreground truncate" },
+            subtitle,
+          )
+        : null,
+      body
+        ? React.createElement(
+            "p",
+            { className: "text-sm text-foreground line-clamp-2 mt-1" },
+            body,
+          )
+        : null,
+      badge
+        ? React.createElement(
+            Badge,
+            { variant: "secondary", className: "mt-1 w-fit text-xs" },
+            badge,
+          )
+        : null,
+    ),
+  );
+}
+
+function TabsComponent({
+  "aria-label": ariaLabel,
+  tabs,
+  defaultValue,
+  children: _children, // reserved for renderer slot injection (Phase 19)
+}: TabsProps): React.ReactElement {
+  const resolvedDefault = defaultValue ?? tabs[0]?.value;
+  // Presentational-only: no onValueChange. Phase-19 will wire interactive state.
+  return React.createElement(
+    Tabs,
+    { defaultValue: resolvedDefault, "aria-label": ariaLabel },
+    React.createElement(
+      TabsList,
+      { className: "w-full" },
+      ...tabs.map((tab) =>
+        React.createElement(
+          TabsTrigger,
+          { key: tab.value, value: tab.value },
+          tab.label,
+        ),
+      ),
+    ),
+    // Content panels — rendered as text fallback until Phase-19 wires full renderNode
+    ...tabs.map((tab) =>
+      React.createElement(
+        TabsContent,
+        { key: tab.value, value: tab.value },
+        React.createElement(
+          "div",
+          { className: "text-sm text-foreground" },
+          typeof tab.content === "object" && tab.content !== null
+            ? (tab.content as { type?: string; content?: string }).content ?? tab.value
+            : String(tab.content ?? tab.value),
+        ),
+      ),
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
-// NAUTA_CATALOG — 11 fully-real manifest entries (D-01, D-02, D-03)
+// NAUTA_CATALOG — 16 fully-real manifest entries (D-01, D-02, D-03)
 // ---------------------------------------------------------------------------
 
 /**
- * The component catalog. 10 entries: 2 layout primitives + 8 @nauta/ui-backed leaves.
+ * The component catalog. 16 entries: 3 layout primitives + 8 @nauta/ui-backed legacy leaves
+ * + 5 Phase-18 domain components (avatar, input, nav, feed-item, tabs — CTLG-06).
  *
  * Frozen as const; typed as ComponentRegistry for keyed lookup.
  *
@@ -653,6 +940,173 @@ export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
     lockedProps: [],
     acceptsChildren: true,
     component: SectionComponent as AnyManifestEntry["component"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // Phase 18 domain components (CTLG-06): avatar, input, nav, feed-item, tabs
+  // ---------------------------------------------------------------------------
+
+  avatar: {
+    type: "avatar",
+    description:
+      "User avatar / profile picture. alt is required for accessibility. src is optional — when absent the first two characters of alt are shown as a fallback. size controls dimensions: sm (32px), md (40px, default), lg (56px).",
+    example: {
+      alt: "Alice Johnson",
+      src: "https://i.pravatar.cc/40?u=alice",
+      size: "md",
+    },
+    propsSchema: z
+      .object({
+        alt: z.string(), // a11y-required: D-04 / UI-SPEC §11
+        src: z.string().url().optional(),
+        size: z.enum(["sm", "md", "lg"]).optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: AvatarComponent as AnyManifestEntry["component"],
+  },
+
+  input: {
+    type: "input",
+    description:
+      "Labelled text input field. label and name are required — label is rendered as <label> and wired via htmlFor. inputType controls the HTML input type (text, email, number, password, search, tel, url). value sets a display default; the field is read-only at render time (interactive state is wired in Phase 19).",
+    example: {
+      label: "Email address",
+      name: "email",
+      inputType: "email",
+      placeholder: "you@example.com",
+    },
+    propsSchema: z
+      .object({
+        label: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+        name: z.string(),
+        inputType: z
+          .enum(["text", "email", "number", "password", "search", "tel", "url"])
+          .optional(),
+        placeholder: z.string().optional(),
+        value: z.string().optional(),
+        disabled: z.boolean().optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: InputComponent as AnyManifestEntry["component"],
+  },
+
+  nav: {
+    type: "nav",
+    description:
+      "Semantic navigation list rendered as <nav><ul><li><a>. aria-label is required for landmark identification. Each item needs label and a relative href (absolute URLs are blocked). Set active:true on the current page item — it receives aria-current=\"page\" and highlighted styling. icon is an optional emoji/character displayed before the label.",
+    example: {
+      "aria-label": "Main navigation",
+      items: [
+        { label: "Inbox", href: "/inbox", active: true },
+        { label: "Sent", href: "/sent" },
+        { label: "Drafts", href: "/drafts" },
+      ],
+    },
+    propsSchema: z
+      .object({
+        "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11)
+        items: z
+          .array(
+            z
+              .object({
+                label: z.string(),
+                href: z
+                  .string()
+                  .startsWith("/")
+                  .refine(
+                    (h) => !_NAV_ABSOLUTE_OR_SCHEME.test(h),
+                    { message: "Nav href must be a relative path (no scheme or //)" },
+                  ),
+                icon: z.string().optional(),
+                active: z.boolean().optional(),
+              })
+              .strict(),
+          )
+          .min(1),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: NavComponent as AnyManifestEntry["component"],
+  },
+
+  "feed-item": {
+    type: "feed-item",
+    description:
+      "Single item in an activity feed or message list. title is required. Optional leading avatar (avatarSrc + avatarAlt — both required together). subtitle, body, timestamp, badge, and unread are all optional. unread:true applies muted background and bold title. Typically rendered inside a stack.",
+    example: {
+      title: "Alice Johnson",
+      subtitle: "Re: Quarterly report",
+      timestamp: "10:42 AM",
+      avatarSrc: "https://i.pravatar.cc/40?u=alice",
+      avatarAlt: "Alice Johnson",
+      unread: true,
+    },
+    propsSchema: z
+      .object({
+        title: z.string(),
+        subtitle: z.string().optional(),
+        body: z.string().optional(),
+        timestamp: z.string().optional(),
+        avatarSrc: z.string().url().optional(),
+        avatarAlt: z.string().optional(),
+        badge: z.string().optional(),
+        unread: z.boolean().optional(),
+      })
+      .strict()
+      .refine(
+        (p) => p.avatarSrc === undefined || p.avatarAlt !== undefined,
+        { message: "avatarAlt is required when avatarSrc is provided", path: ["avatarAlt"] },
+      ),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: FeedItemComponent as AnyManifestEntry["component"],
+  },
+
+  tabs: {
+    type: "tabs",
+    description:
+      "Tabbed content panel wrapping @nauta/ui/tabs (Radix Tabs). aria-label is required for accessibility. Each tab needs a unique value (used as the key), a label shown on the trigger, and a content node (a SpecNode rendered in the panel). defaultValue sets the initially active tab — defaults to the first tab's value. Presentational-only in Phase 18; interactive state is wired in Phase 19.",
+    example: {
+      "aria-label": "Account settings",
+      tabs: [
+        {
+          value: "profile",
+          label: "Profile",
+          content: { type: "text", content: "Profile settings go here." },
+        },
+        {
+          value: "security",
+          label: "Security",
+          content: { type: "text", content: "Security settings go here." },
+        },
+      ],
+      defaultValue: "profile",
+    },
+    propsSchema: z
+      .object({
+        "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11)
+        tabs: z
+          .array(
+            z
+              .object({
+                value: z.string(),
+                label: z.string(),
+                content: SpecNodeSchema,
+              })
+              .strict(),
+          )
+          .min(1),
+        defaultValue: z.string().optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: TabsComponent as AnyManifestEntry["component"],
   },
 } satisfies ComponentRegistry);
 

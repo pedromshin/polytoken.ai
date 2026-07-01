@@ -49,8 +49,8 @@ const FALLBACK_REASON_RENDER = "render error";
 const entries = Object.values(NAUTA_CATALOG);
 
 describe("catalog example live-render (BUG A regression)", () => {
-  it("covers all 10 catalog entries", () => {
-    expect(entries).toHaveLength(10);
+  it("covers all 16 catalog entries", () => {
+    expect(entries).toHaveLength(16);
   });
 
   it.each(entries.map((entry) => [entry.type, entry] as const))(

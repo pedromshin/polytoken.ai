@@ -1,7 +1,7 @@
 {
   "registryVersion": {
     "catalogId": "global",
-    "version": "31003cee3ee668641ff34c5b61f87a357b88117d97b6bdac5d5f9dc4e11fa306"
+    "version": "d9d66f5deeb56591132a6893ada92bba9cfb6ce04d8a197c3df5adb181ce1cd0"
   },
   "components": [
     {
@@ -78,6 +78,48 @@
       "type": "grid",
       "description": "CSS grid of EQUAL-width columns where EACH child fills exactly ONE cell — there is NO column spanning. Set cols to the number of items per row (2–4 is typical for card galleries). cols larger than the child count automatically collapses to fewer, wider columns. Do NOT use grid as a page wrapper or to hold a single wide region — use stack for overall page structure. Use aria-label when acting as a landmark.",
       "acceptsChildren": true,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "section",
+      "description": "Semantic layout section — a house-built <section> container with an optional heading and vertical flex layout. Use section to group related components under a labelled region within a page (e.g. 'Recent Activity', 'Profile Details'). Prefer section over stack when the grouping warrants a visible heading or a semantic HTML landmark. Accepts positional children.",
+      "acceptsChildren": true,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "avatar",
+      "description": "User avatar / profile picture. alt is required for accessibility. src is optional — when absent the first two characters of alt are shown as a fallback. size controls dimensions: sm (32px), md (40px, default), lg (56px).",
+      "acceptsChildren": false,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "input",
+      "description": "Labelled text input field. label and name are required — label is rendered as <label> and wired via htmlFor. inputType controls the HTML input type (text, email, number, password, search, tel, url). value sets a display default; the field is read-only at render time (interactive state is wired in Phase 19).",
+      "acceptsChildren": false,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "nav",
+      "description": "Semantic navigation list rendered as <nav><ul><li><a>. aria-label is required for landmark identification. Each item needs label and a relative href (absolute URLs are blocked). Set active:true on the current page item — it receives aria-current=\"page\" and highlighted styling. icon is an optional emoji/character displayed before the label.",
+      "acceptsChildren": false,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "feed-item",
+      "description": "Single item in an activity feed or message list. title is required. Optional leading avatar (avatarSrc + avatarAlt — both required together). subtitle, body, timestamp, badge, and unread are all optional. unread:true applies muted background and bold title. Typically rendered inside a stack.",
+      "acceptsChildren": false,
+      "slots": [],
+      "lockedProps": []
+    },
+    {
+      "type": "tabs",
+      "description": "Tabbed content panel wrapping @nauta/ui/tabs (Radix Tabs). aria-label is required for accessibility. Each tab needs a unique value (used as the key), a label shown on the trigger, and a content node (a SpecNode rendered in the panel). defaultValue sets the initially active tab — defaults to the first tab's value. Presentational-only in Phase 18; interactive state is wired in Phase 19.",
+      "acceptsChildren": false,
       "slots": [],
       "lockedProps": []
     }

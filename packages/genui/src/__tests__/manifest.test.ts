@@ -98,6 +98,68 @@ describe("COMPONENT_REGISTRY a11y props are required (D-04 / CTLG-02)", () => {
     });
     expect(result?.success).toBe(true);
   });
+
+  // Phase 18 domain components (CTLG-06) — D-04 a11y negative tests
+
+  it("avatar: omitting alt fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.avatar?.propsSchema.safeParse({
+      src: "https://i.pravatar.cc/40",
+      size: "md",
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("input: omitting label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.input?.propsSchema.safeParse({
+      name: "email",
+      inputType: "email",
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("input: omitting name fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.input?.propsSchema.safeParse({
+      label: "Email address",
+      inputType: "email",
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("nav: omitting aria-label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.nav?.propsSchema.safeParse({
+      items: [{ label: "Inbox", href: "/inbox" }],
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("nav: absolute href fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.nav?.propsSchema.safeParse({
+      "aria-label": "Main navigation",
+      items: [{ label: "External", href: "https://example.com" }],
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("tabs: omitting aria-label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.tabs?.propsSchema.safeParse({
+      tabs: [
+        {
+          value: "a",
+          label: "A",
+          content: { type: "text", content: "hello" },
+        },
+      ],
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("feed-item: providing avatarSrc without avatarAlt fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY["feed-item"]?.propsSchema.safeParse({
+      title: "Alice",
+      avatarSrc: "https://i.pravatar.cc/40",
+    });
+    expect(result?.success).toBe(false);
+  });
 });
 
 // ===========================================================================
@@ -132,8 +194,8 @@ describe("RegisteredTypeSchema allowlist (D-06)", () => {
     expect(RegisteredTypeSchema.safeParse("").success).toBe(false);
   });
 
-  it("REGISTERED_TYPES has exactly 11 entries", () => {
-    expect(REGISTERED_TYPES.length).toBe(11);
+  it("REGISTERED_TYPES has exactly 16 entries", () => {
+    expect(REGISTERED_TYPES.length).toBe(16);
   });
 });
 
