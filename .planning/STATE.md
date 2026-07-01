@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Generative UI: Realism & Interactivity"
 status: ready_to_plan
-last_updated: "2026-07-01T02:31:01.750Z"
+last_updated: "2026-07-01T03:17:21Z"
 progress:
   total_phases: 5
   completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
-  percent: 40
+  total_plans: 13
+  completed_plans: 12
+  percent: 46
 ---
 
 # State
@@ -19,7 +19,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 17 — Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG
+**Current focus:** Phase 18 — tier-a-catalog-expansion
 
 ## Milestone v1.1 — Generative UI Engine — 🎉 COMPLETE 2026-06-27 (4 phases, 15 plans; autonomous run)
 
