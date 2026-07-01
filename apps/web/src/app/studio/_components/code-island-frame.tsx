@@ -141,7 +141,8 @@ export function CodeIslandFrame({
     if (state.phase === "fallback") {
       return buildSafePlaceholderSrcdoc(state.lastError ?? "Could not repair the generated code.");
     }
-    return buildIslandSrcdoc({ code: state.code, nonce, axeSource });
+    const hostOrigin = typeof window !== "undefined" ? window.location.origin : undefined;
+    return buildIslandSrcdoc({ code: state.code, nonce, axeSource, hostOrigin });
   }, [state.phase, state.code, state.violations, state.lastError, nonce, axeSource]);
 
   const renderKey = state.phase === "rejected" || state.phase === "fallback" ? "safe" : nonce;

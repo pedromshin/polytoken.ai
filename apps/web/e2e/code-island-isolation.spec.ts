@@ -4,8 +4,8 @@
  *
  * WHY PLAYWRIGHT (not vitest/jsdom): jsdom does NOT enforce real `sandbox`/CSP/opaque-origin
  * isolation, so a jsdom test would pass vacuously and prove nothing (20-RESEARCH.md §5). These
- * assertions require a real browser. Run in BOTH Chromium AND Firefox — Firefox ignores the
- * `csp=` attribute, so this proves the inline `<meta>` CSP is what actually enforces.
+ * assertions require a real browser. Run in BOTH Chromium AND Firefox to prove the opaque-origin
+ * + inline `<meta>` CSP jail holds cross-browser (no `csp=` attribute is relied upon).
  *
  * STATUS: SPIKE deliverable — authored, not yet executed (no browser in the autonomous run;
  * consistent with this project's connected-env browser-verify deferral). To run:

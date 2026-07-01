@@ -4,13 +4,21 @@
  * This is the PRIMARY deterministic safety layer for the jailed-eval code-island (Phase 20).
  * Before any generated code is injected into the sandboxed iframe, it is parsed and walked;
  * references to a blocklisted API surface (network egress, host/parent access, storage,
- * dynamic eval, module imports) are rejected. This runs ON TOP of the iframe `sandbox`
- * attribute + `<meta>` CSP (defense in depth) — the cheapest place to stop exfiltration is
- * before the code ever reaches the frame (see 20-RESEARCH.md §3, §5).
+ * dynamic eval, reflection/meta-programming, module imports) are rejected. This runs ON TOP of
+ * the iframe `sandbox` attribute (opaque origin, no `allow-same-origin`) + inline `<meta>` CSP
+ * (`connect-src 'none'`), which remain the RUNTIME enforcers — the allowlist is the cheapest
+ * place to fail fast. (See 20-RESEARCH.md §3, §5.)
+ *
+ * Posture: FALSE POSITIVES ARE ACCEPTABLE — a flagged program routes to heal/reject, never runs.
+ * So detection is deliberately conservative and covers common bypasses: computed member access
+ * (`window["fetch"]`), template-literal keys (`window[`fetch`]`), window-object aliasing
+ * (`const w = window; w.fetch()`), destructuring off a window receiver (`const {fetch} = window`),
+ * reflection (`Reflect`, `.constructor`, `__proto__`), and dynamic computed access on a window
+ * receiver (`window[expr]`, fail-closed). Non-foldable string tricks (`"fe"+"tch"`) that also
+ * evade the folder are still contained by the runtime jail.
  *
  * Island code contract (spike): a plain JavaScript program string that runs inside the frame
- * against a fresh `document`. It may build any DOM/canvas UI ("raw HTML → anything" via JS).
- * Parsed as an ES module so `import`/`export` surface as nodes we can flag/strip.
+ * against a fresh `document`. Parsed as an ES module so `import`/`export` surface as nodes.
  */
 
 import { parse } from "@babel/parser";
@@ -31,7 +39,8 @@ export type IslandViolationRule =
   | "dynamic-eval"
   | "network"
   | "storage"
-  | "host-access";
+  | "host-access"
+  | "reflection";
 
 /** Result of validating island source. `ok` is true only when there are zero violations. */
 export interface ValidateIslandResult {
@@ -44,25 +53,28 @@ export interface ValidateIslandResult {
 // Forbidden bare globals, grouped by rule category. A reference to any of these names
 // (as a callee, member object, or standalone reference) is rejected.
 const DYNAMIC_EVAL = new Set(["eval", "Function"]);
-const NETWORK = new Set([
-  "fetch",
-  "XMLHttpRequest",
-  "WebSocket",
-  "EventSource",
-  "importScripts",
-]);
+const NETWORK = new Set(["fetch", "XMLHttpRequest", "WebSocket", "EventSource", "importScripts"]);
 const STORAGE = new Set(["localStorage", "sessionStorage", "indexedDB"]);
-const HOST_ACCESS = new Set(["parent", "top", "opener", "frameElement"]);
+const HOST_ACCESS = new Set(["parent", "top", "opener", "frameElement", "frames"]);
+const REFLECTION = new Set(["Reflect", "Proxy"]);
 
 const ALL_FORBIDDEN = new Set<string>([
   ...DYNAMIC_EVAL,
   ...NETWORK,
   ...STORAGE,
   ...HOST_ACCESS,
+  ...REFLECTION,
 ]);
 
 // Window-like receivers: `window.fetch`, `self.parent`, `globalThis.localStorage`, …
 const WINDOW_RECEIVERS = new Set(["window", "self", "globalThis"]);
+
+// Reflective/meta property names — the classic `x.constructor.constructor("…")()` escape and
+// prototype pollution. Rejected as a property name (dotted or computed) on ANY object.
+const REFLECTIVE_PROPS = new Set(["constructor", "__proto__"]);
+
+// Extra window-yielding property names on a window/document receiver.
+const WINDOW_YIELDING_PROPS = new Set(["defaultView", "frames"]);
 
 const IGNORED_KEYS = new Set([
   "loc",
@@ -92,6 +104,7 @@ function ruleFor(name: string): IslandViolationRule | null {
   if (NETWORK.has(name)) return "network";
   if (STORAGE.has(name)) return "storage";
   if (HOST_ACCESS.has(name)) return "host-access";
+  if (REFLECTION.has(name)) return "reflection";
   return null;
 }
 
@@ -101,17 +114,81 @@ function lineOf(node: AstNode): number | null {
 }
 
 /**
- * Validate island source against the API allowlist.
- *
- * Detection strategy (conservative — false positives are acceptable, they just route the
- * code to heal/reject rather than run):
- *  - `import`/`export`-from and dynamic `import()` → rule "import".
- *  - `require(...)` calls → rule "require".
- *  - any reference to a forbidden bare global → its category rule.
- *  - `window|self|globalThis.<forbidden>` member access → the forbidden property's category.
- *  - `document.cookie` → "storage"; `navigator.sendBeacon` → "network".
- * Identifiers in NAME positions (member `.prop`, object keys, declaration ids, params, import
- * specifiers, labels) are NOT treated as references.
+ * Resolve a MemberExpression's property name for dotted (`obj.name`) and statically-foldable
+ * computed access — string literal (`obj["name"]`) and a single-quasi template (`obj[`name`]`).
+ * Returns null for dynamic computed access (`obj[expr]`, `obj["a"+"b"]`) which cannot be resolved
+ * statically; the caller treats a null result on a window receiver as fail-closed.
+ */
+function memberPropertyName(node: AstNode, prop: unknown): string | null {
+  if (!isNode(prop)) return null;
+  if (node.computed !== true) {
+    return prop.type === "Identifier" ? (prop.name as string) : null;
+  }
+  if (prop.type === "StringLiteral") {
+    return String((prop as { value?: unknown }).value ?? "");
+  }
+  if (prop.type === "TemplateLiteral") {
+    const expressions = prop.expressions as unknown[] | undefined;
+    const quasis = prop.quasis as Array<{ value?: { cooked?: string } }> | undefined;
+    if ((expressions?.length ?? 0) === 0 && quasis?.length === 1) {
+      return quasis[0]?.value?.cooked ?? null;
+    }
+  }
+  return null;
+}
+
+/** Identifier name if `value` is a plain Identifier node, else null. */
+function identifierName(value: unknown): string | null {
+  return isNode(value) && value.type === "Identifier" ? (value.name as string) : null;
+}
+
+/**
+ * Pre-pass: collect local identifiers aliased to a window receiver
+ * (`const w = window`, `let s = self`, `x = globalThis`, chained via `const b = w`).
+ * Iterates to a fixpoint so `const a = window; const b = a;` taints both.
+ */
+function collectWindowAliases(root: AstNode): Set<string> {
+  const aliases = new Set<string>();
+  const bindings: Array<{ name: string; source: string }> = [];
+
+  const scan = (value: unknown): void => {
+    if (Array.isArray(value)) {
+      for (const item of value) scan(item);
+      return;
+    }
+    if (!isNode(value)) return;
+    if (value.type === "VariableDeclarator") {
+      const name = identifierName(value.id);
+      const source = identifierName(value.init);
+      if (name && source) bindings.push({ name, source });
+    }
+    if (value.type === "AssignmentExpression" && value.operator === "=") {
+      const name = identifierName(value.left);
+      const source = identifierName(value.right);
+      if (name && source) bindings.push({ name, source });
+    }
+    for (const key of Object.keys(value)) {
+      if (IGNORED_KEYS.has(key)) continue;
+      scan((value as Record<string, unknown>)[key]);
+    }
+  };
+  scan(root);
+
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { name, source } of bindings) {
+      if (!aliases.has(name) && (WINDOW_RECEIVERS.has(source) || aliases.has(source))) {
+        aliases.add(name);
+        changed = true;
+      }
+    }
+  }
+  return aliases;
+}
+
+/**
+ * Validate island source against the API allowlist. See file header for the covered surface.
  */
 export function validateIslandCode(code: string): ValidateIslandResult {
   let ast: AstNode;
@@ -136,8 +213,13 @@ export function validateIslandCode(code: string): ValidateIslandResult {
     syntaxErrors.push(reason ?? (err instanceof Error ? err.message : String(err)));
   }
 
+  const windowAliases = collectWindowAliases(ast);
   const violations: IslandViolation[] = [];
   const namePositions = new WeakSet<AstNode>();
+
+  const push = (rule: IslandViolationRule, detail: string, node: AstNode): void => {
+    violations.push({ rule, detail, line: lineOf(node) });
+  };
 
   const markNamePositions = (node: AstNode): void => {
     switch (node.type) {
@@ -198,11 +280,11 @@ export function validateIslandCode(code: string): ValidateIslandResult {
       node.type === "ExportAllDeclaration" ||
       (node.type === "ExportNamedDeclaration" && node.source != null)
     ) {
-      violations.push({ rule: "import", detail: node.type, line: lineOf(node) });
+      push("import", node.type, node);
       return;
     }
     if (node.type === "Import") {
-      violations.push({ rule: "import", detail: "import()", line: lineOf(node) });
+      push("import", "import()", node);
       return;
     }
 
@@ -210,37 +292,70 @@ export function validateIslandCode(code: string): ValidateIslandResult {
     if (node.type === "CallExpression") {
       const callee = node.callee;
       if (isNode(callee) && callee.type === "Identifier" && callee.name === "require") {
-        violations.push({ rule: "require", detail: "require()", line: lineOf(node) });
+        push("require", "require()", node);
       }
     }
 
-    // Member access on window-like receivers, document.cookie, navigator.sendBeacon.
+    // Destructuring off a window receiver: `const { fetch: f } = window` / `const { parent } = self`.
+    if (node.type === "VariableDeclarator") {
+      const source = identifierName(node.init);
+      const fromWindow = source != null && (WINDOW_RECEIVERS.has(source) || windowAliases.has(source));
+      if (fromWindow && isNode(node.id) && node.id.type === "ObjectPattern") {
+        const props = node.id.properties;
+        if (Array.isArray(props)) {
+          for (const p of props) {
+            if (isNode(p) && p.type === "ObjectProperty" && p.computed !== true) {
+              const keyName = identifierName(p.key);
+              if (keyName) {
+                const rule = ruleFor(keyName) ?? (REFLECTIVE_PROPS.has(keyName) ? "reflection" : null);
+                if (rule) push(rule, `destructured ${source}.${keyName}`, node);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Member access (dotted or computed) on window-like receivers / document / navigator,
+    // plus reflective props and forbidden computed keys on any receiver.
     if (node.type === "MemberExpression" || node.type === "OptionalMemberExpression") {
       const obj = node.object;
-      const prop = node.property;
-      if (isNode(obj) && obj.type === "Identifier" && isNode(prop) && prop.type === "Identifier") {
-        const objName = obj.name as string;
-        const propName = prop.name as string;
-        if (WINDOW_RECEIVERS.has(objName)) {
+      const objName = identifierName(obj);
+      const objIsWindowLike =
+        objName != null && (WINDOW_RECEIVERS.has(objName) || windowAliases.has(objName));
+      const propName = memberPropertyName(node, node.property);
+
+      if (propName !== null) {
+        // Reflective/meta property on ANY object (constructor-chain / prototype pollution).
+        if (REFLECTIVE_PROPS.has(propName)) {
+          push("reflection", `.${propName}`, node);
+        }
+        // Forbidden name via COMPUTED access on any object: obj["fetch"], x["eval"].
+        if (node.computed === true) {
           const rule = ruleFor(propName);
-          if (rule) violations.push({ rule, detail: `${objName}.${propName}`, line: lineOf(node) });
+          if (rule) push(rule, `["${propName}"]`, node);
         }
-        if (objName === "document" && propName === "cookie") {
-          violations.push({ rule: "storage", detail: "document.cookie", line: lineOf(node) });
+        // Window-like receiver: window.fetch / self.parent / w.localStorage (alias).
+        if (objIsWindowLike) {
+          const rule = ruleFor(propName);
+          if (rule) push(rule, `${objName}.${propName}`, node);
+          if (WINDOW_YIELDING_PROPS.has(propName)) push("host-access", `${objName}.${propName}`, node);
         }
-        if (objName === "navigator" && propName === "sendBeacon") {
-          violations.push({ rule: "network", detail: "navigator.sendBeacon", line: lineOf(node) });
-        }
+        if (objName === "document" && propName === "cookie") push("storage", "document.cookie", node);
+        if (objName === "document" && propName === "defaultView") push("host-access", "document.defaultView", node);
+        if (objName === "navigator" && propName === "sendBeacon") push("network", "navigator.sendBeacon", node);
+      } else if (node.computed === true && objIsWindowLike) {
+        // Fail-closed: dynamic/non-foldable computed access on a window receiver (window[expr]).
+        push("host-access", `${objName}[…] (dynamic)`, node);
       }
     }
 
-    // Bare forbidden identifier reference (skip name positions).
+    // Bare forbidden identifier reference (skip name positions). Covers eval, fetch, parent,
+    // localStorage, Reflect, Proxy, … used as callee/argument/standalone/member-object.
     if (node.type === "Identifier" && !namePositions.has(node)) {
       const name = node.name as string;
-      if (ALL_FORBIDDEN.has(name)) {
-        const rule = ruleFor(name);
-        if (rule) violations.push({ rule, detail: name, line: lineOf(node) });
-      }
+      const rule = ruleFor(name);
+      if (rule) push(rule, name, node);
     }
   };
 

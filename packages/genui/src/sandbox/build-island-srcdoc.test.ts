@@ -18,6 +18,10 @@ describe("ISLAND_CSP_POLICY — network egress killed by default", () => {
     expect(ISLAND_CSP_POLICY).toContain("default-src 'none'");
     expect(ISLAND_CSP_POLICY).toContain("connect-src 'none'");
   });
+
+  it("never allows 'unsafe-eval' (CSP-drift guard)", () => {
+    expect(ISLAND_CSP_POLICY).not.toContain("unsafe-eval");
+  });
 });
 
 describe("buildIslandSrcdoc", () => {
@@ -52,5 +56,16 @@ describe("buildIslandSrcdoc", () => {
 
   it("always posts island-ready to finalize", () => {
     expect(buildIslandSrcdoc({ code: "1;", nonce })).toContain("island-ready");
+  });
+
+  it("pins postMessage targetOrigin to the host origin when provided", () => {
+    const html = buildIslandSrcdoc({ code: "1;", nonce, hostOrigin: "https://studio.example" });
+    expect(html).toContain('TARGET_ORIGIN = "https://studio.example"');
+    expect(html).not.toContain('parent.postMessage(Object.assign({ nonce: NONCE }, msg), \'*\')');
+  });
+
+  it("falls back to '*' targetOrigin only when hostOrigin is omitted", () => {
+    const html = buildIslandSrcdoc({ code: "1;", nonce });
+    expect(html).toContain('TARGET_ORIGIN = "*"');
   });
 });
