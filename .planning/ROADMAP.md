@@ -303,7 +303,13 @@ with a strict Zod prop schema, a CI-validated example, and registry registration
   3. Each new component is registered in `COMPONENT_REGISTRY`, the registry version bumps accordingly, and the existing cache-invalidation-on-version-change behavior continues to hold.
   4. Re-running the Phase-16 eval on prompts that previously degraded to generic cards (e.g. profile, feed, navigation prompts from the corpus) shows the new components being composed, with a measurable rubric lift over the Phase-17 score.
 
-**Plans:** TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 18-01-PLAN.md — vocabulary contract: SpecNodeType union + 6 wire NodeSchemas + grid colSpan + section layout primitive
+- [ ] 18-02-PLAN.md — 5 domain catalog entries: avatar, input, nav, feed-item, tabs (render side of the wire/render lockstep)
+- [ ] 18-03-PLAN.md — CI 16-entry example gate + wire/render parity test + Bedrock artifact re-emit + registry-version bump; deferred eval lift-vs-baseline
+
 **UI hint**: yes
 
 ### Phase 19: Tier B-1 — Declarative JSON-Schema Form Engine
