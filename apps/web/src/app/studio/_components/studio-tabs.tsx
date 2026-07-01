@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@nauta/ui/tabs";
 
 import { CatalogBrowserIsland } from "./catalog-browser-island";
 import { GenerationSandboxIsland } from "./generation-sandbox-island";
+import { CodeSandboxIsland } from "./code-sandbox-island";
 import { HistoryIsland } from "./history-island";
 import { PageIdeasIsland } from "./page-ideas-island";
 
@@ -39,7 +40,7 @@ import { PageIdeasIsland } from "./page-ideas-island";
 // Types
 // ---------------------------------------------------------------------------
 
-type TabValue = "catalog" | "sandbox" | "history" | "page-ideas";
+type TabValue = "catalog" | "sandbox" | "code-island" | "history" | "page-ideas";
 
 // ---------------------------------------------------------------------------
 // StudioTabs
@@ -88,6 +89,12 @@ export function StudioTabs(): React.ReactElement {
           Sandbox
         </TabsTrigger>
         <TabsTrigger
+          value="code-island"
+          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
+        >
+          Code-Island
+        </TabsTrigger>
+        <TabsTrigger
           value="history"
           className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
         >
@@ -127,6 +134,15 @@ export function StudioTabs(): React.ReactElement {
         className="data-[state=inactive]:hidden flex flex-col flex-1 min-h-0 m-0 border-0"
       >
         <GenerationSandboxIsland initialIntent={pendingIntent} />
+      </TabsContent>
+
+      {/* Code-Island tab — Phase 20 SPIKE: jailed-eval arbitrary code in a sandboxed iframe */}
+      <TabsContent
+        value="code-island"
+        aria-label="Sandboxed code-island"
+        className="data-[state=inactive]:hidden flex flex-col flex-1 min-h-0 overflow-y-auto m-0 border-0"
+      >
+        <CodeSandboxIsland />
       </TabsContent>
 
       {/* History tab — HistoryIsland (landed by 16-05; replaces former placeholder) */}

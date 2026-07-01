@@ -363,7 +363,7 @@ as a **SPIKE** (prove the sandbox + repair loop in isolation) before being commi
 | 16. Studio Foundation — Eval Harness + History & Page-Ideas Tabs | 5/5 | Complete    | 2026-06-28 |
 | 17. Tier A — Design-Token/Theme Layer + Style Packs + Assembly RAG | 5/5 | Complete   | 2026-06-28 |
 | 18. Tier A — Catalog Expansion | 3/3 | Complete   | 2026-07-01 |
-| 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase) | 0/0 | ◆ In progress (SPIKE) — sign-off granted, reordered ahead of 19 | - |
+| 20. Tier B-2 — Sandboxed Code-Island (SPIKE → phase) | SPIKE ✓ | ◆ SPIKE PASSED 2026-07-01 — jail+repair+injection/a11y proven, 49 tests; promote → full phase (live Bedrock gen) | - |
 | 19. Tier B-1 — Declarative JSON-Schema Form Engine | 0/0 | Deferred — runs after Phase 20 | - |
 
 ## Backlog
