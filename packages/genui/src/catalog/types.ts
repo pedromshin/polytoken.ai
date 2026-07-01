@@ -17,8 +17,9 @@ import type { ZodType } from "zod";
  * All spec node types registered in the component catalog (D-08).
  *
  * Leaf components (8): text, badge, button, card, key-value-list, separator, alert, table.
- * Layout primitives (2): stack, grid (house-built containers, not @nauta/ui exports).
+ * Layout primitives (3): stack, grid, section (house-built containers, not @nauta/ui exports).
  * Iteration + conditional (2): list, conditional (SPEC-01 requirement).
+ * Phase 18 additions (5): avatar, input, nav, feed-item, tabs.
  *
  * This exact set is the discriminant for the Zod discriminated-union in
  * packages/genui/src/schema/spec-schema.ts — every literal here MUST have a
@@ -36,7 +37,13 @@ export type SpecNodeType =
   | "stack"
   | "grid"
   | "list"
-  | "conditional";
+  | "conditional"
+  | "avatar"
+  | "input"
+  | "nav"
+  | "feed-item"
+  | "tabs"
+  | "section";
 
 // ---------------------------------------------------------------------------
 // ManifestEntry<TProps> — per-component catalog entry shape (D-03, SPEC-RENDERER §4.1)

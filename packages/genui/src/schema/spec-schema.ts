@@ -68,6 +68,7 @@ const TextNodeSchema = z
     content: z.string(),
     variant: z.enum(["body", "label", "caption", "heading"]).optional(),
     muted: z.boolean().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -78,6 +79,7 @@ const BadgeNodeSchema = z
     variant: z
       .enum(["default", "secondary", "destructive", "outline"])
       .optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -102,6 +104,7 @@ const ButtonNodeSchema = z
     // string ActionRegistry key. New field to preserve backward compat with existing renderer.
     onClick: ActionSchema.optional(),
     disabled: z.boolean().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -110,6 +113,7 @@ const SeparatorNodeSchema = z
     type: z.literal("separator"),
     "aria-hidden": z.literal(true), // locked + a11y-required (D-04 / UI-SPEC §11) — matches manifest propsSchema
     orientation: z.enum(["horizontal", "vertical"]).optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -120,6 +124,7 @@ const AlertNodeSchema = z
     title: z.string(),
     description: z.string().optional(),
     variant: z.enum(["default", "destructive"]).optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -138,6 +143,7 @@ const KeyValueListNodeSchema = z
           .strict(),
       )
       .min(1),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -157,6 +163,7 @@ const TableNodeSchema = z
       )
       .min(1),
     rows: z.array(z.record(z.string(), z.unknown())),
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -177,6 +184,7 @@ const CardNodeSchema = z
     children: z.lazy(lazySpecNode).array().optional() as z.ZodTypeAny,
     header: z.lazy(lazySpecNode).optional() as z.ZodTypeAny,
     footer: z.lazy(lazySpecNode).optional() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -187,6 +195,7 @@ const StackNodeSchema = z
     direction: z.enum(["vertical", "horizontal"]).optional(),
     gap: z.enum(["none", "sm", "md", "lg"]).optional(),
     children: z.lazy(lazySpecNode).array() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -197,6 +206,7 @@ const GridNodeSchema = z
     cols: z.number().int().min(1).max(12).optional(),
     gap: z.enum(["none", "sm", "md", "lg"]).optional(),
     children: z.lazy(lazySpecNode).array() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
   })
   .strict();
 
@@ -233,6 +243,150 @@ const ConditionalNodeSchema = z
   .strict();
 
 // ===========================================================================
+// SECTION 4b: Phase 18 — new node schemas (avatar, input, nav, feed-item, tabs, section)
+//
+// Wire schema rules (18-01 Task 1):
+//   - Every schema ends in .strict() (D-22 / COST-02 / Bedrock requirement)
+//   - a11y-required fields are z.string() NOT optional (D-04 / UI-SPEC §11)
+//   - nav href: reuses relative-href guard from action-schema.ts (SAFE-04)
+//   - input uses `inputType` (NOT `type`) to avoid discriminant collision (GOTCHA-1)
+//   - FeedItemNodeSchema: plain .object().strict() — NO .refine() (GOTCHA-2, ZodEffects
+//     breaks discriminatedUnion)
+//   - SectionNodeSchema uses z.lazy(lazySpecNode).array() for children (GOTCHA-3)
+//   - colSpan: bounded integer 1-12 — added to all leaf + container schemas (Phase 18)
+// ===========================================================================
+
+/**
+ * Relative-href guard for nav items.
+ * Inlined from action-schema.ts pattern (SAFE-04) to avoid circular import.
+ * Regex: matches absolute scheme (letter+ colon) or protocol-relative (//).
+ */
+const NAV_ABSOLUTE_OR_SCHEME = /^([a-z][a-z0-9+\-.]*:|\/\/)/i;
+function navHrefIsSafe(href: string): boolean {
+  return !NAV_ABSOLUTE_OR_SCHEME.test(href);
+}
+
+/** avatar — circular image with required alt text (a11y, D-04). */
+const AvatarNodeSchema = z
+  .object({
+    type: z.literal("avatar"),
+    src: z.string().optional(),
+    alt: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    size: z.enum(["sm", "md", "lg"]).optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/**
+ * input — controlled text/email/number input.
+ * Uses `inputType` (NOT `type`) to avoid collision with the discriminant field (GOTCHA-1).
+ * label is REQUIRED (a11y, D-04).
+ */
+const InputNodeSchema = z
+  .object({
+    type: z.literal("input"),
+    label: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    name: z.string(),
+    inputType: z.enum(["text", "email", "number", "password", "search", "tel", "url"]).optional(),
+    placeholder: z.string().optional(),
+    value: z.string().optional(),
+    disabled: z.boolean().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/**
+ * nav — navigation link list.
+ * aria-label is REQUIRED (a11y, D-04).
+ * href fields are relative-only (SAFE-04 guard inlined from action-schema.ts).
+ */
+const NavNodeSchema = z
+  .object({
+    type: z.literal("nav"),
+    "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    items: z
+      .array(
+        z
+          .object({
+            label: z.string(),
+            href: z
+              .string()
+              .startsWith("/", { message: "nav href must start with / (relative paths only)" })
+              .refine(navHrefIsSafe, {
+                message:
+                  "nav href must not use an absolute scheme or protocol-relative URL (SAFE-04)",
+              }),
+            icon: z.string().optional(),
+            active: z.boolean().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/**
+ * feed-item — single card-like item in a news/email feed.
+ * title is REQUIRED (a11y, D-04).
+ * NO .refine() here — ZodEffects breaks discriminatedUnion (GOTCHA-2).
+ * The avatarAlt-required-when-avatarSrc constraint lives only in manifest propsSchema.
+ */
+const FeedItemNodeSchema = z
+  .object({
+    type: z.literal("feed-item"),
+    title: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    subtitle: z.string().optional(),
+    body: z.string().optional(),
+    timestamp: z.string().optional(),
+    avatarSrc: z.string().optional(),
+    avatarAlt: z.string().optional(),
+    badge: z.string().optional(),
+    unread: z.boolean().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/**
+ * tabs — tabbed panel widget.
+ * aria-label is REQUIRED (a11y, D-04).
+ */
+const TabsNodeSchema = z
+  .object({
+    type: z.literal("tabs"),
+    "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    tabs: z
+      .array(
+        z
+          .object({
+            value: z.string(),
+            label: z.string(),
+            content: z.lazy(lazySpecNode) as z.ZodTypeAny,
+          })
+          .strict(),
+      )
+      .min(1),
+    defaultValue: z.string().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/**
+ * section — semantic page section with optional heading, layout gap, and children.
+ * Children use z.lazy for recursion (GOTCHA-3).
+ * The schema variable is ZodObject (not ZodEffects) — discriminatedUnion compatible.
+ */
+const SectionNodeSchema = z
+  .object({
+    type: z.literal("section"),
+    heading: z.string().optional(),
+    gap: z.enum(["none", "sm", "md", "lg"]).optional(),
+    children: z.lazy(lazySpecNode).array() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+// ===========================================================================
 // SECTION 5: SpecNodeSchema — discriminated union
 //
 // All 12 options are ZodObject instances (leaf schemas are plain ZodObject;
@@ -256,6 +410,12 @@ const SpecNodeSchema = z.discriminatedUnion("type", [
   GridNodeSchema,
   ListNodeSchema,
   ConditionalNodeSchema,
+  AvatarNodeSchema,
+  InputNodeSchema,
+  NavNodeSchema,
+  FeedItemNodeSchema,
+  TabsNodeSchema,
+  SectionNodeSchema,
 ]);
 
 // Wire the lazy reference immediately after construction.

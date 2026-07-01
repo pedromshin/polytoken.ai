@@ -967,6 +967,125 @@ describe("SpecRenderer page-shell (Phase 17 layout robustness)", () => {
   });
 });
 
+// ===========================================================================
+// Block 8: Phase 18 — new SpecNodeType literals and wire schema validation (RED)
+// These tests verify SpecNodeSchema accepts the 6 new node types.
+// They will fail until types.ts + spec-schema.ts are updated.
+// ===========================================================================
+
+describe("Phase 18 — SpecNodeType extensions: wire schema round-trip (18-01 Task 1)", () => {
+  // Import SpecNodeSchema lazily to avoid circular at top-level
+  it("SpecNodeSchema accepts a minimal valid 'section' node", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "section",
+      children: [],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema accepts a minimal valid 'avatar' node (requires alt)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "avatar",
+      alt: "User photo",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema rejects 'avatar' without required alt field", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({ type: "avatar" });
+    expect(result.success).toBe(false);
+  });
+
+  it("SpecNodeSchema accepts a minimal valid 'input' node (requires label)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "input",
+      label: "Email",
+      name: "email",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema rejects 'input' without required label", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({ type: "input", name: "email" });
+    expect(result.success).toBe(false);
+  });
+
+  it("SpecNodeSchema accepts a minimal valid 'nav' node (requires aria-label)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "nav",
+      "aria-label": "Main navigation",
+      items: [{ label: "Home", href: "/home" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema rejects 'nav' with an absolute href (SAFE-04 guard)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "nav",
+      "aria-label": "Main",
+      items: [{ label: "Evil", href: "https://evil.com" }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("SpecNodeSchema accepts a minimal valid 'feed-item' node (requires title)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "feed-item",
+      title: "New email from Alice",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema accepts a minimal valid 'tabs' node (requires aria-label)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "tabs",
+      "aria-label": "Email categories",
+      tabs: [{ value: "inbox", label: "Inbox", content: { type: "text", content: "No messages" } }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("SpecNodeSchema rejects 'tabs' without required aria-label", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "tabs",
+      tabs: [{ value: "inbox", label: "Inbox", content: { type: "text", content: "No messages" } }],
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("SpecNodeType union includes 'section' (TypeScript-level: runtime check via SpecNodeSchema)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    // section node with heading, gap, children
+    const result = SpecNodeSchema.safeParse({
+      type: "section",
+      heading: "Recent Emails",
+      gap: "md",
+      children: [{ type: "text", content: "Item 1" }],
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("colSpan on a grid child node passes SpecNodeSchema (grid child can declare colSpan)", async () => {
+    const { SpecNodeSchema } = await import("../schema/spec-schema");
+    const result = SpecNodeSchema.safeParse({
+      type: "text",
+      content: "spans 2 cols",
+      colSpan: 2,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
 describe("SpecRenderer button onClick action binding (schema-drift fix)", () => {
   it("renders a button (not the prop-validation fallback) when onClick is a navigate action", () => {
     const spec: SpecRoot = {
