@@ -58,6 +58,12 @@ describe("buildIslandSrcdoc", () => {
     expect(buildIslandSrcdoc({ code: "1;", nonce })).toContain("island-ready");
   });
 
+  it("shims module/exports so CommonJS-style emitted code does not ReferenceError", () => {
+    const html = buildIslandSrcdoc({ code: "exports.x = 1;", nonce });
+    expect(html).toContain("window.module = { exports: {} }");
+    expect(html).toContain("window.exports = window.module.exports");
+  });
+
   it("pins postMessage targetOrigin to the host origin when provided", () => {
     const html = buildIslandSrcdoc({ code: "1;", nonce, hostOrigin: "https://studio.example" });
     expect(html).toContain('TARGET_ORIGIN = "https://studio.example"');

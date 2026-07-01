@@ -56,6 +56,12 @@ function harnessScript(nonce: string, hostOrigin: string | undefined): string {
   var TARGET_ORIGIN = ${targetOriginJson};
   function post(msg){ try { parent.postMessage(Object.assign({ nonce: NONCE }, msg), TARGET_ORIGIN); } catch (_) {} }
   window.__islandPost = post;
+  // CommonJS/module-emit shim: LLMs sometimes wrap vanilla DOM code in module boilerplate
+  // (exports.x = / module.exports = / Object.defineProperty(exports, ...)). Provide harmless
+  // globals so that boilerplate does not ReferenceError — the actual DOM code still runs.
+  // (import/require are blocked upstream by the AST allowlist, so no real module loading occurs.)
+  window.module = { exports: {} };
+  window.exports = window.module.exports;
   window.addEventListener('error', function(e){
     post({ type:'island-runtime-error', source:'onerror', message: (e && e.message) || 'error',
       stack: (e && e.error && e.error.stack) || null });

@@ -35,5 +35,13 @@ export function autofixIslandCode(code: string): AutofixResult {
     out = withoutNamed;
   }
 
-  return { code: out, applied };
+  // Standalone `export { A, B as default };` — a SyntaxError in a classic script. Drop it entirely
+  // (the declarations themselves remain; the module shim in the srcdoc handles exports.x = ...).
+  const withoutBrace = out.replace(/^export\s*\{[^}]*\}\s*;?/gm, "");
+  if (withoutBrace !== out) {
+    applied.push("strip-export-brace");
+    out = withoutBrace;
+  }
+
+  return { code: out.trim(), applied };
 }
