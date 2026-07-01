@@ -221,7 +221,8 @@ SPIKE + explicit user sign-off (it changes the safety model from no-eval to jail
 | IDEA-01 | Phase 16 | Planned |
 | STYLE-01..04 | Phase 17 | Planned |
 | RAG-01,02 | Phase 17 | Planned |
-| CTLG-06..09 | Phase 18 | Planned |
+| CTLG-06,07,09 | Phase 18 plan 02 | Complete (18-02: avatar/input/nav/feed-item/tabs added, a11y enforced, CI-validated, CSS-var theming) |
+| CTLG-08 | Phase 18 | In Progress (COMPONENT_REGISTRY updated; CTLG-08 auto-satisfied by 18-02 implementation) |
 | FORM-01..05 | Phase 19 | Planned |
 | CODE-01 | Phase 20 | Planned (blocked: user sign-off) |
 | EVAL-01,02 | Phase 20 | Planned |
