@@ -19,7 +19,24 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** 🎉 **Milestone v1.2 — ALL 5 PHASES COMPLETE** (16,17,18,20,19 — 2026-07-01). Remaining: milestone lifecycle (audit → complete → cleanup) + connected-env eval deferrals (DEF-17-05-01/18-03-01/19-01/20-01). Phase 19 (declarative zero-eval form node, hybrid fast-path) ✅ committed ecc7a46.
+**Current focus:** ◆ **Phase 21 — Generation Quality Verification** (chosen over closing v1.2; quality/verify pass FIRST). All 5 build phases complete (16,17,18,20,19). Do NOT audit/complete/cleanup until generation quality is verified against live Bedrock.
+
+## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
+
+**Why:** live testing showed the code-island `Generation fell back` on real prompts ("complex full twitter clone") — NOT a design-taste issue, a hard failure. Root cause: the code-island reused the declarative generator's tiny budget (Haiku, max_tokens=3000, 15s) → arbitrary UI code truncates mid tool-call → invalid → 3 retries fail → SAFE_FALLBACK_CODE (which the studio then rendered as a misleading "Rendered ✓").
+
+**OFFLINE levers DONE (need backend restart to take effect):**
+- Code-island `exports is not defined` crash fixed: srcdoc shims window.module/exports + autofix strips `export {}` (commit edc89fc).
+- Strong design-quality generator prompt + forbid module/JSX (edc89fc).
+- **Dedicated code-island tier**: Sonnet primary, GENUI_CODE_MAX_TOKENS=16000, GENUI_CODE_TIMEOUT_SECONDS=60 (declarative stays Haiku/3000) — settings + DI (commit 3f8d160). **This is the fix for the fallback.**
+- Honest fallback UX: outcome=fallback no longer renders placeholder as "Rendered ✓" (3f8d160).
+
+**LIVE / connected-env (USER must run — no Bedrock in the headless session):**
+1. **Restart FastAPI + `npm run dev`** (stale process still has old settings/prompt/model).
+2. Code-Island tab → generate a real prompt → confirm it now returns real code (Sonnet, 16k budget), not fallback. If it still falls back, capture FastAPI logs (the `genui_code_generator_*` structlog events).
+3. Run the Phase-16 eval harness against live Bedrock to MEASURE quality vs baseline (DEF-17-05-01/18-03-01/19-01/20-01 — never run).
+
+**Then:** audit → complete → cleanup v1.2 with honest numbers.
 
 ## 🔀 PIVOT / DECISION 2026-07-01 (during `/gsd:autonomous --from 19`)
 
