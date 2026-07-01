@@ -479,7 +479,7 @@ export function HistoryIsland(): React.ReactElement {
   };
 
   return (
-    <div className="flex flex-1 min-h-0 h-full">
+    <div className="flex flex-1 min-h-0">
       {/* Master list — left panel (fixed width, scrollable) */}
       <div
         className="w-80 shrink-0 flex flex-col border-r border-border/50 min-h-0"

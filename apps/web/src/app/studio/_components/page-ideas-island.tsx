@@ -311,7 +311,7 @@ export function PageIdeasIsland({
   const totalCount = PAGE_IDEAS.length;
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex flex-1 min-h-0 flex-col">
       {/* Header strip: title + Surprise me button */}
       <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-border/50">
         <div>
