@@ -261,7 +261,7 @@ that vary per generation ("style packs"), plus retrieved exemplars injected befo
 The win is measured: a demonstrable lift on the golden set versus the Phase-16 baseline.
 **Depends on:** Phase 16 (the eval harness + baseline must exist to measure the lift; this phase is gated on it)
 **Requirements:** STYLE-01, STYLE-02, STYLE-03, STYLE-04, RAG-01, RAG-02
-**Status:** Planned (5 plans, 3 waves)
+**Status:** Complete (5 plans, 3 waves — 2026-06-28; executed + code-reviewed [2 blockers/5 warnings fixed] + human UAT in /studio. UAT CONFIRMED: 6 DTCG style packs render + visibly differ [nauta-teal green vs brutalist black/red vs warm-editorial orange], style_pack_id in envelope+cache key. 5 UAT fixes shipped: grid cols→child-count clamp [75ca1b4], generation page-shell [fa37d5a], History/Page-Ideas tab-sink [22bd12d] + Radix-hidden-vs-Tailwind-flex cascade [c58d459], button onClick action-binding render drift [d4529fb]. DEFERRED: connected-env live `--all-packs` eval vs Phase-16 baseline [needs Bedrock creds + seeded DB]; real button-nav click wiring → Phase 19; colSpan/asymmetric layouts + container/section primitives → Phase 18 [backlog 999.2].)
 **Success Criteria** (what must be TRUE):
 
   1. The generator is conditioned on an explicit, machine-readable design-system + a W3C-DTCG-shaped token set (semantic color/type/spacing tokens, not free-form "navy blue") that the renderer consumes so the output reflects the chosen tokens.

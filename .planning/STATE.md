@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: "Generative UI: Realism & Interactivity"
 status: ready_to_plan
-last_updated: "2026-06-28T15:36:54.733Z"
+last_updated: "2026-07-01T02:31:01.750Z"
 progress:
   total_phases: 5
   completed_phases: 2
@@ -201,7 +201,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** .planning/phases/17-tier-a-design-token-theme-layer-style-packs-assembly-rag/17-HUMAN-UAT.md
+- **Resume file:** .planning/ROADMAP.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
