@@ -40,9 +40,9 @@ variable "prod_desired_count" {
 }
 
 variable "staging_desired_count" {
-  description = "Desired task count for the staging service"
+  description = "Desired task count for the staging service (0 = scaled down to save cost; scale up on demand when testing)"
   type        = number
-  default     = 1
+  default     = 0
 }
 
 variable "api_key_secret_arn_prod" {
@@ -84,4 +84,16 @@ variable "ngrok_url" {
   description = "ngrok HTTPS base URL for local dev SNS subscription (e.g. https://abc123.ngrok-free.app). Leave empty to skip creating the local subscription."
   type        = string
   default     = ""
+}
+
+variable "budget_monthly_limit_usd" {
+  description = "Monthly account-wide AWS cost budget (USD). Alerts (not a hard stop) fire at 80%/100% actual + 100% forecasted."
+  type        = string
+  default     = "30"
+}
+
+variable "budget_alert_emails" {
+  description = "Email addresses that receive AWS Budget alerts."
+  type        = list(string)
+  default     = ["pedro@magnitudetech.com.br"]
 }
