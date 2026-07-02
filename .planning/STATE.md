@@ -36,7 +36,12 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 2. Code-Island tab → generate a real prompt → confirm it now returns real code (Sonnet, 16k budget), not fallback. If it still falls back, capture FastAPI logs (the `genui_code_generator_*` structlog events).
 3. Run the Phase-16 eval harness against live Bedrock to MEASURE quality vs baseline (DEF-17-05-01/18-03-01/19-01/20-01 — never run).
 
-**Then:** audit → complete → cleanup v1.2 with honest numbers.
+**✅ RESOLVED 2026-07-02 — code-island generation VERIFIED WORKING (live Bedrock, user-confirmed "all good").** Root-cause chain fixed: (1) `exports is not defined` — CJS boilerplate crashed the jail → srcdoc shims module/exports + autofix strips `export{}` (edc89fc); (2) generic output → Sonnet tier + design-quality prompt (edc89fc, 3f8d160); (3) every real design fell back — Bedrock InvokeModel is NON-STREAMING (buffers whole completion) so a total-time timeout always fired → switched adapter to `messages.stream` with an INACTIVITY timeout via `asyncio.timeout.reschedule` (b86647d); (4) still 60s — STALE `@lru_cache` settings under `uvicorn reload=DEBUG`/zombie processes → fixed by a COLD restart (`uv run uvicorn app.main:app`, single worker, no --reload). Commits: edc89fc, 3f8d160, 0e37307, b86647d, dc7e4f5.
+
+**Remaining Phase 21:**
+1. **Live-progress streaming to the studio** (the one UX wart left — currently a silent 1-4min spinner; stream code/preview live like Lovable). Recommended next build.
+2. **Eval harness vs baseline** (DEF-17-05-01/18-03-01/19-01/20-01) — never run; measures quality lift.
+3. **Then:** audit → complete → cleanup v1.2 with honest numbers.
 
 ## 🔀 PIVOT / DECISION 2026-07-01 (during `/gsd:autonomous --from 19`)
 
