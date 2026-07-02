@@ -68,6 +68,9 @@ class GenerateCodeIslandView(BaseModel):
     language: str
     outcome: str
     attempts: int
+    candidate_count: int = 1
+    """Number of candidates generated in the parallel fan-out (additive field; the web
+    tRPC client ignores unknown/extra fields, so no web change is required)."""
 
 
 # ---------------------------------------------------------------------------
@@ -103,5 +106,6 @@ async def generate_code_island(
             language=result.language,
             outcome=result.outcome,
             attempts=result.attempts,
+            candidate_count=result.candidate_count,
         )
     )

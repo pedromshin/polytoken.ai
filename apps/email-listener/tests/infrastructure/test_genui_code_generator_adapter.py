@@ -187,18 +187,33 @@ async def test_forced_emit_code_island_tool(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_max_tokens_and_temperature_set(
+async def test_max_tokens_and_default_temperature_set(
     adapter: GenuiCodeGeneratorAdapter,
     mock_bedrock_client: MagicMock,
 ) -> None:
-    """max_tokens and temperature=0 must be set on every call (D-16, D-18)."""
+    """max_tokens set + default temperature (0.7) threaded to the stream call (D-16, D-18)."""
     _install_stream(mock_bedrock_client, final=_make_code_tool_response())
 
     await adapter.generate(extraction=_make_extraction())
 
     call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
     assert call_kwargs["max_tokens"] == 3000
-    assert call_kwargs["temperature"] == 0
+    assert call_kwargs["temperature"] == 0.7
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_temperature_is_threaded_into_stream_call(
+    adapter: GenuiCodeGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """A caller-supplied temperature must be passed straight to messages.stream (D-18)."""
+    _install_stream(mock_bedrock_client, final=_make_code_tool_response())
+
+    await adapter.generate(extraction=_make_extraction(), temperature=0.4)
+
+    call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
+    assert call_kwargs["temperature"] == 0.4
 
 
 @pytest.mark.unit

@@ -80,6 +80,7 @@ from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
 from app.infrastructure.llm.genui_code_generator_adapter import GenuiCodeGeneratorAdapter
+from app.infrastructure.llm.genui_code_judge_adapter import GenuiCodeJudgeAdapter
 from app.infrastructure.llm.genui_generator_adapter import GenuiGeneratorAdapter
 from app.infrastructure.llm.genui_quarantine_adapter import GenuiQuarantineAdapter
 from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
@@ -415,6 +416,23 @@ def _provide_genui_code_generator_adapter(client: AsyncAnthropicBedrock) -> Genu
     )
 
 
+def _provide_genui_code_judge_adapter(client: AsyncAnthropicBedrock) -> GenuiCodeJudgeAdapter:
+    """GenuiCodeJudgeAdapter — ranks N code-island candidates and picks the best.
+
+    Part of the PARALLEL multi-candidate code-island path: the generator fans out N
+    candidates concurrently (varied temperature) and this judge ranks them. Uses the
+    dedicated judge model (Sonnet by default); output is tiny (an index + reason) so it
+    reuses the code-island timeout as an upper bound on the small, fast ranking call.
+    """
+    settings = get_settings()
+    return GenuiCodeJudgeAdapter(
+        client=client,
+        model_id=settings.genui_code_judge_model_id,
+        max_tokens=settings.GENUI_CODE_JUDGE_MAX_TOKENS,
+        timeout_seconds=settings.GENUI_CODE_TIMEOUT_SECONDS,
+    )
+
+
 def _provide_generation_audit_repository(client: Client) -> GenerationAuditRepository:
     """SupabaseGenerationAuditRepository — best-effort audit for generation events (GEN-05, D-19)."""
     return SupabaseGenerationAuditRepository(client=client)
@@ -450,17 +468,21 @@ def _provide_generate_ui_spec_use_case(
 def _provide_generate_code_island_use_case(
     quarantine: GenuiQuarantineAdapter,
     code_generator: GenuiCodeGeneratorAdapter,
+    judge: GenuiCodeJudgeAdapter,
     audit: GenerationAuditRepository,
 ) -> GenerateCodeIslandUseCase:
-    """Factory for GenerateCodeIslandUseCase — orchestrates the PARALLEL quarantine→code-generate→audit pipeline.
+    """Factory for GenerateCodeIslandUseCase — orchestrates the PARALLEL quarantine→fan-out→judge→audit pipeline.
 
     Reuses the quarantine adapter (Call A) and the audit repository; no cache (code is
-    non-deterministic). Mirrors _provide_generate_ui_spec_use_case.
+    non-deterministic). Fans out GENUI_CODE_CANDIDATES generations concurrently (varied
+    temperature) and ranks them with the judge. Mirrors _provide_generate_ui_spec_use_case.
     """
     return GenerateCodeIslandUseCase(
         quarantine=quarantine,
         code_generator=code_generator,
+        judge=judge,
         audit=audit,
+        candidates=get_settings().GENUI_CODE_CANDIDATES,
     )
 
 
@@ -576,8 +598,11 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # ── GenUI code-island layer (PARALLEL path) ───────────────────────────────
     # Emits arbitrary JS island code via forced tool-use, alongside the declarative
     # spec path above (which is untouched). Reuses GenuiQuarantineAdapter (Call A) +
-    # GenerationAuditRepository; no cache (code output is non-deterministic).
+    # GenerationAuditRepository; no cache (code output is non-deterministic). The
+    # generator fans out N candidates concurrently (varied temperature) and the judge
+    # ranks them to return the best design.
     provider.provide(_provide_genui_code_generator_adapter, provides=GenuiCodeGeneratorAdapter)
+    provider.provide(_provide_genui_code_judge_adapter, provides=GenuiCodeJudgeAdapter)
     provider.provide(_provide_generate_code_island_use_case, provides=GenerateCodeIslandUseCase)
 
     return provider

@@ -15,7 +15,8 @@ Security/correctness contracts (mirror genui_generator_adapter):
     returned after 3 failures or on timeout/exception.
   - D-16: max_tokens set on every call.
   - D-17: asyncio.timeout wraps every call.
-  - D-18: temperature=0 on every call.
+  - D-18: temperature is threaded per-call (parallel multi-candidate path varies it across
+    concurrent candidates); the caller controls the value. Defaults to 0.7.
   - D-21: cache_control ephemeral on the static system prompt block.
 
 No eval/exec/compile anywhere on this path (D-24). The emitted code is treated as
@@ -232,6 +233,7 @@ class GenuiCodeGeneratorAdapter:
         *,
         extraction: QuarantineExtraction,
         importer_id: str | None = None,
+        temperature: float = 0.7,
     ) -> CodeGeneratorResult:
         """Generate a self-contained JavaScript island from the quarantine extraction.
 
@@ -239,6 +241,9 @@ class GenuiCodeGeneratorAdapter:
             extraction: Structured output from Call A (quarantine adapter). Only this
                 structured data crosses to the generator — never raw prose (SAFE-02).
             importer_id: Optional importer context (logged for traceability only).
+            temperature: Sampling temperature for the generation call. The parallel
+                multi-candidate path varies this across concurrent candidates so a
+                judge can pick the best. Defaults to 0.7.
 
         Returns:
             CodeGeneratorResult with code (emitted JavaScript or SAFE_FALLBACK_CODE),
@@ -246,7 +251,7 @@ class GenuiCodeGeneratorAdapter:
             Never raises — returns a fallback CodeGeneratorResult on any exception.
         """
         try:
-            return await self._generation_loop(extraction=extraction)
+            return await self._generation_loop(extraction=extraction, temperature=temperature)
         except Exception:
             logger.warning(
                 "genui_code_generator_failed",
@@ -266,11 +271,13 @@ class GenuiCodeGeneratorAdapter:
         self,
         *,
         extraction: QuarantineExtraction,
+        temperature: float = 0.7,
     ) -> CodeGeneratorResult:
         """Run up to 3 attempts; escalate to Sonnet on attempt 3 (D-05).
 
         Tracks the number of attempts made and whether the Sonnet escalation model
-        was used so the caller can record accurate audit data.
+        was used so the caller can record accurate audit data. ``temperature`` is
+        threaded through to every stream call in this loop.
         """
         system_blocks = _build_system_blocks()
 
@@ -299,7 +306,10 @@ class GenuiCodeGeneratorAdapter:
             model_id = self._escalation_model_id if escalated_this_attempt else self._model_id
 
             response = await self._stream_message(
-                model_id=model_id, system_blocks=system_blocks, messages=messages
+                model_id=model_id,
+                system_blocks=system_blocks,
+                messages=messages,
+                temperature=temperature,
             )
 
             candidate = self._parse_response(response)
@@ -355,6 +365,7 @@ class GenuiCodeGeneratorAdapter:
         model_id: str,
         system_blocks: list[dict[str, Any]],
         messages: list[dict[str, Any]],
+        temperature: float = 0.7,
     ) -> Any:
         """Stream the generation, enforcing an INACTIVITY timeout between events.
 
@@ -375,12 +386,13 @@ class GenuiCodeGeneratorAdapter:
             model_id=model_id,
             timeout_seconds=self._timeout_seconds,
             max_tokens=self._max_tokens,
+            temperature=temperature,
         )
         first_event_at: float | None = None
         async with self._client.messages.stream(  # type: ignore[call-overload]
             model=model_id,
             max_tokens=self._max_tokens,
-            temperature=0,
+            temperature=temperature,
             system=system_blocks,
             tools=[_EMIT_TOOL],
             tool_choice={"type": "tool", "name": _EMIT_TOOL_NAME},

@@ -120,6 +120,15 @@ class BaseAppSettings(BaseSettings):
     # very forgiving (Bedrock streams deltas sub-second when healthy).
     GENUI_CODE_TIMEOUT_SECONDS: float = 90.0
 
+    # --- Code-island parallel multi-candidate + judge (Phase 21) ---
+    # N candidates generated CONCURRENTLY (varied temperature) then an LLM judge picks the best.
+    # Same wall-clock as one generation (asyncio.gather), N-times the tokens, higher quality.
+    # COST-CONSERVATIVE DEFAULTS: 2 candidates (set 1 to disable fan-out) + a Haiku judge (ranking
+    # doesn't need Sonnet and Haiku input pricing is far cheaper for reading N candidate bodies).
+    GENUI_CODE_CANDIDATES: int = 2
+    GENUI_CODE_JUDGE_MODEL_ID: str = ""  # judge model; default Haiku (cheap)
+    GENUI_CODE_JUDGE_MAX_TOKENS: int = 512  # judge output is tiny (best_index + reason)
+
     @property
     def api_key(self) -> str:
         return parse_secret_value(self.API_KEY, "API_KEY", self.ENVIRONMENT.value)
@@ -176,6 +185,11 @@ class BaseAppSettings(BaseSettings):
     def genui_code_escalation_model_id(self) -> str:
         """Escalation model for the code-island generator on attempt 3."""
         return (self.GENUI_CODE_ESCALATION_MODEL_ID or DEFAULT_GENUI_CODE_ESCALATION_MODEL_ID).strip()
+
+    @property
+    def genui_code_judge_model_id(self) -> str:
+        """Model for the code-island candidate judge (ranks N candidates; default Haiku — cheap)."""
+        return (self.GENUI_CODE_JUDGE_MODEL_ID or DEFAULT_GENUI_MODEL_ID).strip()
 
 
 class DevSettings(BaseAppSettings):

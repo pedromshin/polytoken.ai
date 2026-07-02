@@ -87,6 +87,22 @@ def test_generate_returns_200_with_code(client: TestClient) -> None:
 
 
 @pytest.mark.unit
+def test_generate_surfaces_candidate_count(client: TestClient, mock_use_case: MagicMock) -> None:
+    """candidate_count from the result is surfaced in the response view (parallel fan-out)."""
+    mock_use_case.execute = AsyncMock(
+        return_value=GenerateCodeIslandResult(
+            code=_VALID_CODE, language="javascript", outcome="ok", attempts=1, candidate_count=3, judged=True
+        )
+    )
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a Twitter clone"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["data"]["candidate_count"] == 3
+
+
+@pytest.mark.unit
 def test_generate_missing_intent_returns_422(client: TestClient) -> None:
     """422 when 'intent' field is missing from the request body."""
     resp = client.post(
