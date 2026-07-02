@@ -367,6 +367,16 @@ class GenuiCodeGeneratorAdapter:
         accumulated final Message (the forced tool_use block is fully parsed).
         """
         loop = asyncio.get_running_loop()
+        start = loop.time()
+        # Logs the ACTUAL timeout this (possibly cached/stale) process is using + streaming timing,
+        # so a stale-settings vs slow-Bedrock diagnosis is unambiguous from the logs.
+        logger.info(
+            "genui_code_stream_start",
+            model_id=model_id,
+            timeout_seconds=self._timeout_seconds,
+            max_tokens=self._max_tokens,
+        )
+        first_event_at: float | None = None
         async with self._client.messages.stream(  # type: ignore[call-overload]
             model=model_id,
             max_tokens=self._max_tokens,
@@ -378,9 +388,17 @@ class GenuiCodeGeneratorAdapter:
         ) as stream:
             async with asyncio.timeout(self._timeout_seconds) as cm:
                 async for _event in stream:
+                    if first_event_at is None:
+                        first_event_at = loop.time()
+                        logger.info(
+                            "genui_code_stream_first_event",
+                            elapsed_s=round(first_event_at - start, 2),
+                        )
                     # Each streamed event = activity → push the inactivity deadline forward.
                     cm.reschedule(loop.time() + self._timeout_seconds)
-                return await stream.get_final_message()
+                final = await stream.get_final_message()
+        logger.info("genui_code_stream_done", elapsed_s=round(loop.time() - start, 2))
+        return final
 
     def _parse_response(self, response: Any) -> tuple[str, str] | None:
         """Extract (code, language) from the emit_code_island tool_use block.
