@@ -38,8 +38,12 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 
 **✅ RESOLVED 2026-07-02 — code-island generation VERIFIED WORKING (live Bedrock, user-confirmed "all good").** Root-cause chain fixed: (1) `exports is not defined` — CJS boilerplate crashed the jail → srcdoc shims module/exports + autofix strips `export{}` (edc89fc); (2) generic output → Sonnet tier + design-quality prompt (edc89fc, 3f8d160); (3) every real design fell back — Bedrock InvokeModel is NON-STREAMING (buffers whole completion) so a total-time timeout always fired → switched adapter to `messages.stream` with an INACTIVITY timeout via `asyncio.timeout.reschedule` (b86647d); (4) still 60s — STALE `@lru_cache` settings under `uvicorn reload=DEBUG`/zombie processes → fixed by a COLD restart (`uv run uvicorn app.main:app`, single worker, no --reload). Commits: edc89fc, 3f8d160, 0e37307, b86647d, dc7e4f5.
 
+**Phase 21 progress:**
+- ✅ **Multi-candidate + judge generation** (dda8937): quarantine once → fan out N concurrent code gens (varied temp 0.4-1.0) → LLM judge picks best. Cost-conservative defaults: GENUI_CODE_CANDIDATES=2, judge=Haiku. New GenuiCodeJudgeAdapter. 51 code-island pytest green. Degrades gracefully (all-fallback→fallback, 1-good→skip judge, judge-fail→first). **Requires backend restart to activate.**
+- ✅ **Cost guard** (4b28ec6): $30/month AWS budget + email alerts (80%/100% actual + forecast) in `infrastructure/aws/budget.tf` — user must `terraform apply`. Generation is manual-click only (idle=$0); ~$0.10-0.25/click at N=2 Haiku-judge.
+
 **Remaining Phase 21:**
-1. **Live-progress streaming to the studio** (the one UX wart left — currently a silent 1-4min spinner; stream code/preview live like Lovable). Recommended next build.
+1. **Live-progress streaming to the studio** (the one UX wart left — silent 1-4min spinner; stream code/preview live like Lovable). Recommended next build.
 2. **Eval harness vs baseline** (DEF-17-05-01/18-03-01/19-01/20-01) — never run; measures quality lift.
 3. **Then:** audit → complete → cleanup v1.2 with honest numbers.
 
