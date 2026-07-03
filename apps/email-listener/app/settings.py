@@ -125,6 +125,11 @@ class BaseAppSettings(BaseSettings):
     # idiom as the code-island adapter above), so this is an INACTIVITY timeout —
     # max seconds between stream events — NOT a total-time cap.
     CHAT_INACTIVITY_TIMEOUT_SECONDS: float = 90.0
+    # OpenRouter transport (D-07) — server-side only; NEVER exposed to the client
+    # (no client-visible-prefixed env var here; read only via the openrouter_api_key
+    # property below, T-22-06).
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
     # --- Code-island parallel multi-candidate + judge (Phase 21) ---
     # N candidates generated CONCURRENTLY (varied temperature) then an LLM judge picks the best.
@@ -196,6 +201,11 @@ class BaseAppSettings(BaseSettings):
     def genui_code_judge_model_id(self) -> str:
         """Model for the code-island candidate judge (ranks N candidates; default Haiku — cheap)."""
         return (self.GENUI_CODE_JUDGE_MODEL_ID or DEFAULT_GENUI_MODEL_ID).strip()
+
+    @property
+    def openrouter_api_key(self) -> str:
+        """OpenRouter API key (T-22-06 — server-side only, never client-exposed)."""
+        return parse_secret_value(self.OPENROUTER_API_KEY, "OPENROUTER_API_KEY", self.ENVIRONMENT.value)
 
 
 class DevSettings(BaseAppSettings):

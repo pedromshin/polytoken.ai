@@ -11,6 +11,7 @@ Registers:
 from __future__ import annotations
 
 import boto3
+import httpx
 from anthropic import AsyncAnthropicBedrock
 from dishka import AsyncContainer, Provider, Scope, make_async_container
 from supabase import Client
@@ -85,6 +86,7 @@ from app.infrastructure.llm.genui_code_judge_adapter import GenuiCodeJudgeAdapte
 from app.infrastructure.llm.genui_generator_adapter import GenuiGeneratorAdapter
 from app.infrastructure.llm.genui_quarantine_adapter import GenuiQuarantineAdapter
 from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
+from app.infrastructure.llm.openrouter_chat_adapter import OpenRouterChatAdapter
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.ocr.textract_adapter import TextractOcrAdapter
 from app.infrastructure.pdf.parser_registry import get_parser, register
@@ -434,6 +436,18 @@ def _provide_genui_code_judge_adapter(client: AsyncAnthropicBedrock) -> GenuiCod
     )
 
 
+def _provide_httpx_client() -> httpx.AsyncClient:
+    """Shared httpx AsyncClient singleton for outbound streaming HTTP calls (OpenRouter, D-07 seam).
+
+    `read=None` disables httpx's own read timeout: OpenRouterChatAdapter wraps
+    its SSE line iteration in its own asyncio.timeout inactivity guard
+    (rescheduled per event, same idiom as the Bedrock adapter), so THAT is the
+    real safety net for a long-lived stream — a fixed httpx read timeout would
+    otherwise kill a healthy multi-minute stream.
+    """
+    return httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=None))
+
+
 def _provide_bedrock_chat_adapter(client: AsyncAnthropicBedrock) -> BedrockChatAdapter:
     """BedrockChatAdapter — one ChatProvider implementation (Phase 22, D-22).
 
@@ -446,6 +460,23 @@ def _provide_bedrock_chat_adapter(client: AsyncAnthropicBedrock) -> BedrockChatA
     settings = get_settings()
     return BedrockChatAdapter(
         client=client,
+        inactivity_timeout_seconds=settings.CHAT_INACTIVITY_TIMEOUT_SECONDS,
+    )
+
+
+def _provide_openrouter_chat_adapter(http_client: httpx.AsyncClient) -> OpenRouterChatAdapter:
+    """OpenRouterChatAdapter — the second ChatProvider implementation (Phase 22, D-07, D-22).
+
+    Reuses the shared httpx.AsyncClient singleton. api_key is read once here via
+    settings.openrouter_api_key (T-22-06, server-side only) — an empty key means
+    every .stream() call raises fail-closed (D-07) until OPENROUTER_API_KEY is
+    configured for this environment.
+    """
+    settings = get_settings()
+    return OpenRouterChatAdapter(
+        api_key=settings.openrouter_api_key,
+        base_url=settings.OPENROUTER_BASE_URL,
+        http_client=http_client,
         inactivity_timeout_seconds=settings.CHAT_INACTIVITY_TIMEOUT_SECONDS,
     )
 
@@ -512,6 +543,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
 
     # ── Anthropic / Bedrock client (singleton via lru_cache factory) ─────────
     provider.provide(_provide_anthropic_client, provides=AsyncAnthropicBedrock, scope=Scope.APP)
+
+    # ── Shared httpx AsyncClient (singleton) — OpenRouter transport, D-07 seam ─
+    provider.provide(_provide_httpx_client, provides=httpx.AsyncClient, scope=Scope.APP)
 
     # ── Repository adapters ───────────────────────────────────────────────────
     provider.provide(SupabaseEmailRepository, provides=EmailRepository)
@@ -627,6 +661,7 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # own concrete types: the chat orchestration layer (22-06) will select
     # between them by the picked model's registry transport.
     provider.provide(_provide_bedrock_chat_adapter, provides=BedrockChatAdapter)
+    provider.provide(_provide_openrouter_chat_adapter, provides=OpenRouterChatAdapter)
 
     return provider
 
