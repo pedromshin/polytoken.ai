@@ -174,18 +174,28 @@ class FakeChatConversationRepository:
 
 
 class FakeChatProvider:
-    """A ChatProvider test double streaming a pre-configured sequence of deltas."""
+    """A ChatProvider test double streaming a pre-configured sequence of deltas.
+
+    Any BaseException instance placed in ``deltas`` is RAISED (not yielded) when
+    reached — used to simulate a mid-stream CancelledError or a provider bug.
+    """
 
     def __init__(self, deltas: list[Any]) -> None:
         self._deltas = deltas
         self.stream_called = False
         self.stream_calls: list[dict[str, Any]] = []
+        self.aclosed = False
 
     async def stream(self, **kwargs: Any) -> Any:
         self.stream_called = True
         self.stream_calls.append(kwargs)
-        for delta in self._deltas:
-            yield delta
+        try:
+            for delta in self._deltas:
+                if isinstance(delta, BaseException):
+                    raise delta
+                yield delta
+        finally:
+            self.aclosed = True
 
 
 class FakeCostCircuitBreaker:
@@ -483,3 +493,216 @@ async def test_second_turn_does_not_overwrite_title() -> None:
     conversations: FakeChatConversationRepository = fakes["conversations"]
     assert len(conversations.touches) == 1
     assert conversations.touches[0]["title"] is None
+
+
+# ---------------------------------------------------------------------------
+# Task 3: mid-stream cost abort -> cost_capped (D-21)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_mid_stream_cost_abort_persists_partial_cost_capped() -> None:
+    provider = FakeChatProvider(
+        [
+            TextDelta(text="a"),
+            TextDelta(text="b"),
+            TextDelta(text="c"),
+            UsageDelta(input_tokens=10, output_tokens=5),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    # abort_after=1: the FIRST should_abort() call (after checkpoint "a") returns
+    # False, the SECOND (after checkpoint "b") returns True -> abort before "c".
+    breaker = FakeCostCircuitBreaker(abort_after=1)
+    use_case, fakes = _make_use_case(provider=provider, breaker=breaker)
+
+    events = [
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id)
+    ]
+
+    event_types = [e.type for e in events]
+    assert event_types[-1] == "cost_capped"
+    assert "usage" not in event_types  # only the completed-path emits a separate usage event
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant_messages = [m for m in messages.messages if m.role == "assistant"]
+    assert len(assistant_messages) == 1
+    assert assistant_messages[0].status == "cost_capped"
+    accumulated = "".join(p["text"] for p in assistant_messages[0].parts if p.get("type") == "text")
+    assert accumulated == "ab"
+    assert "c" not in accumulated
+
+    runs: FakeChatRunRepository = fakes["runs"]
+    assert all(run["status"] == "cost_capped" for run in runs.runs.values())
+
+    ledger: FakeCostLedgerRepository = fakes["ledger"]
+    assert len(ledger.recorded) == 1  # usage-so-far recorded even though the stream never finished
+
+
+# ---------------------------------------------------------------------------
+# Task 3: cancellation -> stopped, re-raises (D-15)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_cancellation_persists_partial_stopped_and_reraises() -> None:
+    import asyncio
+
+    provider = FakeChatProvider([TextDelta(text="partial"), asyncio.CancelledError()])
+    use_case, fakes = _make_use_case(provider=provider)
+
+    events: list[Any] = []
+    with pytest.raises(asyncio.CancelledError):
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id):
+            events.append(event)
+
+    assert events[-1].type == "stopped"
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant_messages = [m for m in messages.messages if m.role == "assistant"]
+    assert len(assistant_messages) == 1
+    assert assistant_messages[0].status == "stopped"
+    accumulated = "".join(p["text"] for p in assistant_messages[0].parts if p.get("type") == "text")
+    assert accumulated == "partial"
+
+    runs: FakeChatRunRepository = fakes["runs"]
+    assert all(run["status"] == "stopped" for run in runs.runs.values())
+
+
+# ---------------------------------------------------------------------------
+# Task 3: provider failure -> failed (D-19 backend side)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_stream_end_error_persists_partial_failed() -> None:
+    provider = FakeChatProvider([TextDelta(text="partial"), StreamEnd(stop_reason="error")])
+    use_case, fakes = _make_use_case(provider=provider)
+
+    events = [
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id)
+    ]
+
+    assert events[-1].type == "failed"
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant_messages = [m for m in messages.messages if m.role == "assistant"]
+    assert len(assistant_messages) == 1
+    assert assistant_messages[0].status == "failed"
+
+    runs: FakeChatRunRepository = fakes["runs"]
+    assert all(run["status"] == "failed" for run in runs.runs.values())
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_provider_exception_persists_partial_failed() -> None:
+    provider = FakeChatProvider([TextDelta(text="partial"), RuntimeError("boom")])
+    use_case, fakes = _make_use_case(provider=provider)
+
+    events = [
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id)
+    ]
+
+    assert events[-1].type == "failed"
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant_messages = [m for m in messages.messages if m.role == "assistant"]
+    assert len(assistant_messages) == 1
+    assert assistant_messages[0].status == "failed"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: regenerate -> new active sibling (D-16)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_regenerate_retires_prior_sibling_and_creates_new_active_version() -> None:
+    messages = FakeChatMessageRepository()
+    await messages.insert_message(
+        conversation_id=_CONVERSATION_ID, role="user", parts=({"type": "text", "text": "Q1"},), turn_index=0
+    )
+    original = await messages.insert_message(
+        conversation_id=_CONVERSATION_ID,
+        role="assistant",
+        parts=({"type": "text", "text": "A1 original"},),
+        turn_index=0,
+        sibling_group_id="sib-0",
+        version=1,
+        is_active=True,
+    )
+
+    provider = FakeChatProvider([TextDelta(text="A1 regenerated"), StreamEnd(stop_reason="end_turn")])
+    use_case, fakes = _make_use_case(provider=provider, messages=messages)
+
+    events = [
+        event
+        async for event in use_case.regenerate(
+            conversation_id=_CONVERSATION_ID, assistant_message_id=original.id, model_id=_SERVER_MODEL.id
+        )
+    ]
+
+    assert events[-1].type == "completed"
+
+    active = await messages.list_active_context(_CONVERSATION_ID)
+    active_assistant = [m for m in active if m.role == "assistant"]
+    assert len(active_assistant) == 1
+    assert active_assistant[0].sibling_group_id == "sib-0"
+    assert active_assistant[0].version == 2
+    accumulated = "".join(p["text"] for p in active_assistant[0].parts if p.get("type") == "text")
+    assert accumulated == "A1 regenerated"
+
+    # The original version is retired (is_active=False) but not deleted.
+    all_assistant = [m for m in messages.messages if m.role == "assistant"]
+    assert len(all_assistant) == 2
+    original_row = next(m for m in all_assistant if m.version == 1)
+    assert original_row.is_active is False
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_regenerate_blocked_by_pre_turn_cost_does_not_retire_sibling() -> None:
+    messages = FakeChatMessageRepository()
+    await messages.insert_message(
+        conversation_id=_CONVERSATION_ID, role="user", parts=({"type": "text", "text": "Q1"},), turn_index=0
+    )
+    original = await messages.insert_message(
+        conversation_id=_CONVERSATION_ID,
+        role="assistant",
+        parts=({"type": "text", "text": "A1 original"},),
+        turn_index=0,
+        sibling_group_id="sib-0",
+        version=1,
+        is_active=True,
+    )
+
+    provider = FakeChatProvider([TextDelta(text="should never stream")])
+    breaker = FakeCostCircuitBreaker(decision=PreTurnDecision.block("per_turn"))
+    use_case, fakes = _make_use_case(provider=provider, messages=messages, breaker=breaker)
+
+    events = [
+        event
+        async for event in use_case.regenerate(
+            conversation_id=_CONVERSATION_ID, assistant_message_id=original.id, model_id=_SERVER_MODEL.id
+        )
+    ]
+
+    assert len(events) == 1
+    assert events[0].type == "cost_capped"
+    assert not provider.stream_called
+
+    # The original active sibling must NOT have been retired if the regenerate
+    # attempt never actually got to run — otherwise the conversation would be
+    # left with zero active assistant messages for that turn.
+    active = await messages.list_active_context(_CONVERSATION_ID)
+    active_assistant = [m for m in active if m.role == "assistant"]
+    assert len(active_assistant) == 1
+    assert active_assistant[0].id == original.id
