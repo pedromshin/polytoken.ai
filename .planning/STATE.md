@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-03T18:48:31.219Z"
-last_activity: 2026-07-03 -- Phase 22 Plan 01 (chat data model + migration 0023) complete
+last_updated: "2026-07-03T19:24:16.301Z"
+last_activity: 2026-07-03 -- Phase 22 Plan 02 (multi-provider model system: ChatProvider port + curated registry + Bedrock/OpenRouter adapters + GET /v1/chat/models) complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 1
-  percent: 9
+  completed_plans: 2
+  percent: 0
 ---
 
 # State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
-Plan: 2 of 11
-Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres)
-Last activity: 2026-07-03 -- Phase 22 Plan 01 (chat data model + migration 0023) complete
+Plan: 3 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models)
+Last activity: 2026-07-03 -- Phase 22 Plan 02 (multi-provider model system) complete
 
-Progress: [█░░░░░░░░░] 9%
+Progress: [██░░░░░░░░] 18%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -300,7 +300,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** .planning/phases/22-chat-spine-persistence-streaming/22-01-SUMMARY.md
+- **Resume file:** .planning/phases/22-chat-spine-persistence-streaming/22-02-SUMMARY.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
@@ -1028,6 +1028,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-03 (22-01): chat_cost_ledger.run_id kept as a plain uuid with NO FK (mirrors the genui_generation_events/ui_spec_templates importer_id no-FK idiom) — a chat_runs row cascade-deletes with its conversation while its ledger row must survive (D-14), so constraining run_id would require its own SET NULL FK with no added integrity value over the established idiom; chat_conversations.importer_id and chat_cost_ledger.importer_id follow the same plain-uuid-no-FK pattern
 - 2026-07-03 (22-01): text + SQL CHECK used for chat_runs.status / chat_messages.role+status / chat_run_events.type / chat_cost_ledger.execution_locus (NOT pgEnum) — matches the plan's explicit instruction and the existing outcome-CHECK precedent (genui_generation_events, ui_spec_templates) rather than introducing a new enum style
 - 2026-07-03 (22-01): Docker Desktop + local Supabase stack were not running at plan start (migrate:local failed ECONNREFUSED 127.0.0.1:54322); started both (Rule 3 blocking-issue auto-fix) to reach the [BLOCKING] Task 2 migration-apply requirement; migration 0023 applied cleanly and idempotently re-verified
+- 2026-07-03 (22-02): test files placed per the codebase's ESTABLISHED test-layout convention (flat tests/test_*.py for domain services, tests/infrastructure/test_*.py for infra adapters) instead of the plan's literal tests/unit/ path — that directory does not exist anywhere in this repo
+- 2026-07-03 (22-02): Bedrock model ids in CHAT_MODEL_REGISTRY are literal strings mirroring DEFAULT_BEDROCK_MODEL_ID/DEFAULT_GENUI_MODEL_ID in settings.py, NOT imported from app.settings — keeps the domain layer free of app.settings coupling (no existing domain module imports settings either)
+- 2026-07-03 (22-02): all 4 curated OpenRouter registry entries are capabilities.genui=False (conservative default; only the 2 Bedrock entries are genui=True) — also scopes OpenRouterChatAdapter's message translation to text-only for Phase 22 (no tool_use/tool_result block plumbing needed until a future plan promotes an entry and needs the Phase 24 round-trip)
+- 2026-07-03 (22-02): OpenRouterChatAdapter is fail-closed on a missing OPENROUTER_API_KEY — raises RuntimeError immediately rather than attempting a request that would degrade into a generic HTTP error (D-07); a genuine non-2xx OpenRouter response instead yields StreamEnd(stop_reason='error'), matching BedrockChatAdapter's never-raise-past-this-boundary contract
+- 2026-07-03 (22-02): GET /v1/chat/models returns {registry_version, models:[...]} as one object (ChatModelsView), not a bare list, so registry_version is a first-class always-present field for client cache-busting (mirrors the {catalogId, version} spirit of registry-version.ts)
 
 ## Performance Metrics
 
@@ -1073,3 +1078,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 16-05 | ~10m | 2 tasks | 2 files — history-island.tsx (474 lines: HistoryMasterList + HistoryDetailView + 7 sub-components + offset pager + parseSpecSafe safe-fallback) + studio-tabs.tsx slot swap (HistoryPlaceholder → HistoryIsland); STDO-02 reuse contract intact (one dynamic SpecRenderer); D-18 read-only; tsc+next build green; Task 3 browser-verify deferred (autonomous, no backend) |
 | Phase 17-01 | ~45m | 3 tasks | 11 files — 6 WCAG-AA DTCG packs (nauta-teal baseline + 5 distinct personalities; HSL triplet colors, no raw hex) + TOKEN_ALIASES (21-alias closed set) + TokenAliasSchema/StylePackIdSchema/TokenPropsSchema (fourth Zod allowlist) + style_pack_id on SpecRootSchema + re-emitted drift-gate-green Bedrock artifacts; TDD RED/GREEN per task (5 commits); 289/289 tests green; tsc clean |
 | Phase 22 P01 | 20min | 2 tasks | 8 files — 5 chat Drizzle table modules (conversations/runs/messages typed-parts+siblings/run_events append-only/cost_ledger) + barrel export + migration 0023 (CHECK constraints + RLS deny-all) generated & applied to local Postgres |
+| Phase 22 P02 | 75min | 3 tasks | 11 files |

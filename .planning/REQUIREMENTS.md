@@ -20,7 +20,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Streaming
 
-- [ ] **STREAM-01**: Agent text responses stream live (FastAPI SSE → web) with a visible generating indicator
+- [x] **STREAM-01**: Agent text responses stream live (FastAPI SSE → web) with a visible generating indicator
 - [ ] **STREAM-02**: Declarative genui specs render progressively as partial trees during generation — render-what's-valid, placeholder the rest (closes GEN-04)
 - [x] **STREAM-03**: An application-level cost circuit breaker (per-turn/per-session caps) guards streaming chat, independent of the AWS budget alert
 
@@ -51,7 +51,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Seams (v1.5+ readiness)
 
 - [x] **SEAM-03**: Chat turns are modeled as events on a run (run/event schema stub) so future orchestration run-trees reuse the schema
-- [ ] **SEAM-04**: The chat orchestration loop sits behind an agent/run abstraction (one agent, one run today)
+- [x] **SEAM-04**: The chat orchestration loop sits behind an agent/run abstraction (one agent, one run today)
 
 ## Future Requirements
 
@@ -101,11 +101,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHAT-05 | Phase 22 | Pending |
 | CHAT-06 | Phase 22 | Pending |
 | CHAT-07 | Phase 22 | Pending |
-| STREAM-01 | Phase 22 | Pending |
+| STREAM-01 | Phase 22 | Complete |
 | STREAM-02 | Phase 22 | Pending |
 | STREAM-03 | Phase 22 | Complete |
 | SEAM-03 | Phase 22 | Complete |
-| SEAM-04 | Phase 22 | Pending |
+| SEAM-04 | Phase 22 | Complete |
 | CANVAS-01 | Phase 23 | Pending |
 | CANVAS-02 | Phase 23 | Pending |
 | CANVAS-03 | Phase 23 | Pending |
