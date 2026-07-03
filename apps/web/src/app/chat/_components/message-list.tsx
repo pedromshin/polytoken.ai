@@ -7,7 +7,7 @@ import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import type { MessagePart, StreamState } from "../_hooks/use-chat-stream";
 import { JumpToBottomButton } from "./jump-to-bottom-button";
-import { MessageTurn } from "./message-turn";
+import { MessageTurn, type TurnStatus } from "./message-turn";
 
 // Distance-from-bottom (px) under which the list is considered "pinned" —
 // new content auto-scrolls it the rest of the way (22-UI-SPEC.md auto-scroll
@@ -18,6 +18,15 @@ export interface MessageListItem {
   readonly id: string;
   readonly role: "user" | "assistant" | "system";
   readonly parts: readonly MessagePart[];
+  /** Terminal status for a settled assistant turn (CHAT-05, D-15/D-19/D-21). */
+  readonly status?: TurnStatus;
+  /** Sibling message ids for this turn's regenerate group, version order
+   * (D-16) — length<=1 hides SiblingNav. Assistant turns only. */
+  readonly siblings?: readonly string[];
+  readonly activeSiblingIndex?: number;
+  /** The server's currently-ACTIVE sibling id for this turn — the only
+   * valid `assistant_message_id` regenerate()/retry can target (D-16). */
+  readonly regenerateTargetId?: string;
 }
 
 export interface MessageListProps {
@@ -25,6 +34,13 @@ export interface MessageListProps {
   /** id of the single turn currently streaming (drives the tail caret) —
    * null when nothing is streaming. */
   readonly streamingTurnId: string | null;
+  /** Regenerate a turn (CHAT-04) and retry a failed turn (CHAT-05) are the
+   * SAME operation — re-running the turn as a new sibling version. */
+  readonly onRegenerate?: (assistantMessageId: string) => void;
+  /** True while another turn is actively streaming — disables regenerate to
+   * prevent overlapping runs. */
+  readonly regenerateDisabled?: boolean;
+  readonly onNavigateSibling?: (siblingMessageId: string) => void;
 }
 
 /**
@@ -42,6 +58,9 @@ export interface MessageListProps {
 export function MessageList({
   turns,
   streamingTurnId,
+  onRegenerate,
+  regenerateDisabled = false,
+  onNavigateSibling,
 }: MessageListProps): React.ReactElement {
   const scrollAreaRootRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +114,23 @@ export function MessageList({
               role={turn.role}
               parts={turn.parts}
               isStreamingTurn={turn.id === streamingTurnId}
+              status={turn.status}
+              siblings={turn.siblings}
+              activeSiblingIndex={turn.activeSiblingIndex}
+              regenerateDisabled={regenerateDisabled}
+              onRegenerate={
+                turn.regenerateTargetId && onRegenerate
+                  ? () => onRegenerate(turn.regenerateTargetId!)
+                  : undefined
+              }
+              onNavigateSibling={
+                turn.siblings && onNavigateSibling
+                  ? (index: number) => {
+                      const targetId = turn.siblings?.[index];
+                      if (targetId) onNavigateSibling(targetId);
+                    }
+                  : undefined
+              }
             />
           ))}
         </div>

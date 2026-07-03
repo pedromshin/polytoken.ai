@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { PanelLeft, PanelLeftClose } from "lucide-react";
 
 import { Button } from "@nauta/ui/button";
@@ -16,6 +16,7 @@ import {
   MessageList,
   type MessageListItem,
 } from "./_components/message-list";
+import type { TurnStatus } from "./_components/message-turn";
 import { ModelPicker } from "./_components/model-picker";
 import {
   useChatStream,
@@ -25,6 +26,96 @@ import {
 
 const STREAMING_TURN_ID = "__streaming-turn__";
 const OPTIMISTIC_USER_TURN_ID = "__optimistic-user-turn__";
+
+// ---------------------------------------------------------------------------
+// Turn grouping — chat.getHistory returns EVERY sibling version row (D-16),
+// not just the active one, so the regenerate SiblingNav has something to
+// navigate. groupTurnsFromHistory folds those rows into one MessageListItem
+// per logical turn (user row + the currently-selected assistant sibling).
+// ---------------------------------------------------------------------------
+
+interface ChatHistoryRow {
+  readonly id: string;
+  readonly role: string;
+  readonly parts: unknown;
+  readonly status: string;
+  readonly turnIndex: number;
+  readonly siblingGroupId: string | null;
+  readonly version: number;
+  readonly isActive: boolean;
+}
+
+/** Stable key for a turn's regenerate/sibling group — falls back to the row's
+ * own id for the (never-actually-null per 22-06, but typed nullable) case. */
+function siblingGroupKeyFor(row: ChatHistoryRow): string {
+  return row.siblingGroupId ?? row.id;
+}
+
+/**
+ * Folds raw chat.getHistory rows (ALL sibling versions) into render-ready
+ * turns: one user MessageListItem plus one assistant MessageListItem per
+ * turnIndex, the assistant item carrying the full siblings[] list (D-16) so
+ * SiblingNav can navigate locally. `siblingOverrides` holds the user's local
+ * (non-persisted) choice of which sibling to display; `regeneratingActiveId`
+ * hides the stale cached row for a turn whose regenerate is in flight — the
+ * live streaming pseudo-turn represents it instead (avoids a duplicate).
+ */
+function groupTurnsFromHistory(
+  rows: readonly ChatHistoryRow[],
+  siblingOverrides: Readonly<Record<string, string>>,
+  regeneratingActiveId: string | null,
+): MessageListItem[] {
+  const turnIndices = Array.from(new Set(rows.map((row) => row.turnIndex))).sort(
+    (a, b) => a - b,
+  );
+  const items: MessageListItem[] = [];
+
+  for (const turnIndex of turnIndices) {
+    const rowsForTurn = rows.filter((row) => row.turnIndex === turnIndex);
+
+    const userRow = rowsForTurn.find((row) => row.role === "user");
+    if (userRow) {
+      items.push({
+        id: userRow.id,
+        role: "user",
+        parts: (userRow.parts as MessagePart[] | null) ?? [],
+      });
+    }
+
+    const assistantRows = rowsForTurn
+      .filter((row) => row.role === "assistant")
+      .sort((a, b) => a.version - b.version);
+    if (assistantRows.length === 0) continue;
+
+    const activeRow =
+      assistantRows.find((row) => row.isActive) ??
+      assistantRows[assistantRows.length - 1]!;
+
+    if (activeRow.id === regeneratingActiveId) {
+      // Stale — a regenerate for this turn is streaming right now; the live
+      // pseudo-turn (appended after history) stands in for it instead.
+      continue;
+    }
+
+    const groupKey = siblingGroupKeyFor(activeRow);
+    const overrideId = siblingOverrides[groupKey];
+    const selectedRow =
+      assistantRows.find((row) => row.id === overrideId) ?? activeRow;
+    const siblingIds = assistantRows.map((row) => row.id);
+
+    items.push({
+      id: selectedRow.id,
+      role: "assistant",
+      parts: (selectedRow.parts as MessagePart[] | null) ?? [],
+      status: selectedRow.status as TurnStatus,
+      siblings: siblingIds.length > 1 ? siblingIds : undefined,
+      activeSiblingIndex: siblingIds.indexOf(selectedRow.id),
+      regenerateTargetId: activeRow.id,
+    });
+  }
+
+  return items;
+}
 
 // Visually-hidden aria-live announcer copy (22-UI-SPEC.md Accessibility) —
 // announces STATE TRANSITIONS only, never the growing delta text itself
@@ -70,6 +161,22 @@ function ConversationView({
   const [optimisticUserText, setOptimisticUserText] = useState<string | null>(
     null,
   );
+  // D-16: the user's LOCAL choice of which sibling version to display per
+  // regenerate group (groupKey -> selected message id) — purely visual, never
+  // re-fetches and never affects the server's active-context sibling.
+  const [siblingOverrides, setSiblingOverrides] = useState<
+    Record<string, string>
+  >({});
+  // The active-sibling message id currently being regenerated, if any — used
+  // to hide the stale cached row while the live pseudo-turn streams its
+  // replacement (avoids a duplicate render of the same logical turn).
+  const [regeneratingActiveId, setRegeneratingActiveId] = useState<
+    string | null
+  >(null);
+  // Last text the user actually submitted via the composer — the fallback
+  // retry path for a turn that fails before it has ever been persisted (so
+  // there is no message id yet to regenerate against, CHAT-05).
+  const lastSentTextRef = useRef<string>("");
 
   const handleTerminal = useCallback(() => {
     // Every terminal branch persists whatever streamed so far (D-15) — the
@@ -79,25 +186,63 @@ function ConversationView({
     // the session cost meter live (D-23) without a manual refresh.
     void utils.chat.sessionCost.invalidate({ conversationId });
     setOptimisticUserText(null);
+    setRegeneratingActiveId(null);
   }, [conversationId, utils]);
 
   const chatStream = useChatStream({ conversationId, onTerminal: handleTerminal });
 
   const handleSubmit = useCallback(
     (text: string) => {
+      lastSentTextRef.current = text;
       setOptimisticUserText(text);
       chatStream.send(text, modelId);
     },
     [chatStream, modelId],
   );
 
-  const historyTurns: MessageListItem[] = (historyRows ?? [])
-    .filter((row) => row.isActive)
-    .map((row) => ({
-      id: row.id,
-      role: row.role as MessageListItem["role"],
-      parts: (row.parts as MessagePart[] | null) ?? [],
-    }));
+  const handleRegenerate = useCallback(
+    (assistantMessageId: string) => {
+      // A stale sibling override for this group would otherwise keep
+      // pointing at a retired version once the new one lands.
+      setSiblingOverrides({});
+      setRegeneratingActiveId(assistantMessageId);
+      chatStream.regenerate(assistantMessageId, modelId);
+    },
+    [chatStream, modelId],
+  );
+
+  // CHAT-05: retry is the same operation as regenerate once a message id
+  // exists; a turn that failed before ever being persisted (no id yet) falls
+  // back to re-sending the same user text.
+  const handleLiveRetry = useCallback(() => {
+    if (regeneratingActiveId) {
+      handleRegenerate(regeneratingActiveId);
+      return;
+    }
+    chatStream.send(lastSentTextRef.current, modelId);
+  }, [regeneratingActiveId, handleRegenerate, chatStream, modelId]);
+
+  const handleNavigateSibling = useCallback(
+    (siblingMessageId: string) => {
+      const row = (historyRows ?? []).find((r) => r.id === siblingMessageId);
+      if (!row) return;
+      const groupKey = siblingGroupKeyFor(row);
+      setSiblingOverrides((prev) => ({ ...prev, [groupKey]: siblingMessageId }));
+    },
+    [historyRows],
+  );
+
+  const historyTurns = groupTurnsFromHistory(
+    historyRows ?? [],
+    siblingOverrides,
+    regeneratingActiveId,
+  );
+
+  // D-21: a pre-turn fail-closed block never streams any content at all —
+  // zero parts distinguishes it from a mid-stream cost-cap (which always has
+  // whatever partial content streamed before the breach, D-15).
+  const isPreTurnCostBlock =
+    chatStream.state === "cost_capped" && chatStream.parts.length === 0;
 
   const turns: MessageListItem[] = [...historyTurns];
   if (optimisticUserText !== null && chatStream.state !== "idle") {
@@ -107,13 +252,23 @@ function ConversationView({
       parts: [{ type: "text", text: optimisticUserText }],
     });
   }
-  if (chatStream.state !== "idle" && chatStream.parts.length > 0) {
+  if (chatStream.state !== "idle") {
+    const liveStatus: TurnStatus =
+      chatStream.state === "streaming"
+        ? "streaming"
+        : isPreTurnCostBlock
+          ? "cost_capped_pre_turn"
+          : (chatStream.state as TurnStatus);
     turns.push({
       id: STREAMING_TURN_ID,
       role: "assistant",
       parts: chatStream.parts,
+      status: liveStatus,
+      regenerateTargetId: STREAMING_TURN_ID,
     });
   }
+
+  const regenerateDisabled = chatStream.state === "streaming";
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -124,7 +279,17 @@ function ConversationView({
         <ModelPicker conversationId={conversationId} currentModelId={modelId} />
         <CostMeter conversationId={conversationId} />
       </div>
-      <MessageList turns={turns} streamingTurnId={STREAMING_TURN_ID} />
+      <MessageList
+        turns={turns}
+        streamingTurnId={STREAMING_TURN_ID}
+        regenerateDisabled={regenerateDisabled}
+        onNavigateSibling={handleNavigateSibling}
+        onRegenerate={(assistantMessageId) =>
+          assistantMessageId === STREAMING_TURN_ID
+            ? handleLiveRetry()
+            : handleRegenerate(assistantMessageId)
+        }
+      />
       <GeneratingIndicator state={chatStream.state} />
       <Composer
         isStreaming={chatStream.state === "streaming"}

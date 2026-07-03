@@ -2,6 +2,22 @@
 
 import type { MessagePart } from "../_hooks/use-chat-stream";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { TurnActionRow } from "./turn-action-row";
+
+/** Terminal turn status (mirrors chat_messages.status, D-15/D-19/D-21/D-25)
+ * plus a client-only sentinel: 'cost_capped_pre_turn' marks the LIVE
+ * streaming pseudo-turn when the pre-turn fail-closed gate blocked the turn
+ * before any content ever streamed (zero parts) — this status never comes
+ * from a persisted row (a pre-turn block never inserts a chat_messages row
+ * at all), so it only ever appears on the transient in-flight turn. */
+export type TurnStatus =
+  | "streaming"
+  | "completed"
+  | "stopped"
+  | "failed"
+  | "cost_capped"
+  | "cost_capped_pre_turn"
+  | "interrupted";
 
 export interface MessageTurnProps {
   readonly role: "user" | "assistant" | "system";
@@ -9,6 +25,18 @@ export interface MessageTurnProps {
   /** True only for the single, currently-streaming turn (drives the
    * blinking tail caret — 22-UI-SPEC.md generating indicator). */
   readonly isStreamingTurn?: boolean;
+  /** Terminal status for a settled assistant turn — undefined for a user
+   * turn or a still-streaming/completed-with-no-marker assistant turn. */
+  readonly status?: TurnStatus;
+  /** Sibling message ids for this turn's regenerate group, version order
+   * (D-16) — omitted/length<=1 hides SiblingNav. */
+  readonly siblings?: readonly string[];
+  readonly activeSiblingIndex?: number;
+  /** Regenerate AND inline-error Retry both resolve to the same operation —
+   * re-running the turn as a new sibling version (CHAT-04/CHAT-05). */
+  readonly onRegenerate?: () => void;
+  readonly regenerateDisabled?: boolean;
+  readonly onNavigateSibling?: (index: number) => void;
 }
 
 /**
@@ -19,14 +47,32 @@ export interface MessageTurnProps {
  * the background (Color contract). The genui_spec placeholder here is a
  * bordered Card — the real GenuiPartBoundary (schema-validated progressive
  * rendering, D-17) arrives in 22-09.
+ *
+ * Assistant turns get a TurnActionRow (copy/regenerate/SiblingNav, CHAT-04)
+ * — always-visible per the UI-SPEC's no-hover-only-affordances rule.
  */
 export function MessageTurn({
   role,
   parts,
   isStreamingTurn = false,
+  status,
+  siblings,
+  activeSiblingIndex,
+  onRegenerate,
+  regenerateDisabled = false,
+  onNavigateSibling,
 }: MessageTurnProps): React.ReactElement {
   const isUser = role === "user";
+  const isAssistant = role === "assistant";
   const lastIndex = parts.length - 1;
+  // The action row only makes sense once a turn has settled with real
+  // content — never mid-stream, and never for the dedicated no-retry
+  // cost-cap-block card (nothing to copy/regenerate there).
+  const showActionRow =
+    isAssistant &&
+    status !== undefined &&
+    status !== "streaming" &&
+    status !== "cost_capped_pre_turn";
 
   return (
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
@@ -54,6 +100,19 @@ export function MessageTurn({
               );
             }
 
+            if (part.type === "genui_spec_streaming") {
+              return (
+                <div
+                  key={index}
+                  className="my-2 rounded-lg border border-border bg-card p-4"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    Interactive widget — renders here in a later plan (22-09)
+                  </p>
+                </div>
+              );
+            }
+
             return (
               <div key={index}>
                 <MarkdownRenderer content={part.text} />
@@ -69,6 +128,16 @@ export function MessageTurn({
             );
           })}
         </div>
+        {showActionRow && (
+          <TurnActionRow
+            parts={parts}
+            onRegenerate={onRegenerate}
+            regenerateDisabled={regenerateDisabled}
+            siblings={siblings}
+            activeSiblingIndex={activeSiblingIndex ?? 0}
+            onNavigateSibling={onNavigateSibling}
+          />
+        )}
       </div>
     </div>
   );
