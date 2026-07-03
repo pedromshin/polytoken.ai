@@ -1,329 +1,174 @@
-# Research Summary: Runtime Spec-First Generative-UI Engine
+# Project Research Summary
+
+**Project:** nauta.services.email-listener — v1.3 "Conversational GenUI: Chat, Canvas & Dual-Channel"
+**Domain:** Conversational generative UI — streamed chat spine + 2D infinite canvas + dual-channel (agent↔user) widget round-trips, layered onto an existing FastAPI/Bedrock + Next.js/tRPC + Drizzle/Supabase declarative genui engine
+**Researched:** 2026-07-02
+**Confidence:** HIGH
 
-**Date:** 2026-06-26
-**Sources synthesized:** PRIOR-ART.md, SPEC-RENDERER.md, GENERATION-AGENT.md, TEMPLATE-FLYWHEEL.md, SAFETY-PITFALLS.md, CURRENCY-2026.md
-**Overall confidence:** HIGH (core architecture), MEDIUM (promotion thresholds, embedding model decision)
+## Executive Summary
 
----
+v1.3 adds a conversational, spatial delivery surface to a genui engine that already exists and is not being re-built: `packages/genui`'s Catalog → Spec → Registry → Renderer (zero-eval, Zod-validated) and the code-island sandbox (v1.1/v1.2) are dependencies, not research targets. The four fresh research passes (STACK, FEATURES, ARCHITECTURE, PITFALLS) confirm the prior `v1.3/V1.3-RESEARCH-SYNTHESIS.md`'s 4-phase shape (22 chat spine, 23 canvas, 24 dual-channel, 25 anticipatory-prompting SPIKE) and — critically — resolve both of its `[MODEL — pending validation]` flags into `[HIGH]`-confidence, source-verified answers: R2 (canvas) is confirmed as reuse `@xyflow/react` (not tldraw, which requires a commercial/hobby license + watermark for production), and R3 (streaming/dual-channel) is confirmed as extending the codebase's existing `AsyncAnthropicBedrock.messages.stream()` call (not introducing boto3's raw Converse API), bridged to the browser via `@ai-sdk/react`'s backend-agnostic UI Message Stream Protocol, which has a documented, named Python/FastAPI implementation path.
 
-## 1. The Convergent Architecture: Catalog to Spec to Registry to Renderer
+The recommended approach reuses aggressively: no new heavy dependencies beyond `@ai-sdk/react` and `zustand` on the frontend, and a FastAPI/`anthropic` version bump on the backend (no new Python packages — FastAPI ≥0.135.0 ships native SSE). Every new capability is a direct extension of established codebase patterns — domain-port Protocols + DI factories for the new `ChatModelPort`, the two-sided Drizzle-schema/Supabase-repository pattern for four new tables (conversations, chat_messages, chat_runs, canvas_snapshots), and the existing `SpecRenderer`/`ActionRegistry`/catalog machinery reused as-is for dual-channel widgets. The one genuinely new, high-risk piece of engineering is a partial-JSON-tolerant renderer (`StreamingSpecRenderer` / `tolerantParse` / `renderPartialTree`) needed to close the long-deferred GEN-04 (streamed partial-tree specs) — this is called out consistently across all four research files as the highest-complexity, most novel work in the milestone and should be built and fixture-tested in isolation before wiring it to a live stream.
 
-Every production system surveyed independently converged on the same four-layer separation:
+The key risks, all independently identified by PITFALLS and cross-referenced by the other three files, cluster around three things that "look done but aren't" if not deliberately designed in from Phase 22: (1) the existing $30 AWS Budget cost guard was designed for manual-click-only generation and is silently broken by a persistent streaming chat plus (later) unprompted proactive prompting — a real per-session/per-turn application-level cap must be built, not inherited; (2) React Flow's own documented performance cliff (all nodes re-render on any store update) becomes a hard blocker the moment canvas panels carry live-streaming content, requiring streaming payloads to live outside the React Flow `nodes` array from day one; and (3) the widget→agent round-trip is a new untrusted-input surface structurally identical to the raw-email-injection problem this project already solved once (Phase 4's dual-LLM quarantine) — every widget submission must be re-validated server-side against its declared Zod schema before re-entering the model loop, never trusted because "the UI only allowed valid values."
 
-| Layer | What it is | Who owns it |
-|-------|-----------|-------------|
-| **Catalog** | Machine-readable manifest: type key, Zod prop schema (.strict()), description, example, slots, acceptsChildren | Developer -- defined once in packages/genui-catalog |
-| **Spec** | LLM-emitted nested JSON tree: { v: 1, root: SpecNode, state[], data{} } | LLM -- constrained by catalog schema via Bedrock structured output |
-| **Registry** | Static { [typeKey]: ReactComponent } built from catalog entries | Developer -- maps type strings to @nauta/ui imports |
-| **Renderer** | Recursive renderNode(): registry lookup -> Zod safeParse props -> ErrorBoundary -> createElement | System -- pure function, zero eval |
+## Key Findings
 
-### Local Precedent
+### Recommended Stack
 
-packages/ui/src/spreadsheet-grid/column-defs.ts is the proven local implementation of this exact pattern.
-SchemaFieldType discriminated union -> getRendererAndEditor(col) -> { cellRenderer, cellEditor } is Registry -> Renderer.
-For the generative-UI engine: substitute SchemaFieldType with SpecNodeType and ColDef with React.ReactElement.
+The existing stack (FastAPI/Python 3.11, Next.js 15.3.3, tRPC 11.8.0, Drizzle+Supabase, `AsyncAnthropicBedrock`, `@nauta/genui`, `@xyflow/react` 12.11.0) is validated and unchanged. Additions are minimal and targeted at the streaming/canvas/state gaps.
 
-### Spec Shape: Nested Discriminated-Union Tree (confirmed)
+**Core technologies:**
+- `@ai-sdk/react` (^4.x) — frontend chat hook (`useChat`); implements the client side of the AI SDK's backend-agnostic UI Message Stream Protocol (SSE), giving a message-parts state machine (`text-delta`, `tool-input-*`, `tool-output-*`, `finish`) for free instead of hand-rolling stream reconciliation. Do NOT add the `ai` core package — model calls stay server-side in Python.
+- `fastapi` bump to ≥0.135.0 — ships a native `fastapi.sse.EventSourceResponse`; no new SSE dependency needed.
+- `anthropic` (Python SDK) bump to ≥0.60.0 — same `AsyncAnthropicBedrock` transport already in use (`anthropic_client.py`), just newer for streaming/tool-use bugfixes. Extend `.messages.stream()` (already proven end-to-end on Bedrock by `genui_code_generator_adapter.py`) rather than introducing boto3's raw `converse_stream()`, which is not used anywhere in this codebase.
+- `zustand` (^5.0.14) — per-chat vanilla store (via `createStore`, scoped by a React context at the `/chat/[id]` boundary) for cross-panel shared state and node-level streaming-payload isolation. This was already reserved for exactly this case in prior Phase-15-era research (`SPEC-RENDERER.md`); v1.3 is the first milestone that actually needs it.
+- `@xyflow/react` (already `^12.11.0`) — reused as-is for the 2D canvas. **tldraw explicitly rejected**: its SDK requires a commercial/hobby license (with watermark) for any production deployment, and React Flow's node/edge model already maps directly onto "panels-as-nodes + data-carrying edges."
 
-Use a nested discriminated-union tree, not a flat ID-reference map:
-- Direct 1:1 mapping with React.createElement hierarchy
-- LLMs generate recursive JSON naturally; flat maps require stable IDs which hallucinate
-- Bedrock structured output cannot handle recursive Zod schemas -- use z.lazy() with explicit z.ZodType<SpecNode[]> annotation
-- Small specs (< 5 KB) render atomically; progressive streaming adds complexity without v1 value
+### Expected Features
 
-The flat-map approach is superior only for patch-based progressive streaming across large specs.
-Revisit if spec sizes exceed ~5 KB or streaming latency becomes a hard requirement.
+**Must have (table stakes — standard chat-product mechanics; missing any makes `/chat` feel broken):**
+- Message history persistence (survives reload/nav)
+- Streamed text response with visible generating indicator
+- Stop generation and regenerate/retry last response
+- Inline, non-blocking, retryable error recovery
+- Session/conversation list (sidebar, switch chats)
+- Markdown + code-block rendering, auto-scroll with "jump to bottom"
+- Input composer affordances (multi-line, disabled/queued while streaming), optimistic message render
 
-No eval. No dangerouslySetInnerHTML. No code emission in v1. The renderer is a trusted interpreter only.
+All of these share one underlying streaming state machine — that state machine, not any individual feature, is the real Phase 22 engineering surface. Build stop/regenerate/history in from day one; retrofitting onto an already-built streaming loop is more expensive.
 
----
+**Should have (differentiators — the v1.3 value proposition):**
+- 2D infinite canvas with genui panels-as-nodes (spatial workspace vs. scrollback)
+- Shared cross-panel state + data-carrying edges (one panel's output feeds another)
+- Dual-channel proposal cards (read-only pickable next-step cards) — build first, lowest risk
+- Dual-channel clarify-with-widgets (forms/pickers reusing the existing zero-eval form engine) — build after proposal cards prove the round-trip
+- Widget→agent round-trip (tool-result resumes the streamed run) — the AI SDK tool-call/tool-result lifecycle is the authoritative blueprint, independently confirmed by Thesys C1 and assistant-ui
+- Streamed partial-tree declarative UI (closes GEN-04) — genuinely new renderer engineering, not a byproduct of adding a transport
 
-## 2. Recommended Stack and Versions (as of 2026-06-26)
+**Defer (v2+ / explicitly out of scope for v1.3):**
+- Anticipatory/proactive prompting beyond a gated SPIKE (greenfield, no strong precedent, high false-positive-annoyance risk)
+- Full collaborative rich-text/code document editing (ChatGPT-Canvas-style) — different product category
+- Freeform whiteboard/drawing (tldraw's pen/ink) — not a scoped need
+- Multiplayer/CRDT (Yjs) — no multiplayer requirement exists
+- Voice/multi-modal input
+- Full multi-agent orchestration visualizer — seams only, deferred to v1.5
+- Auto-executing agent actions without explicit user confirmation — always an anti-feature
 
-### AI SDK
+### Architecture Approach
 
-| Package | Version | Notes |
-|---------|---------|-------|
-| ai | ~4.x (v6 branding) | generateObject/streamObject deprecated |
-| @ai-sdk/amazon-bedrock | ^4.0.120 | Pin this version |
-| zod | ^3.25.76 | Zod v4 INCOMPATIBLE -- issues #5682/#7189 open, unresolved 2026-06-26 |
+v1.3 is a direct, additive extension of the existing Clean-Architecture FastAPI backend and Next.js/tRPC frontend — no parallel system, no new `apps/*` service. The chat orchestration loop is a new use case (`RunChatTurnUseCase`) depending only on new domain-port Protocols (`ChatModelPort`, `ConversationRepository`, `ChatMessageRepository`, `ChatRunRepository`, `CanvasSnapshotRepository`), mirroring the exact pattern already used by `GenerateUiSpecUseCase`. Streaming crosses FastAPI → web via a `StreamingResponse` SSE endpoint on the FastAPI side, relayed through a tRPC v11 `httpSubscriptionLink` subscription (SSE-based) on the Next.js side — chosen over a bare Route Handler passthrough specifically to preserve the codebase's one universal invariant that the browser never talks to FastAPI directly and the API key never leaves the server (`D-23`).
 
-Canonical API: generateText/streamText + Output.object({ schema: UISpecSchema }).
-Client-side: useObject hook (exported as experimental_useObject from ai/react).
-streamUI / RSC / createStreamableUI are confirmed dead. Do not use.
+**Major components:**
+1. `application/use_cases/run_chat_turn.py` (`RunChatTurnUseCase`) — the chat orchestration loop; async-generator entry points for a fresh turn and for dual-channel resume; depends only on ports (Clean Architecture preserved).
+2. `infrastructure/llm/chat_model_adapter.py` (`ChatModelPort` impl) — wraps `AsyncAnthropicBedrock.messages.stream()`, reusing the existing client singleton and DI container conventions.
+3. Four new Drizzle tables + Supabase repositories (`conversations`, `chat_messages`, `chat_runs`, `canvas_snapshots`) — two-sided pattern (TS schema/migration + Python adapter/port), `chat_messages.content` stores raw Anthropic content blocks verbatim (required for bit-for-bit resume of paused tool_use/tool_result rounds).
+4. `packages/genui/src/streaming/*` (`StreamingSpecRenderer`, `tolerantParse`, `renderPartialTree`) — new, sibling to the existing untouched `SpecRenderer`; renders best-effort partial trees during a stream, then swaps to the real validated `SpecRenderer` on `spec_complete`. The trusted-interpreter guarantee is deferred, not weakened.
+5. `apps/web/src/app/chat/*` (`ChatCanvasShell`, `GenuiPanelNode`, `ChatNode`, node-type registry) — thin client-island wrapper around `@xyflow/react`, mirroring the existing `/knowledge` implementation structurally; `GenuiPanelNode` wraps the unmodified `SpecRenderer`.
 
-### Model Selection (CURRENCY-CORRECTED as of 2026-06-26)
+Widget→agent round-trip is a real HTTP pause/resume (persisted `chat_runs.status = 'paused_awaiting_input'`), not a held-open socket — the entire message history is replayed into a brand-new `.stream()` call on resume, which is why raw content-block persistence matters.
 
-| Role | Model | Bedrock ID | Notes |
-|------|-------|-----------|-------|
-| Runtime workhorse | Haiku 4.5 | anthropic.claude-haiku-4-5-20251001-v1:0 | us.* cross-region prefix may be needed |
-| Escalation | Sonnet 4.6 | anthropic.claude-sonnet-4-6 | 1M context window; Sonnet 4.5 is LEGACY |
-| Evaluation only | Opus 4.8 / Fable 5 | anthropic.claude-opus-4-8 / anthropic.claude-fable-5 | NOT runtime; Fable 5 GA June 9 2026 |
+### Critical Pitfalls
 
-Transport: AWS Bedrock via IAM role (fromNodeProviderChain()). No ANTHROPIC_API_KEY. Converse API only.
+1. **Cost guard breaks under streaming + proactive prompting** — the existing manual-click-only $30 AWS Budget guard assumes one bounded LLM call per user action; a persistent streamed chat (and later, LLM-initiated proactive prompts) breaks that assumption entirely. Avoid by building a real application-level per-session/per-turn cap (a circuit breaker, not a notification) in Phase 22, and rate-limiting Phase 25's proactive triggers with a cheap heuristic gate before they ever reach the LLM.
+2. **SSE/streaming silently dies or buffers behind this project's own ALB** (60s default idle timeout) — works in local dev, breaks on real multi-turn latency or a paused dual-channel wait. Avoid by designing resumable/tracked streaming (`tracked()` + `lastEventId`) from day one even though v1.3 is local-only; note the ALB `idle_timeout` change as a deploy-readiness item.
+3. **Naive JSON re-parsing of accumulating tool-use deltas is O(n²) and flickers** — Bedrock/Anthropic streams tool input as raw string fragments valid only at block-stop. Avoid by maintaining incremental parse state (new characters only) and debouncing UI re-renders to ~50-100ms.
+4. **React Flow re-renders every node on every store update once nodes carry live/streaming content** — a known library limitation invisible in the existing mostly-static `/knowledge` usage, but a hard blocker the moment genui panels stream. Avoid by moving streaming payloads out of the React Flow `nodes` array into a separate (Zustand) store from the moment the canvas is first built — retrofitting this later is a structural rewrite.
+5. **Widget→agent round-trip is a new untrusted-input surface with no existing security review** — structurally identical to the raw-email-injection problem Phase 4's dual-LLM quarantine already solved once. Avoid by re-validating every widget submission server-side against its declared Zod schema before it re-enters the model loop, and never combining `allow-scripts` + `allow-same-origin` on any widget iframe sandbox.
 
-### Bedrock Structured Outputs (GA Feb 4, 2026)
+## Implications for Roadmap
 
-Requirements (failure = 400 error):
-- additionalProperties: false on every Zod object (use .strict()) -- mandatory
-- No recursive schemas -- use flat z.record(id, NodeSchema) maps if needed
-- No min/max/minLength/maxLength/if/then/else in schema
-- One stable UISpecSchema at module load -- dynamic schema breaks 24h grammar cache
-- First field in schema: _plan: z.string() -- reasoning trace, strip before rendering
-- Prompt caching: cachePoint type: default in providerOptions.amazonBedrock; 1-hour TTL on Haiku 4.5 and Sonnet 4.6
+Based on research, the prior synthesis's 4-phase structure is dependency-sound and confirmed by all four fresh research files. Suggested phase structure:
 
-### Embeddings / Flywheel Stack
+### Phase 22: Chat spine + persistence + streaming
+**Rationale:** Everything else in the milestone hangs off this — the streaming transport, the data model, and the partial-render capability are load-bearing prerequisites for canvas (23) and dual-channel (24). This is greenfield: the existing `genui.generate` tRPC call fully buffers the FastAPI response today (GEN-04 is not partially solved, it's unsolved).
+**Delivers:** `/chat` route; `conversation`/`chat_message`/`chat_run` Drizzle tables + Supabase repositories; `ChatModelPort` + `chat_model_adapter.py` wrapping `AsyncAnthropicBedrock.messages.stream()`; FastAPI SSE endpoint (`event: text_delta|spec_delta|spec_complete|run_paused|error|done`); tRPC `httpSubscriptionLink` relay; `@ai-sdk/react` `useChat` on the client; `StreamingSpecRenderer`/`tolerantParse`/`renderPartialTree` (closes GEN-04); the full table-stakes streaming state machine (stop/regenerate/error-recovery/session-list/history) built in from the start; the real application-level cost-guard circuit breaker.
+**Addresses:** All table-stakes features from FEATURES.md; the "streamed partial-tree declarative UI" and "chat spine" differentiators.
+**Avoids:** Pitfall 1 (cost guard), Pitfall 2 (SSE/ALB), Pitfall 3 (O(n²) partial-JSON parsing).
 
-- Model: Titan Text Embeddings V2 (amazon.titan-embed-text-v2:0) -- current as of 2026-06-26
-- OPEN DECISION on dimension: see Section 6, OD-1
-- Retrieval: BlendedRAG + RRF(k=60), HNSW cosine on halfvec + pg_trgm GIN on intent_text
-- Reuse existing SupabaseRetrievalRepository._merge_rrf directly
-- Store: Drizzle + Supabase Postgres + pgvector (HNSW indexes via custom SQL migration, not drizzle-kit)
+### Phase 23: 2D infinite canvas + panels-as-nodes + shared state
+**Rationale:** Depends only on Phase 22's data model and the unmodified `SpecRenderer` — can start in parallel with Phase 22's harder streaming-render work once the data model lands, since the canvas doesn't touch streaming internals directly.
+**Delivers:** `@xyflow/react`-based `ChatCanvasShell`; `GenuiPanelNode` (wraps existing `SpecRenderer`, unmodified) and `ChatNode`; node-type registry (additive, mirrors `COMPONENT_REGISTRY` pattern); data-carrying edges (`data.kind: "visual"|"data"`); `canvas_snapshots` table + `toObject()`-based persistence with a schema version.
+**Uses:** `@xyflow/react` (reuse), `zustand` (per-chat store, streaming-payload isolation) from STACK.md.
+**Implements:** Canvas component map and node-registry pattern from ARCHITECTURE.md §1 and §6.
+**Avoids:** Pitfall 4 (React Flow full-canvas re-render cliff) — the state-architecture decision (streaming payload lives outside the `nodes` array) must be made here, at canvas-build time, not retrofitted.
 
----
+### Phase 24: Dual-channel genui — proposal cards → clarify-with-widgets → round-trip
+**Rationale:** Needs both the chat loop's tool-call/tool-result mechanism (Phase 22) and a surface to display/host the widget (Phase 23's panels or the docked chat view). Proposal cards (read-only-until-click, no state-corruption risk) must ship before clarify-with-widgets (read-write forms, more failure surface) — confirmed independently by FEATURES.md and the prior synthesis.
+**Delivers:** Interactive genui nodes emitted via the existing `emit_ui_spec` tool; `chat_runs.status = 'paused_awaiting_input'` pause/resume state machine; `chat.respond` tRPC procedure; server-side re-validation of every widget submission against its declared Zod schema; widget lifecycle locking (disable-on-submit) to prevent double-submit.
+**Addresses:** Dual-channel proposal cards and clarify-with-widgets differentiators from FEATURES.md.
+**Avoids:** Pitfall 5 (untrusted widget-submission injection surface) and the double-submit/stale-UI UX pitfalls.
 
-## 3. Feature Map
+### Phase 25: Anticipatory prompting (SPIKE)
+**Rationale:** Needs chat + canvas state to observe in order to decide when to prompt — correctly sequenced last; no architectural changes needed to Phases 22-24 to support it later, since it consumes the `chat_runs`/`chat_messages` seam already built.
+**Delivers:** A trigger/heuristic layer over chat+canvas state, gated by an appropriateness eval AND a hard frequency cap (independent of the eval) before any candidate prompt reaches the LLM. Scoped explicitly as a SPIKE with an eval gate as the exit criterion, not a shipped feature commitment.
 
-### Table Stakes (must have for any v1 value)
+### Phase Ordering Rationale
 
-- Component catalog: ManifestEntry per component with Zod prop schema (.strict()), description, example, slots, acceptsChildren
-- Spec schema: discriminated union tree, v: 1, state declarations, data refs, action refs
-- Bedrock generation: Haiku 4.5, Output.object, temperature: 0, max_tokens: 3000, system prompt cache point
-- Zod safeParse at output boundary before any rendering -- SAFE_FALLBACK_SPEC on failure
-- Three allowlists in Zod schema: component types (enum), tRPC procedures (enum/refine), action types (discriminated union)
-- Trusted interpreter/renderer: registry lookup + ErrorBoundary per node + graceful unknown-type fallback
-- Dual-LLM quarantine: raw email never reaches the generator LLM
-- generated_specs audit table: every validated spec stored with email_id, prompt_hash, model_id
-- max_tokens: 3000 on every Bedrock call -- never leave unset
-- Spec versioning: specVersion literal field; stale specs trigger re-generation
+- **Dependency chain is linear and confirmed by all four files:** chat spine (transport + data model) → canvas (hosts panels, needs the data model) → dual-channel (needs both the tool-call mechanism from chat spine and a display surface from canvas) → anticipatory prompting (observes state from all three prior phases).
+- **Within Phase 22 specifically**, ARCHITECTURE.md's suggested build order should be followed: data model first (low-risk plumbing, unblocks parallel work) → `ChatModelPort` + a non-streaming smoke test (de-risks Bedrock streaming mechanics in isolation) → text-only streaming end-to-end (proves transport before adding partial-spec complexity) → tRPC subscription + minimal UI → `StreamingSpecRenderer` built and fixture-tested against captured `partial_json` sequences before wiring it live.
+- **This grouping avoids retrofitting the two most expensive-to-retrofit decisions:** the streaming-state-machine primitives (stop/regenerate/history) must be built with the chat spine, not bolted on later; the React-Flow-state-architecture separation (streaming payload outside `nodes`) must be decided when canvas is first built, not after panels already read from `node.data`.
 
-### Differentiators (the flywheel -- why we build our own)
+### Research Flags
 
-- Tier-1 exact cache: SHA-256(intent_canonical + data_shape_hash + registry_version + entity_type + importer_id) -- O(1), zero LLM cost
-- Tier-2 semantic template retrieval: promoted specs via BlendedRAG + RRF with binding slot re-injection at retrieval
-- Template promotion: validation_passed AND confirm_count >= 2 AND score >= 0.7 -> status promoted -> enters Tier-2 HNSW index
-- Registry invalidation on deploy: promoted templates marked invalidated when registry_version changes
-- Binding slots: parameterized spec templates with JSON Pointer paths (RFC 6901) for live data injection
-
-### Should-Have (adds value, not day-1 blockers)
-
-- _plan reasoning field in spec schema for improved reliability and debuggability
-- Few-shot retrieval: top-3 similar specs in generation prompt (95% vs 70% task completion per ChatVis benchmark)
-- Per-user rate limiting on generation (Redis sliding window)
-- axe-core a11y checks in CI against spec fixture renders
-- Eval suite: 20-50 fixture emails (including adversarial) run on PR merge
-- Standalone /studio surface for spec preview and catalog exploration
-
-### Anti-Features / Deferred (explicitly out of v1)
-
-- Raw TSX/JSX code emission: unsafe without execution sandbox -- later sandboxed experiment only
-- Full AG-UI 17-event protocol: overkill for single-agent v1
-- Cross-importer template reuse: complex RLS implications
-- LLM-authored useEffect/useState/router calls: model declares slots and refs; runtime resolves them
-- streamUI / createStreamableUI: dead APIs
-
----
-
-## 4. Build Order / Phaseable Components
-
-Dependency-ordered. Each phase delivers a runnable, testable unit.
-
-### Phase 1 -- Catalog + Registry Foundation
-
-Delivers: The vocabulary contract. Everything else depends on this.
-Features: ManifestEntry<TProps> interface, ComponentRegistry type, hand-authored catalog entries for initial @nauta/ui set
-(start with 10-15: badge, button, card, stack, grid, key-value-list, data-table, status-badge, section-header, form-field).
-ALLOWED_PROCEDURES and ALLOWED_MUTATIONS enumerations.
-CI gate: Every manifest example passes its propsSchema.
-Pitfalls: Do not use react-docgen-typescript as source of truth. No additionalProperties: true on any catalog schema.
-Research flag: Standard -- no additional research needed.
-
-### Phase 2 -- Spec Schema + Interpreter
-
-Delivers: A runnable SpecRenderer that takes hardcoded spec JSON and renders real @nauta/ui components.
-Features: SpecRootSchema (Zod, v: 1, state, data, root), SpecNodeSchema as discriminated union with z.lazy() children,
-renderNode() recursive interpreter, useDeclaredState() with useReducer, ActionRegistryContext,
-MAX_SPEC_NODES=200 / MAX_SPEC_DEPTH=8 via Zod .refine(), UnknownComponentPlaceholder fallback.
-Tests: Snapshot tests against 5 fixture specs. ErrorBoundary isolation tests.
-Pitfalls: z.discriminatedUnion + z.lazy needs explicit z.ZodType<SpecNode[]> annotation.
-Do not ask LLM to generate node IDs; use structural position keys (root-0-1-2). ErrorBoundary must be class component.
-Research flag: Standard.
-
-### Phase 3 -- Generation Layer on Bedrock
-
-Delivers: tRPC procedure accepting { emailId, intent }, calling Bedrock Haiku 4.5 with Output.object, returning SpecRoot.
-Features: buildSystemPrompt(registry, examples), streamUISpec() with Output.object, generateUISpec() with repair loop
-(max 3 attempts), experimental_repairText, cachePoint on system prompt, generated_specs INSERT,
-protectedProcedure + rate limiter, 15-second AbortController timeout.
-Pitfalls: Never omit explicit max_tokens. Verify us.* cross-region prefix for Haiku 4.5.
-One stable UISpecSchema module -- dynamic generation breaks 24h grammar cache. Zod v3 only.
-Research flag: Standard for Bedrock wiring. Repair loop heuristics need validation.
-
-### Phase 4 -- Dual-LLM Quarantine + Validation / Guardrails
-
-Delivers: Safe generation pipeline. Raw email never reaches the generator LLM.
-Features: Quarantine extraction step (separate Bedrock call, enum-constrained entity extraction schema only).
-Generator receives structured data in delimited section only. specVersion mismatch rejection.
-Navigate href validation (relative paths only). UUID-pattern rejection in binding params.
-CSP headers. ESLint rule blocking eval/Function/dangerouslySetInnerHTML in renderer files.
-Pitfalls: Quarantine LLM output must use enum-constrained entity types -- free strings bleed injection values into generator.
-Bindings must never embed literal IDs.
-Research flag: Needs validation of quarantine schema + delimiter pattern against adversarial email samples.
-
-### Phase 5 -- Exact Cache + Template Store (Tier-1 + DB Schema)
-
-Delivers: SHA-256 exact-match cache. Every generated spec persisted as candidate template.
-Features: ui_spec_templates Drizzle schema (id, importer_id, entity_type_id, cache_key, intent_text,
-embedding halfvec, registry_version, spec_json, binding_slots, status, promotion signals),
-HNSW index custom SQL migration, GIN index migration, find_exact() repository method,
-binding slot extraction, INSERT ... ON CONFLICT (cache_key) DO NOTHING, deploy hook for invalidation.
-Pitfalls: OD-1 (embedding dimension) must be resolved before this migration. Normalize intent before hashing.
-HNSW + GIN indexes must be separate SQL migration files.
-Research flag: Standard. OD-1 is a hard blocker.
+Phases likely needing deeper research during planning:
+- **Phase 22:** the exact current `@ai-sdk/react` API method name for client-side tool-result submission should be re-verified against the pinned version at implementation time (AI SDK has renamed this across majors); the exact `partial_json` accumulation/parsing edge cases are worth a small isolated research/spike pass using AI SDK's `parsePartialJson` as reference.
+- **Phase 24:** MCP Apps' host-pre-review/explicit-approval posture should be re-checked against the SEP-1865 spec's current state at implementation time (it was still a very recent extension as of this research, 2026-01-26).
+- **Phase 25:** genuinely greenfield — no strong published product/protocol precedent exists; treat the SPIKE itself as the research vehicle rather than researching further upfront.
 
-### Phase 6 -- Semantic Template Retrieval + Promotion (Tier-2 + Flywheel)
-
-Delivers: Full three-tier retrieval. Promoted templates serve repeat intents without LLM calls.
-Features: match_templates_by_embedding and match_templates_by_trgm Postgres RPCs,
-TemplateRetrievalRepository.find_similar_promoted() with RRF(k=60), cosine distance threshold < 0.15,
-binding slot re-injection at retrieval, promotion engine background job (score >= 0.7 AND confirm_count >= 2),
-binding slot coverage check on Tier-2 hits, 30-day TTL sweep.
-Pitfalls: Never retrieve across entity types. Never retrieve invalidated templates.
-Embedding cost must be async. Promotion thresholds are initial guesses -- instrument from day 1.
-Research flag: Standard. Threshold calibration requires 2-4 weeks production data.
-
-### Phase 7 -- Standalone /studio Surface
-
-Delivers: Browseable catalog, spec preview, template management, generation sandbox.
-Features: Catalog browser, Spec preview panel (renders via SpecRenderer), Template manager, Generation sandbox.
-Pitfalls: Studio must share the same COMPONENT_REGISTRY and SpecRenderer as production.
-Research flag: Needs scoping (see OD-3).
-
-### Phase 8 -- Evals + Regression Harness
-
-Delivers: CI gate catching prompt regressions and a11y failures before merge.
-Features: 20-50 fixture emails (multilingual, adversarial injection, PDF-heavy, empty),
-structural spec assertions, axe-core on rendered fixtures, temperature: 0, weekly drift detection run.
-Research flag: Needs phase-specific research on eval rubric design.
-
----
-
-## 5. Top Guardrails / Pitfalls
-
-### CRITICAL -- System is broken without these
-
-| Guardrail | What it prevents | Enforcement point |
-|-----------|-----------------|------------------|
-| GR-01: No eval | Browser RCE, XSS, SSRF | ESLint rule on renderer files; renderer is pure createElement |
-| GR-02: Component type allowlist | LLM hallucinating unregistered components | z.enum(Object.keys(COMPONENT_REGISTRY)) in spec schema |
-| GR-03: tRPC procedure allowlist | LLM binding to arbitrary backend endpoints | z.enum(ALLOWED_PROCEDURES) in DataBindingSchema |
-| GR-04: Action allowlist + relative-href-only | javascript: URI injection, external nav | ActionSchema discriminated union; href must start with / |
-| GR-05: Dual-LLM quarantine | Direct prompt injection from email content | Quarantine Bedrock call; generator never sees raw email prose |
-| GR-06: Zod safeParse before render | Malformed spec reaching DOM | SpecSchema.safeParse() in tRPC output; SAFE_FALLBACK_SPEC on failure |
-| GR-07: Depth + node count limits | DoS via oversized spec | countNodes() + depth in Zod .refine(); MAX_SPEC_NODES=200, MAX_SPEC_DEPTH=8 |
-| GR-08: Explicit max_tokens: 3000 | Unbounded token quota burn | Set on every generateText/streamText call |
-
-### HIGH -- Serious production issues without these
-
-| Guardrail | What it prevents | Enforcement point |
-|-----------|-----------------|------------------|
-| GR-09: temperature: 0 | Non-deterministic specs; cache misses; flaky evals | Generation call parameter |
-| GR-10: Spec versioning | Stale cached specs against new registry | specVersion literal field |
-| GR-11: generated_specs audit table | Debuggability | INSERT after safeParse success |
-| GR-12: Per-user rate limiting | Cost DoS | Redis sliding window; HTTP 429 |
-| GR-13: AbortController + 15s timeout | Hung Bedrock requests | Wrap every Bedrock call |
-| GR-14: Binding params reject literal IDs | Cross-user data leakage | Zod rejects UUID-pattern strings in params |
-| GR-15: a11y props required | Machine-authored UI inaccessible | Required label/caption/alt in prop schemas |
-| GR-16: Cache-Control: private | CDN serving cross-user specs | Next.js response headers |
-
-### MODERATE -- Operational quality
-
-- Eval suite with adversarial fixtures (Morse/Base64 encoding attacks -- real $175k attack vector documented)
-- Prompt hash in cache key: prompt changes naturally invalidate spec cache
-- New allowlist entry review gate: written threat model + code review required per entry
-- LlamaFirewall PromptGuard 2 as optional Layer 0: 97.5% recall, ~50-100ms latency
-- Semantic cache poisoning defense (arXiv:2601.23088): binding slot coverage check + data_shape_hash in cache key
-
----
-
-## 6. Open Decisions
-
-| # | Decision | Options | Stakes |
-|---|----------|---------|--------|
-| OD-1 | **Embedding dimension for UI spec templates** | (A) 1024-dim Titan V2 -- halfvec(1024) new column; (B) adopt model producing 1536-dim to match existing halfvec(1536); (C) use existing 1536 columns with Titan V1-compatible model. NOT a bug -- an architecture decision. Titan V2 max output = 1024. | DB migration column type, vector index. Hard blocker for Phase 5. |
-| OD-2 | **Spec scope for v1: single component vs full-page** | Single-component first vs full multi-component page spec. 10-component catalog naturally yields simpler specs. | Generation reliability, prompt complexity |
-| OD-3 | **Where does /studio live?** | (A) Route in existing Next.js app; (B) standalone Next.js app in monorepo; (C) separate Vercel deployment. | Deployment complexity, DX, integration seams |
-| OD-4 | **Integration seam with existing Nauta product** | Triggered by user action vs automatic per email vs parallel surface. | Product UX, data flow, rollout risk |
-| OD-5 | **Template promotion thresholds** | confirm_count >= 2 AND score >= 0.7 are initial guesses. Need production data to calibrate. | Template quality vs cold-generation frequency |
-| OD-6 | **Code emission scope for later phases** | When (if ever) to introduce sandboxed TSX emission. Should be a separate milestone. | Security surface, implementation complexity |
-| OD-7 | **tRPC procedure allowlist initial scope** | Which procedures are in scope for v1? Narrower = smaller security surface. | Generation quality, security surface |
-
----
-
-## 7. Ranked References to Study Deepest
-
-1. **vercel-labs/json-render** (v0.19.0, 14.8k stars) -- Closest open-source implementation. Study @json-render/core for Catalog/Spec/Registry separation. Adopt the Zod-first catalog pattern directly.
-
-2. **Airbnb Ghost Platform** (medium.com/airbnb-engineering SDUI deep dive) -- Canonical SDUI production pattern at scale. Study SectionComponentType registry key pattern and sections-as-data-complete-self-contained-units principle.
-
-3. **SpecifyUI + APD-Agents** (arxiv:2509.07334, arxiv:2511.14101) -- The only rigorous academic treatment of the template flywheel. RAG-against-spec-pairs + edit triplets (op, path, value) maps directly to template promotion + spec mutation.
-
-4. **Tambo** (tambo-ai/tambo, v1.0 GA, SOC2/HIPAA) -- Best reference for name + description + propsSchema + component manifest entry shape, and for partial props streaming as generation progresses.
-
-5. **OWASP LLM Prompt Injection Cheat Sheet + arxiv:2506.08837** -- Dual-LLM quarantine pattern in section 3.2 is the specific design to implement. OWASP provides XML delimiter pattern and structural defense rationale.
-
-6. **AWS Bedrock Structured Output docs** -- Read JSON Schema constraint list in full before finalizing spec schema. No recursive schemas, additionalProperties: false required everywhere -- these constraints shape the spec schema design.
-
-7. **AI SDK v6 provider source** (vercel/ai: amazon-bedrock-chat-language-model.ts) -- Read useNativeStructuredOutput check logic directly. Understand what triggers synthetic JSON tool fallback (Path B) to avoid it.
-
----
+Phases with standard patterns (skip research-phase):
+- **Phase 23:** well-documented — React Flow's own performance guide, the existing `/knowledge` implementation as a direct structural template, and the tldraw-license rejection are all settled with primary sources.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
-|------|-----------|-------|
-| Catalog to Spec to Registry to Renderer pattern | HIGH | Validated by 5+ independent production systems; local precedent in column-defs.ts |
-| Spec schema shape (nested discriminated union, Zod) | HIGH | Multiple sources; SPEC-RENDERER.md has detailed implementation with known pitfalls addressed |
-| Bedrock generation layer (Haiku 4.5, Output.object) | HIGH | Provider source read directly; CURRENCY-2026.md confirmed GA status and current model IDs |
-| AI SDK API (generateText + Output.object, Zod v3 required) | HIGH | Confirmed current 2026-06-26; Zod v4 incompatibility is a hard fact |
-| Dual-LLM quarantine safety pattern | HIGH | OWASP-anchored; validated by arxiv:2506.08837 |
-| Flywheel cache architecture | HIGH | GPTCache, Portkey, AWS production studies converge; RRF pattern reuses existing code |
-| Promotion signal weights / thresholds | MEDIUM | Initial guesses requiring calibration on production data |
-| Embedding dimension decision | MEDIUM | Titan V2 max 1024 confirmed; 1024 vs 1536 is an open architecture decision |
-| /studio surface design | MEDIUM | Pattern understood; scoping and placement require product input |
+|------|------------|-------|
+| Stack | HIGH | STACK.md verified every recommendation against official docs/changelogs (FastAPI, Anthropic SDK, AI SDK, tldraw licensing, React Flow, Zustand) and against direct repository inspection of the existing Bedrock transport. Two MEDIUM sub-flags remain: the exact `@ai-sdk/react` tool-result-submission API name, and the `parsePartialJson` export path — both version-drift risks, not architecture risks. |
+| Features | HIGH | FEATURES.md cross-references 7 independent reference products (Claude Artifacts, ChatGPT Canvas, tldraw computer, Thesys C1, assistant-ui, Vercel AI SDK Generative UI, v0) with official docs for each; the "component-allowlist + $action/$input round trip" shape is confirmed by three independent sources (C1, AI SDK, assistant-ui), a strong convergence signal. |
+| Architecture | HIGH | ARCHITECTURE.md is grounded primarily in direct repository inspection (11 explicit "ground truth" findings verified by reading actual source files, not assumed) plus HIGH-confidence primary-source verification of tRPC v11 subscriptions and Anthropic streaming mechanics this run. |
+| Pitfalls | MEDIUM-HIGH | Streaming transport, React Flow perf, MCP Apps security, and Bedrock tool-use streaming pitfalls are FRESH-verified against official docs/vendor sources. Anticipatory-prompting UX risk and exact chat-persistence-race patterns are MEDIUM — verified against multiple secondary sources, not a single authoritative spec (consistent with Phase 25 itself being flagged as greenfield). |
+
+**Overall confidence:** HIGH
+
+### Gaps to Address
+
+- **R2/R4 `[MODEL — pending validation]` flags from the prior synthesis are now resolved for R2** (canvas: `@xyflow/react` reuse confirmed HIGH via tldraw licensing + React Flow perf docs) **but R4 (orchestration-visualizer seams) was not directly re-validated this pass** — the four research files focus on Phases 22-24; R4's seams (node-type registry, data-carrying edges, run/event schema stub, agent/run abstraction) are architecturally satisfied by this milestone's design as a byproduct (per ARCHITECTURE.md §6/§7) but the deferred v1.5 orchestration-visualizer tooling landscape itself (LangGraph Studio, AutoGen Studio, etc.) remains `[MODEL]` and should be freshly researched when v1.5 is actually scoped.
+- **The exact `@ai-sdk/react` client API for tool-result submission** and the exact `parsePartialJson`/partial-JSON-utility export path should be verified against the pinned package version at Phase 22/24 implementation time — AI SDK has reorganized utility packages across majors.
+- **ALB idle-timeout and streaming-buffering behavior** is flagged as a deploy-readiness gap, not a v1.3 blocker (project is local/sandbox only per PROJECT.md) — must be revisited explicitly before any connected-environment deploy of `/chat`.
+- **Anticipatory prompting (Phase 25) has no strong published precedent** — this is a known, accepted gap; the SPIKE format with an appropriateness-eval gate is the intentional mitigation, not something to resolve via more research.
+
+## Sources
+
+### Primary (HIGH confidence)
+- FastAPI SSE — https://fastapi.tiangolo.com/tutorial/server-sent-events/
+- Anthropic Messages streaming — https://platform.claude.com/docs/en/build-with-claude/streaming
+- AWS Bedrock tool-use + fine-grained streaming — https://docs.aws.amazon.com/bedrock/latest/userguide/model-parameters-anthropic-claude-messages-tool-use.html
+- AI SDK UI Message Stream Protocol (backend-agnostic, named Python example) — https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
+- AI SDK Generative UI pattern — https://ai-sdk.dev/docs/ai-sdk-ui/generative-user-interfaces
+- tRPC v11 `httpSubscriptionLink` / SSE subscriptions — https://trpc.io/docs/client/links/httpSubscriptionLink, https://trpc.io/docs/server/subscriptions
+- React Flow performance + state management — https://reactflow.dev/learn/advanced-use/performance, https://reactflow.dev/learn/advanced-use/state-management
+- xyflow GitHub issue/discussion on custom-node re-render perf — https://github.com/xyflow/xyflow/issues/4711, https://github.com/xyflow/xyflow/discussions/4975
+- tldraw licensing — https://tldraw.dev/community/license, https://tldraw.dev/legal/tldraw-license
+- Claude Artifacts — https://support.claude.com/en/articles/9487310-what-are-artifacts-and-how-do-i-use-them
+- ChatGPT Canvas — https://openai.com/index/introducing-canvas/
+- Thesys C1 — https://docs.thesys.dev/guides/what-is-thesys-c1
+- MCP Apps (SEP-1865) — https://blog.modelcontextprotocol.io/posts/2026-01-26-mcp-apps/
+- AWS ALB idle timeout — https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-load-balancer-attributes.html
+- Bedrock `ConverseStream` API reference — https://docs.aws.amazon.com/bedrock/latest/APIReference/API_runtime_ConverseStream.html
+- Direct repository inspection (this run): `apps/email-listener/app/infrastructure/llm/anthropic_client.py`, `genui_generator_adapter.py`, `genui_code_generator_adapter.py`, `container.py`, `presentation/api/v1/genui.py`, `packages/api-client/src/router/genui/generate.ts`, `packages/db/src/schema/ui-spec-templates.ts`, `apps/web/src/app/knowledge/_components/knowledge-graph-island.tsx`, `apps/web/package.json`, `infrastructure/aws/ecs.tf`
+
+### Secondary (MEDIUM confidence)
+- tldraw Agent Starter Kit — https://tldraw.dev/starter-kits/agent
+- assistant-ui generative UI — https://www.assistant-ui.com/docs/tools/generative-ui
+- `fastapi-ai-sdk` PyPI (reference bridge, not adopted as dependency) — https://pypi.org/project/fastapi-ai-sdk/
+- General chatbot UX table-stakes roundups (multiple 2026 sources, cross-referenced) — mindtheproduct.com, sendbird.com, fuselabcreative.com
+- Anticipatory-prompting HCI literature — CHI 2025 "Need Help? Designing Proactive AI Assistants for Programming" (https://dl.acm.org/doi/10.1145/3706598.3714002), arXiv 2502.18658
+- Vercel AI SDK `streamObject`/`partialObjectStream` technique (replicated, not adopted as dependency) — https://sdk.vercel.ai/examples/node/streaming-structured-data/stream-object
+
+### Tertiary (LOW confidence)
+- None flagged — all research this pass reached at least MEDIUM confidence with cross-referenced sources.
 
 ---
-
-## Sources (Aggregated)
-
-### Primary (read directly)
-- vercel-labs/json-render -- GitHub source + json-render.dev/docs
-- airbnb-engineering SDUI deep dive -- medium.com
-- tambo-ai/tambo -- GitHub source + docs.tambo.co
-- assistant-ui -- assistant-ui.com/docs/tools/generative-ui
-- AWS Bedrock structured outputs -- docs.aws.amazon.com/bedrock
-- AI SDK v6 -- ai-sdk.dev/docs, vercel/ai GitHub source
-- OWASP LLM Prompt Injection Prevention Cheat Sheet
-- Portkey semantic caching thresholds -- portkey.ai/blog
-- GPTCache -- github.com/zilliztech/GPTCache
-
-### Research Grade (peer-reviewed)
-- SpecifyUI (arxiv:2509.07334)
-- APD-Agents (arxiv:2511.14101)
-- GenCache NeurIPS 2025 (microsoft.com/research)
-- Design Patterns for Securing LLM Agents (arxiv:2506.08837)
-- A11YN (arxiv:2510.13914)
-- Semantic cache poisoning (arxiv:2601.23088)
-- LlamaFirewall (arxiv:2505.03574)
-
-### Currency-Verified (June 2026)
-- @ai-sdk/amazon-bedrock v4.0.120 -- npmjs.com (2026-06-26)
-- Claude model lineup -- platform.claude.com/docs/en/about-claude/models/overview (2026-06-26)
-- A2UI v0.9.1 / v1.0 Candidate -- a2ui.org/specification (2026-06-26)
-- Tambo 1.0 GA -- tambo.co/blog (2026-06-26)
-- Bedrock structured output GA Feb 2026 -- aws.amazon.com/about-aws/whats-new/2026/02
-
-### Local Codebase
-- packages/ui/src/spreadsheet-grid/column-defs.ts -- primary local precedent for registry dispatch
-- SupabaseRetrievalRepository._merge_rrf -- RRF(k=60) implementation to reuse for template retrieval
-- 0002_hnsw_halfvec_indexes.sql, 0009_retrieval_rpcs.sql -- migration file precedent to follow
+*Research completed: 2026-07-02*
+*Ready for roadmap: yes*
