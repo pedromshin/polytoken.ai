@@ -13,6 +13,29 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
+## Current Milestone: v1.3 Conversational GenUI — Chat, Canvas & Dual-Channel
+
+**Goal:** A conversational surface for the genui engine — a persistent `/chat` with streamed
+responses, laid out on a 2D infinite canvas of genui panels, where the agent and user exchange
+interactive declarative widgets in both directions. Local/sandbox only.
+
+**Target features:**
+- **Chat spine + streaming:** `/chat` route, conversation/message persistence, chat orchestration
+  loop (FastAPI → Bedrock `ConverseStream`), streamed text + streamed partial-tree declarative
+  specs (closes GEN-04 + the v1.2 live-progress deferral).
+- **2D infinite canvas + shared state:** genui panels-as-nodes (React Flow reuse candidate),
+  per-chat shared-state store, data-carrying edges, canvas persistence per chat.
+- **Dual-channel genui:** proposal cards first, then clarify-with-widgets; widget→agent
+  round-trip resumes the streamed run. Declarative catalog serves these widgets.
+- **Anticipatory prompting (SPIKE):** trigger/heuristic layer deciding WHEN/WHAT to proactively
+  prompt, eval-gated on appropriateness.
+
+**Key context:** Research base: `.planning/research/v1.3/V1.3-RESEARCH-SYNTHESIS.md` (R2/R4
+tracks pending fresh-web-validation). R4 seams stay open: panels-as-nodes generality, node-type
+registry, data edges, run/event schema stub, agent/run abstraction. Deferred: unify-vs-hybrid
+design-engine lock (v1.4), orchestration visualizer (v1.5), remote-desktop (north-star). Phase
+numbering continues at 22.
+
 ## Current State (v1.2 shipped 2026-07-03)
 
 **Shipped:** **v1.2 — Generative UI: Realism & Interactivity** (Phases 16–20) archived. The genui engine
@@ -72,17 +95,18 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 - ✓ Entity/field region-relationship model + canvas review surface + app shell + glassy inbox + entity-type CRUD — Phase 9
 - ✓ Extracted-entity identity, gallery (`/entities`) + detail (`/entities/[id]`) — Phase 10 (request-6 R3/R4)
 - ✓ Knowledge-graph visualization (`/knowledge`) — Phase 11 (request-6 R6)
+- ✓ Generative-UI engine spine: Catalog → Spec → Registry → Renderer → Generation → Cache → `/studio` (spec-first, no eval) — v1.1, Phases 12–15
+- ✓ GenUI realism + interactivity: eval harness + LLM-judge, 6 DTCG style packs + assembly RAG, expanded catalog (16 entries), zero-eval form engine, jailed-eval sandboxed code-island (verified live on Bedrock, multi-candidate + judge, $30 cost guard) — v1.2, Phases 16–20
 
 ### Active
 
-<!-- Milestone v1.1 — Generative UI Engine. See "Current Milestone" section + REQUIREMENTS.md. -->
+<!-- Milestone v1.3 — Conversational GenUI. See "Current Milestone" section + REQUIREMENTS.md. -->
 
-- [ ] Component catalog + registry manifest for `@nauta/ui` (`packages/genui`)
-- [ ] Spec schema + trusted interpreter (Catalog → Spec → Registry → Renderer, no eval)
-- [ ] Bedrock generation layer (Haiku 4.5, `Output.object`, repair loop)
-- [ ] Dual-LLM quarantine + three allowlists + Zod `safeParse` guardrails
-- [ ] Exact (hash) cache + template store (flywheel foundation)
-- [ ] `/studio` surface (catalog browser + generation sandbox)
+- [ ] Chat spine: `/chat` route + conversation/message persistence + Bedrock `ConverseStream` orchestration loop
+- [ ] Streamed responses: text + partial-tree declarative spec streaming (GEN-04)
+- [ ] 2D infinite canvas: genui panels-as-nodes + shared per-chat state + data-carrying edges + persistence
+- [ ] Dual-channel genui: proposal cards + clarify-with-widgets + widget→agent round-trip
+- [ ] Anticipatory prompting (SPIKE): eval-gated proactive prompt triggers
 
 ### Out of Scope
 
@@ -135,4 +159,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-06-27 — started milestone v1.1 (Generative UI Engine); Phases 10–11 moved to Validated*
+*Last updated: 2026-07-02 — started milestone v1.3 (Conversational GenUI: Chat, Canvas & Dual-Channel); v1.1 + v1.2 moved to Validated*
