@@ -63,7 +63,18 @@ work from day one, and an application-level cost circuit breaker guards every tu
   3. User can stop an in-flight generation, regenerate the last response without retyping, and recover from a failed turn via an inline, retryable error that never loses the user's in-flight input
   4. The composer and message rendering behave like a real chat product — multi-line input, send-on-enter, disabled-while-streaming, optimistic render of the user's message, markdown + code-block rendering, auto-scroll with jump-to-bottom — and declarative genui specs render progressively as partial trees during generation (render-what's-valid, placeholder the rest) instead of only appearing after the full response completes
   5. Every chat turn is capped by an application-level per-turn/per-session cost circuit breaker independent of the AWS budget alert, and the underlying turn/run model is event-based behind an agent/run abstraction (one agent, one run today) so stop/regenerate/resume behave reliably and the schema is reusable by future orchestration
-**Plans**: TBD
+**Plans**: 11 plans (8 waves)
+- [ ] 22-01-PLAN.md — Chat data model + migration 0023 (conversations, messages/parts, runs, run_events, cost ledger; RLS deny-all; [BLOCKING] local push)
+- [ ] 22-02-PLAN.md — Model provider system: ChatProvider port + curated registry + Bedrock & OpenRouter streaming adapters + /v1/chat/models + usage capture
+- [ ] 22-03-PLAN.md — Markdown/code renderer (react-markdown + remark-gfm + rehype-highlight/sanitize; new dep)
+- [ ] 22-04-PLAN.md — Cost ledger + circuit breaker (fail-closed pre-turn + mid-stream abort; D-22 usage-gap fix)
+- [ ] 22-05-PLAN.md — Conversation CRUD (tRPC/Drizzle) + /chat rail + home + rename + hard-delete confirm
+- [ ] 22-06-PLAN.md — Chat agent/run orchestration + persistence writes (SEAM-03/04; history trim; stop/cost-cap/fail/regenerate)
+- [ ] 22-07-PLAN.md — FastAPI SSE stream + regenerate endpoints + emit_ui_spec genui tool (capability-gated)
+- [ ] 22-08-PLAN.md — Streamed chat core: Next SSE proxy + stream hook + message list + composer + stop + auto-scroll
+- [ ] 22-09-PLAN.md — Rich mechanics: regenerate siblings + inline error/cost-cap recovery + progressive partial-tree genui
+- [ ] 22-10-PLAN.md — Model picker (registry-driven, honest capabilities + cost + best-for) + session cost meter
+- [ ] 22-11-PLAN.md — In-browser WebLLM prototype (WebGPU, local streaming, canonical-shape persistence, $0 metered)
 **UI hint**: yes
 
 ### Phase 23: 2D Canvas + Panels-as-Nodes + Shared State
@@ -112,14 +123,14 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 22. Chat Spine + Persistence + Streaming | 0/TBD | Not started | - |
+| 22. Chat Spine + Persistence + Streaming | 0/11 | Planned | - |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 0/TBD | Not started | - |
 | 24. Dual-Channel GenUI | 0/TBD | Not started | - |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
 
 ## Next
 
-Ready to plan Phase 22: `/gsd:plan-phase 22`.
+Ready to execute Phase 22: `/gsd:execute-phase 22`.
 
 ## Backlog
 
