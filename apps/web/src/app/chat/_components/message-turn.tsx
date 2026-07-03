@@ -2,6 +2,7 @@
 
 import type { MessagePart } from "../_hooks/use-chat-stream";
 import { CostCapBlockedCard } from "./cost-cap-blocked-card";
+import { GenuiPartBoundary } from "./genui-part-boundary";
 import { InlineErrorCard } from "./inline-error-card";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { TurnActionRow } from "./turn-action-row";
@@ -44,12 +45,13 @@ export interface MessageTurnProps {
 
 /**
  * MessageTurn (D-18) — renders one turn's canonical interleaved parts
- * (text | genui_spec) in emission order, no per-part bubble; all parts
- * share the turn's outer spacing (22-UI-SPEC.md Interleaved typed parts).
- * User turns render as a bg-muted bubble; assistant turns render plain on
- * the background (Color contract). The genui_spec placeholder here is a
- * bordered Card — the real GenuiPartBoundary (schema-validated progressive
- * rendering, D-17) arrives in 22-09.
+ * (text | genui_spec | genui_spec_streaming) in emission order, no per-part
+ * bubble; all parts share the turn's outer spacing (22-UI-SPEC.md
+ * Interleaved typed parts). User turns render as a bg-muted bubble;
+ * assistant turns render plain on the background (Color contract). Both
+ * genui part types route through GenuiPartBoundary — schema-validated
+ * (finalized) or progressively partial-tree rendered (still streaming),
+ * D-17/STREAM-02 — which wraps the UNMODIFIED SpecRenderer.
  *
  * Assistant turns get a TurnActionRow (copy/regenerate/SiblingNav, CHAT-04)
  * — always-visible per the UI-SPEC's no-hover-only-affordances rule.
@@ -108,27 +110,21 @@ export function MessageTurn({
 
               if (part.type === "genui_spec") {
                 return (
-                  <div
+                  <GenuiPartBoundary
                     key={index}
-                    className="my-2 rounded-lg border border-border bg-card p-4"
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      Interactive widget — renders here in a later plan (22-09)
-                    </p>
-                  </div>
+                    specJson={JSON.stringify(part.spec)}
+                    isStreaming={false}
+                  />
                 );
               }
 
               if (part.type === "genui_spec_streaming") {
                 return (
-                  <div
+                  <GenuiPartBoundary
                     key={index}
-                    className="my-2 rounded-lg border border-border bg-card p-4"
-                  >
-                    <p className="text-xs text-muted-foreground">
-                      Interactive widget — renders here in a later plan (22-09)
-                    </p>
-                  </div>
+                    specJson={part.partialJson}
+                    isStreaming={true}
+                  />
                 );
               }
 

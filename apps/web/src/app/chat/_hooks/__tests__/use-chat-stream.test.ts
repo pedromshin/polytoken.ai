@@ -159,12 +159,80 @@ describe("applyRunEvent", () => {
     expect(final.parts).toEqual([{ type: "text", text: "partial" }]);
   });
 
-  it("does not disturb parts on started/tool_call/usage — streaming continues", () => {
+  it("does not disturb parts on started/usage — streaming continues", () => {
     const afterUsage = applyRunEvent(
       { parts: [{ type: "text", text: "x" }], state: "streaming" },
       { type: "usage", seq: 9, data: { input_tokens: 10, output_tokens: 20 } },
     );
     expect(afterUsage.state).toBe("streaming");
     expect(afterUsage.parts).toEqual([{ type: "text", text: "x" }]);
+  });
+
+  it("accumulates tool_call partial_json chunks into a genui_spec_streaming part (STREAM-02/D-17)", () => {
+    const events: ChatRunEvent[] = [
+      { type: "text_delta_checkpoint", seq: 1, data: { text: "before " } },
+      {
+        type: "tool_call",
+        seq: 2,
+        data: { tool_name: "emit_ui_spec", id: "t1", partial_json: '{"v":1' },
+      },
+      {
+        type: "tool_call",
+        seq: 3,
+        data: { tool_name: "emit_ui_spec", id: "t1", partial_json: ',"root":{' },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      { type: "text", text: "before " },
+      {
+        type: "genui_spec_streaming",
+        toolId: "t1",
+        partialJson: '{"v":1,"root":{',
+      },
+    ]);
+    expect(final.state).toBe("streaming");
+  });
+
+  it("replaces the trailing genui_spec_streaming part with the finalized genui_spec part on tool_result", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "tool_call",
+        seq: 1,
+        data: { tool_name: "emit_ui_spec", id: "t1", partial_json: "{}" },
+      },
+      {
+        type: "tool_result",
+        seq: 2,
+        data: { tool_name: "emit_ui_spec", id: "t1", spec: { kind: "card" } },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([{ type: "genui_spec", spec: { kind: "card" } }]);
+  });
+
+  it("starts a fresh genui_spec_streaming part when a new tool id arrives without a prior finalize (defensive, T-22-30 class)", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "tool_call",
+        seq: 1,
+        data: { tool_name: "emit_ui_spec", id: "t1", partial_json: "{a" },
+      },
+      {
+        type: "tool_call",
+        seq: 2,
+        data: { tool_name: "emit_ui_spec", id: "t2", partial_json: "{b" },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      { type: "genui_spec_streaming", toolId: "t2", partialJson: "{b" },
+    ]);
   });
 });

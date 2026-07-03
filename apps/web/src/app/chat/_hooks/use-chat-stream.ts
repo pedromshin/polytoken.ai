@@ -60,14 +60,24 @@ export type StreamTerminalState =
 
 export type StreamState = "idle" | "streaming" | StreamTerminalState;
 
-/** D-18 canonical interleaved part — text | genui_spec (tool-call/tool-result
- * parts are not part of the rendered shape; a finalized tool call becomes a
- * genui_spec part, mirroring the Python _TurnState accumulator exactly). */
+/** D-18 canonical interleaved part — text | genui_spec | genui_spec_streaming.
+ * A finalized tool call becomes a genui_spec part, mirroring the Python
+ * _TurnState accumulator exactly. genui_spec_streaming is a CLIENT-ONLY
+ * transient part (never persisted server-side) that accumulates an in-flight
+ * emit_ui_spec tool call's partial JSON across tool_call deltas sharing the
+ * same toolId — 22-09's GenuiPartBoundary consumes it for progressive
+ * partial-tree rendering (STREAM-02, D-17) before the matching tool_result
+ * event replaces it with the finalized genui_spec part. */
 export type MessagePart =
   | { readonly type: "text"; readonly text: string }
   | {
       readonly type: "genui_spec";
       readonly spec: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly type: "genui_spec_streaming";
+      readonly toolId: string;
+      readonly partialJson: string;
     };
 
 export interface ChatStreamAccumulator {
@@ -174,11 +184,14 @@ export function parseSseChunk(
 /**
  * applyRunEvent — pure fold of one ChatRunEvent into the running
  * accumulator. text_delta_checkpoint merges into (or starts) the trailing
- * text part; tool_result appends a finalized genui_spec part (D-18 order
- * preserved — the real progressive-rendering GenuiPartBoundary arrives in
- * 22-09); started/tool_call/usage advance no part but confirm streaming;
- * the five terminal types settle `state`, never touching `parts` again
- * (the partial already accumulated is never dropped, D-15).
+ * text part; tool_call accumulates a genui_spec_streaming part (partial_json
+ * chunks concatenated per toolId, mirroring the Python _TurnState's
+ * pending_tool_json accumulator exactly) so GenuiPartBoundary can render the
+ * partial tree progressively (STREAM-02, D-17); tool_result replaces that
+ * trailing streaming part with the finalized genui_spec part (D-18 order
+ * preserved); started/usage advance no part but confirm streaming; the five
+ * terminal types settle `state`, never touching `parts` again (the partial
+ * already accumulated is never dropped, D-15).
  */
 export function applyRunEvent(
   acc: ChatStreamAccumulator,
@@ -202,18 +215,49 @@ export function applyRunEvent(
     return { parts, state: "streaming" };
   }
 
+  if (event.type === "tool_call") {
+    const toolId = typeof event.data.id === "string" ? event.data.id : "";
+    const chunk =
+      typeof event.data.partial_json === "string" ? event.data.partial_json : "";
+    const lastPart = acc.parts[acc.parts.length - 1];
+    // Same in-flight tool call — concatenate. A DIFFERENT (or absent) prior
+    // streaming part is REPLACED rather than appended alongside — the server
+    // always finalizes a tool call (tool_result) before starting a different
+    // one, but defensively dropping an orphaned partial avoids a permanently
+    // stuck skeleton placeholder if that invariant is ever violated.
+    const parts: MessagePart[] =
+      lastPart && lastPart.type === "genui_spec_streaming"
+        ? [
+            ...acc.parts.slice(0, -1),
+            lastPart.toolId === toolId
+              ? {
+                  type: "genui_spec_streaming",
+                  toolId,
+                  partialJson: lastPart.partialJson + chunk,
+                }
+              : { type: "genui_spec_streaming", toolId, partialJson: chunk },
+          ]
+        : [
+            ...acc.parts,
+            { type: "genui_spec_streaming", toolId, partialJson: chunk },
+          ];
+    return { parts, state: "streaming" };
+  }
+
   if (event.type === "tool_result") {
     const spec =
       typeof event.data.spec === "object" && event.data.spec !== null
         ? (event.data.spec as Record<string, unknown>)
         : {};
-    return {
-      parts: [...acc.parts, { type: "genui_spec", spec }],
-      state: "streaming",
-    };
+    const lastPart = acc.parts[acc.parts.length - 1];
+    const parts: MessagePart[] =
+      lastPart && lastPart.type === "genui_spec_streaming"
+        ? [...acc.parts.slice(0, -1), { type: "genui_spec", spec }]
+        : [...acc.parts, { type: "genui_spec", spec }];
+    return { parts, state: "streaming" };
   }
 
-  // started | tool_call | usage — streaming continues, parts unchanged
+  // started | usage — streaming continues, parts unchanged
   return { parts: acc.parts, state: "streaming" };
 }
 
