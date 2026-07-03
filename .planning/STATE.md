@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-03T19:49:06.204Z"
-last_activity: 2026-07-03 -- Phase 22 Plan 03 (markdown + code-block renderer) complete
+last_updated: "2026-07-03T20:20:30.008Z"
+last_activity: 2026-07-03 -- Phase 22 Plan 04 (cost circuit breaker) complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
-Plan: 4 of 11
-Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28)
-Last activity: 2026-07-03 -- Phase 22 Plan 03 (markdown + code-block renderer) complete
+Plan: 5 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28; 22-04 complete: cost ledger port/adapter + fail-closed CostCircuitBreaker (config-only $0.50/$2.00/$5.00 caps) + D-22 genui usage-capture fix)
+Last activity: 2026-07-03 -- Phase 22 Plan 04 (cost circuit breaker) complete
 
-Progress: [███░░░░░░░] 27%
+Progress: [████░░░░░░] 36%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -1037,6 +1037,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-03 (22-03): fixed github-dark syntax theme for code blocks regardless of app light/dark mode (common chat-product convention: code chrome stays dark independent of site theme); outer <pre> still uses token-bound bg-muted per 22-UI-SPEC.md
 - 2026-07-03 (22-03): apps/web had no vitest/jsdom test infra before this plan — added vitest.config.ts + devDeps mirroring packages/genui's existing convention exactly, rather than inventing a new one
 - 2026-07-03 (22-03): rehypePlugins=[rehypeSanitize, rehypeHighlight] order is deliberate — sanitize runs on the raw hast tree before rehype-highlight injects its own trusted hljs/hljs-* classNames, so the default sanitize schema never strips the highlighter's output (T-22-10)
+- 2026-07-03 (22-04): CostCircuitBreaker caps are config-only (D-21) — no public method accepts a per-call cap parameter (verified structurally, not just by grep); a ledger sum-query failure fail-closed BLOCKs rather than allows (T-22-14)
+- 2026-07-03 (22-04): sum_for_run/sum_for_conversation/sum_for_importer_day sum chat_cost_ledger rows client-side in Python (Decimal) rather than a Postgres-side SUM aggregate — matches every other supabase-py query in this codebase (no existing call does server-side aggregation)
+- 2026-07-03 (22-04): D-22 fix widened beyond the plan's literal files_modified list to the calling use cases (generate_ui_spec.py, generate_code_island.py) — the adapters alone exposing real usage does not close the gap; the use cases were still discarding it before GenerationEvent
+- 2026-07-03 (22-04): GenuiCodeJudgeAdapter.rank() return type changed int -> JudgeResult(best_index, input_tokens, output_tokens) to have a result object to attach usage to; all call sites/tests updated in the same commit, all prior test assertions preserved 1:1
+- 2026-07-03 (22-04): test files placed at the flat tests/ level (repeating the 22-02 precedent) instead of the plan's literal tests/unit/ path — that directory does not exist anywhere in this repo
 
 ## Performance Metrics
 
@@ -1084,3 +1089,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 22 P01 | 20min | 2 tasks | 8 files — 5 chat Drizzle table modules (conversations/runs/messages typed-parts+siblings/run_events append-only/cost_ledger) + barrel export + migration 0023 (CHECK constraints + RLS deny-all) generated & applied to local Postgres |
 | Phase 22 P02 | 75min | 3 tasks | 11 files |
 | Phase 22 P03 | ~25min | 1 tasks | 3 files |
+| Phase 22 P04 | 25min | 3 tasks | 13 files |
