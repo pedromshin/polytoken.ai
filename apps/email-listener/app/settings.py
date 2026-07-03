@@ -131,6 +131,14 @@ class BaseAppSettings(BaseSettings):
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
 
+    # --- Cost circuit breaker (Phase 22-04, STREAM-03, FOUND-3, D-20/D-21) ---
+    # A general budget ledger cap set — drawn on by chat (and later studio/agents),
+    # not a chat-shaped guard. Raising a cap is a settings/env change; there is no
+    # in-request parameter that can relax them (D-21).
+    COST_CAP_PER_TURN_USD: float = 0.50
+    COST_CAP_PER_SESSION_USD: float = 2.00
+    COST_CAP_PER_DAY_USD: float = 5.00
+
     # --- Code-island parallel multi-candidate + judge (Phase 21) ---
     # N candidates generated CONCURRENTLY (varied temperature) then an LLM judge picks the best.
     # Same wall-clock as one generation (asyncio.gather), N-times the tokens, higher quality.

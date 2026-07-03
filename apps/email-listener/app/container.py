@@ -62,6 +62,7 @@ from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
 from app.domain.ports.component_repository import ComponentRepository
+from app.domain.ports.cost_ledger_repository import CostLedgerRepository
 from app.domain.ports.email_repository import EmailRepository
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
 from app.domain.ports.entity_instance_repository import EntityInstanceRepository
@@ -103,6 +104,7 @@ from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTyp
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.retrieval_repository import SupabaseRetrievalRepository
+from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
 from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
 from app.settings import get_settings
@@ -486,6 +488,11 @@ def _provide_generation_audit_repository(client: Client) -> GenerationAuditRepos
     return SupabaseGenerationAuditRepository(client=client)
 
 
+def _provide_cost_ledger_repository(client: Client) -> CostLedgerRepository:
+    """SupabaseCostLedgerRepository — chat_cost_ledger adapter (FOUND-3, D-20/D-22)."""
+    return SupabaseCostLedgerRepository(client=client)
+
+
 def _provide_ui_spec_template_repository(client: Client) -> UiSpecTemplateRepository:
     """SupabaseUiSpecTemplateRepository — exact-match cache for validated UI specs (CACHE-01, D-17)."""
     return SupabaseUiSpecTemplateRepository(client=client)
@@ -639,6 +646,8 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_genui_generator_adapter, provides=GenuiGeneratorAdapter)
     # GenerationAuditRepository: Protocol port → SupabaseGenerationAuditRepository adapter.
     provider.provide(_provide_generation_audit_repository, provides=GenerationAuditRepository)
+    # CostLedgerRepository: Protocol port → SupabaseCostLedgerRepository adapter (FOUND-3, D-20).
+    provider.provide(_provide_cost_ledger_repository, provides=CostLedgerRepository)
     # UiSpecTemplateRepository: Protocol port → SupabaseUiSpecTemplateRepository adapter (CACHE-01).
     provider.provide(_provide_ui_spec_template_repository, provides=UiSpecTemplateRepository)
     # LexicalRetrievalProvider: deterministic/lexical RAG bound to RetrievalProvider port (17-04).
