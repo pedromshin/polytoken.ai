@@ -77,6 +77,7 @@ from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.retrieval_provider import RetrievalProvider
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
+from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
@@ -493,6 +494,21 @@ def _provide_cost_ledger_repository(client: Client) -> CostLedgerRepository:
     return SupabaseCostLedgerRepository(client=client)
 
 
+def _provide_cost_circuit_breaker(ledger: CostLedgerRepository) -> CostCircuitBreaker:
+    """CostCircuitBreaker — fail-closed pre-turn gate + mid-stream abort (STREAM-03, D-20/D-21).
+
+    Caps come ONLY from settings (D-21) — passed in here at construction time,
+    never overridable per-call.
+    """
+    settings = get_settings()
+    return CostCircuitBreaker(
+        ledger=ledger,
+        per_turn_cap_usd=settings.COST_CAP_PER_TURN_USD,
+        per_session_cap_usd=settings.COST_CAP_PER_SESSION_USD,
+        per_day_cap_usd=settings.COST_CAP_PER_DAY_USD,
+    )
+
+
 def _provide_ui_spec_template_repository(client: Client) -> UiSpecTemplateRepository:
     """SupabaseUiSpecTemplateRepository — exact-match cache for validated UI specs (CACHE-01, D-17)."""
     return SupabaseUiSpecTemplateRepository(client=client)
@@ -648,6 +664,8 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_generation_audit_repository, provides=GenerationAuditRepository)
     # CostLedgerRepository: Protocol port → SupabaseCostLedgerRepository adapter (FOUND-3, D-20).
     provider.provide(_provide_cost_ledger_repository, provides=CostLedgerRepository)
+    # CostCircuitBreaker: fail-closed pre-turn gate + mid-stream abort (STREAM-03, D-20/D-21).
+    provider.provide(_provide_cost_circuit_breaker, provides=CostCircuitBreaker)
     # UiSpecTemplateRepository: Protocol port → SupabaseUiSpecTemplateRepository adapter (CACHE-01).
     provider.provide(_provide_ui_spec_template_repository, provides=UiSpecTemplateRepository)
     # LexicalRetrievalProvider: deterministic/lexical RAG bound to RetrievalProvider port (17-04).
