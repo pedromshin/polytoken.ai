@@ -286,7 +286,15 @@ function ConversationView({
       role: "assistant",
       parts: chatStream.parts,
       status: liveStatus,
-      regenerateTargetId: STREAMING_TURN_ID,
+      // A "completed" live turn's real message id isn't known client-side
+      // until chat.getHistory catches up (server-generated UUID) — offering
+      // regenerate here would resend the user's text instead of regenerating
+      // the reply it actually produced (handleLiveRetry's no-id fallback).
+      // failed/cost_capped/stopped need an IMMEDIATELY actionable retry
+      // (CHAT-05), and "resend" is an acceptable, correct fallback for those
+      // (nothing meaningful to regenerate yet either way) — only the
+      // "completed" case is excluded to avoid that misfire.
+      regenerateTargetId: liveStatus === "completed" ? undefined : STREAMING_TURN_ID,
     });
   }
 
