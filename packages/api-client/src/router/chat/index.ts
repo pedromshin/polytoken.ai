@@ -12,8 +12,10 @@
 import { createTRPCRouter } from "../../trpc";
 import { chatConversationsProcedures } from "./conversations";
 import { chatHistoryProcedures } from "./history";
+import { modelsProcedure } from "./models";
 
 export const chatRouter = createTRPCRouter({
   ...chatConversationsProcedures,
   ...chatHistoryProcedures,
+  models: modelsProcedure,
 });

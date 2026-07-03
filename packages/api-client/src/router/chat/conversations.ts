@@ -62,6 +62,17 @@ export type DeleteConversationInput = z.infer<
 >;
 
 // ---------------------------------------------------------------------------
+// D-10 — selection persists: setModel updates a conversation's remembered
+// model. Combined with createConversation's last-used default (above), this
+// is what makes the picker's choice "sticky" across conversations.
+// ---------------------------------------------------------------------------
+export const setModelInputSchema = z.object({
+  conversationId: z.string().uuid(),
+  modelId: z.string().min(1).max(200),
+});
+export type SetModelInput = z.infer<typeof setModelInputSchema>;
+
+// ---------------------------------------------------------------------------
 // D-19 — unbounded list payload guard (T-22-19).
 // ---------------------------------------------------------------------------
 const MAX_LIST_ROWS = 200;
@@ -175,5 +186,22 @@ export const chatConversationsProcedures = {
         .delete(ChatConversations)
         .where(eq(ChatConversations.id, input.id));
       return { deleted: true };
+    }),
+
+  /**
+   * setModel — persists the picker's selection onto the conversation (D-10).
+   * Enforcement of which models are selectable (curated registry membership)
+   * is the client's job (the picker only ever offers registry entries);
+   * this mutation itself just writes the id through, matching the same
+   * trust posture as renameConversation's title write.
+   */
+  setModel: publicProcedure
+    .input(setModelInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db
+        .update(ChatConversations)
+        .set({ modelId: input.modelId, updatedAt: new Date() })
+        .where(eq(ChatConversations.id, input.conversationId));
+      return { updated: true };
     }),
 };
