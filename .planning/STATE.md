@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-03T19:24:16.301Z"
-last_activity: 2026-07-03 -- Phase 22 Plan 02 (multi-provider model system: ChatProvider port + curated registry + Bedrock/OpenRouter adapters + GET /v1/chat/models) complete
+last_updated: "2026-07-03T19:49:06.204Z"
+last_activity: 2026-07-03 -- Phase 22 Plan 03 (markdown + code-block renderer) complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
-Plan: 3 of 11
-Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models)
-Last activity: 2026-07-03 -- Phase 22 Plan 02 (multi-provider model system) complete
+Plan: 4 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28)
+Last activity: 2026-07-03 -- Phase 22 Plan 03 (markdown + code-block renderer) complete
 
-Progress: [██░░░░░░░░] 18%
+Progress: [███░░░░░░░] 27%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -1033,6 +1033,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-03 (22-02): all 4 curated OpenRouter registry entries are capabilities.genui=False (conservative default; only the 2 Bedrock entries are genui=True) — also scopes OpenRouterChatAdapter's message translation to text-only for Phase 22 (no tool_use/tool_result block plumbing needed until a future plan promotes an entry and needs the Phase 24 round-trip)
 - 2026-07-03 (22-02): OpenRouterChatAdapter is fail-closed on a missing OPENROUTER_API_KEY — raises RuntimeError immediately rather than attempting a request that would degrade into a generic HTTP error (D-07); a genuine non-2xx OpenRouter response instead yields StreamEnd(stop_reason='error'), matching BedrockChatAdapter's never-raise-past-this-boundary contract
 - 2026-07-03 (22-02): GET /v1/chat/models returns {registry_version, models:[...]} as one object (ChatModelsView), not a bare list, so registry_version is a first-class always-present field for client cache-busting (mirrors the {catalogId, version} spirit of registry-version.ts)
+- 2026-07-03 (22-03): highlight.js added as an explicit direct devDependency (not left transitive via rehype-highlight->lowlight) so `import "highlight.js/styles/github-dark.css"` resolves reliably under npm workspace hoisting
+- 2026-07-03 (22-03): fixed github-dark syntax theme for code blocks regardless of app light/dark mode (common chat-product convention: code chrome stays dark independent of site theme); outer <pre> still uses token-bound bg-muted per 22-UI-SPEC.md
+- 2026-07-03 (22-03): apps/web had no vitest/jsdom test infra before this plan — added vitest.config.ts + devDeps mirroring packages/genui's existing convention exactly, rather than inventing a new one
+- 2026-07-03 (22-03): rehypePlugins=[rehypeSanitize, rehypeHighlight] order is deliberate — sanitize runs on the raw hast tree before rehype-highlight injects its own trusted hljs/hljs-* classNames, so the default sanitize schema never strips the highlighter's output (T-22-10)
 
 ## Performance Metrics
 
@@ -1079,3 +1083,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 17-01 | ~45m | 3 tasks | 11 files — 6 WCAG-AA DTCG packs (nauta-teal baseline + 5 distinct personalities; HSL triplet colors, no raw hex) + TOKEN_ALIASES (21-alias closed set) + TokenAliasSchema/StylePackIdSchema/TokenPropsSchema (fourth Zod allowlist) + style_pack_id on SpecRootSchema + re-emitted drift-gate-green Bedrock artifacts; TDD RED/GREEN per task (5 commits); 289/289 tests green; tsc clean |
 | Phase 22 P01 | 20min | 2 tasks | 8 files — 5 chat Drizzle table modules (conversations/runs/messages typed-parts+siblings/run_events append-only/cost_ledger) + barrel export + migration 0023 (CHECK constraints + RLS deny-all) generated & applied to local Postgres |
 | Phase 22 P02 | 75min | 3 tasks | 11 files |
+| Phase 22 P03 | ~25min | 1 tasks | 3 files |

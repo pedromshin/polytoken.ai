@@ -66,7 +66,7 @@ work from day one, and an application-level cost circuit breaker guards every tu
 **Plans**: 11 plans (8 waves)
 - [x] 22-01-PLAN.md — Chat data model + migration 0023 (conversations, messages/parts, runs, run_events, cost ledger; RLS deny-all; [BLOCKING] local push)
 - [x] 22-02-PLAN.md — Model provider system: ChatProvider port + curated registry + Bedrock & OpenRouter streaming adapters + /v1/chat/models + usage capture
-- [ ] 22-03-PLAN.md — Markdown/code renderer (react-markdown + remark-gfm + rehype-highlight/sanitize; new dep)
+- [x] 22-03-PLAN.md — Markdown/code renderer (react-markdown + remark-gfm + rehype-highlight/sanitize; new dep)
 - [ ] 22-04-PLAN.md — Cost ledger + circuit breaker (fail-closed pre-turn + mid-stream abort; D-22 usage-gap fix)
 - [ ] 22-05-PLAN.md — Conversation CRUD (tRPC/Drizzle) + /chat rail + home + rename + hard-delete confirm
 - [ ] 22-06-PLAN.md — Chat agent/run orchestration + persistence writes (SEAM-03/04; history trim; stop/cost-cap/fail/regenerate)
@@ -123,7 +123,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 22. Chat Spine + Persistence + Streaming | 2/11 | In Progress|  |
+| 22. Chat Spine + Persistence + Streaming | 3/11 | In Progress|  |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 0/TBD | Not started | - |
 | 24. Dual-Channel GenUI | 0/TBD | Not started | - |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |

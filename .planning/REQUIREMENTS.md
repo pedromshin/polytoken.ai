@@ -16,7 +16,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [x] **CHAT-04**: User can regenerate the last response without retyping
 - [ ] **CHAT-05**: A failed turn shows an inline, retryable error without losing the user's in-flight input
 - [ ] **CHAT-06**: Composer supports multi-line input, send-on-enter, disabled-while-streaming, and optimistic render of the user's message
-- [ ] **CHAT-07**: Agent responses render markdown + code blocks; auto-scroll with a jump-to-bottom affordance
+- [x] **CHAT-07**: Agent responses render markdown + code blocks; auto-scroll with a jump-to-bottom affordance
 
 ### Streaming
 
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CHAT-04 | Phase 22 | Complete |
 | CHAT-05 | Phase 22 | Pending |
 | CHAT-06 | Phase 22 | Pending |
-| CHAT-07 | Phase 22 | Pending |
+| CHAT-07 | Phase 22 | Complete |
 | STREAM-01 | Phase 22 | Complete |
 | STREAM-02 | Phase 22 | Pending |
 | STREAM-03 | Phase 22 | Complete |
