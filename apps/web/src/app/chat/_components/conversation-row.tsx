@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@nauta/ui/dropdown-menu";
 
+import { InlineRenameField } from "./inline-rename-field";
+
 export interface ConversationSummary {
   readonly id: string;
   readonly title: string;
@@ -22,9 +24,12 @@ export interface ConversationSummary {
 interface ConversationRowProps {
   readonly conversation: ConversationSummary;
   readonly isActive: boolean;
+  readonly isRenaming: boolean;
   readonly onSelect: (id: string) => void;
   readonly onRequestRename: (id: string) => void;
-  readonly onRequestDelete: (id: string) => void;
+  readonly onRequestDelete: (conversation: ConversationSummary) => void;
+  readonly onRenameCommit: (id: string, title: string) => void;
+  readonly onRenameCancel: () => void;
 }
 
 /**
@@ -34,15 +39,20 @@ interface ConversationRowProps {
  * need a persistent affordance). Active row gets the shared
  * `bg-primary/10 text-primary` treatment (D-20 continuity with AppSidebar).
  *
- * Rename/Delete menu items call back up to the rail, which (from Task 3)
- * opens InlineRenameField / DeleteConversationDialog.
+ * Rename is inline-only (D-12): click the title, press Enter/F2 on the
+ * focused row, or use the overflow menu's Rename item — all swap the title
+ * for an `InlineRenameField`. Delete opens the rail's single
+ * `DeleteConversationDialog` (never nested inside this row's DropdownMenu).
  */
 export function ConversationRow({
   conversation,
   isActive,
+  isRenaming,
   onSelect,
   onRequestRename,
   onRequestDelete,
+  onRenameCommit,
+  onRenameCancel,
 }: ConversationRowProps): React.ReactElement {
   const updatedAt =
     conversation.updatedAt instanceof Date
@@ -58,16 +68,32 @@ export function ConversationRow({
           : "text-foreground hover:bg-muted",
       )}
     >
-      <button
-        type="button"
-        onClick={() => onSelect(conversation.id)}
-        className="flex min-w-0 flex-1 flex-col items-start px-1 py-1 text-left"
-      >
-        <span className="w-full truncate text-sm">{conversation.title}</span>
-        <span className="text-xs text-muted-foreground">
-          {formatDistanceToNow(updatedAt, { addSuffix: true })}
-        </span>
-      </button>
+      {isRenaming ? (
+        <div className="min-w-0 flex-1 px-1 py-1">
+          <InlineRenameField
+            initialValue={conversation.title}
+            onCommit={(title) => onRenameCommit(conversation.id, title)}
+            onCancel={onRenameCancel}
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onSelect(conversation.id)}
+          onKeyDown={(event) => {
+            if (event.key === "F2") {
+              event.preventDefault();
+              onRequestRename(conversation.id);
+            }
+          }}
+          className="flex min-w-0 flex-1 flex-col items-start px-1 py-1 text-left"
+        >
+          <span className="w-full truncate text-sm">{conversation.title}</span>
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(updatedAt, { addSuffix: true })}
+          </span>
+        </button>
+      )}
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -87,7 +113,7 @@ export function ConversationRow({
             Rename
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => onRequestDelete(conversation.id)}
+            onClick={() => onRequestDelete(conversation)}
             className="text-destructive focus:text-destructive"
           >
             <Trash2 className="mr-2 size-4" aria-hidden />

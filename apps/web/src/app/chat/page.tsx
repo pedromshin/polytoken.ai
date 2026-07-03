@@ -24,8 +24,6 @@ import { ConversationRail } from "./_components/conversation-rail";
 export default function ChatPage(): React.ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [railCollapsed, setRailCollapsed] = useState(false);
-  const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const utils = api.useUtils();
   const createConversation = api.chat.createConversation.useMutation({
@@ -38,6 +36,13 @@ export default function ChatPage(): React.ReactElement {
   const handleNewChat = useCallback(() => {
     createConversation.mutate({});
   }, [createConversation]);
+
+  // T-22-18-adjacent UX: de-select if the conversation currently open is the
+  // one that just got hard-deleted (D-14), otherwise the main column would
+  // keep pointing at a conversation id that no longer exists.
+  const handleConversationDeleted = useCallback((deletedId: string) => {
+    setSelectedId((current) => (current === deletedId ? null : current));
+  }, []);
 
   return (
     <div className="flex h-svh flex-col">
@@ -65,12 +70,11 @@ export default function ChatPage(): React.ReactElement {
         <ConversationRail
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onDeleted={handleConversationDeleted}
           collapsed={railCollapsed}
           onCollapsedChange={setRailCollapsed}
           onNewChat={handleNewChat}
           creatingConversation={createConversation.isPending}
-          onRequestRename={setRenamingId}
-          onRequestDelete={setDeletingId}
         />
 
         <div className="min-w-0 flex-1 overflow-y-auto">
