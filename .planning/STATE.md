@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
-status: planning
-last_updated: "2026-07-03T18:31:16.520Z"
-last_activity: "2026-07-02 — ROADMAP.md + REQUIREMENTS.md traceability written for v1.3 (24 requirements, 100% mapped across 4 phases: 22 chat spine/streaming, 23 canvas/shared state, 24 dual-channel genui, 25 anticipatory-prompting SPIKE)"
+status: executing
+last_updated: "2026-07-03T18:48:31.219Z"
+last_activity: 2026-07-03 -- Phase 22 Plan 01 (chat data model + migration 0023) complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 0
-  percent: 0
+  completed_plans: 1
+  percent: 9
 ---
 
 # State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** 📋 **Milestone v1.3 roadmap created (2026-07-02)** — 4 phases (22–25): Chat spine + streaming → 2D canvas + shared state → dual-channel genui → anticipatory-prompting SPIKE. Ready to plan Phase 22. Local/sandbox only (no deploy criteria).
+**Current focus:** Phase 22 — Chat Spine + Persistence + Streaming
 
 ## Current Position
 
-Phase: 22 of 25 (Chat Spine + Persistence + Streaming) — first v1.3 phase
-Plan: TBD (not yet broken down)
-Status: Ready to plan
-Last activity: 2026-07-02 — ROADMAP.md + REQUIREMENTS.md traceability written for v1.3 (24 requirements, 100% mapped across 4 phases: 22 chat spine/streaming, 23 canvas/shared state, 24 dual-channel genui, 25 anticipatory-prompting SPIKE)
+Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
+Plan: 2 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres)
+Last activity: 2026-07-03 -- Phase 22 Plan 01 (chat data model + migration 0023) complete
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 9%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -300,7 +300,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** .planning/phases/22-chat-spine-persistence-streaming/22-01-PLAN.md
+- **Resume file:** .planning/phases/22-chat-spine-persistence-streaming/22-01-SUMMARY.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
@@ -1025,6 +1025,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-06-28 (16-03): D-15 best-effort enforced at all 3 layers — repository returns []/None on any error; FastAPI returns []/404 when repo returns None; tRPC returns []/null on any network/non-2xx/validation error; no exceptions propagated
 - 2026-06-28 (16-03): D-17 re-validation at web boundary — tRPC uses FastApiHistoryRowSchema/FastApiHistoryDetailSchema Zod schemas; malformed rows are silently dropped (historyList) or return null (historyById) with structured stderr logging
 - 2026-06-28 (16-03): D-17 deviation — historyById does NOT re-run SpecRootSchema.safeParse on spec_json (deviates from plan); uses z.record(z.unknown()) instead; rationale: history is read-display only, strict SpecRoot rejection would hide older valid specs from history; SpecRootSchema gate is appropriate at render time (genui.generate), not at history retrieval
+- 2026-07-03 (22-01): chat_cost_ledger.run_id kept as a plain uuid with NO FK (mirrors the genui_generation_events/ui_spec_templates importer_id no-FK idiom) — a chat_runs row cascade-deletes with its conversation while its ledger row must survive (D-14), so constraining run_id would require its own SET NULL FK with no added integrity value over the established idiom; chat_conversations.importer_id and chat_cost_ledger.importer_id follow the same plain-uuid-no-FK pattern
+- 2026-07-03 (22-01): text + SQL CHECK used for chat_runs.status / chat_messages.role+status / chat_run_events.type / chat_cost_ledger.execution_locus (NOT pgEnum) — matches the plan's explicit instruction and the existing outcome-CHECK precedent (genui_generation_events, ui_spec_templates) rather than introducing a new enum style
+- 2026-07-03 (22-01): Docker Desktop + local Supabase stack were not running at plan start (migrate:local failed ECONNREFUSED 127.0.0.1:54322); started both (Rule 3 blocking-issue auto-fix) to reach the [BLOCKING] Task 2 migration-apply requirement; migration 0023 applied cleanly and idempotently re-verified
 
 ## Performance Metrics
 
@@ -1069,14 +1072,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 16-02 | ~60m | 3 tasks | 9 files — pure deterministic rubric (valid-spec/composed/a11y, weights 0.30/0.30/0.25/0.15) + LLM-as-judge adapter (escalation model, forced tool-use) + eval runner (create_container(), golden-set, Semaphore(3)) + report writer (JSON+MD) + compare helper; 21 tests (20 unit + 1 integration smoke, gated RUN_GENUI_EVAL=1); 87% coverage gate holds; ruff clean; Task 4 (live Bedrock baseline) deferred to connected env |
 | Phase 16-05 | ~10m | 2 tasks | 2 files — history-island.tsx (474 lines: HistoryMasterList + HistoryDetailView + 7 sub-components + offset pager + parseSpecSafe safe-fallback) + studio-tabs.tsx slot swap (HistoryPlaceholder → HistoryIsland); STDO-02 reuse contract intact (one dynamic SpecRenderer); D-18 read-only; tsc+next build green; Task 3 browser-verify deferred (autonomous, no backend) |
 | Phase 17-01 | ~45m | 3 tasks | 11 files — 6 WCAG-AA DTCG packs (nauta-teal baseline + 5 distinct personalities; HSL triplet colors, no raw hex) + TOKEN_ALIASES (21-alias closed set) + TokenAliasSchema/StylePackIdSchema/TokenPropsSchema (fourth Zod allowlist) + style_pack_id on SpecRootSchema + re-emitted drift-gate-green Bedrock artifacts; TDD RED/GREEN per task (5 commits); 289/289 tests green; tsc clean |
-
-## Current Position
-
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-03 — Milestone v1.3 started
-
-## Operator Next Steps
-
-- Start the next milestone with /gsd-new-milestone
+| Phase 22 P01 | 20min | 2 tasks | 8 files — 5 chat Drizzle table modules (conversations/runs/messages typed-parts+siblings/run_events append-only/cost_ledger) + barrel export + migration 0023 (CHECK constraints + RLS deny-all) generated & applied to local Postgres |

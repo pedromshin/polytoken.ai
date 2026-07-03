@@ -10,10 +10,10 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Chat Spine
 
-- [ ] **CHAT-01**: User can open `/chat`, send a message, and get an agent response; conversations + messages persist across reload
+- [x] **CHAT-01**: User can open `/chat`, send a message, and get an agent response; conversations + messages persist across reload
 - [ ] **CHAT-02**: User can see a conversation list, switch between chats, rename and delete them
 - [ ] **CHAT-03**: User can stop an in-flight generation
-- [ ] **CHAT-04**: User can regenerate the last response without retyping
+- [x] **CHAT-04**: User can regenerate the last response without retyping
 - [ ] **CHAT-05**: A failed turn shows an inline, retryable error without losing the user's in-flight input
 - [ ] **CHAT-06**: Composer supports multi-line input, send-on-enter, disabled-while-streaming, and optimistic render of the user's message
 - [ ] **CHAT-07**: Agent responses render markdown + code blocks; auto-scroll with a jump-to-bottom affordance
@@ -22,7 +22,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **STREAM-01**: Agent text responses stream live (FastAPI SSE → web) with a visible generating indicator
 - [ ] **STREAM-02**: Declarative genui specs render progressively as partial trees during generation — render-what's-valid, placeholder the rest (closes GEN-04)
-- [ ] **STREAM-03**: An application-level cost circuit breaker (per-turn/per-session caps) guards streaming chat, independent of the AWS budget alert
+- [x] **STREAM-03**: An application-level cost circuit breaker (per-turn/per-session caps) guards streaming chat, independent of the AWS budget alert
 
 ### Canvas
 
@@ -50,7 +50,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Seams (v1.5+ readiness)
 
-- [ ] **SEAM-03**: Chat turns are modeled as events on a run (run/event schema stub) so future orchestration run-trees reuse the schema
+- [x] **SEAM-03**: Chat turns are modeled as events on a run (run/event schema stub) so future orchestration run-trees reuse the schema
 - [ ] **SEAM-04**: The chat orchestration loop sits behind an agent/run abstraction (one agent, one run today)
 
 ## Future Requirements
@@ -94,17 +94,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CHAT-01 | Phase 22 | Pending |
+| CHAT-01 | Phase 22 | Complete |
 | CHAT-02 | Phase 22 | Pending |
 | CHAT-03 | Phase 22 | Pending |
-| CHAT-04 | Phase 22 | Pending |
+| CHAT-04 | Phase 22 | Complete |
 | CHAT-05 | Phase 22 | Pending |
 | CHAT-06 | Phase 22 | Pending |
 | CHAT-07 | Phase 22 | Pending |
 | STREAM-01 | Phase 22 | Pending |
 | STREAM-02 | Phase 22 | Pending |
-| STREAM-03 | Phase 22 | Pending |
-| SEAM-03 | Phase 22 | Pending |
+| STREAM-03 | Phase 22 | Complete |
+| SEAM-03 | Phase 22 | Complete |
 | SEAM-04 | Phase 22 | Pending |
 | CANVAS-01 | Phase 23 | Pending |
 | CANVAS-02 | Phase 23 | Pending |

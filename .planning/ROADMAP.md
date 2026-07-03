@@ -64,7 +64,7 @@ work from day one, and an application-level cost circuit breaker guards every tu
   4. The composer and message rendering behave like a real chat product — multi-line input, send-on-enter, disabled-while-streaming, optimistic render of the user's message, markdown + code-block rendering, auto-scroll with jump-to-bottom — and declarative genui specs render progressively as partial trees during generation (render-what's-valid, placeholder the rest) instead of only appearing after the full response completes
   5. Every chat turn is capped by an application-level per-turn/per-session cost circuit breaker independent of the AWS budget alert, and the underlying turn/run model is event-based behind an agent/run abstraction (one agent, one run today) so stop/regenerate/resume behave reliably and the schema is reusable by future orchestration
 **Plans**: 11 plans (8 waves)
-- [ ] 22-01-PLAN.md — Chat data model + migration 0023 (conversations, messages/parts, runs, run_events, cost ledger; RLS deny-all; [BLOCKING] local push)
+- [x] 22-01-PLAN.md — Chat data model + migration 0023 (conversations, messages/parts, runs, run_events, cost ledger; RLS deny-all; [BLOCKING] local push)
 - [ ] 22-02-PLAN.md — Model provider system: ChatProvider port + curated registry + Bedrock & OpenRouter streaming adapters + /v1/chat/models + usage capture
 - [ ] 22-03-PLAN.md — Markdown/code renderer (react-markdown + remark-gfm + rehype-highlight/sanitize; new dep)
 - [ ] 22-04-PLAN.md — Cost ledger + circuit breaker (fail-closed pre-turn + mid-stream abort; D-22 usage-gap fix)
@@ -123,7 +123,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 22. Chat Spine + Persistence + Streaming | 0/11 | Planned | - |
+| 22. Chat Spine + Persistence + Streaming | 1/11 | In Progress|  |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 0/TBD | Not started | - |
 | 24. Dual-Channel GenUI | 0/TBD | Not started | - |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
