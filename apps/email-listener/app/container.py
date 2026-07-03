@@ -77,6 +77,7 @@ from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
+from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
 from app.infrastructure.llm.genui_code_generator_adapter import GenuiCodeGeneratorAdapter
@@ -433,6 +434,22 @@ def _provide_genui_code_judge_adapter(client: AsyncAnthropicBedrock) -> GenuiCod
     )
 
 
+def _provide_bedrock_chat_adapter(client: AsyncAnthropicBedrock) -> BedrockChatAdapter:
+    """BedrockChatAdapter — one ChatProvider implementation (Phase 22, D-22).
+
+    Reuses the shared AsyncAnthropicBedrock client (already bound above as a
+    singleton). Bound to its own concrete type (not the ChatProvider Protocol)
+    because OpenRouterChatAdapter implements the SAME Protocol structurally —
+    the chat orchestration layer (22-06) selects between them by the picked
+    model's registry transport, not via a single Protocol-keyed binding.
+    """
+    settings = get_settings()
+    return BedrockChatAdapter(
+        client=client,
+        inactivity_timeout_seconds=settings.CHAT_INACTIVITY_TIMEOUT_SECONDS,
+    )
+
+
 def _provide_generation_audit_repository(client: Client) -> GenerationAuditRepository:
     """SupabaseGenerationAuditRepository — best-effort audit for generation events (GEN-05, D-19)."""
     return SupabaseGenerationAuditRepository(client=client)
@@ -604,6 +621,12 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_genui_code_generator_adapter, provides=GenuiCodeGeneratorAdapter)
     provider.provide(_provide_genui_code_judge_adapter, provides=GenuiCodeJudgeAdapter)
     provider.provide(_provide_generate_code_island_use_case, provides=GenerateCodeIslandUseCase)
+
+    # ── Chat spine — multi-provider ChatProvider implementations (Phase 22) ──
+    # Both adapters structurally implement ChatProvider but are bound to their
+    # own concrete types: the chat orchestration layer (22-06) will select
+    # between them by the picked model's registry transport.
+    provider.provide(_provide_bedrock_chat_adapter, provides=BedrockChatAdapter)
 
     return provider
 

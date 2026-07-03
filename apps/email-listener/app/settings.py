@@ -120,6 +120,12 @@ class BaseAppSettings(BaseSettings):
     # very forgiving (Bedrock streams deltas sub-second when healthy).
     GENUI_CODE_TIMEOUT_SECONDS: float = 90.0
 
+    # --- Chat spine (Phase 22) — multi-provider streaming (D-22, D-24) ---
+    # Both server adapters STREAM (rescheduling the deadline on every event, same
+    # idiom as the code-island adapter above), so this is an INACTIVITY timeout —
+    # max seconds between stream events — NOT a total-time cap.
+    CHAT_INACTIVITY_TIMEOUT_SECONDS: float = 90.0
+
     # --- Code-island parallel multi-candidate + judge (Phase 21) ---
     # N candidates generated CONCURRENTLY (varied temperature) then an LLM judge picks the best.
     # Same wall-clock as one generation (asyncio.gather), N-times the tokens, higher quality.
