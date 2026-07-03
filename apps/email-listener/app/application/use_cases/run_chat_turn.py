@@ -6,6 +6,13 @@ the ChatProviderRouter (D-04..D-07), gates the turn through the CostCircuitBreak
 (D-27), and persists the user + assistant messages as canonical interleaved typed
 parts (FOUND-1) plus the run and its append-only events.
 
+Turn control (Task 3, D-15/D-16/D-19/D-21): a mid-stream cost-cap breach, a
+client-disconnect cancellation, and a provider failure are all terminal states
+that persist WHATEVER partial content streamed so far — never silently dropped
+— then write exactly one terminal run event + the matching message/run status.
+regenerate() creates a new active sibling version of an assistant turn (D-16),
+reusing the same run loop.
+
 Built as an async generator with NO HTTP dependency — the SSE transport (22-07)
 is a thin wrapper over `run()`/`regenerate()`.
 
@@ -16,17 +23,24 @@ generate_ui_spec.py's "Application does not import infrastructure" contract).
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import uuid
-from typing import TYPE_CHECKING, Any
+from decimal import Decimal
+from typing import TYPE_CHECKING, Any, cast
 
-from app.domain.ports.chat_provider import StreamEnd, TextDelta, ToolCallDelta, UsageDelta
+from app.domain.ports.chat_provider import StreamEnd, TextDelta, UsageDelta
 from app.domain.ports.chat_repositories import (
     ChatConversationRepository,
     ChatMessage,
     ChatMessageRepository,
+    ChatMessageStatus,
+    ChatRun,
     ChatRunEvent,
+    ChatRunEventType,
     ChatRunRepository,
+    ChatRunStatus,
 )
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository, UsageEvent
 from app.domain.services.chat_model_registry import ChatModel, get_model
@@ -34,9 +48,9 @@ from app.domain.services.chat_provider_router import ChatModelNotFoundError, Cha
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker, estimate_prompt_tokens
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Sequence
+    from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 
-    from app.domain.ports.chat_provider import ChatProvider
+    from app.domain.ports.chat_provider import ChatDelta, ChatProvider
 
 # SEAM-04: one agent, one run per turn today.
 _AGENT_ID = "chat-agent-v1"
@@ -131,6 +145,71 @@ class RunChatTurn:
             importer_id=resolved_importer_id,
             is_first_turn=is_first_turn,
             user_text=user_text,
+            sibling_group_id=str(uuid.uuid4()),
+            version=1,
+        ):
+            yield event
+
+    async def regenerate(
+        self,
+        *,
+        conversation_id: str,
+        assistant_message_id: str,
+        model_id: str,
+        importer_id: str | None = None,
+    ) -> AsyncIterator[ChatRunEvent]:
+        """Regenerate an assistant turn as a NEW active sibling version (D-16).
+
+        Runs the pre-turn cost gate BEFORE retiring the existing sibling(s) —
+        a BLOCKed regenerate must never leave the conversation with zero active
+        assistant messages for that turn. Reuses the same `_execute_turn` engine
+        with the SAME turn_index and the history preceding that turn; only the
+        newly-inserted version feeds future context (D-16).
+        """
+        resolved_importer_id = importer_id or self._default_importer_id
+        model = get_model(model_id)
+        if model is None:
+            raise ChatModelNotFoundError(model_id)
+        provider = self._router.select(model_id)
+
+        history = await self._messages.list_active_context(conversation_id)
+        target = next(
+            (m for m in history if m.id == assistant_message_id and m.role == "assistant"),
+            None,
+        )
+        if target is None:
+            raise ValueError(
+                f"No active assistant message {assistant_message_id!r} in conversation {conversation_id!r}"
+            )
+
+        decision = await self._breaker.check_pre_turn(
+            model=model,
+            importer_id=resolved_importer_id,
+            conversation_id=conversation_id,
+            prompt_tokens_est=0,
+            max_output_tokens=self._max_output_tokens,
+        )
+        if not decision.allowed:
+            yield ChatRunEvent(type="cost_capped", data={"breached_cap": decision.breached_cap})
+            return
+
+        sibling_group_id = target.sibling_group_id or target.id
+        await self._messages.set_sibling_inactive(sibling_group_id)
+        prior_history = [m for m in history if m.turn_index < target.turn_index]
+        next_version = target.version + 1
+
+        async for event in self._execute_turn(
+            provider=provider,
+            model=model,
+            model_id=model_id,
+            conversation_id=conversation_id,
+            history=prior_history,
+            turn_index=target.turn_index,
+            importer_id=resolved_importer_id,
+            is_first_turn=False,
+            user_text="",
+            sibling_group_id=sibling_group_id,
+            version=next_version,
         ):
             yield event
 
@@ -146,12 +225,15 @@ class RunChatTurn:
         importer_id: str,
         is_first_turn: bool,
         user_text: str,
+        sibling_group_id: str,
+        version: int,
     ) -> AsyncIterator[ChatRunEvent]:
         """Shared engine: create the run, stream the provider, persist, and finish.
 
-        Task 2 scope: happy-path lifecycle only (started -> checkpoints -> usage
-        -> completed). Cancellation, mid-stream cost abort, provider failure, and
-        regenerate-as-sibling are added in Task 3.
+        Every terminal branch (completed/cost_capped/stopped/failed) writes
+        exactly one terminal run event and persists the assistant message with
+        the matching status — the partial content accumulated so far is NEVER
+        silently dropped (D-15/D-19/D-21).
         """
         run = await self._runs.create_run(conversation_id=conversation_id, agent_id=_AGENT_ID, model_id=model_id)
         yield await self._emit(run.id, "started", {"model_id": model_id})
@@ -163,55 +245,103 @@ class RunChatTurn:
         input_tokens = 0
         output_tokens = 0
 
-        async for delta in provider.stream(
-            model_id=model_id,
-            system=_SYSTEM_PROMPT,
-            messages=provider_messages,
-            tools=(),
-            max_tokens=self._max_output_tokens,
-        ):
-            if isinstance(delta, TextDelta):
-                accumulated_text += delta.text
-                yield await self._emit(run.id, "text_delta_checkpoint", {"text": delta.text})
-            elif isinstance(delta, UsageDelta):
-                input_tokens = delta.input_tokens
-                output_tokens = delta.output_tokens
-            elif isinstance(delta, ToolCallDelta):
-                # D-03: no data tools are offered in 22-06 — defensive no-op if a
-                # provider still emits one; emit_ui_spec lands capability-gated in 22-07.
-                continue
-            elif isinstance(delta, StreamEnd):
-                continue
-
-        await self._messages.insert_message(
-            conversation_id=conversation_id,
-            role="assistant",
-            parts=({"type": "text", "text": accumulated_text},) if accumulated_text else (),
-            turn_index=turn_index,
-            status="completed",
-            run_id=run.id,
-            sibling_group_id=str(uuid.uuid4()),
-            version=1,
-            is_active=True,
-        )
-        cost = self._breaker.estimate_turn_cost(
-            model=model, prompt_tokens_est=input_tokens, max_output_tokens=output_tokens
-        )
-        await self._ledger.record(
-            UsageEvent(
-                importer_id=importer_id,
+        # Cast: ChatProvider.stream() is typed AsyncIterator[ChatDelta] on the Protocol
+        # (deliberately loose so a future non-generator implementation stays valid),
+        # but every real adapter (BedrockChatAdapter/OpenRouterChatAdapter) IS an
+        # `async def ...: yield ...` generator — aclosing() needs the narrower
+        # AsyncGenerator type to guarantee .aclose().
+        raw_stream = cast(
+            "AsyncGenerator[ChatDelta, None]",
+            provider.stream(
                 model_id=model_id,
-                execution_locus=model.execution_locus,
+                system=_SYSTEM_PROMPT,
+                messages=provider_messages,
+                tools=(),
+                max_tokens=self._max_output_tokens,
+            ),
+        )
+        try:
+            async with contextlib.aclosing(raw_stream) as delta_stream:
+                async for delta in delta_stream:
+                    accumulated_text, input_tokens, output_tokens, event_type, event_data = _apply_delta(
+                        delta, accumulated_text=accumulated_text, input_tokens=input_tokens, output_tokens=output_tokens
+                    )
+                    if event_type is not None:
+                        yield await self._emit(run.id, event_type, event_data)
+
+                    terminal_status = self._terminal_status_for(
+                        delta,
+                        model=model,
+                        accumulated_text=accumulated_text,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                    )
+                    if terminal_status is not None:
+                        async for event in self._terminate(
+                            run=run,
+                            conversation_id=conversation_id,
+                            turn_index=turn_index,
+                            accumulated_text=accumulated_text,
+                            status=terminal_status,
+                            input_tokens=input_tokens,
+                            output_tokens=output_tokens,
+                            model=model,
+                            importer_id=importer_id,
+                            sibling_group_id=sibling_group_id,
+                            version=version,
+                        ):
+                            yield event
+                        return
+        except asyncio.CancelledError:
+            async for event in self._terminate(
+                run=run,
+                conversation_id=conversation_id,
+                turn_index=turn_index,
+                accumulated_text=accumulated_text,
+                status="stopped",
                 input_tokens=input_tokens,
                 output_tokens=output_tokens,
-                cost_usd=cost,
+                model=model,
+                importer_id=importer_id,
+                sibling_group_id=sibling_group_id,
+                version=version,
+            ):
+                yield event
+            raise
+        except Exception:
+            async for event in self._terminate(
+                run=run,
                 conversation_id=conversation_id,
-                run_id=run.id,
-            )
+                turn_index=turn_index,
+                accumulated_text=accumulated_text,
+                status="failed",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                model=model,
+                importer_id=importer_id,
+                sibling_group_id=sibling_group_id,
+                version=version,
+            ):
+                yield event
+            return
+
+        # Completed normally — the last delta was a StreamEnd with a non-error stop_reason.
+        await self._persist_and_finish(
+            run=run,
+            conversation_id=conversation_id,
+            turn_index=turn_index,
+            accumulated_text=accumulated_text,
+            status="completed",
+            run_status="completed",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=model,
+            importer_id=importer_id,
+            sibling_group_id=sibling_group_id,
+            version=version,
         )
         yield await self._emit(run.id, "usage", {"input_tokens": input_tokens, "output_tokens": output_tokens})
         yield await self._emit(run.id, "completed", {})
-        await self._runs.finish_run(run_id=run.id, status="completed")
 
         if is_first_turn:
             await self._conversations.touch(
@@ -220,9 +350,161 @@ class RunChatTurn:
         else:
             await self._conversations.touch(conversation_id=conversation_id, model_id=model_id)
 
-    async def _emit(self, run_id: str, event_type: Any, data: dict[str, Any]) -> ChatRunEvent:
+    def _terminal_status_for(
+        self,
+        delta: ChatDelta,
+        *,
+        model: ChatModel,
+        accumulated_text: str,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> ChatMessageStatus | None:
+        """Return the terminal status this delta forces, or None to keep streaming.
+
+        A StreamEnd(error) always fails the turn (D-19). A TextDelta/UsageDelta
+        that pushes the (estimated, then real) running cost past should_abort's
+        threshold cost-caps the turn mid-stream (D-21).
+        """
+        if isinstance(delta, StreamEnd) and delta.stop_reason == "error":
+            return "failed"
+        if isinstance(delta, TextDelta):
+            estimated_cost = self._estimated_cost_so_far(model=model, accumulated_text=accumulated_text)
+            if self._breaker.should_abort(estimated_cost):
+                return "cost_capped"
+        elif isinstance(delta, UsageDelta):
+            real_cost = self._breaker.estimate_turn_cost(
+                model=model, prompt_tokens_est=input_tokens, max_output_tokens=output_tokens
+            )
+            if self._breaker.should_abort(real_cost):
+                return "cost_capped"
+        return None
+
+    async def _terminate(
+        self,
+        *,
+        run: ChatRun,
+        conversation_id: str,
+        turn_index: int,
+        accumulated_text: str,
+        status: ChatMessageStatus,
+        input_tokens: int,
+        output_tokens: int,
+        model: ChatModel,
+        importer_id: str,
+        sibling_group_id: str,
+        version: int,
+    ) -> AsyncIterator[ChatRunEvent]:
+        """Persist the partial + finish the run, then yield the ONE matching terminal event.
+
+        status doubles as the run's terminal status ('cost_capped'/'stopped'/
+        'failed' map 1:1 between chat_messages.status and chat_runs.status).
+        """
+        run_status: ChatRunStatus = status  # type: ignore[assignment]  # shared value set (cost_capped/stopped/failed)
+        await self._persist_and_finish(
+            run=run,
+            conversation_id=conversation_id,
+            turn_index=turn_index,
+            accumulated_text=accumulated_text,
+            status=status,
+            run_status=run_status,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            model=model,
+            importer_id=importer_id,
+            sibling_group_id=sibling_group_id,
+            version=version,
+        )
+        # status is always one of 'cost_capped'/'stopped'/'failed' here — a subset
+        # of both ChatMessageStatus and ChatRunEventType, but mypy can't narrow a
+        # Literal parameter's runtime-restricted value set on its own.
+        yield await self._emit(run.id, cast("ChatRunEventType", status), {})
+
+    async def _persist_and_finish(
+        self,
+        *,
+        run: ChatRun,
+        conversation_id: str,
+        turn_index: int,
+        accumulated_text: str,
+        status: ChatMessageStatus,
+        run_status: ChatRunStatus,
+        input_tokens: int,
+        output_tokens: int,
+        model: ChatModel,
+        importer_id: str,
+        sibling_group_id: str,
+        version: int,
+    ) -> None:
+        """Persist the assistant message (whatever streamed so far) + record usage + finish the run.
+
+        Called for EVERY terminal branch (completed/cost_capped/stopped/failed)
+        so a partial is never silently dropped (D-15) and the ledger always
+        gets whatever usage was captured — even Decimal("0")/0 tokens when the
+        stream never reached a UsageDelta (D-21 mid-stream / T-22-22).
+        """
+        parts = ({"type": "text", "text": accumulated_text},) if accumulated_text else ()
+        await self._messages.insert_message(
+            conversation_id=conversation_id,
+            role="assistant",
+            parts=parts,
+            turn_index=turn_index,
+            status=status,
+            run_id=run.id,
+            sibling_group_id=sibling_group_id,
+            version=version,
+            is_active=True,
+        )
+        cost = self._breaker.estimate_turn_cost(
+            model=model, prompt_tokens_est=input_tokens, max_output_tokens=output_tokens
+        )
+        await self._ledger.record(
+            UsageEvent(
+                importer_id=importer_id,
+                model_id=model.id,
+                execution_locus=model.execution_locus,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost,
+                conversation_id=conversation_id,
+                run_id=run.id,
+            )
+        )
+        await self._runs.finish_run(run_id=run.id, status=run_status)
+
+    def _estimated_cost_so_far(self, *, model: ChatModel, accumulated_text: str) -> Decimal:
+        """Cheap running-cost ESTIMATE from accumulated output length (mid-stream abort signal).
+
+        Real cost is always recorded post-turn from actual captured usage
+        (D-22); this heuristic exists solely to decide whether to keep
+        streaming, mirroring the pre-turn estimate's own heuristic contract.
+        """
+        tokens_so_far = estimate_prompt_tokens(len(accumulated_text))
+        return self._breaker.estimate_turn_cost(model=model, prompt_tokens_est=0, max_output_tokens=tokens_so_far)
+
+    async def _emit(self, run_id: str, event_type: ChatRunEventType, data: dict[str, Any]) -> ChatRunEvent:
         """Persist one run event (append-only) and return it for the caller to yield."""
         return await self._runs.append_event(run_id=run_id, event_type=event_type, data=data)
+
+
+def _apply_delta(
+    delta: ChatDelta,
+    *,
+    accumulated_text: str,
+    input_tokens: int,
+    output_tokens: int,
+) -> tuple[str, int, int, ChatRunEventType | None, dict[str, Any]]:
+    """Fold one provider delta into the running turn state (pure, no I/O).
+
+    Returns (new_accumulated_text, new_input_tokens, new_output_tokens,
+    checkpoint_event_type_or_None, checkpoint_data). ToolCallDelta and a
+    non-error StreamEnd are no-ops here (D-03: no data tools in 22-06; a
+    non-error StreamEnd needs no mid-loop handling — the stream simply ends).
+    """
+    if isinstance(delta, TextDelta):
+        return accumulated_text + delta.text, input_tokens, output_tokens, "text_delta_checkpoint", {"text": delta.text}
+    if isinstance(delta, UsageDelta):
+        return accumulated_text, delta.input_tokens, delta.output_tokens, None, {}
+    return accumulated_text, input_tokens, output_tokens, None, {}
 
 
 def _build_provider_messages(history: Sequence[ChatMessage]) -> list[dict[str, Any]]:

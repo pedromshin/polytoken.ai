@@ -555,9 +555,13 @@ async def test_cancellation_persists_partial_stopped_and_reraises() -> None:
     use_case, fakes = _make_use_case(provider=provider)
 
     events: list[Any] = []
-    with pytest.raises(asyncio.CancelledError):
+
+    async def _consume() -> None:
         async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id):
             events.append(event)
+
+    with pytest.raises(asyncio.CancelledError):
+        await _consume()
 
     assert events[-1].type == "stopped"
 
@@ -641,7 +645,7 @@ async def test_regenerate_retires_prior_sibling_and_creates_new_active_version()
     )
 
     provider = FakeChatProvider([TextDelta(text="A1 regenerated"), StreamEnd(stop_reason="end_turn")])
-    use_case, fakes = _make_use_case(provider=provider, messages=messages)
+    use_case, _fakes = _make_use_case(provider=provider, messages=messages)
 
     events = [
         event
@@ -686,7 +690,7 @@ async def test_regenerate_blocked_by_pre_turn_cost_does_not_retire_sibling() -> 
 
     provider = FakeChatProvider([TextDelta(text="should never stream")])
     breaker = FakeCostCircuitBreaker(decision=PreTurnDecision.block("per_turn"))
-    use_case, fakes = _make_use_case(provider=provider, messages=messages, breaker=breaker)
+    use_case, _fakes = _make_use_case(provider=provider, messages=messages, breaker=breaker)
 
     events = [
         event
