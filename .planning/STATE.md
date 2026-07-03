@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-03T20:54:22.439Z"
-last_activity: 2026-07-03 -- Phase 22 Plan 05 (chat spine persistence + rail UI) complete
+last_updated: "2026-07-03T21:40:43.195Z"
+last_activity: 2026-07-03 -- Phase 22 Plan 06 (chat agent/run orchestration + persistence) complete
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
-Plan: 6 of 11
-Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28; 22-04 complete: cost ledger port/adapter + fail-closed CostCircuitBreaker (config-only $0.50/$2.00/$5.00 caps) + D-22 genui usage-capture fix; 22-05 complete: chat tRPC router create/list/rename/delete/getHistory over Drizzle + /chat route with collapsible rail, home empty-state, inline rename, hard-delete confirm dialog, single Chat sidebar nav item — CHAT-02 done, CHAT-01 persistence-side done)
-Last activity: 2026-07-03 -- Phase 22 Plan 05 (chat spine persistence + rail UI) complete
+Plan: 7 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28; 22-04 complete: cost ledger port/adapter + fail-closed CostCircuitBreaker (config-only $0.50/$2.00/$5.00 caps) + D-22 genui usage-capture fix; 22-05 complete: chat tRPC router create/list/rename/delete/getHistory over Drizzle + /chat route with collapsible rail, home empty-state, inline rename, hard-delete confirm dialog, single Chat sidebar nav item — CHAT-02 done, CHAT-01 persistence-side done; 22-06 complete: RunChatTurn agent/run orchestrator (SEAM-04) — history assembly (D-26 trim) + ChatProviderRouter + fail-closed pre-turn gate (D-21) + streamed typed run events (SEAM-03) + FOUND-1 persistence + full turn-control lifecycle (mid-stream cost abort, cancel->stopped, failure->failed, regenerate-as-sibling D-16); chat persistence repos + provider router DI-wired)
+Last activity: 2026-07-03 -- Phase 22 Plan 06 (chat agent/run orchestration + persistence) complete
 
-Progress: [█████░░░░░] 45%
+Progress: [██████░░░░] 55%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -1046,6 +1046,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-03 (22-05): D-10 remember-last-used logic extracted into a pure resolveDefaultModelId helper (mirrors entities/gallery.ts's shapeGalleryItem pattern) — DB-free-testable without mocking a Drizzle query chain, which has no precedent anywhere in this codebase
 - 2026-07-03 (22-05): rename/delete mutations + the single DeleteConversationDialog instance live inside ConversationRail (not lifted to page.tsx) — keeps the rail self-contained and avoids nesting an AlertDialog inside a DropdownMenu (known Radix portal/focus conflict)
 - 2026-07-03 (22-05): rail-collapse toggle placed in a page-level top bar, outside the rail's own 0px-collapsed width container — the UI-SPEC's literal 0px-collapsed rail would otherwise have no way to reopen once collapsed; localStorage read/write still lives inside conversation-rail.tsx per the plan's acceptance criteria
+- 2026-07-03 (22-06): added ChatConversationRepository (touch()) beyond the plan's literal Task 1 file list — required to make D-10/D-12 (conversation title + remembered model updates) true from the Python turn loop; 22-05's chat CRUD is a separate web-owned tRPC/Drizzle surface
+- 2026-07-03 (22-06): supabase_chat_run_repository.py's finish_run uses .upsert(on_conflict="id") instead of .update() so the whole adapter file carries zero literal ".update(" calls, not just append_event
+- 2026-07-03 (22-06): every assistant message insert (fresh turn AND regenerate) always gets a freshly-generated sibling_group_id rather than leaving it null until a first regenerate — removes a backfill special-case
+- 2026-07-03 (22-06): regenerate() runs the pre-turn cost gate BEFORE set_sibling_inactive — a BLOCKed regenerate must never retire the only active assistant reply for a turn
+- 2026-07-03 (22-06): test files placed at tests/test_chat_provider_router.py (flat) + tests/application/test_run_chat_turn.py — repeats the 22-02/22-04 precedent (no tests/unit/ directory exists anywhere in this repo)
 
 ## Performance Metrics
 
@@ -1095,3 +1100,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 22 P03 | ~25min | 1 tasks | 3 files |
 | Phase 22 P04 | 25min | 3 tasks | 13 files |
 | Phase 22 P05 | 25min | 3 tasks | 13 files |
+| Phase 22 P06 | 70min | 3 tasks | 10 files |
