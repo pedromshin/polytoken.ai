@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: paused
-last_updated: "2026-07-03T22:15:54.440Z"
-last_activity: 2026-07-03 -- Phase 22 Plan 07 (chat streaming transport + emit_ui_spec tool) complete
+last_updated: "2026-07-03T22:47:20.025Z"
+last_activity: "2026-07-03 -- Phase 22 Plan 08 (streamed chat core: SSE proxy + useChatStream + MessageList/Composer) complete"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 11
-  completed_plans: 7
-  percent: 64
+  completed_plans: 8
+  percent: 0
 ---
 
 # State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 22 (Chat Spine + Persistence + Streaming) — EXECUTING
-Plan: 8 of 11
-Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28; 22-04 complete: cost ledger port/adapter + fail-closed CostCircuitBreaker (config-only $0.50/$2.00/$5.00 caps) + D-22 genui usage-capture fix; 22-05 complete: chat tRPC router create/list/rename/delete/getHistory over Drizzle + /chat route with collapsible rail, home empty-state, inline rename, hard-delete confirm dialog, single Chat sidebar nav item — CHAT-02 done, CHAT-01 persistence-side done; 22-06 complete: RunChatTurn agent/run orchestrator (SEAM-04) — history assembly (D-26 trim) + ChatProviderRouter + fail-closed pre-turn gate (D-21) + streamed typed run events (SEAM-03) + FOUND-1 persistence + full turn-control lifecycle (mid-stream cost abort, cancel->stopped, failure->failed, regenerate-as-sibling D-16); chat persistence repos + provider router DI-wired; 22-07 complete: EMIT_UI_SPEC_TOOL capability-gated (D-05) offering + D-18 interleaved genui_spec parts via an immutable _TurnState accumulator, injected into RunChatTurn's constructor to avoid an application->infrastructure import-linter violation; POST /v1/chat/stream + /v1/chat/regenerate FastAPI SSE endpoints (X-API-Key fail-closed) with real asyncio.Task cancellation on client disconnect driving the D-15/D-25 stopped-partial path — STREAM-01/STREAM-02/CHAT-03/CHAT-04 done)
-Last activity: 2026-07-03 -- Phase 22 Plan 07 (chat streaming transport + emit_ui_spec tool) complete
+Plan: 9 of 11
+Status: Executing Phase 22 (22-01 complete: chat data model + migration 0023 applied to local Postgres; 22-02 complete: ChatProvider port + curated 7-entry model registry + BedrockChatAdapter/OpenRouterChatAdapter + GET /v1/chat/models; 22-03 complete: sanitized MarkdownRenderer — react-markdown + remark-gfm + rehype-sanitize + rehype-highlight, CHAT-07/D-28; 22-04 complete: cost ledger port/adapter + fail-closed CostCircuitBreaker (config-only $0.50/$2.00/$5.00 caps) + D-22 genui usage-capture fix; 22-05 complete: chat tRPC router create/list/rename/delete/getHistory over Drizzle + /chat route with collapsible rail, home empty-state, inline rename, hard-delete confirm dialog, single Chat sidebar nav item — CHAT-02 done, CHAT-01 persistence-side done; 22-06 complete: RunChatTurn agent/run orchestrator (SEAM-04) — history assembly (D-26 trim) + ChatProviderRouter + fail-closed pre-turn gate (D-21) + streamed typed run events (SEAM-03) + FOUND-1 persistence + full turn-control lifecycle (mid-stream cost abort, cancel->stopped, failure->failed, regenerate-as-sibling D-16); chat persistence repos + provider router DI-wired; 22-07 complete: EMIT_UI_SPEC_TOOL capability-gated (D-05) offering + D-18 interleaved genui_spec parts via an immutable _TurnState accumulator, injected into RunChatTurn's constructor to avoid an application->infrastructure import-linter violation; POST /v1/chat/stream + /v1/chat/regenerate FastAPI SSE endpoints (X-API-Key fail-closed) with real asyncio.Task cancellation on client disconnect driving the D-15/D-25 stopped-partial path — STREAM-01/STREAM-02/CHAT-03/CHAT-04 done; 22-08 complete: Next.js SSE proxy routes injecting EMAIL_LISTENER_API_KEY server-side (D-24) + useChatStream hook (parseSseChunk/applyRunEvent pure helpers, idle->streaming->terminal state machine) + MessageList/MessageTurn/Composer wired into /chat — the first end-to-end streamed conversation (send -> live stream -> persists across reload), CHAT-01/03/06/07 + STREAM-01 done)
+Last activity: 2026-07-03 -- Phase 22 Plan 08 (streamed chat core: SSE proxy + useChatStream + MessageList/Composer) complete
 
-Progress: [██████░░░░] 64%
+Progress: [███████░░░] 73%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -300,7 +300,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** None
+- **Resume file:** .planning/phases/22-chat-spine-persistence-streaming/22-09-PLAN.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
@@ -1102,3 +1102,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 22 P05 | 25min | 3 tasks | 13 files |
 | Phase 22 P06 | 70min | 3 tasks | 10 files |
 | Phase 22 P07 | 30min | 2 tasks | 8 files |
+| Phase 22 P08 | 35min | 3 tasks | 9 files |
