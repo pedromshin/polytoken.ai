@@ -61,6 +61,11 @@ from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUse
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
+from app.domain.ports.chat_repositories import (
+    ChatConversationRepository,
+    ChatMessageRepository,
+    ChatRunRepository,
+)
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository
 from app.domain.ports.email_repository import EmailRepository
@@ -77,6 +82,7 @@ from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.retrieval_provider import RetrievalProvider
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
+from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
@@ -105,6 +111,11 @@ from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTyp
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.retrieval_repository import SupabaseRetrievalRepository
+from app.infrastructure.supabase.supabase_chat_conversation_repository import (
+    SupabaseChatConversationRepository,
+)
+from app.infrastructure.supabase.supabase_chat_message_repository import SupabaseChatMessageRepository
+from app.infrastructure.supabase.supabase_chat_run_repository import SupabaseChatRunRepository
 from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
 from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
@@ -467,6 +478,29 @@ def _provide_bedrock_chat_adapter(client: AsyncAnthropicBedrock) -> BedrockChatA
     )
 
 
+def _provide_chat_message_repository(client: Client) -> ChatMessageRepository:
+    """SupabaseChatMessageRepository — chat_messages adapter (FOUND-1, D-16, D-18, Phase 22-06)."""
+    return SupabaseChatMessageRepository(client=client)
+
+
+def _provide_chat_run_repository(client: Client) -> ChatRunRepository:
+    """SupabaseChatRunRepository — chat_runs/chat_run_events adapter (SEAM-03/04, D-27, Phase 22-06)."""
+    return SupabaseChatRunRepository(client=client)
+
+
+def _provide_chat_conversation_repository(client: Client) -> ChatConversationRepository:
+    """SupabaseChatConversationRepository — the turn loop's chat_conversations write (D-10/D-12)."""
+    return SupabaseChatConversationRepository(client=client)
+
+
+def _provide_chat_provider_router(
+    bedrock: BedrockChatAdapter,
+    openrouter: OpenRouterChatAdapter,
+) -> ChatProviderRouter:
+    """ChatProviderRouter — routes a picked model_id to its registry transport (Phase 22-06)."""
+    return ChatProviderRouter(bedrock=bedrock, openrouter=openrouter)
+
+
 def _provide_openrouter_chat_adapter(http_client: httpx.AsyncClient) -> OpenRouterChatAdapter:
     """OpenRouterChatAdapter — the second ChatProvider implementation (Phase 22, D-07, D-22).
 
@@ -689,6 +723,12 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # between them by the picked model's registry transport.
     provider.provide(_provide_bedrock_chat_adapter, provides=BedrockChatAdapter)
     provider.provide(_provide_openrouter_chat_adapter, provides=OpenRouterChatAdapter)
+
+    # ── Chat spine — persistence repos + provider router (Phase 22-06) ───────
+    provider.provide(_provide_chat_message_repository, provides=ChatMessageRepository)
+    provider.provide(_provide_chat_run_repository, provides=ChatRunRepository)
+    provider.provide(_provide_chat_conversation_repository, provides=ChatConversationRepository)
+    provider.provide(_provide_chat_provider_router, provides=ChatProviderRouter)
 
     return provider
 
