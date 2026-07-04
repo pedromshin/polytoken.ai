@@ -169,6 +169,13 @@
       "when": 1783103888264,
       "tag": "0023_chat_spine",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783190400000,
+      "tag": "0024_chat_canvas_layouts",
+      "breakpoints": true
     }
   ]
 }

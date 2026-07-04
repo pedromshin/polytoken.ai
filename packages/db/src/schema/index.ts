@@ -28,3 +28,4 @@ export * from "./chat-runs";
 export * from "./chat-messages";
 export * from "./chat-run-events";
 export * from "./chat-cost-ledger";
+export * from "./chat-canvas-layouts";
