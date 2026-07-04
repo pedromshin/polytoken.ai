@@ -1,10 +1,11 @@
 ---
 phase: 23
 slug: 2d-canvas-panels-as-nodes-shared-state
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-07-04
+reviewed_at: 2026-07-03
 ---
 
 # Phase 23 — UI Design Contract
@@ -99,7 +100,7 @@ not the view level).
 handful of panels (one chat node + N genui panels from that conversation's turns) — a minimap adds
 chrome without a navigational payoff at this scale and would be the first UI a first-time canvas
 user sees, competing with the empty-canvas state. Provide a toolbar toggle (`Map` icon, `size="sm"`
-`variant="ghost"`, `aria-pressed`) to enable it per-session if a conversation grows large; state is
+`variant="ghost"`, `aria-pressed`, `aria-label="Toggle minimap"`) to enable it per-session if a conversation grows large; state is
 NOT persisted (session-only, resets to off on reload — avoids a second persisted-preference axis
 beyond the view-mode toggle).
 
@@ -217,7 +218,7 @@ that graph's entity taxonomy):**
 | Streaming indicator (on a genui-panel node header, mirrors `GeneratingIndicator`'s idiom) | No text label on the node itself (space-constrained) — an animated `text-primary` pulsing dot (`●`, `motion-safe:animate-pulse`) + `aria-label="Streaming"` on the dot's wrapping element; the toolbar's existing `GeneratingIndicator` ("Generating…" text) remains the authoritative text-bearing status, visible when the Chat-node's embedded composer is active |
 | Edge-creation picker — trigger (D-09 discretion) | Appears on completing a drag-to-connect gesture between two node handles: popover heading "Connect panels" |
 | Edge-creation picker — field labels | "Source field" (dropdown: dotted paths available from the source panel's declared state/output, e.g. `panels.abc123.selectedValue`) → "Target field" (dropdown: keys the target panel's `data` context accepts) |
-| Edge-creation picker — confirm/cancel | Confirm: "Connect" (`variant="default"`) · Cancel: "Cancel" (`variant="ghost"`) |
+| Edge-creation picker — confirm/cancel | Confirm: "Connect fields" (`variant="default"`) · Cancel: "Don't connect" (`variant="ghost"`) — context-specific labels per the Phase-22 "Keep conversation" precedent; never a literal "Cancel" |
 | Edge-creation picker — no compatible fields (edge case) | "This panel doesn't expose any fields yet — add state to it first." (informational, no action) |
 | Edge validation failure (Zod reject at connect time, FOUND-6) | Inline `text-xs text-destructive` under the picker's field row: "This value type isn't compatible with the target field." |
 | Data-carrying edge label (on-canvas, always-visible small label at edge midpoint) | `{sourcePath} → {targetKey}` in `text-xs text-muted-foreground` on a small `bg-background/80` pill — makes wiring legible without opening the picker |
@@ -298,7 +299,8 @@ deselects (same as `/knowledge`).
 `Handle` (right side, `Position.Right`) to a target panel's input `Handle` (left side,
 `Position.Left`). On drop, `EdgeCreationPicker` opens as a `Popover` anchored at the drop point:
 two `Select` dropdowns (Source field / Target field, populated from each panel's declared-state
-keys) + Connect/Cancel. The edge is NOT created until the user confirms — an accidental drag never
+keys) + "Connect fields" / "Don't connect" (context-specific pair — same convention as Phase 22's
+"Keep conversation"). The edge is NOT created until the user confirms — an accidental drag never
 silently wires two panels together (mirrors DCUI's "never auto-fire" posture applied to canvas
 wiring). Confirming validates the value's shape against the target's expected schema (FOUND-6)
 before committing; a validation failure keeps the picker open with the inline error copy (see
@@ -307,7 +309,10 @@ Copywriting Contract) rather than creating a broken edge.
 **Editing an existing data edge:** Clicking an edge's midpoint label pill re-opens
 `EdgeCreationPicker` pre-filled with its current source/target, allowing re-pick or delete
 (`Button variant="ghost" size="sm"` "Remove connection" inside the same popover, `destructive`
-text color only on this one action).
+text color only on this one action). Deliberately NO confirmation dialog on edge removal: a data
+edge is low-stakes, locally-scoped canvas wiring that is trivially re-created via the same picker —
+unlike Delete-conversation (irreversible data loss, full `AlertDialog` in Phase 22), the cost of an
+accidental removal is one drag, so extra chrome would be friction without protection value.
 
 **Debounced save (D-06):** Any of {node drag end, node resize end (if resizing is ever exposed —
 not in this phase's scope), edge create/delete, viewport pan/zoom settling} schedules a debounced
@@ -396,11 +401,11 @@ which this repo does not have).
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved (gsd-ui-checker, 2026-07-03 — 6/6 PASS after 1 revision)
