@@ -78,22 +78,27 @@ function useChatController(): ConversationController {
 
 const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
 
-export const ChatNode = memo(function ChatNode({
-  data,
-  selected,
-}: NodeProps<ChatNodeType>) {
+/**
+ * ChatNodeBody — the HEAVY content (title query + full message list +
+ * composer), split out of the node shell so dragging stays smooth: React Flow
+ * feeds changing position props (positionAbsoluteX/Y, dragging) into the node
+ * component on EVERY drag tick, defeating its memo — but this body's only
+ * prop is the stable conversationId, so its memo holds and the message
+ * list/markdown never re-render mid-drag (CANVAS-04; found live 2026-07-04).
+ */
+const ChatNodeBody = memo(function ChatNodeBody({
+  conversationId,
+}: {
+  readonly conversationId: string;
+}) {
   const controller = useChatController();
   const { data: conversations } = api.chat.listConversations.useQuery({});
   const title =
-    conversations?.find((conversation) => conversation.id === data.conversationId)
+    conversations?.find((conversation) => conversation.id === conversationId)
       ?.title ?? "Chat";
 
   return (
-    <div
-      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
-    >
-      <Handle type="target" position={Position.Left} />
-
+    <>
       <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center gap-2 border-b border-border/60 bg-muted/60 px-3 active:cursor-grabbing">
         <span className="truncate text-sm font-semibold text-foreground">
           {title}
@@ -115,7 +120,20 @@ export const ChatNode = memo(function ChatNode({
           onStop={controller.handleStop}
         />
       </div>
+    </>
+  );
+});
 
+export const ChatNode = memo(function ChatNode({
+  data,
+  selected,
+}: NodeProps<ChatNodeType>) {
+  return (
+    <div
+      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
+    >
+      <Handle type="target" position={Position.Left} />
+      <ChatNodeBody conversationId={data.conversationId} />
       <Handle type="source" position={Position.Right} />
     </div>
   );

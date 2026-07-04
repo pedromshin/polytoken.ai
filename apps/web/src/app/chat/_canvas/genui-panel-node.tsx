@@ -35,21 +35,27 @@ export type GenuiPanelNodeType = Node<GenuiPanelNodeData, "genui-panel">;
 
 const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
 
-export const GenuiPanelNode = memo(function GenuiPanelNode({
-  data,
-  selected,
-}: NodeProps<GenuiPanelNodeType>) {
-  const { specJson, isStreaming } = useCanvasSpec(data.provenance);
+/**
+ * GenuiPanelNodeBody — heavy content (spec render) split from the node shell:
+ * React Flow's per-drag-tick position props defeat the node component's memo,
+ * but this body's props (provenance ref + turnIndex) are stable, so the
+ * SpecRenderer tree never re-renders mid-drag (CANVAS-04; found live
+ * 2026-07-04).
+ */
+const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
+  provenance,
+  turnIndex,
+}: {
+  readonly provenance: GenuiPanelNodeData["provenance"];
+  readonly turnIndex: number;
+}) {
+  const { specJson, isStreaming } = useCanvasSpec(provenance);
 
   return (
-    <div
-      className={`flex h-full min-h-[240px] w-full min-w-[320px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
-    >
-      <Handle type="target" position={Position.Left} />
-
+    <>
       <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-border/60 bg-muted/60 px-3 active:cursor-grabbing">
         <span className="truncate text-xs font-normal text-muted-foreground">
-          From turn {data.turnIndex}
+          From turn {turnIndex}
         </span>
         {isStreaming && (
           <span
@@ -66,7 +72,23 @@ export const GenuiPanelNode = memo(function GenuiPanelNode({
           <GenuiPartBoundary specJson={specJson} isStreaming={isStreaming} />
         </div>
       </ScrollArea>
+    </>
+  );
+});
 
+export const GenuiPanelNode = memo(function GenuiPanelNode({
+  data,
+  selected,
+}: NodeProps<GenuiPanelNodeType>) {
+  return (
+    <div
+      className={`flex h-full min-h-[240px] w-full min-w-[320px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
+    >
+      <Handle type="target" position={Position.Left} />
+      <GenuiPanelNodeBody
+        provenance={data.provenance}
+        turnIndex={data.turnIndex}
+      />
       <Handle type="source" position={Position.Right} />
     </div>
   );

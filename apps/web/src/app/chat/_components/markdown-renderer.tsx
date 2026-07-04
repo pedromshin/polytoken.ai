@@ -199,22 +199,31 @@ export interface MarkdownRendererProps {
   readonly content: string;
 }
 
+// Module-level plugin arrays: stable identities so react-markdown never
+// rebuilds its unified processor between renders (per-render array literals
+// defeat its internal memoization).
+const REMARK_PLUGINS = [remarkGfm];
+const REHYPE_PLUGINS = [rehypeSanitize, rehypeHighlight];
+
 /**
  * Renders assistant-turn markdown as sanitized, syntax-highlighted React
  * elements. Consumed by the message list (22-08) as a reusable primitive.
+ * Memoized on `content` — a message list re-render (streaming ticks, canvas
+ * drags) must not re-parse every already-rendered message's markdown
+ * (CANVAS-04 smoothness; found live 2026-07-04).
  */
-export function MarkdownRenderer({
+export const MarkdownRenderer = React.memo(function MarkdownRenderer({
   content,
 }: MarkdownRendererProps): JSX.Element {
   return (
     <div className="max-w-none text-sm text-foreground">
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSanitize, rehypeHighlight]}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={REHYPE_PLUGINS}
         components={MARKDOWN_COMPONENTS}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+});
