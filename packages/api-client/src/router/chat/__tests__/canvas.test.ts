@@ -21,6 +21,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type CanvasSnapshot,
   CanvasSnapshotSchema,
   getCanvasLayoutInputSchema,
   hasForbiddenKeyDeep,
@@ -32,7 +33,7 @@ import {
 const VALID_CONVERSATION_ID = "00000000-0000-0000-0000-000000000001";
 const VALID_MESSAGE_ID = "00000000-0000-0000-0000-000000000002";
 
-function makeValidSnapshot() {
+function makeValidSnapshot(): CanvasSnapshot {
   return {
     nodes: [
       {
@@ -119,10 +120,7 @@ describe("CanvasSnapshotSchema", () => {
         id: "node-1",
         type: "genui-panel",
         position: { x: 0, y: 0 },
-        data: { spec: { type: "card" } } as unknown as Record<
-          string,
-          unknown
-        >,
+        data: { spec: { type: "card" } },
       },
     ];
     expect(CanvasSnapshotSchema.safeParse(snapshot).success).toBe(false);
@@ -135,10 +133,7 @@ describe("CanvasSnapshotSchema", () => {
         id: "node-1",
         type: "genui-panel",
         position: { x: 0, y: 0 },
-        data: { root: { type: "card" } } as unknown as Record<
-          string,
-          unknown
-        >,
+        data: { root: { type: "card" } },
       },
     ];
     expect(CanvasSnapshotSchema.safeParse(snapshot).success).toBe(false);
