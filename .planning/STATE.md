@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-04T02:34:29.444Z"
-last_activity: 2026-07-04 -- Phase 23 execution started
+last_updated: "2026-07-04T03:12:39.698Z"
+last_activity: 2026-07-04 -- Phase 23 Plan 03 (canvas surface + view toggle) executed
 progress:
   total_phases: 4
   completed_phases: 1
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 25
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 23 (2D Canvas + Panels-as-Nodes + Shared State) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Executing Phase 23
-Last activity: 2026-07-04 -- Phase 23 execution started
+Last activity: 2026-07-04 -- Phase 23 Plan 03 (canvas surface + view toggle) executed
 
-Progress: [████████░░] 81%
+Progress: [█████████░] 88%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -1061,6 +1061,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-03 (22-11): added minimal browser-locus Stop support (engine.interruptGenerate() + a ref-tracked terminal-status label) even though the plan's action text only covered send — CHAT-03 Stop is an already-shipped, phase-wide contract; leaving it a silent no-op for the browser locus would be a regression
 - 2026-07-04 (23-02): computeNodeRegistryHash hashes a Zod public-API structural schema-shape summary (not .toString()/raw object) — browser-safe FNV-1a, flips on any real schema change (field add/remove/retype, check add, nullability change)
 - 2026-07-04 (23-02): GenuiPanelNode Handles left visible (not hidden via opacity-0) since canvas edges are user-created via interactive drag-to-connect, unlike /knowledge's decorative-only handles
+- 2026-07-04 (23-03): ChatNode reads conversation title from a live api.chat.listConversations query (cached, same as the rail) rather than node.data — node.data stays provenance-only (conversationId) per 23-02's fixed Zod boundary
+- 2026-07-04 (23-03): genui-panel nodes materialize only from ACTIVE (isActive) history rows — a regenerated turn's retired sibling never also renders a panel, keeping canvas panel count in lockstep with what the docked view currently displays
+- 2026-07-04 (23-03): persistence/restore intentionally NOT wired this plan (23-04's seam) — ChatCanvas rebuilds nodes + a fresh dagre layout from chat.getHistory on every mount; dragged positions aren't preserved across a Chat<->Canvas toggle yet
+- 2026-07-04 (23-03, Rule 3 fix): vitest had no "~/*" path alias (only tsconfig.json's `paths` had it) — any test reaching "~/trpc/react" failed to resolve under vite; added `resolve.alias` to vitest.config.ts mirroring tsconfig
 
 ## Performance Metrics
 
@@ -1118,3 +1122,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 22 P11 | ~65min | 2 tasks | 12 files — @mlc-ai/web-llm engine hook + picker activation + browser-locus send branch + chat.recordBrowserTurn persistence; phase 22 all 11 plans complete |
 | Phase 23 P01 | 35min | 3 tasks | 8 files |
 | Phase 23 P02 | 25min | 2 tasks | 7 files |
+| Phase 23 P03 | ~35min | 3 tasks | 13 files |

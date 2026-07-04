@@ -26,7 +26,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Canvas
 
-- [ ] **CANVAS-01**: User can view a chat's genui outputs as draggable/pannable panels-as-nodes on a 2D infinite canvas
+- [x] **CANVAS-01**: User can view a chat's genui outputs as draggable/pannable panels-as-nodes on a 2D infinite canvas
 - [x] **CANVAS-02**: Canvas layout persists per conversation and restores on reload
 - [x] **CANVAS-03**: Canvas node model admits new node types via a versioned node-type registry (genui-panel + chat now; agent/run later)
 - [ ] **CANVAS-04**: Canvas stays responsive while panels stream live content (volatile state outside the `nodes` array, memoized node types)
@@ -106,7 +106,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STREAM-03 | Phase 22 | Complete |
 | SEAM-03 | Phase 22 | Complete |
 | SEAM-04 | Phase 22 | Complete |
-| CANVAS-01 | Phase 23 | Pending |
+| CANVAS-01 | Phase 23 | Complete |
 | CANVAS-02 | Phase 23 | Complete |
 | CANVAS-03 | Phase 23 | Complete |
 | CANVAS-04 | Phase 23 | Pending |
