@@ -44,7 +44,7 @@ See [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md).
 responses, laid out on a 2D infinite canvas of genui panels, where the agent and user exchange
 interactive declarative widgets in both directions. Local/sandbox only — no deploy criteria.
 
-- [ ] **Phase 22: Chat Spine + Persistence + Streaming** - Persistent, streamed `/chat` (text + progressive genui partial-tree specs) with the full table-stakes chat state machine and an application-level cost circuit breaker
+- [x] **Phase 22: Chat Spine + Persistence + Streaming** - Persistent, streamed `/chat` (text + progressive genui partial-tree specs) with the full table-stakes chat state machine and an application-level cost circuit breaker (completed 2026-07-04)
 - [ ] **Phase 23: 2D Canvas + Panels-as-Nodes + Shared State** - genui panels laid out as draggable/pannable nodes on a persistent, responsive infinite canvas with cross-panel shared state and data-carrying edges
 - [ ] **Phase 24: Dual-Channel GenUI** - Agent↔user widget round-trips (proposal cards → clarify-widgets), safely re-validated and persisted
 - [ ] **Phase 25: Anticipatory Prompting (SPIKE)** - Eval-gated, frequency-capped proactive-prompt trigger layer
@@ -74,7 +74,7 @@ work from day one, and an application-level cost circuit breaker guards every tu
 - [x] 22-08-PLAN.md — Streamed chat core: Next SSE proxy + stream hook + message list + composer + stop + auto-scroll
 - [x] 22-09-PLAN.md — Rich mechanics: regenerate siblings + inline error/cost-cap recovery + progressive partial-tree genui
 - [x] 22-10-PLAN.md — Model picker (registry-driven, honest capabilities + cost + best-for) + session cost meter
-- [ ] 22-11-PLAN.md — In-browser WebLLM prototype (WebGPU, local streaming, canonical-shape persistence, $0 metered)
+- [x] 22-11-PLAN.md — In-browser WebLLM prototype (WebGPU, local streaming, canonical-shape persistence, $0 metered)
 **UI hint**: yes
 
 ### Phase 23: 2D Canvas + Panels-as-Nodes + Shared State
@@ -123,7 +123,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 22. Chat Spine + Persistence + Streaming | 10/11 | In Progress|  |
+| 22. Chat Spine + Persistence + Streaming | 11/11 | Complete   | 2026-07-04 |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 0/TBD | Not started | - |
 | 24. Dual-Channel GenUI | 0/TBD | Not started | - |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
