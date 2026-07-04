@@ -2,11 +2,12 @@
 
 chat_run_events is append-only (T-22-22 repudiation mitigation): append_event
 NEVER updates or deletes an existing row — it always INSERTs a new one, with
-seq computed as (current max seq for the run) + 1. finish_run uses an upsert
-(ON CONFLICT (id) DO UPDATE) rather than a literal `.update(` call — this file
-carries zero literal `.update(` calls (verified by the plan's own acceptance
-grep), keeping the "no update path" property true across the whole adapter,
-not just the events table.
+seq computed as (current max seq for the run) + 1. The append-only property
+applies to the EVENTS table; chat_runs.status is mutable by design, and
+finish_run performs a real UPDATE on the run row. (A partial-row upsert is NOT
+equivalent: Postgres checks NOT NULL constraints on the candidate insert tuple
+before ON CONFLICT resolution, so upserting {id, status, ended_at} always
+violates chat_runs.conversation_id NOT NULL — found live, 2026-07-04.)
 
 WR-06: supabase-py's Client is synchronous; every blocking call is offloaded to
 a thread-pool worker via asyncio.to_thread().
@@ -86,10 +87,8 @@ class SupabaseChatRunRepository:
         await asyncio.to_thread(
             lambda: (
                 self._client.table(_RUNS_TABLE)
-                .upsert(
-                    {"id": run_id, "status": status, "ended_at": datetime.now(UTC).isoformat()},
-                    on_conflict="id",
-                )
+                .update({"status": status, "ended_at": datetime.now(UTC).isoformat()})
+                .eq("id", run_id)
                 .execute()
             )
         )

@@ -154,13 +154,17 @@ class RunChatTurn:
         is_first_turn = len(history) == 0
         turn_index = max((m.turn_index for m in history), default=-1) + 1
 
-        await self._messages.insert_message(
+        user_message = await self._messages.insert_message(
             conversation_id=conversation_id,
             role="user",
             parts=({"type": "text", "text": user_text},),
             turn_index=turn_index,
             status="completed",
         )
+        # The provider must see the CURRENT user turn — history was read before
+        # the insert above, so append the persisted row (an empty `messages`
+        # array is a Bedrock ValidationException on a fresh conversation).
+        history = [*history, user_message]
 
         prompt_tokens_est = estimate_prompt_tokens(len(user_text))
         decision = await self._breaker.check_pre_turn(
@@ -234,7 +238,14 @@ class RunChatTurn:
 
         sibling_group_id = target.sibling_group_id or target.id
         await self._messages.set_sibling_inactive(sibling_group_id)
-        prior_history = [m for m in history if m.turn_index < target.turn_index]
+        # Prior turns PLUS the user message of the turn being regenerated — the
+        # provider needs the prompt that produced the original response.
+        prior_history = [
+            m
+            for m in history
+            if m.turn_index < target.turn_index
+            or (m.turn_index == target.turn_index and m.role == "user")
+        ]
         next_version = target.version + 1
 
         async for event in self._execute_turn(

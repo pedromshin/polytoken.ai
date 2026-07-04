@@ -737,3 +737,63 @@ async def test_regenerate_blocked_by_pre_turn_cost_does_not_retire_sibling() -> 
     active_assistant = [m for m in active if m.role == "assistant"]
     assert len(active_assistant) == 1
     assert active_assistant[0].id == original.id
+
+
+# ---------------------------------------------------------------------------
+# Live-run regressions (found 2026-07-04 driving the real stack — bugs the
+# original mocks masked; see 22-06 SUMMARY addendum)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_fresh_conversation_provider_receives_current_user_message() -> None:
+    """REGRESSION: history is read BEFORE the user insert — the provider must
+    still see the current user turn. Live failure: Bedrock 400
+    ValidationException on `messages: []` for every fresh conversation."""
+    provider = FakeChatProvider([TextDelta(text="Hi"), StreamEnd(stop_reason="end_turn")])
+    use_case, _fakes = _make_use_case(provider=provider)
+
+    async for _ in use_case.run(
+        conversation_id=_CONVERSATION_ID, user_text="First ever message", model_id=_SERVER_MODEL.id
+    ):
+        pass
+
+    assert provider.stream_calls, "provider was never called"
+    sent = provider.stream_calls[0]["messages"]
+    assert sent, "provider received an empty messages array (Bedrock 400s on this)"
+    assert sent[-1]["role"] == "user"
+    assert "First ever message" in str(sent[-1]["content"])
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_regenerate_provider_receives_target_turn_user_message() -> None:
+    """REGRESSION: regenerate must include the user prompt of the turn being
+    regenerated — `turn_index < target` alone excludes it (same-empty-messages
+    failure class on a first-turn regenerate)."""
+    messages = FakeChatMessageRepository()
+    await messages.insert_message(
+        conversation_id=_CONVERSATION_ID, role="user", parts=({"type": "text", "text": "Q1"},), turn_index=0
+    )
+    original = await messages.insert_message(
+        conversation_id=_CONVERSATION_ID,
+        role="assistant",
+        parts=({"type": "text", "text": "A1"},),
+        turn_index=0,
+        sibling_group_id="sib-0",
+        version=1,
+        is_active=True,
+    )
+    provider = FakeChatProvider([TextDelta(text="A1 v2"), StreamEnd(stop_reason="end_turn")])
+    use_case, _fakes = _make_use_case(provider=provider, messages=messages)
+
+    async for _ in use_case.regenerate(
+        conversation_id=_CONVERSATION_ID, assistant_message_id=original.id, model_id=_SERVER_MODEL.id
+    ):
+        pass
+
+    sent = provider.stream_calls[0]["messages"]
+    assert sent, "regenerate sent an empty messages array"
+    assert sent[-1]["role"] == "user"
+    assert "Q1" in str(sent[-1]["content"])
