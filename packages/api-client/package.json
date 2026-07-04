@@ -11,6 +11,10 @@
     "./geometry": {
       "types": "./dist/geometry.d.ts",
       "default": "./src/geometry.ts"
+    },
+    "./chat-canvas": {
+      "types": "./dist/router/chat/canvas-schema.d.ts",
+      "default": "./src/router/chat/canvas-schema.ts"
     }
   },
   "scripts": {

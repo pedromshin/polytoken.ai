@@ -22,6 +22,12 @@ import { UnknownNodeTypePlaceholder } from "./unknown-node-type-placeholder";
 export const nodeTypes: NodeTypes = {
   chat: ChatNode,
   "genui-panel": GenuiPanelNode,
+  // Plan 23-04 (restore + degrade, T-23-09/CANVAS-03): a node reconciled from
+  // a persisted layout whose type this session's registry doesn't recognize
+  // is rewritten to this fixed key (original type preserved in
+  // data.nodeType) — it MUST be a real entry here or React Flow falls back
+  // to its own default node renderer instead of the inert placeholder card.
+  "unknown-node-type": UnknownNodeTypePlaceholder,
 };
 
 /**
