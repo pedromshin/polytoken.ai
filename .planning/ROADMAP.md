@@ -109,7 +109,7 @@ first, then richer clarify-widgets — with every round-trip safely re-validated
   3. Every widget round-trip is re-validated server-side against its declared schema, locked against double-submit, signals staleness, and requires explicit user action — it never auto-fires
   4. GenUI turns and widget interactions persist in both the conversation history and the canvas
 **Plans**: 4 plans (4 waves)
-- [ ] 24-01-PLAN.md — Widget-interaction spine: chat_widget_interactions (migration 0025, [BLOCKING] local push) + DB-level CAS double-submit lock + staleness query + stored-schema re-validator
+- [x] 24-01-PLAN.md — Widget-interaction spine: chat_widget_interactions (migration 0025, [BLOCKING] local push) + DB-level CAS double-submit lock + staleness query + stored-schema re-validator
 - [ ] 24-02-PLAN.md — Round-trip backend: emit_proposal_cards tool + turn-ending finalization + pending-row creation + POST /v1/chat/widget/submit (validate → stale → lock → interaction_result → continuation SSE)
 - [ ] 24-03-PLAN.md — Proposal cards UI: GenuiPartBoundary `bare` variant (mandatory prereq) + InteractiveWidgetBoundary/badges/compact entry + submit transport + transcript/canvas parity (D-08)
 - [ ] 24-04-PLAN.md — Clarify-widgets: emit_clarify_widget (schema-enforced submitLabel) + FormComponent values-through-registry + submitted compact view + 422 retry + server-side typing-supersedes
@@ -135,7 +135,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 |-------|-----------------|--------|-----------|
 | 22. Chat Spine + Persistence + Streaming | 11/11 | Complete   | 2026-07-04 |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 6/6 | Complete   | 2026-07-05 |
-| 24. Dual-Channel GenUI | 0/4 | Planned | - |
+| 24. Dual-Channel GenUI | 1/4 | In Progress|  |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
 
 ## Next

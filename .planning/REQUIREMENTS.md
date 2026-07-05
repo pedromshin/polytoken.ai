@@ -41,7 +41,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 - [ ] **DCUI-01**: Agent can emit proposal cards; clicking one sends a structured result that resumes the run
 - [ ] **DCUI-02**: Agent can emit clarify-widgets (forms/pickers from the declarative catalog + v1.2 form engine); submit returns a structured result to the agent
 - [ ] **DCUI-03**: Every widget round-trip is server-side re-validated, double-submit-locked, staleness-signaled, and requires explicit user action (never auto-fired)
-- [ ] **DCUI-04**: GenUI turns and widget interactions persist in the conversation history and canvas
+- [x] **DCUI-04**: GenUI turns and widget interactions persist in the conversation history and canvas
 
 ### Anticipatory Prompting (SPIKE)
 
@@ -115,7 +115,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DCUI-01 | Phase 24 | Pending |
 | DCUI-02 | Phase 24 | Pending |
 | DCUI-03 | Phase 24 | Pending |
-| DCUI-04 | Phase 24 | Pending |
+| DCUI-04 | Phase 24 | Complete |
 | ANTIC-01 | Phase 25 | Pending |
 | ANTIC-02 | Phase 25 | Pending |
 

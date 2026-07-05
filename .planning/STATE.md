@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
-status: verifying
-last_updated: "2026-07-05T04:59:57.800Z"
-last_activity: "2026-07-05 -- 23-06 executed (gap closure: ButtonComponent -> ActionRegistry trigger + panel-action-bridge write path + end-to-end proof; STATE-01/STATE-02 now observably true, closing 23-VERIFICATION.md's two missing items)"
+status: executing
+last_updated: "2026-07-05T15:42:43.407Z"
+last_activity: 2026-07-05 -- 24-01 executed (widget-interaction persistence + safety-primitive spine)
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 17
-  completed_plans: 17
+  total_plans: 21
+  completed_plans: 18
   percent: 50
 ---
 
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 23 — 2D Canvas + Panels-as-Nodes + Shared State (COMPLETE, gap closed) — next: Phase 24
+**Current focus:** Phase 24 — Dual-Channel GenUI
 
 ## Current Position
 
-Phase: 23 (2D Canvas + Panels-as-Nodes + Shared State) — ALL 6 PLANS COMPLETE (5 original + 1 gap closure)
-Plan: 6 of 6 (23-01..23-06 all complete)
-Status: Phase 23 complete + verification gap closed — ready for `/gsd:plan-phase 24` (Dual-Channel GenUI)
-Last activity: 2026-07-05 -- 23-06 executed (gap closure: ButtonComponent -> ActionRegistry trigger + panel-action-bridge write path + end-to-end proof; STATE-01/STATE-02 now observably true, closing 23-VERIFICATION.md's two missing items)
+Phase: 24 (Dual-Channel GenUI) — EXECUTING
+Plan: 2 of 4
+Status: Executing Phase 24
+Last activity: 2026-07-05 -- 24-01 executed (widget-interaction persistence + safety-primitive spine)
 
-Progress: [██████████] 100% (Phase 23)
+Progress: [█████████░] 86%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -80,6 +80,10 @@ live Bedrock / a browser.
 - **23-05 EXECUTED — Store + edges plumbing:** `createCanvasStore`/`CANVAS_STORE_MUTATIONS` (per-conversation `zustand/vanilla` store, superset of v1.1's declared-state 5-mutation grammar, `panels.*`/`shared.*` namespaces, FORBIDDEN_KEYS-guarded `resolveCanvasPath`) wired `GenuiPanelNode` -> `usePanelData` -> a new `data` prop on `GenuiPartBoundary` -> the UNMODIFIED `SpecRenderer`. `EdgePayloadSchema`/`DataEdge`/`EdgeCreationPicker` deliver data-carrying edges: drag-to-connect NEVER auto-wires (only the picker's explicit "Connect fields" creates an edge), a live Zustand subscription re-resolves the target panel's `data[targetKey]` on every source change, and `buildSnapshot` now persists real `sharedState` (optional 4th param, backward-compatible) alongside the `edges` array 23-04 already round-tripped. **Autonomous decision:** Task 1's blocking package-legitimacy checkpoint (zustand, absent from the repo) was resolved without stopping, per this run's explicit auto-mode directive — verified live at `registry.npmjs.org/zustand` (pmndrs/zustand, maintainers daishi/drcmda/jeremyrh, MIT) before installing via `npm install --workspace=@nauta/web` (npm-workspaces canonical, not the plan's literal pnpm command). See 23-05-SUMMARY.md for full detail.
 - **23-VERIFICATION.md found a gap (2026-07-05):** 4/5 ROADMAP success criteria verified, but SC #5 (STATE-01/02) was PARTIAL/FAILED — the store's WRITE path (`usePanelData().dispatch`) had ZERO production call sites anywhere outside its own test file. No genui-spec button/action ever reached it, so `panels.*`/`shared.*` stayed `{}` forever in a real session, and `EdgeCreationPicker`'s source-field list was permanently empty. Two `missing:` items: (1) a real trigger calling `.dispatch(...)`; (2) an end-to-end test/proof of interaction -> store write -> field discovery -> live edge resolution.
 - **23-06 EXECUTED (this session) — GAP CLOSED, PHASE 23 NOW GENUINELY COMPLETE:** Task 1 wired `ButtonComponent` (packages/genui catalog) to consume `ActionRegistryContext` — clicks now fire `registry[onClick.type]?.(onClick)` (or the legacy string `action` key), mirroring `FormComponent`'s exact contract, with zero `spec-renderer.tsx` changes. Task 2 built `panel-action-bridge.ts` (`buildPanelActionRegistry`/`usePanelActionRegistry`) — a per-panel `setState`-only `ActionRegistry` routing through `usePanelData().dispatch` (panels.*) or the raw store's `mutate` (shared.* prefix), always the literal `"set"` mutation — and threaded it through a new additive `actions` prop on `GenuiPartBoundary` into `GenuiPanelNodeBody`. Task 3 proved the full chain end-to-end with zero mocks (`panel-data-flow.test.tsx`): click -> store write -> `EdgeCreationPicker`'s own `panelFieldOptions` lists the field -> a live-subscribed target panel resolves the value and re-resolves on a second write. **Found + fixed 2 pre-existing bugs in 23-05's `canvas-store-context.tsx`** while writing that test (both were latent defects that only a live React mount could expose): a missing `React` import (JSX crashes outside Next's SWC auto-runtime) and an unstable `useSyncExternalStore` snapshot in `usePanelData`'s incoming-edges branch (infinite-loops ANY target panel with a live edge in production, not just tests) — fixed with zustand v5's `useShallow` + a stable empty-object constant. Both 23-VERIFICATION.md `missing:` items now closed. All 6 Phase 23 requirements (CANVAS-01..04, STATE-01/02) genuinely observable, not just plumbed. See 23-06-SUMMARY.md for full detail. **Next: Phase 24** (Dual-Channel GenUI, DCUI-01..04).
+
+## Phase 24 — Dual-Channel GenUI (executing 2026-07-05)
+
+- **24-01 EXECUTED:** The persistence + safety-primitive spine for agent<->user widget round-trips. `chat_widget_interactions` Drizzle table + migration 0025 (state machine pending/submitted/superseded/stale, stored `declared_response_schema` D-01/D-10, staleness columns, unique `(message_id, part_index)` lock index, RESTRICTIVE RLS deny-all) — live-verified against local Supabase (all columns, both CHECK constraints, both RLS policies, both indexes confirmed via direct `pg` query). `ChatWidgetInteractionRepository` port + `SupabaseChatWidgetInteractionRepository` adapter: `try_submit` is a DB-level CAS (`eq("id",...)` + `eq("state","pending")`, D-11 double-submit lock — a second submit matches zero rows); `is_stale` checks the emitting message's `is_active` flag + any strictly-newer `turn_index` in the conversation (D-12). `validate_result_against_schema` — a pure, fail-closed `jsonschema.Draft7Validator` re-validation service (D-10): empty/malformed declared schema is deliberately rejected (not delegated to jsonschema's technically-permissive `{}` reading), and the returned `reason` is always a generic string — the real jsonschema error is logged server-side only via structlog, never returned to the caller. Zero UI/tool/endpoint code (by design — persistence + safety primitives only). 15/15 pytest green (RED->GREEN for both TDD tasks), ruff/mypy/lint-imports clean, `packages/db` tsc clean. See 24-01-SUMMARY.md. **Next: 24-02** (the `emit_interactive_widget` tool + registry wiring).
 
 ## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
 
@@ -310,7 +314,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** None
+- **Resume file:** .planning/phases/24-dual-channel-genui/24-02-PLAN.md
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
@@ -1139,3 +1143,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 23 P04 | 55min | 3 tasks | 12 files |
 | Phase 23 P05 | ~50min | 3 tasks | 14 files |
 | Phase 23 P06 | 55min | 3 tasks | 9 files |
+| Phase 24 P01 | 35min | 3 tasks | 9 files |
