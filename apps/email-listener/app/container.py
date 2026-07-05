@@ -58,6 +58,7 @@ from app.application.use_cases.set_component_relationship import (
     SetComponentFieldRelationshipUseCase,
     SetComponentRoleUseCase,
 )
+from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -67,6 +68,7 @@ from app.domain.ports.chat_repositories import (
     ChatMessageRepository,
     ChatRunRepository,
 )
+from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository
 from app.domain.ports.email_repository import EmailRepository
@@ -88,7 +90,7 @@ from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
-from app.infrastructure.llm.chat_tools import build_emit_ui_spec_tool
+from app.infrastructure.llm.chat_tools import build_emit_proposal_cards_tool, build_emit_ui_spec_tool
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
 from app.infrastructure.llm.genui_code_generator_adapter import GenuiCodeGeneratorAdapter
@@ -118,6 +120,9 @@ from app.infrastructure.supabase.supabase_chat_conversation_repository import (
 )
 from app.infrastructure.supabase.supabase_chat_message_repository import SupabaseChatMessageRepository
 from app.infrastructure.supabase.supabase_chat_run_repository import SupabaseChatRunRepository
+from app.infrastructure.supabase.supabase_chat_widget_interaction_repository import (
+    SupabaseChatWidgetInteractionRepository,
+)
 from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
 from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
@@ -495,6 +500,11 @@ def _provide_chat_conversation_repository(client: Client) -> ChatConversationRep
     return SupabaseChatConversationRepository(client=client)
 
 
+def _provide_chat_widget_interaction_repository(client: Client) -> ChatWidgetInteractionRepository:
+    """SupabaseChatWidgetInteractionRepository — chat_widget_interactions adapter (Phase 24-01/24-02)."""
+    return SupabaseChatWidgetInteractionRepository(client=client)
+
+
 def _provide_chat_provider_router(
     bedrock: BedrockChatAdapter,
     openrouter: OpenRouterChatAdapter,
@@ -510,15 +520,20 @@ def _provide_run_chat_turn(
     router: ChatProviderRouter,
     breaker: CostCircuitBreaker,
     ledger: CostLedgerRepository,
+    widget_interactions: ChatWidgetInteractionRepository,
 ) -> RunChatTurn:
-    """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07).
+    """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
     default_importer_id/max_output_tokens come from settings (single-tenant
     DEFAULT_IMPORTER_ID + CHAT_MAX_OUTPUT_TOKENS), not per-call parameters.
-    emit_ui_spec_tool is wired here (not imported by run_chat_turn.py itself) —
-    RunChatTurn takes it as a plain dict constructor parameter specifically so
-    the application layer never imports app.infrastructure (Phase 22-07,
-    see chat_tools.py's layering note).
+    emit_ui_spec_tool/interactive_widget_tools are wired here (not imported by
+    run_chat_turn.py itself) — RunChatTurn takes them as plain dict/tuple
+    constructor parameters specifically so the application layer never
+    imports app.infrastructure (Phase 22-07, see chat_tools.py's layering
+    note). Phase 24-02: emit_proposal_cards is threaded in as the (currently
+    sole) interactive_widget_tools entry, alongside the widget-interaction
+    repository RunChatTurn needs to create the one pending row per emitted
+    widget (D-04).
     """
     settings = get_settings()
     return RunChatTurn(
@@ -531,6 +546,28 @@ def _provide_run_chat_turn(
         emit_ui_spec_tool=build_emit_ui_spec_tool(),
         default_importer_id=settings.DEFAULT_IMPORTER_ID,
         max_output_tokens=settings.CHAT_MAX_OUTPUT_TOKENS,
+        widget_interactions=widget_interactions,
+        interactive_widget_tools=(build_emit_proposal_cards_tool(),),
+    )
+
+
+def _provide_submit_widget_interaction(
+    widget_interactions: ChatWidgetInteractionRepository,
+    messages: ChatMessageRepository,
+    continuation_runner: RunChatTurn,
+) -> SubmitWidgetInteraction:
+    """Factory for SubmitWidgetInteraction — the DCUI-03 submit use case (Phase 24-02).
+
+    continuation_runner is typed as RunChatTurn here (dishka needs a concrete
+    resolvable type) but SubmitWidgetInteraction itself only depends on the
+    narrow local ContinuationRunner Protocol (continue_after_widget) — RunChatTurn
+    satisfies it structurally, mirroring how BedrockChatAdapter/OpenRouterChatAdapter
+    both satisfy ChatProvider without an explicit inheritance link.
+    """
+    return SubmitWidgetInteraction(
+        widget_interactions=widget_interactions,
+        messages=messages,
+        continuation_runner=continuation_runner,
     )
 
 
@@ -762,7 +799,11 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_chat_run_repository, provides=ChatRunRepository)
     provider.provide(_provide_chat_conversation_repository, provides=ChatConversationRepository)
     provider.provide(_provide_chat_provider_router, provides=ChatProviderRouter)
+
+    # ── Dual-channel genui — widget-interaction repo + submit use case (Phase 24-01/24-02) ──
+    provider.provide(_provide_chat_widget_interaction_repository, provides=ChatWidgetInteractionRepository)
     provider.provide(_provide_run_chat_turn, provides=RunChatTurn)
+    provider.provide(_provide_submit_widget_interaction, provides=SubmitWidgetInteraction)
 
     return provider
 

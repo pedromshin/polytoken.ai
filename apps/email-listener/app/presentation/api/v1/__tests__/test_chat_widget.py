@@ -23,11 +23,15 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
+from dishka import Provider, Scope, make_async_container
+from dishka.integrations.fastapi import setup_dishka
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction, WidgetSubmitRejected
 from app.domain.ports.chat_repositories import ChatRunEvent
+from app.presentation.api.v1.chat_widget import router
+from app.settings import Environment, get_settings
 
 _VALID_UUID_1 = "11111111-1111-1111-1111-111111111111"
 _VALID_UUID_2 = "22222222-2222-2222-2222-222222222222"
@@ -80,11 +84,6 @@ def _sample_events() -> list[ChatRunEvent]:
 
 
 def _make_app_with_fake_use_case(use_case: _FakeSubmitWidgetInteraction) -> FastAPI:
-    from dishka import Provider, Scope, make_async_container
-    from dishka.integrations.fastapi import setup_dishka
-
-    from app.presentation.api.v1.chat_widget import router
-
     app = FastAPI()
     app.include_router(router)
 
@@ -241,8 +240,6 @@ def test_rejects_non_object_result(client: TestClient) -> None:
 def test_requires_api_key_when_configured(
     monkeypatch: pytest.MonkeyPatch, fake_use_case: _FakeSubmitWidgetInteraction
 ) -> None:
-    from app.settings import Environment, get_settings
-
     get_settings.cache_clear()
     monkeypatch.setenv("ENVIRONMENT", "staging")
     monkeypatch.setenv("API_KEY", "secret-key")
