@@ -123,6 +123,27 @@ export function buildSpecsByProvenance(
   return map;
 }
 
+/** History-derived partsByProvenance map — feeds CanvasSpecProvider so a
+ * genui-panel node can branch on the RAW part type (Task 4, D-08:
+ * interactive_widget renders its own state chrome on the canvas, exactly as
+ * in the transcript). Covers both genui_spec and interactive_widget parts
+ * (the two panel-materializing part types — see buildExpectedGenuiPanelSpecs);
+ * interaction_result is a transcript entry, never a panel. */
+export function buildPartsByProvenance(
+  historyRows: readonly ChatHistoryRow[],
+): Map<string, MessagePart> {
+  const map = new Map<string, MessagePart>();
+  for (const row of historyRows) {
+    if (!row.isActive) continue;
+    const parts = (row.parts as MessagePart[] | null) ?? [];
+    parts.forEach((part, partIndex) => {
+      if (part.type !== "genui_spec" && part.type !== "interactive_widget") return;
+      map.set(provenanceKey(row.id, partIndex), part);
+    });
+  }
+  return map;
+}
+
 /** React Flow node -> the plain persisted-node shape `reconcileNodesFromHistory`
  * expects as its `savedNodes` argument — used to feed the CURRENT `nodes`
  * state back through reconciliation on a later `historyRows` change. */
@@ -342,6 +363,10 @@ export function ChatCanvas({
 
   const specsByProvenance = useMemo(
     () => buildSpecsByProvenance(historyRows),
+    [historyRows],
+  );
+  const partsByProvenance = useMemo(
+    () => buildPartsByProvenance(historyRows),
     [historyRows],
   );
   // CANVAS-04/D-07 seam — see buildStreamingByProvenance's own doc comment.
@@ -575,6 +600,7 @@ export function ChatCanvas({
         <CanvasSpecProvider
           specsByProvenance={specsByProvenance}
           streamingByProvenance={streamingByProvenance}
+          partsByProvenance={partsByProvenance}
         >
           <ChatControllerProvider controller={controller}>
             <EdgeLabelClickProvider onLabelClick={handleEdgeLabelClick}>

@@ -21,6 +21,7 @@
 
 import * as React from "react";
 
+import type { MessagePart } from "../_hooks/use-chat-stream";
 import type { Provenance } from "./node-data-schemas";
 
 export interface CanvasSpecEntry {
@@ -31,6 +32,11 @@ export interface CanvasSpecEntry {
 interface CanvasSpecContextValue {
   readonly specsByProvenance: ReadonlyMap<string, string>;
   readonly streamingByProvenance?: ReadonlyMap<string, CanvasSpecEntry>;
+  /** The RAW message part per provenance key (Task 4, D-08) — lets a
+   * genui-panel node branch on part.type (genui_spec vs interactive_widget)
+   * instead of only ever seeing a serialized spec. Optional so pre-24 callers
+   * of CanvasSpecProvider are unaffected. */
+  readonly partsByProvenance?: ReadonlyMap<string, MessagePart>;
 }
 
 const CanvasSpecContext = React.createContext<CanvasSpecContextValue | null>(
@@ -52,16 +58,20 @@ export interface CanvasSpecProviderProps {
    * this from `useChatStream` WITHOUT this contract changing. Checked
    * FIRST; falls back to `specsByProvenance` when a key is absent. */
   readonly streamingByProvenance?: ReadonlyMap<string, CanvasSpecEntry>;
+  /** The RAW message part per provenance key (Task 4, D-08) — enables the
+   * part-type-aware canvas branch (interactive_widget vs genui_spec). */
+  readonly partsByProvenance?: ReadonlyMap<string, MessagePart>;
 }
 
 export function CanvasSpecProvider({
   children,
   specsByProvenance,
   streamingByProvenance,
+  partsByProvenance,
 }: CanvasSpecProviderProps): React.ReactElement {
   const value = React.useMemo<CanvasSpecContextValue>(
-    () => ({ specsByProvenance, streamingByProvenance }),
-    [specsByProvenance, streamingByProvenance],
+    () => ({ specsByProvenance, streamingByProvenance, partsByProvenance }),
+    [specsByProvenance, streamingByProvenance, partsByProvenance],
   );
   return (
     <CanvasSpecContext.Provider value={value}>
@@ -105,4 +115,19 @@ export function useCanvasSpec(provenance: Provenance): CanvasSpecEntry {
   }
 
   return EMPTY_SPEC;
+}
+
+/**
+ * useCanvasPart — resolves the RAW `MessagePart` for a genui-panel node's
+ * provenance ref (Task 4, D-08), or `null` when no part is registered
+ * (missing provider, or the provenance predates the partsByProvenance map).
+ * Lets `GenuiPanelNodeBody` branch on `part.type` — an interactive_widget
+ * renders its own state chrome, a genui_spec renders the plain boundary.
+ */
+export function useCanvasPart(provenance: Provenance): MessagePart | null {
+  const ctx = React.useContext(CanvasSpecContext);
+  if (ctx === null) {
+    return null;
+  }
+  return ctx.partsByProvenance?.get(provenanceKey(provenance)) ?? null;
 }

@@ -108,9 +108,11 @@ interface ExpectedGenuiPanelSpec {
   readonly data: Record<string, unknown>;
 }
 
-/** Every ACTIVE turn's genui_spec part (D-16: only the currently-displayed
- * sibling materializes a panel) — the "what SHOULD exist" set reconcile
- * checks saved/current nodes against. */
+/** Every ACTIVE turn's genui_spec OR interactive_widget part (D-16: only the
+ * currently-displayed sibling materializes a panel; D-08: an interactive
+ * widget renders on the canvas exactly like a genui_spec, same provenance id
+ * scheme) — the "what SHOULD exist" set reconcile checks saved/current nodes
+ * against. interaction_result parts are transcript entries, never panels. */
 function buildExpectedGenuiPanelSpecs(
   historyRows: readonly ChatHistoryRow[],
 ): ExpectedGenuiPanelSpec[] {
@@ -119,7 +121,7 @@ function buildExpectedGenuiPanelSpecs(
     if (!row.isActive) continue;
     const parts = (row.parts as MessagePart[] | null) ?? [];
     parts.forEach((part, partIndex) => {
-      if (part.type !== "genui_spec") return;
+      if (part.type !== "genui_spec" && part.type !== "interactive_widget") return;
       specs.push({
         id: genuiPanelNodeId(row.id, partIndex),
         data: {

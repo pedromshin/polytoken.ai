@@ -20,6 +20,7 @@
  * `ScrollArea`), `ring-2 ring-primary ring-offset-1` selection idiom.
  */
 
+import * as React from "react";
 import { createContext, memo, useContext } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
@@ -76,6 +77,15 @@ function useChatController(): ConversationController {
   return ctx;
 }
 
+/** Non-throwing accessor for the shared controller — returns null when no
+ * provider wraps the tree. Used by `GenuiPanelNodeBody` (Task 4, D-08) to
+ * read the SAME widget surface the transcript drives, so a click in either
+ * surface updates both; a genui-panel node in a test/degraded mount with no
+ * controller renders read-only rather than throwing. */
+export function useOptionalChatController(): ConversationController | null {
+  return useContext(ChatControllerContext);
+}
+
 const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
 
 /**
@@ -112,6 +122,7 @@ const ChatNodeBody = memo(function ChatNodeBody({
           regenerateDisabled={controller.regenerateDisabled}
           onNavigateSibling={controller.handleNavigateSibling}
           onRegenerate={controller.onRegenerateTurn}
+          widgets={controller.widgets}
         />
         <GeneratingIndicator state={controller.activeStreamState} />
         <Composer

@@ -34,6 +34,13 @@ function baseController(overrides: Partial<ConversationController>): Conversatio
     handleNavigateSibling: () => undefined,
     handleSelectBrowserModel: async () => undefined,
     onRegenerateTurn: () => undefined,
+    widgetInteractions: [],
+    widgets: {
+      states: {},
+      submittedValues: {},
+      errorMessages: {},
+      onSubmitOption: () => undefined,
+    },
     ...overrides,
   };
 }

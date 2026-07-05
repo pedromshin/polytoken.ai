@@ -7,7 +7,11 @@ import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import type { MessagePart, StreamState } from "../_hooks/use-chat-stream";
 import { JumpToBottomButton } from "./jump-to-bottom-button";
-import { MessageTurn, type TurnStatus } from "./message-turn";
+import {
+  MessageTurn,
+  type MessageTurnWidgets,
+  type TurnStatus,
+} from "./message-turn";
 
 // Distance-from-bottom (px) under which the list is considered "pinned" —
 // new content auto-scrolls it the rest of the way (22-UI-SPEC.md auto-scroll
@@ -41,6 +45,10 @@ export interface MessageListProps {
    * prevent overlapping runs. */
   readonly regenerateDisabled?: boolean;
   readonly onNavigateSibling?: (siblingMessageId: string) => void;
+  /** Widget render surface (keyed by interactionId) threaded to every turn's
+   * interactive_widget parts (Task 4, D-08) — the same bundle for all turns;
+   * each part looks up its own interactionId. */
+  readonly widgets?: MessageTurnWidgets;
 }
 
 /**
@@ -61,6 +69,7 @@ export function MessageList({
   onRegenerate,
   regenerateDisabled = false,
   onNavigateSibling,
+  widgets,
 }: MessageListProps): React.ReactElement {
   const scrollAreaRootRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -131,6 +140,7 @@ export function MessageList({
                     }
                   : undefined
               }
+              widgets={widgets}
             />
           ))}
         </div>

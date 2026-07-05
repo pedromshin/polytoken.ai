@@ -1,12 +1,31 @@
 "use client";
 
+import * as React from "react";
+
 import type { MessagePart } from "../_hooks/use-chat-stream";
+import { CompactInteractionEntry } from "./compact-interaction-entry";
 import { CostCapBlockedCard } from "./cost-cap-blocked-card";
 import { GenuiPartBoundary } from "./genui-part-boundary";
 import { InlineErrorCard } from "./inline-error-card";
+import {
+  InteractiveWidgetBoundary,
+  type InteractiveWidgetPart,
+  type WidgetDisplayState,
+} from "./interactive-widget-boundary";
 import { MarkdownRenderer } from "./markdown-renderer";
 import { TurnActionRow } from "./turn-action-row";
 import { TurnStatusBadge } from "./turn-status-badge";
+
+/** The widget render surface a turn's interactive_widget parts consume,
+ * keyed by interactionId — threaded verbatim from the controller (Task 4).
+ * Structural (not the controller's own type) so message-turn has no import
+ * cycle back into the hooks-layer controller module. */
+export interface MessageTurnWidgets {
+  readonly states: Readonly<Record<string, WidgetDisplayState>>;
+  readonly submittedValues: Readonly<Record<string, { readonly optionId: string }>>;
+  readonly errorMessages: Readonly<Record<string, string | null>>;
+  readonly onSubmitOption: (interactionId: string, optionId: string) => void;
+}
 
 /** Terminal turn status (mirrors chat_messages.status, D-15/D-19/D-21/D-25)
  * plus a client-only sentinel: 'cost_capped_pre_turn' marks the LIVE
@@ -41,6 +60,10 @@ export interface MessageTurnProps {
   readonly onRegenerate?: () => void;
   readonly regenerateDisabled?: boolean;
   readonly onNavigateSibling?: (index: number) => void;
+  /** Widget render surface (keyed by interactionId) for this turn's
+   * interactive_widget parts (Task 4, D-08) — omitted when the turn has no
+   * widgets or its host doesn't wire them. */
+  readonly widgets?: MessageTurnWidgets;
 }
 
 /**
@@ -66,6 +89,7 @@ export function MessageTurn({
   onRegenerate,
   regenerateDisabled = false,
   onNavigateSibling,
+  widgets,
 }: MessageTurnProps): React.ReactElement {
   const isUser = role === "user";
   const isAssistant = role === "assistant";
@@ -119,6 +143,49 @@ export function MessageTurn({
               }
 
               if (part.type === "genui_spec_streaming") {
+                return (
+                  <GenuiPartBoundary
+                    key={index}
+                    specJson={part.partialJson}
+                    isStreaming={true}
+                  />
+                );
+              }
+
+              // Phase 24 interactive-widget parts (Task 4, D-08).
+              if (part.type === "interactive_widget") {
+                const widgetPart = part as unknown as InteractiveWidgetPart;
+                const displayState: WidgetDisplayState =
+                  widgets?.states[widgetPart.interactionId] ?? "pending";
+                return (
+                  <InteractiveWidgetBoundary
+                    key={index}
+                    part={widgetPart}
+                    displayState={displayState}
+                    submittedValue={widgets?.submittedValues[widgetPart.interactionId]}
+                    errorMessage={widgets?.errorMessages[widgetPart.interactionId] ?? null}
+                    onSubmitOption={(optionId) =>
+                      widgets?.onSubmitOption(widgetPart.interactionId, optionId)
+                    }
+                  />
+                );
+              }
+
+              if (part.type === "interaction_result") {
+                return (
+                  <CompactInteractionEntry
+                    key={index}
+                    widgetKind={part.widgetKind}
+                    summary={part.summary}
+                  />
+                );
+              }
+
+              if (part.type === "interactive_widget_streaming") {
+                // A still-streaming widget tool call — render the generic
+                // skeleton placeholder (GenuiPartBoundary renders SkeletonBars
+                // for unparseable content) until the finalized part lands via
+                // chat.getHistory (D-01 async-resume).
                 return (
                   <GenuiPartBoundary
                     key={index}

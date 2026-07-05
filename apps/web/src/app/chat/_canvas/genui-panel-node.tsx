@@ -33,9 +33,14 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import { GenuiPartBoundary } from "../_components/genui-part-boundary";
+import {
+  InteractiveWidgetBoundary,
+  type InteractiveWidgetPart,
+} from "../_components/interactive-widget-boundary";
 import { usePanelData, useIncomingEdgesForPanel } from "./canvas-store-context";
 import { usePanelActionRegistry } from "./panel-action-bridge";
-import { useCanvasSpec } from "./canvas-spec-context";
+import { useCanvasPart, useCanvasSpec } from "./canvas-spec-context";
+import { useOptionalChatController } from "./chat-node";
 import type { GenuiPanelNodeData } from "./node-data-schemas";
 
 export type GenuiPanelNodeType = Node<GenuiPanelNodeData, "genui-panel">;
@@ -59,9 +64,17 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
   readonly turnIndex: number;
 }) {
   const { specJson, isStreaming } = useCanvasSpec(provenance);
+  const part = useCanvasPart(provenance);
+  const controller = useOptionalChatController();
   const incomingEdges = useIncomingEdgesForPanel(panelId);
   const { data: panelData, dispatch } = usePanelData(panelId, incomingEdges);
   const actions = usePanelActionRegistry(dispatch);
+
+  // D-08: an interactive_widget part renders the SAME InteractiveWidgetBoundary
+  // as the transcript, fed by the SAME controller-derived widget surface — a
+  // click in either surface updates both (one message-part source of truth).
+  // Rendered variant="bare" so the node shell stays the only bordering layer.
+  const isInteractiveWidget = part?.type === "interactive_widget";
 
   return (
     <>
@@ -81,13 +94,42 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
-          <GenuiPartBoundary
-            specJson={specJson}
-            isStreaming={isStreaming}
-            data={panelData}
-            actions={actions}
-            variant="bare"
-          />
+          {isInteractiveWidget ? (
+            <InteractiveWidgetBoundary
+              part={part as unknown as InteractiveWidgetPart}
+              displayState={
+                controller?.widgets.states[
+                  (part as unknown as InteractiveWidgetPart).interactionId
+                ] ?? "pending"
+              }
+              submittedValue={
+                controller?.widgets.submittedValues[
+                  (part as unknown as InteractiveWidgetPart).interactionId
+                ]
+              }
+              errorMessage={
+                controller?.widgets.errorMessages[
+                  (part as unknown as InteractiveWidgetPart).interactionId
+                ] ?? null
+              }
+              onSubmitOption={(optionId) =>
+                controller?.widgets.onSubmitOption(
+                  (part as unknown as InteractiveWidgetPart).interactionId,
+                  optionId,
+                )
+              }
+              variant="bare"
+              data={panelData}
+            />
+          ) : (
+            <GenuiPartBoundary
+              specJson={specJson}
+              isStreaming={isStreaming}
+              data={panelData}
+              actions={actions}
+              variant="bare"
+            />
+          )}
         </div>
       </ScrollArea>
     </>

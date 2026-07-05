@@ -104,6 +104,7 @@ function ConversationView({
               regenerateDisabled={controller.regenerateDisabled}
               onNavigateSibling={controller.handleNavigateSibling}
               onRegenerate={controller.onRegenerateTurn}
+              widgets={controller.widgets}
             />
             <GeneratingIndicator state={controller.activeStreamState} />
             <Composer
