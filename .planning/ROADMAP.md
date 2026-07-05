@@ -110,7 +110,7 @@ first, then richer clarify-widgets — with every round-trip safely re-validated
   4. GenUI turns and widget interactions persist in both the conversation history and the canvas
 **Plans**: 4 plans (4 waves)
 - [x] 24-01-PLAN.md — Widget-interaction spine: chat_widget_interactions (migration 0025, [BLOCKING] local push) + DB-level CAS double-submit lock + staleness query + stored-schema re-validator
-- [ ] 24-02-PLAN.md — Round-trip backend: emit_proposal_cards tool + turn-ending finalization + pending-row creation + POST /v1/chat/widget/submit (validate → stale → lock → interaction_result → continuation SSE)
+- [x] 24-02-PLAN.md — Round-trip backend: emit_proposal_cards tool + turn-ending finalization + pending-row creation + POST /v1/chat/widget/submit (validate → stale → lock → interaction_result → continuation SSE)
 - [ ] 24-03-PLAN.md — Proposal cards UI: GenuiPartBoundary `bare` variant (mandatory prereq) + InteractiveWidgetBoundary/badges/compact entry + submit transport + transcript/canvas parity (D-08)
 - [ ] 24-04-PLAN.md — Clarify-widgets: emit_clarify_widget (schema-enforced submitLabel) + FormComponent values-through-registry + submitted compact view + 422 retry + server-side typing-supersedes
 **UI hint**: yes
@@ -135,7 +135,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 |-------|-----------------|--------|-----------|
 | 22. Chat Spine + Persistence + Streaming | 11/11 | Complete   | 2026-07-04 |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 6/6 | Complete   | 2026-07-05 |
-| 24. Dual-Channel GenUI | 1/4 | In Progress|  |
+| 24. Dual-Channel GenUI | 2/4 | In Progress|  |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
 
 ## Next
@@ -149,3 +149,4 @@ Phase 24 planned (4 plans, 4 waves). Execute: `/gsd:execute-phase 24`.
 - **999.3 — v1.3 connected-env verification + measurement:** run the Phase-16 eval harness vs baseline on the v1.2 corpus (DEF-17-05-01/18-03-01/19-01/20-01), execute the Playwright code-island isolation spec (both engines), and add live-progress streaming to the studio (remove the silent spinner). Needs live Bedrock. (STREAM-01/02 in Phase 22 subsumes the studio live-progress-streaming item as part of the chat spine's streaming transport.)
 - **999.4 — v1.4 Design Engine (deferred):** DSGN-01..04 (unify-vs-hybrid design-engine lock, rendered-visual-compare repair step, promptable design system, screenshot/URL→design-token extraction). See REQUIREMENTS.md → Future Requirements.
 - **999.5 — v1.5 Orchestration Visualizer (deferred):** ORCH-01 (live orchestration run-tree visualization on the canvas). Seams left open by v1.3 (SEAM-03/04, CANVAS-03). See REQUIREMENTS.md → Future Requirements.
+- **999.6 — Chat & Studio Design Uplift (deferred, queued after v1.3):** UPLIFT-01..03 — a no-bloat visual/token-discipline polish pass on `/chat` + `/studio`'s own hand-built chrome (distinct from DSGN-01..04, which is about the *generative* engine's output quality). Full code-level audit + 5 external-resource verdicts (impeccable.style adopt-now, Magic UI adopt-now-narrow, agent design skills adopt-now-narrow, styles.refero.design adopt-later-reference-only, Tailark skip) + a 3-phase punch list (zero-dep fixes → adopted external picks → design-token upgrades) already researched and written up — see `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`. **Explicitly sequenced to start only once v1.3 (Phases 24–25) fully ships** — user directive, not a technical dependency. Non-interference note: does not touch `GenuiPartBoundary`/`InteractiveWidgetBoundary`, already owned by Phase 24 (`24-03-PLAN.md`). When ready, run `/gsd:new-milestone` (or `/gsd:add-phase` if folded into a later milestone) pointing at the research doc — no re-research needed, it's pre-baked as a locked-decisions CONTEXT equivalent.

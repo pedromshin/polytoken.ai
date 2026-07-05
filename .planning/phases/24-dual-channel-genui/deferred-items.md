@@ -12,3 +12,11 @@ task in progress when found).
   introduced or touched by 24-02's additive `interaction_id` param change to `create_pending`.
   Same class of gap 24-01-SUMMARY.md already noted as accepted elsewhere in this codebase
   (e.g. `genui_generator_adapter.py`). Left as-is (out of scope for 24-02).
+
+- **Pre-existing full-suite failures in `tests/test_genui_retrieval_provider.py`** (9 tests,
+  `TestLexicalRetrievalProviderBehavior`) — all fail with `RuntimeError: There is no current
+  event loop in thread 'MainThread'` from `asyncio.get_event_loop().run_until_complete(...)`, a
+  Python 3.13 compatibility break in a pre-existing (Phase 17-02) test helper, last touched
+  2026-06-28 — unrelated to Phase 24. Confirmed via `git log` that this file was never touched
+  by any 24-01/24-02 commit. Every other test in the full `apps/email-listener` suite (run with
+  `--ignore=tests/test_genui_retrieval_provider.py`) is green. Left as-is (out of scope).

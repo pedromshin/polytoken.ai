@@ -40,7 +40,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [ ] **DCUI-01**: Agent can emit proposal cards; clicking one sends a structured result that resumes the run
 - [ ] **DCUI-02**: Agent can emit clarify-widgets (forms/pickers from the declarative catalog + v1.2 form engine); submit returns a structured result to the agent
-- [ ] **DCUI-03**: Every widget round-trip is server-side re-validated, double-submit-locked, staleness-signaled, and requires explicit user action (never auto-fired)
+- [x] **DCUI-03**: Every widget round-trip is server-side re-validated, double-submit-locked, staleness-signaled, and requires explicit user action (never auto-fired)
 - [x] **DCUI-04**: GenUI turns and widget interactions persist in the conversation history and canvas
 
 ### Anticipatory Prompting (SPIKE)
@@ -67,6 +67,28 @@ Deferred to later milestones. Tracked but not in the current roadmap.
 ### Orchestration Visualizer (v1.5)
 
 - **ORCH-01**: Live orchestration run-tree visualization on the canvas (agent/task-level nodes)
+
+### Visual Design Uplift — Chat & Studio (deferred, queued after v1.3)
+
+Not a new capability — a no-bloat visual/token-discipline polish pass on the two hand-built UI
+surfaces (`/chat`, `/studio`) themselves, distinct from DSGN-01..04 above (which is about the
+*generative* design engine's output quality, not this app's own chrome). Full research, code-level
+audit, external-resource verdicts, and a 3-phase punch list already complete — see
+`.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`. Explicitly sequenced to run only after v1.3
+(Phases 24–25) ships, per user directive, not blocked by any technical dependency.
+
+- **UPLIFT-01**: Zero-dependency contract fixes on `/chat` + `/studio` — unstyled React Flow chrome,
+  identical canvas-node chrome, `font-medium` contract violations (11+ sites, root cause in
+  `packages/ui/src/button.tsx`), hardcoded Tailwind palette colors bypassing tokens in 5 Studio
+  files, duplicated raw-JSON panes, missing hover/transition states, undifferentiated empty states
+- **UPLIFT-02**: Narrowly-adopted external design references — impeccable.style's product-register
+  checklist folded into `UI-SPEC.md`, Magic UI's `file-tree` (zero new deps) + hand-ported
+  shine-border/shiny-text CSS techniques for a "generating" indicator, 3 targeted
+  `ux-designer-skill` reference files + hand-copied `transitions.dev` CSS snippets
+- **UPLIFT-03**: Design-token/system upgrades — differentiate `secondary`/`muted`/`accent` (currently
+  identical grays), rebase `chart-*`/`sidebar-*` tokens off the teal `primary`, add a shadow scale
+  and `xl`/`2xl` radius steps, exploit the already-installed `tailwindcss-animate` beyond Radix
+  defaults
 
 ### Carried v1.2 deferrals
 
@@ -114,7 +136,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATE-02 | Phase 23 | Complete |
 | DCUI-01 | Phase 24 | Pending |
 | DCUI-02 | Phase 24 | Pending |
-| DCUI-03 | Phase 24 | Pending |
+| DCUI-03 | Phase 24 | Complete |
 | DCUI-04 | Phase 24 | Complete |
 | ANTIC-01 | Phase 25 | Pending |
 | ANTIC-02 | Phase 25 | Pending |

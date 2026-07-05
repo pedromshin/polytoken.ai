@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-05T15:42:43.407Z"
-last_activity: 2026-07-05 -- 24-01 executed (widget-interaction persistence + safety-primitive spine)
+last_updated: "2026-07-05T16:49:04.186Z"
+last_activity: 2026-07-05 -- 24-02 executed (emit_proposal_cards tool + submit endpoint + round-trip machinery)
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 21
-  completed_plans: 18
+  completed_plans: 19
   percent: 50
 ---
 
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 24 (Dual-Channel GenUI) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Executing Phase 24
-Last activity: 2026-07-05 -- 24-01 executed (widget-interaction persistence + safety-primitive spine)
+Last activity: 2026-07-05 -- 24-02 executed (emit_proposal_cards tool + submit endpoint + round-trip machinery)
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 90%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -84,6 +84,7 @@ live Bedrock / a browser.
 ## Phase 24 — Dual-Channel GenUI (executing 2026-07-05)
 
 - **24-01 EXECUTED:** The persistence + safety-primitive spine for agent<->user widget round-trips. `chat_widget_interactions` Drizzle table + migration 0025 (state machine pending/submitted/superseded/stale, stored `declared_response_schema` D-01/D-10, staleness columns, unique `(message_id, part_index)` lock index, RESTRICTIVE RLS deny-all) — live-verified against local Supabase (all columns, both CHECK constraints, both RLS policies, both indexes confirmed via direct `pg` query). `ChatWidgetInteractionRepository` port + `SupabaseChatWidgetInteractionRepository` adapter: `try_submit` is a DB-level CAS (`eq("id",...)` + `eq("state","pending")`, D-11 double-submit lock — a second submit matches zero rows); `is_stale` checks the emitting message's `is_active` flag + any strictly-newer `turn_index` in the conversation (D-12). `validate_result_against_schema` — a pure, fail-closed `jsonschema.Draft7Validator` re-validation service (D-10): empty/malformed declared schema is deliberately rejected (not delegated to jsonschema's technically-permissive `{}` reading), and the returned `reason` is always a generic string — the real jsonschema error is logged server-side only via structlog, never returned to the caller. Zero UI/tool/endpoint code (by design — persistence + safety primitives only). 15/15 pytest green (RED->GREEN for both TDD tasks), ruff/mypy/lint-imports clean, `packages/db` tsc clean. See 24-01-SUMMARY.md. **Next: 24-02** (the `emit_interactive_widget` tool + registry wiring).
+- **24-02 EXECUTED:** The full server-side round-trip machinery (DCUI-03). `build_emit_proposal_cards_tool` (hand-authored, Bedrock-valid schema) offered alongside `emit_ui_spec`; `RunChatTurn._finalize_pending_tool` branches by tool name — a completed `emit_proposal_cards` call finalizes into an `interactive_widget` part (server-assigned `opt-{index}` ids, never `genui_spec`), and after the assistant message persists, exactly one pending `chat_widget_interactions` row is created (D-04). `SubmitWidgetInteraction` enforces the fixed ordering load+ownership -> staleness -> schema re-validation -> CAS lock -> resolve (server-side, from the STORED declaration, T-24-01) -> persist `interaction_result` -> continuation, raising a typed `WidgetSubmitRejected` (not_found/stale/invalid/conflict) BEFORE any DB lock flip or event yield. `RunChatTurn.continue_after_widget` reuses `_execute_turn` (one streaming loop, written once). `POST /v1/chat/widget/submit` awaits `SubmitWidgetInteraction.prepare()`, maps rejections to pre-stream HTTP status codes (404/409/422/409), and streams the continuation via the SAME `stream_run_events` SSE framing as `/v1/chat/stream`. Wired end-to-end in `container.py`/`main.py`; full app boot smoke-tested (route registers, zero DI errors). 25/25 new tests green (RED->GREEN all 3 TDD tasks, each independently confirmed via a real `git stash`-based RED check), 26/26 existing chat regression tests still green, ruff/mypy/lint-imports clean. **Deviation (Rule 2):** extended 24-01's `create_pending` with an optional `interaction_id` param (additive) so the part's `interactionId` and the DB row's PK share one pre-generated id. Extracted a `run_chat_turn_widgets.py` line-cap refactor mid-session (829 -> 791 lines). See 24-02-SUMMARY.md. **Next: 24-03** (transcript/canvas rendering of the interactive_widget/interaction_result parts).
 
 ## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
 
@@ -314,7 +315,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   + UI-SPEC + PATTERNS generated. Decision coverage 21/21 (D-01..D-21). Commits: 1444bce (UI-SPEC+PATTERNS),
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
-- **Resume file:** .planning/phases/24-dual-channel-genui/24-02-PLAN.md
+- **Resume file:** None
 - **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
@@ -1144,3 +1145,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 23 P05 | ~50min | 3 tasks | 14 files |
 | Phase 23 P06 | 55min | 3 tasks | 9 files |
 | Phase 24 P01 | 35min | 3 tasks | 9 files |
+| Phase 24 P02 | ~2h | 3 tasks | 17 files |
