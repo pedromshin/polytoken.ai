@@ -52,6 +52,10 @@ import type { AnyManifestEntry, ComponentRegistry } from "./types";
 import { ActionSchema } from "../schema/action-schema";
 import { SpecNodeSchema, FormFieldSchema } from "../schema/spec-schema";
 import { FormComponent } from "./form-component";
+// Standalone context module (NOT ../renderer/spec-renderer) — importing spec-renderer here
+// would pull in COMPONENT_REGISTRY and create a manifest <-> renderer import cycle. This is
+// the exact precedent form-component.tsx already uses (line 25).
+import { ActionRegistryContext } from "../renderer/action-registry-context";
 
 // ---------------------------------------------------------------------------
 // Prop type declarations (one per catalog entry)
@@ -250,10 +254,31 @@ function ButtonComponent({
   variant = "default",
   size,
   disabled = false,
-  action: _action, // consumed by ActionRegistry in Phase 13 — no-op here
+  action,
+  onClick,
 }: ButtonProps): React.ReactElement {
   // Map "md" → undefined (Button defaults to "default" size which is md)
   const buttonSize = size === "md" ? undefined : (size as "sm" | "lg" | undefined);
+
+  // 23-06 Task 1 (STATE-01 trigger half): resolve clicks ONLY via a registry[key] lookup
+  // against ActionRegistryContext — never eval/Function. Mirrors form-component.tsx's exact
+  // registry[action.type]?.(action) contract (line 235): registry keyed by action TYPE, handler
+  // receives the FULL action object. Empty catch — a throwing handler must not crash the button
+  // (T-23-14). `onClick` (the Phase-13 ActionSchema object) takes precedence over the legacy
+  // string `action` ActionRegistry key when both are present.
+  const registry = React.useContext(ActionRegistryContext);
+  const handleClick = React.useCallback((): void => {
+    try {
+      if (onClick !== undefined) {
+        registry[onClick.type]?.(onClick);
+      } else if (typeof action === "string" && action.length > 0) {
+        registry[action]?.();
+      }
+    } catch {
+      // best-effort — a failed handler must not break the button (mirrors form-component.tsx)
+    }
+  }, [registry, onClick, action]);
+
   return React.createElement(
     Button,
     {
@@ -262,6 +287,7 @@ function ButtonComponent({
       size: buttonSize,
       disabled,
       "aria-label": ariaLabel,
+      onClick: handleClick,
     },
     label,
   );
