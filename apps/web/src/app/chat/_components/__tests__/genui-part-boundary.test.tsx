@@ -97,4 +97,47 @@ describe("GenuiPartBoundary", () => {
       "Could not generate a view for this request",
     );
   });
+
+  // -------------------------------------------------------------------------
+  // variant="bare" (Task 1, 24-03 — UI-SPEC mandatory prerequisite / 23-UI-REVIEW
+  // Top Fix #1): NO GenuiCard wrapper (no `.border-border`/`.rounded-lg` chrome)
+  // at any of the four return paths.
+  // -------------------------------------------------------------------------
+
+  it('variant="bare" renders a finalized valid spec with NO GenuiCard wrapper', () => {
+    const specJson = JSON.stringify({
+      v: 1,
+      root: { type: "text", content: "Hello widget" },
+    });
+
+    const container = mount(
+      <GenuiPartBoundary specJson={specJson} isStreaming={false} variant="bare" />,
+    );
+
+    expect(container.querySelector(".border-border")).toBeNull();
+    expect(container.textContent).toContain("Hello widget");
+  });
+
+  it('variant unset (default) still wraps the SAME finalized spec in GenuiCard', () => {
+    const specJson = JSON.stringify({
+      v: 1,
+      root: { type: "text", content: "Hello widget" },
+    });
+
+    const container = mount(
+      <GenuiPartBoundary specJson={specJson} isStreaming={false} />,
+    );
+
+    expect(container.querySelector(".border-border")).not.toBeNull();
+  });
+
+  it('variant="bare" renders SkeletonBars unwrapped while streaming with nothing renderable yet', () => {
+    const container = mount(
+      <GenuiPartBoundary specJson="" isStreaming={true} variant="bare" />,
+    );
+
+    expect(container.querySelector(".border-border")).toBeNull();
+    const skeletons = container.querySelectorAll('[class*="animate-pulse"]');
+    expect(skeletons.length).toBeGreaterThan(0);
+  });
 });
