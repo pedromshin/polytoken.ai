@@ -41,7 +41,7 @@ import {
 import { useCanvasStore } from "./canvas-store-context";
 import { EdgePayloadSchema, type EdgePayload } from "./edge-payload-schema";
 
-function panelFieldOptions(values: Record<string, unknown>, panelId: string): string[] {
+export function panelFieldOptions(values: Record<string, unknown>, panelId: string): string[] {
   const panels = values.panels as Record<string, unknown> | undefined;
   const own = (panels?.[panelId] as Record<string, unknown> | undefined) ?? {};
   return Object.keys(own)
@@ -49,7 +49,7 @@ function panelFieldOptions(values: Record<string, unknown>, panelId: string): st
     .map((key) => `panels.${panelId}.${key}`);
 }
 
-function sharedFieldOptions(values: Record<string, unknown>): string[] {
+export function sharedFieldOptions(values: Record<string, unknown>): string[] {
   const shared = (values.shared as Record<string, unknown> | undefined) ?? {};
   return Object.keys(shared)
     .sort()
