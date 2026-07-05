@@ -33,8 +33,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Shared State
 
-- [ ] **STATE-01**: Panels on the same canvas read/write a per-chat shared state store
-- [ ] **STATE-02**: Data-carrying edges let one panel's output feed another panel's input
+- [x] **STATE-01**: Panels on the same canvas read/write a per-chat shared state store
+- [x] **STATE-02**: Data-carrying edges let one panel's output feed another panel's input
 
 ### Dual-Channel GenUI
 
@@ -110,8 +110,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CANVAS-02 | Phase 23 | Complete |
 | CANVAS-03 | Phase 23 | Complete |
 | CANVAS-04 | Phase 23 | Complete |
-| STATE-01 | Phase 23 | Pending |
-| STATE-02 | Phase 23 | Pending |
+| STATE-01 | Phase 23 | Complete |
+| STATE-02 | Phase 23 | Complete |
 | DCUI-01 | Phase 24 | Pending |
 | DCUI-02 | Phase 24 | Pending |
 | DCUI-03 | Phase 24 | Pending |

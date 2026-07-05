@@ -45,7 +45,7 @@ responses, laid out on a 2D infinite canvas of genui panels, where the agent and
 interactive declarative widgets in both directions. Local/sandbox only — no deploy criteria.
 
 - [x] **Phase 22: Chat Spine + Persistence + Streaming** - Persistent, streamed `/chat` (text + progressive genui partial-tree specs) with the full table-stakes chat state machine and an application-level cost circuit breaker (completed 2026-07-04)
-- [ ] **Phase 23: 2D Canvas + Panels-as-Nodes + Shared State** - genui panels laid out as draggable/pannable nodes on a persistent, responsive infinite canvas with cross-panel shared state and data-carrying edges
+- [x] **Phase 23: 2D Canvas + Panels-as-Nodes + Shared State** - genui panels laid out as draggable/pannable nodes on a persistent, responsive infinite canvas with cross-panel shared state and data-carrying edges (completed 2026-07-05)
 - [ ] **Phase 24: Dual-Channel GenUI** - Agent↔user widget round-trips (proposal cards → clarify-widgets), safely re-validated and persisted
 - [ ] **Phase 25: Anticipatory Prompting (SPIKE)** - Eval-gated, frequency-capped proactive-prompt trigger layer
 
@@ -94,7 +94,7 @@ data across each other.
 - [x] 23-02-PLAN.md — Versioned node-type registry (content-hash, Zod, inert placeholder) + GenuiPanelNode + CanvasSpecContext
 - [x] 23-03-PLAN.md — Conversation controller refactor + ChatNode + 2D canvas surface + Chat/Canvas view toggle (dagre auto-place, keyboard-operable)
 - [x] 23-04-PLAN.md — Layout persistence (exact restore + debounced ~800ms save) + streaming responsiveness (volatile state outside nodes array)
-- [ ] 23-05-PLAN.md — Shared per-chat Zustand store (5-mutation declared-state grammar) + data-carrying edges (Zod-validated, live subscription)
+- [x] 23-05-PLAN.md — Shared per-chat Zustand store (5-mutation declared-state grammar) + data-carrying edges (Zod-validated, live subscription)
 **UI hint**: yes
 
 ### Phase 24: Dual-Channel GenUI
@@ -129,7 +129,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
 | 22. Chat Spine + Persistence + Streaming | 11/11 | Complete   | 2026-07-04 |
-| 23. 2D Canvas + Panels-as-Nodes + Shared State | 4/5 | In Progress|  |
+| 23. 2D Canvas + Panels-as-Nodes + Shared State | 5/5 | Complete   | 2026-07-05 |
 | 24. Dual-Channel GenUI | 0/TBD | Not started | - |
 | 25. Anticipatory Prompting (SPIKE) | 0/TBD | Not started | - |
 

@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
-status: executing
-last_updated: "2026-07-05T00:19:33.915Z"
-last_activity: 2026-07-04 -- Phase 23 execution started
+status: completed
+last_updated: "2026-07-05T01:08:49.070Z"
+last_activity: 2026-07-04 -- 23-05 executed (per-conversation Zustand canvas store + data-carrying edges; STATE-01/STATE-02 complete)
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 16
-  completed_plans: 15
-  percent: 25
+  completed_plans: 16
+  percent: 50
 ---
 
 # State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 23 — 2D Canvas + Panels-as-Nodes + Shared State
+**Current focus:** Phase 23 — 2D Canvas + Panels-as-Nodes + Shared State (COMPLETE) — next: Phase 24
 
 ## Current Position
 
-Phase: 23 (2D Canvas + Panels-as-Nodes + Shared State) — EXECUTING
-Plan: 2 of 5 (23-01..23-04 complete; 23-05 remaining)
-Status: Executing Phase 23
-Last activity: 2026-07-04 -- 23-04 executed (canvas persistence restore/reconcile/debounced-save + streaming responsiveness via CanvasSpecProvider's streamingByProvenance seam; CANVAS-02/CANVAS-04 requirements complete)
+Phase: 23 (2D Canvas + Panels-as-Nodes + Shared State) — ALL 5 PLANS COMPLETE
+Plan: 5 of 5 (23-01..23-05 all complete)
+Status: Phase 23 complete — ready for `/gsd:plan-phase 24` (Dual-Channel GenUI)
+Last activity: 2026-07-04 -- 23-05 executed (per-conversation Zustand canvas store + data-carrying edges; STATE-01/STATE-02 complete)
 
-Progress: [█████████░] 94%
+Progress: [██████████] 100% (Phase 23)
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -76,7 +76,8 @@ live Bedrock / a browser.
 - **23-01 EXECUTED:** `chat_canvas_layouts` Drizzle table (migration 0024, RLS deny-all) + `chat.getCanvasLayout`/`chat.saveCanvasLayout` tRPC procedures gated by `CanvasSnapshotSchema` (prototype-pollution guard, no-spec-content D-05 refine, payload caps). CANVAS-02 marked complete at the spine level (schema + procedures only — the UI never called them until 23-04).
 - **23-02 EXECUTED:** `NODE_TYPE_REGISTRY`/`NODE_REGISTRY_VERSION` (browser-safe FNV-1a content-hash) + `resolveNodeType` allowlist (never throws) + `GenuiPanelNode` (memoized, renders via the unmodified `SpecRenderer`) + `CanvasSpecProvider`/`useCanvasSpec` — the CANVAS-04 seam keeping streaming content out of `node.data` from day one.
 - **23-03 EXECUTED:** `useConversationController` (lifted streaming/turn state shared by the docked Chat view and the canvas `ChatNode` — one instance, D-02) + `ChatNode`/module-level `nodeTypes` map + `layoutCanvasNodes`/`offsetCascadePosition` (dagre) + the mounted `ChatCanvas` surface/island/view-toggle. Persistence/restore and live materialization were explicitly deferred to 23-04 (this plan's own stated seam).
-- **23-04 EXECUTED (this session):** Closed the persistence loop — `useCanvasPersistence` (exact restore, unknown-type degrade via `reconcileNodesFromHistory`, live `historyRows` reconciliation, ~800ms debounced coalesced `chat.saveCanvasLayout` save, `SaveStatusIndicator` in the toolbar) — and the CANVAS-04 streaming-responsiveness contract (`buildStreamingByProvenance` overlays a live regenerate's partial content onto an existing genui-panel node; a brand-new turn's live progress is watched via the `ChatNode`'s own embedded MessageList, since the backend has no stable messageId until a turn finalizes). Both CANVAS-02 and CANVAS-04 now marked complete in REQUIREMENTS.md. **Deviation:** split `packages/api-client`'s `chat/canvas.ts` into a new client-safe `canvas-schema.ts` (zero imports beyond zod) + a `"./chat-canvas"` package export, since the original file's `../../trpc` → `@nauta/db` import chain crashed any client-side import with a server-env-var error (found live via a failing test). Next: 23-05 (shared per-chat state store + data-carrying edges, STATE-01/02).
+- **23-04 EXECUTED:** Closed the persistence loop — `useCanvasPersistence` (exact restore, unknown-type degrade via `reconcileNodesFromHistory`, live `historyRows` reconciliation, ~800ms debounced coalesced `chat.saveCanvasLayout` save, `SaveStatusIndicator` in the toolbar) — and the CANVAS-04 streaming-responsiveness contract (`buildStreamingByProvenance` overlays a live regenerate's partial content onto an existing genui-panel node; a brand-new turn's live progress is watched via the `ChatNode`'s own embedded MessageList, since the backend has no stable messageId until a turn finalizes). Both CANVAS-02 and CANVAS-04 now marked complete in REQUIREMENTS.md. **Deviation:** split `packages/api-client`'s `chat/canvas.ts` into a new client-safe `canvas-schema.ts` (zero imports beyond zod) + a `"./chat-canvas"` package export, since the original file's `../../trpc` → `@nauta/db` import chain crashed any client-side import with a server-env-var error (found live via a failing test).
+- **23-05 EXECUTED (this session) — PHASE 23 COMPLETE:** `createCanvasStore`/`CANVAS_STORE_MUTATIONS` (per-conversation `zustand/vanilla` store, superset of v1.1's declared-state 5-mutation grammar, `panels.*`/`shared.*` namespaces, FORBIDDEN_KEYS-guarded `resolveCanvasPath`) wired `GenuiPanelNode` -> `usePanelData` -> a new `data` prop on `GenuiPartBoundary` -> the UNMODIFIED `SpecRenderer`. `EdgePayloadSchema`/`DataEdge`/`EdgeCreationPicker` deliver data-carrying edges: drag-to-connect NEVER auto-wires (only the picker's explicit "Connect fields" creates an edge), a live Zustand subscription re-resolves the target panel's `data[targetKey]` on every source change, and `buildSnapshot` now persists real `sharedState` (optional 4th param, backward-compatible) alongside the `edges` array 23-04 already round-tripped. STATE-01/STATE-02 now marked complete in REQUIREMENTS.md — **all Phase 23 requirements (CANVAS-01..04, STATE-01/02) delivered.** **Autonomous decision:** Task 1's blocking package-legitimacy checkpoint (zustand, absent from the repo) was resolved without stopping, per this run's explicit auto-mode directive — verified live at `registry.npmjs.org/zustand` (pmndrs/zustand, maintainers daishi/drcmda/jeremyrh, MIT) before installing via `npm install --workspace=@nauta/web` (npm-workspaces canonical, not the plan's literal pnpm command). See 23-05-SUMMARY.md for full detail. **Next: Phase 24** (Dual-Channel GenUI, DCUI-01..04).
 
 ## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
 
@@ -1131,3 +1132,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 23 P02 | 25min | 2 tasks | 7 files |
 | Phase 23 P03 | ~35min | 3 tasks | 13 files |
 | Phase 23 P04 | 55min | 3 tasks | 12 files |
+| Phase 23 P05 | ~50min | 3 tasks | 14 files |
