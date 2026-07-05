@@ -19,6 +19,11 @@
  * fixed-min-dimension (320x240) `ScrollArea` with inner scroll only — the
  * node's own dimensions never change while its spec streams, so the graph
  * never relayouts mid-stream.
+ *
+ * STATE-01 (23-05): the panel's own `panels.{id}.*` canvas-store slice feeds
+ * into the UNMODIFIED `SpecRenderer` via `GenuiPartBoundary`'s `data` prop —
+ * the node's own React Flow `id` IS its store panelId (stable across
+ * reload, mirrors `use-canvas-persistence.ts`'s `genuiPanelNodeId`).
  */
 
 import { memo } from "react";
@@ -28,6 +33,7 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import { GenuiPartBoundary } from "../_components/genui-part-boundary";
+import { usePanelData, type IncomingDataEdge } from "./canvas-store-context";
 import { useCanvasSpec } from "./canvas-spec-context";
 import type { GenuiPanelNodeData } from "./node-data-schemas";
 
@@ -43,13 +49,18 @@ const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
  * 2026-07-04).
  */
 const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
+  panelId,
   provenance,
   turnIndex,
+  incomingEdges,
 }: {
+  readonly panelId: string;
   readonly provenance: GenuiPanelNodeData["provenance"];
   readonly turnIndex: number;
+  readonly incomingEdges: readonly IncomingDataEdge[];
 }) {
   const { specJson, isStreaming } = useCanvasSpec(provenance);
+  const { data: panelData } = usePanelData(panelId, incomingEdges);
 
   return (
     <>
@@ -69,14 +80,24 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
 
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-4">
-          <GenuiPartBoundary specJson={specJson} isStreaming={isStreaming} />
+          <GenuiPartBoundary specJson={specJson} isStreaming={isStreaming} data={panelData} />
         </div>
       </ScrollArea>
     </>
   );
 });
 
+// Task 3 seam (STATE-02, data-carrying edges): React Flow's `NodeProps` only
+// ever carries `{id, data, selected, ...}` for a custom node — there is no
+// channel to pass this panel's INCOMING edges (computed from the canvas
+// host's own `edges` array) straight into a `nodeTypes` component. Task 3
+// wires real edges through a context seam (mirrors `CanvasSpecContext`'s own
+// shape) rather than a prop; kept empty here so Task 2 lands the store
+// wiring without depending on edges that don't exist yet.
+const NO_INCOMING_EDGES: readonly IncomingDataEdge[] = [];
+
 export const GenuiPanelNode = memo(function GenuiPanelNode({
+  id,
   data,
   selected,
 }: NodeProps<GenuiPanelNodeType>) {
@@ -86,8 +107,10 @@ export const GenuiPanelNode = memo(function GenuiPanelNode({
     >
       <Handle type="target" position={Position.Left} />
       <GenuiPanelNodeBody
+        panelId={id}
         provenance={data.provenance}
         turnIndex={data.turnIndex}
+        incomingEdges={NO_INCOMING_EDGES}
       />
       <Handle type="source" position={Position.Right} />
     </div>

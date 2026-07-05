@@ -56,6 +56,12 @@ export interface GenuiPartBoundaryProps {
   /** False once the matching tool_result/terminal event has settled the
    * spec — triggers the final safeParse -> SAFE_FALLBACK_SPEC gate. */
   readonly isStreaming: boolean;
+  /** Optional named data bindings forwarded verbatim to the UNMODIFIED
+   * `SpecRenderer`'s own `data` prop (STATE-01, 23-05) — e.g. a canvas
+   * panel's `panels.{panelId}.*` store slice. Defaults to `{}` (SpecRenderer's
+   * own default) when omitted, so every existing non-canvas caller is
+   * unaffected. */
+  readonly data?: Record<string, unknown>;
 }
 
 // ---------------------------------------------------------------------------
@@ -342,6 +348,7 @@ function buildPartialNode(raw: unknown, depth: number = MAX_SPEC_DEPTH): Partial
 export function GenuiPartBoundary({
   specJson,
   isStreaming,
+  data,
 }: GenuiPartBoundaryProps): React.ReactElement {
   const parsed = tryParsePartial(specJson);
 
@@ -352,7 +359,7 @@ export function GenuiPartBoundary({
     const finalSpec: SpecRoot = finalParse?.success ? finalParse.data : SAFE_FALLBACK_SPEC;
     return (
       <GenuiCard>
-        <SpecRenderer spec={finalSpec} />
+        <SpecRenderer spec={finalSpec} data={data} />
       </GenuiCard>
     );
   }
@@ -362,7 +369,7 @@ export function GenuiPartBoundary({
     if (fullParse.success) {
       return (
         <GenuiCard>
-          <SpecRenderer spec={fullParse.data} />
+          <SpecRenderer spec={fullParse.data} data={data} />
         </GenuiCard>
       );
     }
@@ -376,7 +383,7 @@ export function GenuiPartBoundary({
         if (rootParse.success) {
           return (
             <GenuiCard>
-              <SpecRenderer spec={rootParse.data} />
+              <SpecRenderer spec={rootParse.data} data={data} />
               {partial.hasPending && <SkeletonBars />}
             </GenuiCard>
           );

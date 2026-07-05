@@ -303,6 +303,10 @@ export interface UseCanvasPersistenceResult {
   readonly initialNodes: ReconciledNode[];
   readonly initialEdges: readonly PersistedCanvasEdge[];
   readonly initialViewport: PersistedCanvasViewport | undefined;
+  /** The persisted `chat_canvas_layouts.sharedState` snapshot (STATE-01/
+   * D-10) — `undefined` on a conversation's first-ever canvas visit (no row
+   * yet). Feeds `CanvasStoreProvider`'s hydration-on-mount seam. */
+  readonly initialSharedState: CanvasSnapshot["sharedState"] | undefined;
   readonly isRestoring: boolean;
   /** "idle" (nothing saved yet this session) | "saving" (mutation in
    * flight) | "saved" (last save succeeded — SaveStatusIndicator shows
@@ -385,6 +389,7 @@ export function useCanvasPersistence({
   );
   const initialEdges = validatedRow?.edges ?? [];
   const initialViewport = validatedRow?.viewport;
+  const initialSharedState = validatedRow?.sharedState;
   const isRestoring = layoutQuery.isPending;
 
   // Kept fresh every render so the debounced save timer always reads the
@@ -440,6 +445,7 @@ export function useCanvasPersistence({
     initialNodes,
     initialEdges,
     initialViewport,
+    initialSharedState,
     isRestoring,
     saveStatus,
     scheduleSave,

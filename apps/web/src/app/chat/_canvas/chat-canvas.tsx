@@ -67,6 +67,7 @@ import {
 } from "./canvas-keyboard-hint";
 import { CanvasSkeleton } from "./canvas-skeleton";
 import { CanvasSpecProvider, type CanvasSpecEntry } from "./canvas-spec-context";
+import { CanvasStoreProvider } from "./canvas-store-context";
 import { ChatControllerProvider } from "./chat-node";
 import { nodeTypes } from "./node-types";
 import {
@@ -418,64 +419,69 @@ export function ChatCanvas({
   const isEmpty = nodes.length === 0;
 
   return (
-    <CanvasSpecProvider
-      specsByProvenance={specsByProvenance}
-      streamingByProvenance={streamingByProvenance}
+    <CanvasStoreProvider
+      conversationId={conversationId}
+      initialSharedState={persistence.initialSharedState}
     >
-      <ChatControllerProvider controller={controller}>
-        <div
-          role="application"
-          aria-label="Conversation canvas"
-          aria-roledescription="node-based diagram"
-          tabIndex={0}
-          onKeyDown={handleKeyDown}
-          className="relative h-full w-full"
-        >
-          <span className="sr-only" aria-live="polite">
-            {announcement}
-          </span>
-          {isEmpty ? (
-            <CanvasEmptyState />
-          ) : (
-            <ReactFlowJSX
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              onNodesChange={onNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onNodeDragStop={handleNodeDragStop}
-              onMoveEnd={handleMoveEnd}
-              onPaneClick={handlePaneClick}
-              onInit={handleInit}
-              defaultViewport={viewport ?? undefined}
-              fitView={!viewport}
-              fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.1}
-              maxZoom={2}
-              proOptions={{ hideAttribution: false }}
-              aria-label="Conversation canvas"
-            >
-              <Background gap={16} size={1} />
-              <Controls showZoom showFitView showInteractive />
-              {showMiniMap && <MiniMap pannable zoomable />}
-              <Panel position="top-right">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-pressed={showMiniMap}
-                  aria-label="Toggle minimap"
-                  className="size-11 bg-background/70 backdrop-blur-md"
-                  onClick={handleToggleMiniMap}
-                >
-                  <MapIcon className="size-4" aria-hidden />
-                </Button>
-              </Panel>
-            </ReactFlowJSX>
-          )}
-          {!hintDismissed && <CanvasKeyboardHint onDismiss={handleDismissHint} />}
-        </div>
-      </ChatControllerProvider>
-    </CanvasSpecProvider>
+      <CanvasSpecProvider
+        specsByProvenance={specsByProvenance}
+        streamingByProvenance={streamingByProvenance}
+      >
+        <ChatControllerProvider controller={controller}>
+          <div
+            role="application"
+            aria-label="Conversation canvas"
+            aria-roledescription="node-based diagram"
+            tabIndex={0}
+            onKeyDown={handleKeyDown}
+            className="relative h-full w-full"
+          >
+            <span className="sr-only" aria-live="polite">
+              {announcement}
+            </span>
+            {isEmpty ? (
+              <CanvasEmptyState />
+            ) : (
+              <ReactFlowJSX
+                nodes={nodes}
+                edges={edges}
+                nodeTypes={nodeTypes}
+                onNodesChange={onNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onNodeDragStop={handleNodeDragStop}
+                onMoveEnd={handleMoveEnd}
+                onPaneClick={handlePaneClick}
+                onInit={handleInit}
+                defaultViewport={viewport ?? undefined}
+                fitView={!viewport}
+                fitViewOptions={{ padding: 0.2 }}
+                minZoom={0.1}
+                maxZoom={2}
+                proOptions={{ hideAttribution: false }}
+                aria-label="Conversation canvas"
+              >
+                <Background gap={16} size={1} />
+                <Controls showZoom showFitView showInteractive />
+                {showMiniMap && <MiniMap pannable zoomable />}
+                <Panel position="top-right">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-pressed={showMiniMap}
+                    aria-label="Toggle minimap"
+                    className="size-11 bg-background/70 backdrop-blur-md"
+                    onClick={handleToggleMiniMap}
+                  >
+                    <MapIcon className="size-4" aria-hidden />
+                  </Button>
+                </Panel>
+              </ReactFlowJSX>
+            )}
+            {!hintDismissed && <CanvasKeyboardHint onDismiss={handleDismissHint} />}
+          </div>
+        </ChatControllerProvider>
+      </CanvasSpecProvider>
+    </CanvasStoreProvider>
   );
 }
