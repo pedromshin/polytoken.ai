@@ -285,6 +285,60 @@ class RunChatTurn:
         ):
             yield event
 
+    async def continue_after_widget(
+        self,
+        *,
+        conversation_id: str,
+        model_id: str,
+        importer_id: str | None = None,
+    ) -> AsyncIterator[ChatRunEvent]:
+        """Resume a run after a widget submit (Phase 24-02, D-01 async-resume continuation).
+
+        The caller (SubmitWidgetInteraction) has ALREADY inserted the
+        interaction_result user turn BEFORE calling this method — active
+        context read here includes it, so this reuses the SAME `_execute_turn`
+        engine as run()/regenerate() (same cost breaker, same SSE event shape,
+        same terminal-branch persistence) without duplicating the streaming
+        loop. turn_index matches the just-inserted interaction_result turn's
+        own index (it is the newest active message); sibling_group_id is a
+        fresh id — this is a brand-new assistant turn, not a regenerate of an
+        existing one.
+        """
+        resolved_importer_id = importer_id or self._default_importer_id
+        model = get_model(model_id)
+        if model is None:
+            raise ChatModelNotFoundError(model_id)
+        provider = self._router.select(model_id)
+
+        history = await self._messages.list_active_context(conversation_id)
+        turn_index = max((m.turn_index for m in history), default=0)
+
+        decision = await self._breaker.check_pre_turn(
+            model=model,
+            importer_id=resolved_importer_id,
+            conversation_id=conversation_id,
+            prompt_tokens_est=0,
+            max_output_tokens=self._max_output_tokens,
+        )
+        if not decision.allowed:
+            yield ChatRunEvent(type="cost_capped", data={"breached_cap": decision.breached_cap})
+            return
+
+        async for event in self._execute_turn(
+            provider=provider,
+            model=model,
+            model_id=model_id,
+            conversation_id=conversation_id,
+            history=history,
+            turn_index=turn_index,
+            importer_id=resolved_importer_id,
+            is_first_turn=False,
+            user_text="",
+            sibling_group_id=str(uuid.uuid4()),
+            version=1,
+        ):
+            yield event
+
     async def _execute_turn(
         self,
         *,

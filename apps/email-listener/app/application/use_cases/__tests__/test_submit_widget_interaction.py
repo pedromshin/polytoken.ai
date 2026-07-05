@@ -205,7 +205,7 @@ async def test_missing_interaction_raises_not_found() -> None:
 async def test_conversation_mismatch_raises_not_found() -> None:
     interaction = _interaction(conversation_id="other-conv")
     widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction)
-    use_case, messages, runner = _make_use_case(widget_interactions=widget_interactions)
+    use_case, messages, _runner = _make_use_case(widget_interactions=widget_interactions)
 
     with pytest.raises(WidgetSubmitRejected) as exc_info:
         async for _ in use_case.submit(
@@ -266,7 +266,7 @@ async def test_forged_extra_result_field_rejected_by_schema_before_resolution() 
     """additionalProperties:false on the declared schema rejects any extra client key (T-24-01)."""
     interaction = _interaction()
     widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
-    use_case, messages, runner = _make_use_case(widget_interactions=widget_interactions)
+    use_case, _messages, _runner = _make_use_case(widget_interactions=widget_interactions)
 
     with pytest.raises(WidgetSubmitRejected) as exc_info:
         async for _ in use_case.submit(
