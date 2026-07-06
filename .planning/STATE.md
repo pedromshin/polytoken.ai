@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
-status: planning
-last_updated: "2026-07-06T19:47:43.000Z"
-last_activity: 2026-07-06
+status: Roadmap created (Phases 26-28, 23/23 requirements mapped)
+last_updated: "2026-07-06T20:24:08.189Z"
+last_activity: 2026-07-06 — Milestone v1.4 roadmap created (Phases 26-28)
 progress:
   total_phases: 3
   completed_phases: 0
@@ -362,7 +362,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-None
+.planning/phases/26-zero-dependency-contract-fixes-backlog-polish/26-UI-SPEC.md
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table

@@ -89,7 +89,15 @@ surfaces). Research doc: do this phase first so Phases 27–28 build on a clean 
   3. Studio's three hardcoded amber/red color systems and the 3 duplicated raw-JSON debug panes are replaced by shared, token-based treatments (`destructive`/`primary`/`muted`) that render correctly in dark mode, the JSON panes share one component with a copy button, and the catalog prop table has zebra rows + a muted header matching its surrounding card chrome
   4. Conversation rows, turn-action icon buttons, the composer, and scrollbars all present consistent eased hover/transition affordances and a visual "dock" treatment, and assistant messages carry a thin role-chrome rail distinguishing them from user messages beyond alignment alone
   5. The 3-4 empty-state components are visually differentiated from one another, new canvas panels no longer stack in a cramped vertical column by default, and a "counter bound to state" chat prompt produces a live-updating `dataRef`-bound render instead of a static `{{count}}` literal
-**Plans**: TBD
+**Plans**: 7 plans (all wave 1 — disjoint file sets, fully parallel)
+Plans:
+- [ ] 26-01-PLAN.md — Shared JSON pane component + history-island token cleanup (FIX-05, FIX-02, FIX-03)
+- [ ] 26-02-PLAN.md — Studio token discipline: PHASE_TONE/ViolationList/iframe, catalog prop table, remaining font-medium (FIX-02, FIX-03, FIX-06)
+- [ ] 26-03-PLAN.md — Button-source font-medium + chat hover affordances + assistant left rail (FIX-02, FIX-07, FIX-08)
+- [ ] 26-04-PLAN.md — Canvas node differentiation + auto-layout tuning (FIX-04, POLISH-02)
+- [ ] 26-05-PLAN.md — React Flow chrome CSS + composer dock + uniform scrollbars (FIX-01, FIX-09, FIX-10)
+- [ ] 26-06-PLAN.md — Shared EmptyState primitive + 3 call sites (FIX-11)
+- [ ] 26-07-PLAN.md — Generator prompt: declared-state dataRef binding (POLISH-01)
 **UI hint**: yes
 
 ### Phase 27: Adopted External Design Picks
@@ -130,7 +138,7 @@ papered-over token gap before Phase C touches the token layer)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 26. Zero-Dependency Contract Fixes + Backlog Polish | 0/? | Not started | - |
+| 26. Zero-Dependency Contract Fixes + Backlog Polish | 0/7 | Planned | - |
 | 27. Adopted External Design Picks | 0/? | Not started | - |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 
