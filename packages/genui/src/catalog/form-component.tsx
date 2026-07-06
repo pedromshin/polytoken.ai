@@ -230,9 +230,13 @@ export function FormComponent({
         return;
       }
       // FORM-04: resolve onSubmit ONLY through the allowlisted ActionRegistry seam (SEAM-02).
+      // 24-04 Task 2: the handler also receives the submitted FormValues snapshot (immutable
+      // spread — never mutates onSubmit) — the same class of additive wiring 23-06 applied to
+      // ButtonComponent. Invisible to the wire schema: onSubmit's own shape is unchanged, this
+      // is a runtime payload enrichment only.
       if (onSubmit) {
         try {
-          registry[onSubmit.type]?.(onSubmit);
+          registry[onSubmit.type]?.({ ...onSubmit, values });
         } catch {
           // best-effort — a failed handler must not break the form
         }
