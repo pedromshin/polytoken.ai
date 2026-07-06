@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
-status: executing
-last_updated: "2026-07-06T03:31:20.555Z"
-last_activity: 2026-07-06 -- Phase 25 Plan 02 (appropriateness-eval + frequency-cap gate chain, ANTIC-02) executed
+status: verifying
+last_updated: "2026-07-06T04:17:44.553Z"
+last_activity: 2026-07-06 -- Phase 25 Plan 03 (SPIKE findings harness + 25-SPIKE-FINDINGS.md go/no-go verdict, ANTIC-01/ANTIC-02) executed
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 24
-  completed_plans: 24
-  percent: 75
+  completed_plans: 25
+  percent: 100
 ---
 
 # State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 25 — Anticipatory Prompting (SPIKE)
+**Current focus:** Phase 25 — Anticipatory Prompting (SPIKE) — COMPLETE (verdict: ship-with-conditions)
 
 ## Current Position
 
-Phase: 25 (Anticipatory Prompting (SPIKE)) — EXECUTING
-Plan: 3 of 3 (25-01, 25-02 complete; 25-03 next)
-Status: Executing Phase 25
-Last activity: 2026-07-06 -- Phase 25 Plan 02 (appropriateness-eval + frequency-cap gate chain, ANTIC-02) executed
+Phase: 25 (Anticipatory Prompting (SPIKE)) — COMPLETE (3/3 plans)
+Plan: 3 of 3 (25-01, 25-02, 25-03 all complete)
+Status: Phase 25 complete; v1.3 milestone plans all executed — ready for milestone-level verification/audit
+Last activity: 2026-07-06 -- Phase 25 Plan 03 (SPIKE findings harness + 25-SPIKE-FINDINGS.md go/no-go verdict, ANTIC-01/ANTIC-02) executed
 
-Progress: [█████████░] 96% (23/24 plans)
+Progress: [██████████] 100%
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -92,6 +92,7 @@ live Bedrock / a browser.
 
 - **25-01 EXECUTED:** ANTIC-01 — the trigger/heuristic layer. `ANTICIPATORY_PROMPTING_ENABLED: bool = False` (D-12 global off switch) + 7 spike tunables (idle threshold 45s, appropriateness threshold 0.75, judge model/max-tokens/timeout, per-window/per-day frequency caps) added to `BaseAppSettings`, each with inline rationale; `anticipatory_judge_model_id` property resolves to `DEFAULT_GENUI_MODEL_ID` (Haiku) when unset. New `app.domain.anticipatory` package: `candidate.py` (frozen `AnticipatoryCandidate`/`AnticipatoryStateSnapshot`/`AnticipatoryLifecycleEvent`/`SourceStateRef`, D-05/D-06/D-13 — every snapshot collection is a `tuple`, never a `list`, enforcing read-only observation at the type level); `fixtures.py` (D-02 — `idle_after_genui_snapshot`/`completed_artifact_snapshot`/`ambiguous_intent_snapshot`, three scripted deterministic exercise inputs); `triggers.py` (D-04/D-06/D-12 — `detect_idle_after_genui`/`detect_completed_artifact`/`detect_ambiguous_intent`, pure functions sharing one `AnticipatoryTrigger` Protocol signature, `TRIGGERS` tuple, `run_triggers(snapshot, *, enabled, idle_threshold_seconds)` short-circuits to `[]` when `enabled=False`). Ambiguous-intent detection is fully deterministic (frozen vague-phrase set OR token-count floor, no ML). 20/20 pytest green (RED `614ef13` -> GREEN `4276997` for the TDD trigger task), ruff/mypy/lint-imports clean; `packages/genui/src/renderer/spec-renderer.tsx` untouched (backend-only plan). See 25-01-SUMMARY.md. **Next: 25-02** (appropriateness-eval + frequency-cap gate chain, ANTIC-02).
 - **25-02 EXECUTED:** ANTIC-02 — the appropriateness-eval + frequency-cap gate chain. `anticipatory_ports.py` (`AppropriatenessJudge`/`AnticipatoryCapStore` Protocols, D-08 — two independent gates, neither substitutes for the other); `BedrockAppropriatenessJudgeAdapter` mirrors `GenuiCodeJudgeAdapter`'s forced-tool-use posture but INVERTS the safe default — on ANY error/timeout/invalid output it returns `score=0.0` ("judge_error_suppress"), never the code-island judge's "use candidate 0" posture (D-07/D-09); `InMemoryAnticipatoryCapStore` is the D-14 no-new-table spike cap adapter (`seed()` simulates a reloaded conversation). `EvaluateAnticipatoryCandidates.evaluate()` (TDD RED `9e8910a` -> GREEN `adcd969`) checks the free cap FIRST (cost optimization only, never a substitution) then the paid judge — a candidate is `shown` only when BOTH independently pass, proven by a dedicated independence test; `to_proposal_card_declaration()` maps a survivor onto the UNCHANGED Phase-24 proposal-card shape (D-11); `record_candidate_outcome()` records accepted/dismissed + a dismissal cooldown. Flag OFF short-circuits before `run_triggers` even runs (D-12). `container.py` wires the dark pipeline (D-01) — `create_app()` boots live with `ANTICIPATORY_PROMPTING_ENABLED` confirmed False. 21/21 new pytest green (9 gate-chain + 12 judge-adapter incl. a container DI boot smoke test), 102/102 broader regression (`app/` + `tests/test_container.py`), ruff/lint-imports clean; 12 pre-existing mypy errors (unrelated files, surfaced only transitively via `container.py`'s import graph) logged to `deferred-items.md`, confirmed present before this plan via `git stash`. `packages/genui/src/renderer/spec-renderer.tsx` + `apps/web/**` untouched. See 25-02-SUMMARY.md. **Next: 25-03** (findings harness + SPIKE-FINDINGS.md go/no-go).
+- **25-03 EXECUTED — PHASE 25 COMPLETE, D-03 EXIT CRITERION MET:** Built the deterministic end-to-end spike harness (`test_anticipatory_spike_harness.py`) driving the REAL `EvaluateAnticipatoryCandidates` gate chain over all 3 Plan-25-01 fixtures across a 4-scenario matrix (A: appropriate+cap-room -> `shown`; B: appropriate+capped -> `suppressed_by_cap`; C: inappropriate+cap-room -> `suppressed_by_eval`; D: flag-OFF -> zero candidates/events), plus the shown->proposal-card (D-11) and dismissal-cooldown (D-13) paths per fixture — 16/16 tests green, `build_spike_outcome_matrix()` exposes the exact evidence transcribed into the findings doc, no live Bedrock call, ruff/mypy/lint-imports clean. Wrote `25-SPIKE-FINDINGS.md`: **verdict = ship-with-conditions** — the mechanism (triggers -> independent eval+cap gates -> explicit-accept -> lifecycle log) is provably false-positive-averse and never bypasses user consent, but live-Bedrock scoring, durable cap/lifecycle persistence, the live observation adapter, live web wiring, and dismissal-cooldown durability across reload are all unproven seams that must close before the flag is ever flipped on for a real user. Names 7 seams (traced to CONTEXT Deferred Ideas / D-XX decisions) and states plainly what the spike did NOT prove (live model behavior, real false-positive rate on live traffic). **Phase 25 (ANTIC-01/ANTIC-02) is now fully complete — all v1.3 milestone phases (22-25) have executed plans.** See 25-03-SUMMARY.md.
 
 ## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
 
@@ -324,7 +325,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-25-03-PLAN.md
+None
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -1162,3 +1163,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 24 P04 | ~2h | 3 tasks | 17 files |
 | Phase 25 P01 | 15min | 3 tasks | 8 files |
 | Phase 25 P02 | 23min | 3 tasks | 10 files |
+| Phase 25 P03 | ~20min | 2 tasks | 2 files |

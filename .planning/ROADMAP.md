@@ -47,7 +47,7 @@ interactive declarative widgets in both directions. Local/sandbox only — no de
 - [x] **Phase 22: Chat Spine + Persistence + Streaming** - Persistent, streamed `/chat` (text + progressive genui partial-tree specs) with the full table-stakes chat state machine and an application-level cost circuit breaker (completed 2026-07-04)
 - [x] **Phase 23: 2D Canvas + Panels-as-Nodes + Shared State** - genui panels laid out as draggable/pannable nodes on a persistent, responsive infinite canvas with cross-panel shared state and data-carrying edges (completed 2026-07-05)
 - [x] **Phase 24: Dual-Channel GenUI** - Agent↔user widget round-trips (proposal cards → clarify-widgets), safely re-validated and persisted (completed 2026-07-06)
-- [ ] **Phase 25: Anticipatory Prompting (SPIKE)** - Eval-gated, frequency-capped proactive-prompt trigger layer
+- [x] **Phase 25: Anticipatory Prompting (SPIKE)** - Eval-gated, frequency-capped proactive-prompt trigger layer (completed 2026-07-06)
 
 ## Phase Details
 
@@ -127,7 +127,7 @@ proactive prompts from chat+canvas state — gated hard enough that it never bec
 **Plans**: 3 plans (3 waves, sequential — SPIKE: real but flag-gated OFF, fixture-driven, deliverable = 25-SPIKE-FINDINGS.md)
 - [x] 25-01-PLAN.md — Trigger/heuristic layer: feature flag (default OFF, D-12) + typed AnticipatoryCandidate/snapshot/lifecycle contracts (D-05) + 3 deterministic read-only triggers (D-04/D-06) + 3 scripted fixtures (D-02) — ANTIC-01
 - [x] 25-02-PLAN.md — Gate chain: Haiku appropriateness eval (D-07/D-09) + INDEPENDENT hard frequency cap (D-08/D-10, no new DB table per D-14) + explicit-accept mapping onto the unchanged Phase-24 proposal card (D-11) + run-event-shaped lifecycle log (D-13) + dark-pipeline DI wiring (D-01/D-12) — ANTIC-02
-- [ ] 25-03-PLAN.md — Deliverable: deterministic end-to-end fixture harness (the go/no-go evidence matrix) + 25-SPIKE-FINDINGS.md with an explicit ship/don't-ship/ship-with-conditions verdict + named seams (D-03) — ANTIC-01, ANTIC-02
+- [x] 25-03-PLAN.md — Deliverable: deterministic end-to-end fixture harness (the go/no-go evidence matrix) + 25-SPIKE-FINDINGS.md with an explicit ship/don't-ship/ship-with-conditions verdict + named seams (D-03) — ANTIC-01, ANTIC-02
 
 ## Progress
 
@@ -139,7 +139,7 @@ Phases execute in numeric order: 22 → 23 → 24 → 25
 | 22. Chat Spine + Persistence + Streaming | 11/11 | Complete   | 2026-07-04 |
 | 23. 2D Canvas + Panels-as-Nodes + Shared State | 6/6 | Complete   | 2026-07-05 |
 | 24. Dual-Channel GenUI | 4/4 | Complete   | 2026-07-06 |
-| 25. Anticipatory Prompting (SPIKE) | 2/3 | In Progress|  |
+| 25. Anticipatory Prompting (SPIKE) | 3/3 | Complete   | 2026-07-06 |
 
 ## Next
 
