@@ -20,13 +20,6 @@ import { Loader2, Play, Sparkles } from "lucide-react";
 
 import { Button } from "@nauta/ui/button";
 import { Textarea } from "@nauta/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@nauta/ui/select";
 
 import {
   ADVERSARIAL_FIXTURES,
@@ -38,6 +31,7 @@ import {
   type IslandHealer,
 } from "@nauta/genui/sandbox";
 
+import { FileTree, type FileTreeNode } from "~/components/file-tree";
 import { api } from "~/trpc/react";
 
 const CodeIslandFrame = dynamic(
@@ -65,6 +59,19 @@ const PRESETS: readonly Preset[] = [
   { id: "unrepairable", label: "Unrepairable → safe fallback", code: UNREPAIRABLE_ISLAND_CODE, heal: failingHealer },
   { id: "adversarial", label: "Adversarial (fetch exfil) → blocked", code: FETCH_EXFIL },
 ];
+
+/**
+ * ADOPT-02 Plan A (27-UI-SPEC.md § "ADOPT-02 — FileTree"): the 4 PRESETS as
+ * folders, each holding one `island.js` leaf. Selecting a leaf resolves its
+ * parent preset id (`${presetId}/island.js` -> split on "/") and calls the
+ * SAME handlePreset the old <Select> wired.
+ */
+const FILE_TREE_DATA: readonly FileTreeNode[] = PRESETS.map((p) => ({
+  id: p.id,
+  name: p.label,
+  type: "folder",
+  children: [{ id: `${p.id}/island.js`, name: "island.js", type: "file" }],
+}));
 
 export function CodeSandboxIsland(): React.ReactElement {
   const [intent, setIntent] = useState<string>("");
@@ -132,6 +139,17 @@ export function CodeSandboxIsland(): React.ReactElement {
     setCode(preset.code);
   }, []);
 
+  // FileTree onSelect fires with the island.js leaf node; resolve its parent
+  // preset id from the "{presetId}/island.js" leaf id and reuse handlePreset —
+  // selecting a file never auto-runs (D-06); "Run preset" stays manual.
+  const handleFileTreeSelect = useCallback(
+    (node: FileTreeNode): void => {
+      const parentPresetId = node.id.split("/")[0] ?? node.id;
+      handlePreset(parentPresetId);
+    },
+    [handlePreset],
+  );
+
   const handleRunPreset = useCallback((): void => {
     setGenError(null);
     setActive({ code, heal: currentPreset.heal });
@@ -166,24 +184,19 @@ export function CodeSandboxIsland(): React.ReactElement {
         </div>
       </div>
 
-      {/* PRESET fixtures */}
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground">Or try a preset</span>
-          <Select value={presetId} onValueChange={handlePreset}>
-            <SelectTrigger className="w-72" aria-label="Code-island preset">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {PRESETS.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  {p.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-        <Button variant="outline" onClick={handleRunPreset} className="gap-1">
+      {/* PRESET fixtures — browsed via FileTree (ADOPT-02): 4 preset folders,
+          each holding one island.js leaf. Selecting a leaf calls the SAME
+          handlePreset the old <Select> wired; it never auto-runs — "Run
+          preset" stays the separate manual trigger (D-06). */}
+      <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
+        <span className="text-sm font-semibold">Or try a preset</span>
+        <FileTree
+          data={FILE_TREE_DATA}
+          selectedId={`${presetId}/island.js`}
+          onSelect={handleFileTreeSelect}
+          defaultExpandedIds={[presetId]}
+        />
+        <Button variant="outline" onClick={handleRunPreset} className="w-fit gap-1">
           <Play className="size-4" aria-hidden />
           Run preset
         </Button>
