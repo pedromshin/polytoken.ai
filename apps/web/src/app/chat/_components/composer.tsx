@@ -73,32 +73,34 @@ export function Composer({
   );
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl shrink-0 items-end gap-2 px-4 py-4">
-      <Textarea
-        ref={textareaRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        disabled={isStreaming}
-        placeholder="Ask the agent anything…"
-        rows={1}
-        className="max-h-52 min-h-[44px] resize-none overflow-y-auto"
-      />
-      <Button
-        type="button"
-        variant={isStreaming ? "secondary" : "default"}
-        size="icon"
-        className="size-11 shrink-0"
-        aria-label={isStreaming ? "Stop generating" : "Send message"}
-        onClick={isStreaming ? onStop : submit}
-        disabled={!isStreaming && value.trim().length === 0}
-      >
-        {isStreaming ? (
-          <Square className="size-4" aria-hidden />
-        ) : (
-          <Send className="size-4" aria-hidden />
-        )}
-      </Button>
+    <div className="w-full shrink-0 border-t border-border/60 bg-background shadow-sm">
+      <div className="mx-auto flex w-full max-w-3xl items-end gap-2 px-4 py-4">
+        <Textarea
+          ref={textareaRef}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          disabled={isStreaming}
+          placeholder="Ask the agent anything…"
+          rows={1}
+          className="max-h-52 min-h-[44px] resize-none overflow-y-auto scrollbar-token"
+        />
+        <Button
+          type="button"
+          variant={isStreaming ? "secondary" : "default"}
+          size="icon"
+          className="size-11 shrink-0"
+          aria-label={isStreaming ? "Stop generating" : "Send message"}
+          onClick={isStreaming ? onStop : submit}
+          disabled={!isStreaming && value.trim().length === 0}
+        >
+          {isStreaming ? (
+            <Square className="size-4" aria-hidden />
+          ) : (
+            <Send className="size-4" aria-hidden />
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
