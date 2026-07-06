@@ -15,7 +15,7 @@
 - [ ] **FIX-01**: React Flow's stock chrome (`.react-flow__controls`, `__minimap`, `__background`, `__attribution`) is styled with the app's existing token vars — no more off-the-shelf light-gray boxes on the canvas, correct in dark mode
 - [x] **FIX-02**: No `font-medium` anywhere on `/chat` or `/studio` — fixed at the source (`packages/ui/src/button.tsx` `buttonVariants` base class) and across the 11 Studio call-sites, restoring the locked 2-weight typography contract
 - [x] **FIX-03**: Studio's three hardcoded color systems (`code-island-frame.tsx` PHASE_TONE + ViolationList + `bg-white` iframe wrapper, `page-ideas-island.tsx` curveball badge, `history-island.tsx` FallbackNotice, `code-sandbox-island.tsx` `text-red-600`) use semantic tokens (`destructive`/`primary`/`muted`) and render correctly in dark mode
-- [ ] **FIX-04**: `ChatNode` and `GenuiPanelNode` have visually differentiated header chrome (per-kind accent or icon) — the canvas no longer reads as identical gray boxes
+- [x] **FIX-04**: `ChatNode` and `GenuiPanelNode` have visually differentiated header chrome (per-kind accent or icon) — the canvas no longer reads as identical gray boxes
 - [x] **FIX-05**: The 3 duplicated raw-`JSON.stringify` panes (generation-sandbox, history, preview) are one shared component with consistent indentation and a copy button
 - [x] **FIX-06**: The catalog prop table is styled to match its surrounding card chrome (zebra rows, muted header fill) instead of a bare HTML `<table>`
 - [x] **FIX-07**: Conversation rows and turn-action icon buttons have `transition-colors` and real hover affordances (background/border at rest and hover)
@@ -43,7 +43,7 @@
 ### Folded Backlog Polish (999.8a + 999.9, per their own backlog notes)
 
 - [ ] **POLISH-01**: The declarative generator is prompt-taught to express declared-state display via `dataRef`-bound nodes (never `{{mustache}}` text content), with `setState` increment-vs-absolute guidance — a "counter bound to state" prompt produces a live-updating render (999.8 option (a) only)
-- [ ] **POLISH-02**: New canvas panels auto-lay out without cramped vertical stacking (horizontal/grid default direction or smarter initial placement) (999.9)
+- [x] **POLISH-02**: New canvas panels auto-lay out without cramped vertical stacking (horizontal/grid default direction or smarter initial placement) (999.9)
 
 ## Future Requirements
 
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-01 | Phase 26 | Pending |
 | FIX-02 | Phase 26 | Complete |
 | FIX-03 | Phase 26 | Complete |
-| FIX-04 | Phase 26 | Pending |
+| FIX-04 | Phase 26 | Complete |
 | FIX-05 | Phase 26 | Complete |
 | FIX-06 | Phase 26 | Complete |
 | FIX-07 | Phase 26 | Complete |
@@ -97,7 +97,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-10 | Phase 26 | Pending |
 | FIX-11 | Phase 26 | Pending |
 | POLISH-01 | Phase 26 | Pending |
-| POLISH-02 | Phase 26 | Pending |
+| POLISH-02 | Phase 26 | Complete |
 | ADOPT-01 | Phase 27 | Pending |
 | ADOPT-02 | Phase 27 | Pending |
 | ADOPT-03 | Phase 27 | Pending |

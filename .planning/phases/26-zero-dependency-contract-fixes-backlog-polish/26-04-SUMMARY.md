@@ -93,6 +93,12 @@ None - no external service configuration required.
 - Visual verification (per plan's `<verification>` section: "on a fresh canvas with several panels, panels spread with 8-pt breathing room... ChatNode and GenuiPanelNode are distinguishable at a glance") is a UI-review item, not automated — deferred to the phase's checker/UI-review pass
 - No blockers for Phase 27 (Adopted External Design Picks) or Phase 28 (Design-System Token Upgrades)
 
+## Self-Check: PASSED
+
+All modified files confirmed present on disk (chat-node.tsx, genui-panel-node.tsx,
+canvas-layout.ts, this SUMMARY.md); all task/summary commit hashes (0d14be3, 4bc0a49,
+3b69233) confirmed present in `git log --oneline --all`.
+
 ---
 *Phase: 26-zero-dependency-contract-fixes-backlog-polish*
 *Completed: 2026-07-06*

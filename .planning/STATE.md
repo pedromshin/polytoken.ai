@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T21:18:25.769Z"
-last_activity: "2026-07-06 -- Phase 26 plan 03 complete: font-medium purged at Button source + hover affordances + assistant left rail (FIX-02/07/08)"
+last_updated: "2026-07-06T21:31:35.598Z"
+last_activity: "2026-07-06 -- Phase 26 plan 04 complete: FIX-04 node differentiation"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 3
-  percent: 43
+  completed_plans: 4
+  percent: 0
 ---
 
 # State
@@ -25,18 +25,17 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 26 (Zero-Dependency Contract Fixes + Backlog Polish) — EXECUTING
-Plan: 4 of 7 (26-03 complete)
+Plan: 5 of 7 (26-04 complete)
 Status: Executing Phase 26
-Last activity: 2026-07-06 -- Phase 26 plan 03 complete: FIX-02 root cause fixed
-  (packages/ui/src/button.tsx buttonVariants base font-medium -> font-normal, app-wide blast
-  radius) plus the 2 chat-side drift sites (cost-cap-blocked-card.tsx / inline-error-card.tsx
-  destructive headings -> font-semibold) — app-wide FIX-02 grep gate (chat + studio +
-  button.tsx, excluding __tests__) now passes. FIX-07 hover affordances added to
-  conversation-row.tsx (row transition-colors, overflow-trigger hover:bg-muted) and
-  turn-action-row.tsx (copy/regenerate transition-colors + hover:bg-muted). FIX-08 assistant
-  left rail (border-l-2 border-l-border/60 pl-3) added to message-turn.tsx. Both typechecks +
-  full genui (477) + web (153) vitest suites pass. Commits: 7919ca8, ab1ec11, b38cf5f. Next:
-  execute 26-04-PLAN.md (or /gsd:plan-phase if not yet generated).
+Last activity: 2026-07-06 -- Phase 26 plan 04 complete: FIX-04 node differentiation
+  (ChatNode: border-l-2 border-l-primary left-edge stripe + MessageSquare header icon;
+  GenuiPanelNode: bg-muted/40 header + PanelsTopLeft header icon, both icons aria-hidden,
+  dimensions/drag-handle/selection ring unchanged) plus POLISH-02 canvas auto-layout tuning
+  (canvas-layout.ts dagre nodesep 32 -> 64 so same-rank sibling genui-panels get 8-pt breathing
+  room; ranksep/rankdir/node dims/CASCADE_STEP_PX unchanged). Typecheck passes; canvas vitest
+  suites (use-canvas-persistence 13+1, panel-data-flow 1) pass — no dedicated canvas-layout
+  test file exists in the repo. Commits: 0d14be3, 4bc0a49, 3b69233. Next: execute 26-05-PLAN.md
+  (or /gsd:plan-phase if not yet generated).
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -1146,6 +1145,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-06 (26-01): FIX-02 row #9 (history-island row-title) drops `font-medium` entirely with no `font-normal` replacement (matches `conversation-row.tsx`'s sibling convention, no weight override at all); row #10 (detail-header caption) gets an explicit `font-medium` -> `font-normal` swap — the UI-SPEC's per-row table treats these as genuinely distinct, not both "just delete the class"
 - 2026-07-06 (26-01): `JsonPane`'s copy button uses standard `size="icon"` (36x36), not the 44px isolated-touch-target size — FIX-07's 44px rule is scoped to primary/isolated controls (composer Send, minimap toggle), not this dense inspector-header affordance
 - 2026-07-06 (26-01): FIX-02 and FIX-03 left `Pending` in REQUIREMENTS.md after this plan — both requirements span additional call-sites owned by 26-02 (FIX-02/FIX-03) and 26-03 (FIX-02); only FIX-05 is fully satisfied by 26-01 and was marked complete
+- 2026-07-06 (26-04): FIX-04 differentiation lives entirely in header fill opacity + a decorative aria-hidden icon + ChatNode's one left-edge accent stripe — GenuiPanelNode's outer shell stays unchanged (no left-edge accent, no second hue), matching 26-UI-SPEC.md's explicit revision of 23-UI-SPEC.md's "never special-case chat" shell clause
+- 2026-07-06 (26-04): POLISH-02 tuned only dagre's same-rank `nodesep` (32 -> 64, next 8-pt step) rather than adding a column-wrap cap — directly resolves the cramped same-rank sibling-panel stacking without new branching logic in canvas-layout.ts; ranksep/rankdir/node-dims/CASCADE_STEP_PX left untouched
+- 2026-07-06 (26-04): no dedicated canvas-layout.test.ts exists in the repo — ran the existing use-canvas-persistence + panel-data-flow vitest suites instead (15 tests pass) to confirm the nodesep change doesn't affect saved-position round-trip or overlap-cascade logic
 
 ## Performance Metrics
 
@@ -1215,6 +1217,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 25 P03 | ~20min | 2 tasks | 2 files |
 | Phase 26 P01 | 15min | 3 tasks | 6 files |
 | Phase 26 P03 | ~10m | 3 tasks | 6 files |
+| Phase 26 P04 | 8min | 2 tasks | 3 files |
 
 ## Operator Next Steps
 

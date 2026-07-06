@@ -94,7 +94,7 @@ Plans:
 - [x] 26-01-PLAN.md — Shared JSON pane component + history-island token cleanup (FIX-05, FIX-02, FIX-03)
 - [x] 26-02-PLAN.md — Studio token discipline: PHASE_TONE/ViolationList/iframe, catalog prop table, remaining font-medium (FIX-02, FIX-03, FIX-06)
 - [x] 26-03-PLAN.md — Button-source font-medium + chat hover affordances + assistant left rail (FIX-02, FIX-07, FIX-08)
-- [ ] 26-04-PLAN.md — Canvas node differentiation + auto-layout tuning (FIX-04, POLISH-02)
+- [x] 26-04-PLAN.md — Canvas node differentiation + auto-layout tuning (FIX-04, POLISH-02)
 - [ ] 26-05-PLAN.md — React Flow chrome CSS + composer dock + uniform scrollbars (FIX-01, FIX-09, FIX-10)
 - [ ] 26-06-PLAN.md — Shared EmptyState primitive + 3 call sites (FIX-11)
 - [ ] 26-07-PLAN.md — Generator prompt: declared-state dataRef binding (POLISH-01)
@@ -138,7 +138,7 @@ papered-over token gap before Phase C touches the token layer)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 26. Zero-Dependency Contract Fixes + Backlog Polish | 3/7 | In Progress|  |
+| 26. Zero-Dependency Contract Fixes + Backlog Polish | 4/7 | In Progress|  |
 | 27. Adopted External Design Picks | 0/? | Not started | - |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 
