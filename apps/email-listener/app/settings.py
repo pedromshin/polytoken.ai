@@ -153,6 +153,32 @@ class BaseAppSettings(BaseSettings):
     GENUI_CODE_JUDGE_MODEL_ID: str = ""  # judge model; default Haiku (cheap)
     GENUI_CODE_JUDGE_MAX_TOKENS: int = 512  # judge output is tiny (best_index + reason)
 
+    # --- Anticipatory prompting SPIKE (Phase 25, ANTIC-01/02) ---
+    # D-12: single global off switch. When False, run_triggers short-circuits to []
+    # before any trigger evaluates — zero candidates produced, pipeline fully dark.
+    # This is the ONE flag that gates the whole spike; every other field below is a
+    # tunable that only matters once this is flipped True.
+    ANTICIPATORY_PROMPTING_ENABLED: bool = False
+    # Trigger-layer (D-04) idle threshold: seconds of inactivity after a settled
+    # genui turn before the idle_after_genui trigger fires. 45s chosen (Claude's
+    # discretion) to be long enough that a user mid-read isn't interrupted, short
+    # enough to still feel "anticipatory" rather than stale.
+    ANTICIPATORY_IDLE_THRESHOLD_SECONDS: float = 45.0
+    # Appropriateness-eval (D-07) threshold: candidates scoring below this on the
+    # 0-1 LLM-judge rubric are suppressed. 0.75 is deliberately conservative/high —
+    # D-07 says bias hard toward NOT prompting, since false-positive prompting is
+    # the spike's documented primary risk.
+    ANTICIPATORY_APPROPRIATENESS_THRESHOLD: float = 0.75
+    ANTICIPATORY_JUDGE_MODEL_ID: str = ""  # empty -> resolves to DEFAULT_GENUI_MODEL_ID (Haiku, D-09)
+    ANTICIPATORY_JUDGE_MAX_TOKENS: int = 256  # judge output is a tiny score+reason, mirrors GENUI_CODE_JUDGE_MAX_TOKENS
+    ANTICIPATORY_JUDGE_TIMEOUT_SECONDS: float = 30.0
+    # Frequency cap (D-10): at most 1 proactive prompt per conversation per short
+    # window, AND a per-conversation daily ceiling. Both must independently allow
+    # a candidate through (D-08 — eval and cap are separate checks).
+    ANTICIPATORY_CAP_PER_WINDOW: int = 1
+    ANTICIPATORY_CAP_WINDOW_MINUTES: int = 10
+    ANTICIPATORY_CAP_PER_DAY: int = 3
+
     @property
     def api_key(self) -> str:
         return parse_secret_value(self.API_KEY, "API_KEY", self.ENVIRONMENT.value)
@@ -219,6 +245,11 @@ class BaseAppSettings(BaseSettings):
     def openrouter_api_key(self) -> str:
         """OpenRouter API key (T-22-06 — server-side only, never client-exposed)."""
         return parse_secret_value(self.OPENROUTER_API_KEY, "OPENROUTER_API_KEY", self.ENVIRONMENT.value)
+
+    @property
+    def anticipatory_judge_model_id(self) -> str:
+        """Model for the anticipatory appropriateness judge (D-07/D-09; default Haiku — cheap)."""
+        return (self.ANTICIPATORY_JUDGE_MODEL_ID or DEFAULT_GENUI_MODEL_ID).strip()
 
 
 class DevSettings(BaseAppSettings):
