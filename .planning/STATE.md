@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: "Conversational GenUI: Chat, Canvas & Dual-Channel"
 status: executing
-last_updated: "2026-07-06T02:36:24.360Z"
-last_activity: 2026-07-06 -- Phase 25 Plan 01 (trigger/heuristic layer, ANTIC-01) executed
+last_updated: "2026-07-06T03:31:20.555Z"
+last_activity: 2026-07-06 -- Phase 25 Plan 02 (appropriateness-eval + frequency-cap gate chain, ANTIC-02) executed
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 24
-  completed_plans: 23
-  percent: 96
+  completed_plans: 24
+  percent: 75
 ---
 
 # State
@@ -25,11 +25,11 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 25 (Anticipatory Prompting (SPIKE)) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3 (25-01, 25-02 complete; 25-03 next)
 Status: Executing Phase 25
-Last activity: 2026-07-06 -- Phase 25 Plan 01 (trigger/heuristic layer, ANTIC-01) executed
+Last activity: 2026-07-06 -- Phase 25 Plan 02 (appropriateness-eval + frequency-cap gate chain, ANTIC-02) executed
 
-Progress: [██████████] 96%
+Progress: [█████████░] 96% (23/24 plans)
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
@@ -91,6 +91,7 @@ live Bedrock / a browser.
 ## Phase 25 — Anticipatory Prompting (SPIKE) (executing 2026-07-05)
 
 - **25-01 EXECUTED:** ANTIC-01 — the trigger/heuristic layer. `ANTICIPATORY_PROMPTING_ENABLED: bool = False` (D-12 global off switch) + 7 spike tunables (idle threshold 45s, appropriateness threshold 0.75, judge model/max-tokens/timeout, per-window/per-day frequency caps) added to `BaseAppSettings`, each with inline rationale; `anticipatory_judge_model_id` property resolves to `DEFAULT_GENUI_MODEL_ID` (Haiku) when unset. New `app.domain.anticipatory` package: `candidate.py` (frozen `AnticipatoryCandidate`/`AnticipatoryStateSnapshot`/`AnticipatoryLifecycleEvent`/`SourceStateRef`, D-05/D-06/D-13 — every snapshot collection is a `tuple`, never a `list`, enforcing read-only observation at the type level); `fixtures.py` (D-02 — `idle_after_genui_snapshot`/`completed_artifact_snapshot`/`ambiguous_intent_snapshot`, three scripted deterministic exercise inputs); `triggers.py` (D-04/D-06/D-12 — `detect_idle_after_genui`/`detect_completed_artifact`/`detect_ambiguous_intent`, pure functions sharing one `AnticipatoryTrigger` Protocol signature, `TRIGGERS` tuple, `run_triggers(snapshot, *, enabled, idle_threshold_seconds)` short-circuits to `[]` when `enabled=False`). Ambiguous-intent detection is fully deterministic (frozen vague-phrase set OR token-count floor, no ML). 20/20 pytest green (RED `614ef13` -> GREEN `4276997` for the TDD trigger task), ruff/mypy/lint-imports clean; `packages/genui/src/renderer/spec-renderer.tsx` untouched (backend-only plan). See 25-01-SUMMARY.md. **Next: 25-02** (appropriateness-eval + frequency-cap gate chain, ANTIC-02).
+- **25-02 EXECUTED:** ANTIC-02 — the appropriateness-eval + frequency-cap gate chain. `anticipatory_ports.py` (`AppropriatenessJudge`/`AnticipatoryCapStore` Protocols, D-08 — two independent gates, neither substitutes for the other); `BedrockAppropriatenessJudgeAdapter` mirrors `GenuiCodeJudgeAdapter`'s forced-tool-use posture but INVERTS the safe default — on ANY error/timeout/invalid output it returns `score=0.0` ("judge_error_suppress"), never the code-island judge's "use candidate 0" posture (D-07/D-09); `InMemoryAnticipatoryCapStore` is the D-14 no-new-table spike cap adapter (`seed()` simulates a reloaded conversation). `EvaluateAnticipatoryCandidates.evaluate()` (TDD RED `9e8910a` -> GREEN `adcd969`) checks the free cap FIRST (cost optimization only, never a substitution) then the paid judge — a candidate is `shown` only when BOTH independently pass, proven by a dedicated independence test; `to_proposal_card_declaration()` maps a survivor onto the UNCHANGED Phase-24 proposal-card shape (D-11); `record_candidate_outcome()` records accepted/dismissed + a dismissal cooldown. Flag OFF short-circuits before `run_triggers` even runs (D-12). `container.py` wires the dark pipeline (D-01) — `create_app()` boots live with `ANTICIPATORY_PROMPTING_ENABLED` confirmed False. 21/21 new pytest green (9 gate-chain + 12 judge-adapter incl. a container DI boot smoke test), 102/102 broader regression (`app/` + `tests/test_container.py`), ruff/lint-imports clean; 12 pre-existing mypy errors (unrelated files, surfaced only transitively via `container.py`'s import graph) logged to `deferred-items.md`, confirmed present before this plan via `git stash`. `packages/genui/src/renderer/spec-renderer.tsx` + `apps/web/**` untouched. See 25-02-SUMMARY.md. **Next: 25-03** (findings harness + SPIKE-FINDINGS.md go/no-go).
 
 ## Phase 21 — Generation Quality Verification (in progress 2026-07-01)
 
@@ -322,7 +323,8 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
   b59e929 (plans), 521f767 + ffe968f (review fixes). Ready to execute.
 
 - **Resume file:** 
-- **Architecture locked:** identity = **repurpose `entity_instances`** (nauta_id nullable + `source`
+
+25-03-PLAN.md
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -1089,6 +1091,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-05 (23-06): ButtonComponent's onClick (Phase-13 ActionSchema object) takes precedence over the legacy string `action` ActionRegistry key when both are present on a button node
 - 2026-07-05 (23-06): panel-action-bridge registers ONLY setState in its ActionRegistry — navigate/mutate/query-refresh intentionally absent (a memoized canvas node body shouldn't carry router/tRPC deps; mutate is unreachable anyway since ALLOWED_MUTATIONS=[])
 - 2026-07-05 (23-06, Rule 1/3 fix): found + fixed 2 pre-existing bugs in 23-05's canvas-store-context.tsx while writing the first-ever live React-mount test of CanvasStoreProvider/usePanelData: (1) missing `React` import (JSX only worked under Next's SWC auto-runtime, crashed under vitest's plain esbuild transform); (2) usePanelData's incoming-edges overlay selector allocated a new object every call, breaking useSyncExternalStore's snapshot-stability contract and infinite-looping ANY target panel with a live edge in the real running app — fixed with zustand v5's useShallow + a stable EMPTY_PANEL_DATA constant
+- 2026-07-06 (25-02): D-14 executed exactly as the planner specified — no new DB table for the anticipatory cap/lifecycle spike; `AnticipatoryCapStore` port + `InMemoryAnticipatoryCapStore` adapter only, production persistence deferred to a `chat_run_events` projection (documented seam for 25-03's findings)
+- 2026-07-06 (25-02): `BedrockAppropriatenessJudgeAdapter` deliberately INVERTS `GenuiCodeJudgeAdapter`'s safe-default posture — fails toward `score=0.0` (suppress) on any error/timeout/invalid output, never toward "use the first candidate" (D-07)
+- 2026-07-06 (25-02): frequency-cap check runs BEFORE the paid appropriateness-eval call (cost optimization only, per D-08) — a cap denial never bills the judge and is never overridden by what the eval would have said; proven by a dedicated independence test
+- 2026-07-06 (25-02, Rule 1 fix): `test_evaluate_anticipatory_candidates.py` initially imported `InMemoryAnticipatoryCapStore` from `app.infrastructure` — broke the "Application does not import infrastructure" lint-imports contract; replaced with a test-local `FakeAnticipatoryCapStore` double (mirrors `test_submit_widget_interaction.py`'s existing convention)
+- 2026-07-06 (25-02, Rule 2 addition): added `_extract_usage()` real-token-capture to `BedrockAppropriatenessJudgeAdapter` (mirroring `GenuiCodeJudgeAdapter`'s D-22 idiom) — not spelled out in Task 1's action text but required by Task 3's own acceptance criteria ("response.usage is read when present")
 
 ## Performance Metrics
 
@@ -1154,3 +1161,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 24 P02 | ~2h | 3 tasks | 17 files |
 | Phase 24 P04 | ~2h | 3 tasks | 17 files |
 | Phase 25 P01 | 15min | 3 tasks | 8 files |
+| Phase 25 P02 | 23min | 3 tasks | 10 files |

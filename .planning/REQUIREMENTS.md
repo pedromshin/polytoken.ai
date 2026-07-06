@@ -46,7 +46,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Anticipatory Prompting (SPIKE)
 
 - [x] **ANTIC-01**: SPIKE — a trigger/heuristic layer over chat+canvas state proposes proactive prompts
-- [ ] **ANTIC-02**: Proactive prompts are gated by an appropriateness eval + a hard frequency cap, and always require explicit user acceptance
+- [x] **ANTIC-02**: Proactive prompts are gated by an appropriateness eval + a hard frequency cap, and always require explicit user acceptance
 
 ### Seams (v1.5+ readiness)
 
@@ -139,7 +139,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DCUI-03 | Phase 24 | Complete |
 | DCUI-04 | Phase 24 | Complete |
 | ANTIC-01 | Phase 25 | Complete |
-| ANTIC-02 | Phase 25 | Pending |
+| ANTIC-02 | Phase 25 | Complete |
 
 **Coverage:**
 - v1.3 requirements: 24 total
