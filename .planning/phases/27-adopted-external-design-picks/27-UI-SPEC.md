@@ -74,10 +74,9 @@ Unchanged 4-point grid (identical to `26-UI-SPEC.md` — no new value introduced
 |-------|-------|------------------------|
 | xs | 4px | FileTree icon-to-label gap (`gap-2` is 8px — see below; no 4px gap used) |
 | sm | 8px | FileTree row `px-2`, root-depth indent (`pl-2`), icon-to-label `gap-2` |
-| md | 16px | FileTree per-depth indent step (`pl-6` = 24px is depth-1; the STEP between depths is 16px) |
-| lg | 24px | FileTree depth-1 indent (`pl-6`) |
+| md | 16px | FileTree's single indent step (depth-0 `pl-2` → depth-1 `pl-6` is 16px; deeper nesting clamps to depth-1, so this is the only step that exists) |
+| lg | 24px | FileTree depth-1 indent (`pl-6`) — also the clamped indent for any theoretical depth ≥ 2 |
 | xl | 32px | not used this phase |
-| 2xl | 40px | FileTree depth-2 indent (`pl-10`), reserved for future deeper nesting |
 
 **Exemptions (spacing grid does not govern these — different dimension, same as Phase 26's own
 precedent for `border-l-2`):**
@@ -128,6 +127,10 @@ Component Inventory).
 snippet used, never a new hex value. 60/30/10 discipline holds: the two new accent uses above are
 both state-driven (ring: generation in-flight only; FileTree selection: user-driven selection state
 only) — primary's footprint does not expand into any at-rest decoration.
+
+**Visual hierarchy:** while `active === true`, the `GeneratingRing` sweep is the PRIMARY visual
+signal in its region; FileTree's `bg-primary/10` selected row is a secondary, at-rest anchor within
+the Code-Island tab.
 
 ---
 
@@ -235,7 +238,7 @@ export function FileTree(props: FileTreeProps): React.ReactElement
 | File row (unselected) | `text-foreground hover:bg-muted` |
 | File row (selected) | `bg-primary/10 text-primary` — **verbatim reuse** of `conversation-row.tsx`'s `isActive` recipe (Phase 26), not a new pattern |
 | File icon | `FileCode2` (lucide) `size-4 shrink-0 text-muted-foreground` (selected: inherits `text-primary` from the row) |
-| Indentation (depth-based, fixed lookup — no inline styles) | depth 0: `pl-2` (8px) · depth 1: `pl-6` (24px) · depth 2+: `pl-10` (40px, clamped) |
+| Indentation (depth-based, fixed lookup — no inline styles) | depth 0: `pl-2` (8px) · depth 1: `pl-6` (24px) · depth ≥ 2 (theoretical only — neither Plan A nor Plan B ever nests this deep): clamped to `pl-6` (24px) |
 | Children container ("indicator" — simplified from Magic UI's absolute-positioned guide line, per discretion) | `border-l border-border/40 ml-4` |
 
 **Mount — Plan A (default, per `27-CONTEXT.md`'s locked scout resolution):** in
@@ -550,6 +553,10 @@ safety-gated via mandatory attribution headers + execution-time license re-verif
 | Magic UI (`magicuidesign/magicui`, MIT) | `file-tree` component (ADOPT-02, hand-ported to a trimmed API) + `shine-border`/`animated-shiny-text` CSS TECHNIQUE only (ADOPT-03, not the components' own APIs) | Fetch source directly via `curl`/`gh` at execution time; re-verify MIT license; attribution header on both new files; manual code review (no `fetch`/`eval`/`process.env`/dynamic-import patterns expected in a CSS-only port — confirm at fetch time) |
 | `ux-designer-skill` (repo TBD at fetch) | Exactly 3 reference `.md` files, copied verbatim (ADOPT-04) | License re-verified before copy; if incompatible, SKIP + document deviation in the plan SUMMARY — do not substitute different content |
 | `Jakubantalik/transitions.dev` (MIT) | 3 CSS-only snippets (modal/panel-reveal/dropdown), retokenized (ADOPT-05) — explicitly NOT the JS orchestration snippets the source also offers (this port stays CSS-only, zero JS, consistent with the phase's zero-new-JS-dependency posture) | Fetch via `curl`/`gh`; re-verify MIT; attribution header; CSS-only (no `<script>` orchestration copied) |
+
+**Evidence requirement:** the executing plan's SUMMARY must record the actual per-source vetting
+outcome for each of the 4 sources (e.g. "fetched + reviewed — no flags — {date}"), so verification
+is evidenced, not just planned.
 
 **Deferred, not forgotten (flagged, not fixed, this phase):** `packages/ui/src/command.tsx`'s
 `CommandGroup` `font-medium`/`py-1.5` on `[cmdk-group-heading]` (scout finding above) — out of
