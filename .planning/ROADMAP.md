@@ -92,7 +92,7 @@ surfaces). Research doc: do this phase first so Phases 27–28 build on a clean 
 **Plans**: 7 plans (all wave 1 — disjoint file sets, fully parallel)
 Plans:
 - [x] 26-01-PLAN.md — Shared JSON pane component + history-island token cleanup (FIX-05, FIX-02, FIX-03)
-- [ ] 26-02-PLAN.md — Studio token discipline: PHASE_TONE/ViolationList/iframe, catalog prop table, remaining font-medium (FIX-02, FIX-03, FIX-06)
+- [x] 26-02-PLAN.md — Studio token discipline: PHASE_TONE/ViolationList/iframe, catalog prop table, remaining font-medium (FIX-02, FIX-03, FIX-06)
 - [ ] 26-03-PLAN.md — Button-source font-medium + chat hover affordances + assistant left rail (FIX-02, FIX-07, FIX-08)
 - [ ] 26-04-PLAN.md — Canvas node differentiation + auto-layout tuning (FIX-04, POLISH-02)
 - [ ] 26-05-PLAN.md — React Flow chrome CSS + composer dock + uniform scrollbars (FIX-01, FIX-09, FIX-10)
@@ -138,7 +138,7 @@ papered-over token gap before Phase C touches the token layer)
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 26. Zero-Dependency Contract Fixes + Backlog Polish | 1/7 | In Progress|  |
+| 26. Zero-Dependency Contract Fixes + Backlog Polish | 2/7 | In Progress|  |
 | 27. Adopted External Design Picks | 0/? | Not started | - |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 

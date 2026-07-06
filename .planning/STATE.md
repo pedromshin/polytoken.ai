@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T20:54:21.000Z"
-last_activity: 2026-07-06 -- Phase 26 plan 01 complete (JsonPane + history-island token cleanup)
+last_updated: "2026-07-06T21:06:44.968Z"
+last_activity: "2026-07-06 -- Phase 26 plan 02 complete: studio token & weight cleanup (FIX-02/03/06)"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
-  percent: 14
+  completed_plans: 2
+  percent: 29
 ---
 
 # State
@@ -25,14 +25,17 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 26 (Zero-Dependency Contract Fixes + Backlog Polish) — EXECUTING
-Plan: 2 of 7 (26-01 complete)
+Plan: 3 of 7 (26-02 complete)
 Status: Executing Phase 26
-Last activity: 2026-07-06 -- Phase 26 plan 01 complete: shared JsonPane component (FIX-05, fully
-  complete) wired into all 3 studio JSON panes; history-island.tsx's FIX-02 #9/#10 (font-medium
-  drift) + FIX-03e (FallbackNotice amber->destructive) cleared. FIX-02/FIX-03 remain Pending in
-  REQUIREMENTS.md — both span additional call-sites owned by 26-02/26-03, not fully satisfied
-  until those land. Commits: 4cd49ec, 77f1497, 4b88fcc, a6023a7. Next: /gsd:plan-phase or execute
-  26-02-PLAN.md.
+Last activity: 2026-07-06 -- Phase 26 plan 02 complete: code-island-frame's PHASE_TONE map +
+  ViolationList tone recipes + iframe wrapper moved to destructive/primary/muted/background
+  tokens (no dark: overrides); catalog-browser-island's prop table gained a bg-muted/40 header
+  band + odd:bg-muted/20 zebra rows; 8 of 11 studio font-medium sites cleared (#1-8,#11) across
+  generation-state-chrome.tsx, code-sandbox-island.tsx (error text -> text-destructive), and
+  page-ideas-island.tsx (curveball badge -> Badge variant="outline"). FIX-02's root cause
+  (packages/ui/src/button.tsx's buttonVariants) and FIX-03(e)/other FIX-0x items remain for later
+  26-xx plans. Commits: 53664a3, 53069ff, 62d80b8, 94c3817, 431b32d. Next: execute 26-03-PLAN.md
+  (or /gsd:plan-phase if not yet generated).
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
