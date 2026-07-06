@@ -36,6 +36,7 @@ from app.application.use_cases.edit_region import (
     RejectRegionUseCase,
     SplitRegionUseCase,
 )
+from app.application.use_cases.evaluate_anticipatory_candidates import EvaluateAnticipatoryCandidates
 from app.application.use_cases.generate_code_island import GenerateCodeIslandUseCase
 from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
@@ -60,6 +61,7 @@ from app.application.use_cases.set_component_relationship import (
 )
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
+from app.domain.ports.anticipatory_ports import AnticipatoryCapStore, AppropriatenessJudge
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
@@ -87,7 +89,9 @@ from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
 from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
+from app.infrastructure.anticipatory.in_memory_cap_store import InMemoryAnticipatoryCapStore
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
+from app.infrastructure.llm.anticipatory_judge_adapter import BedrockAppropriatenessJudgeAdapter
 from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.chat_tools import (
@@ -461,6 +465,35 @@ def _provide_genui_code_judge_adapter(client: AsyncAnthropicBedrock) -> GenuiCod
     )
 
 
+def _provide_anticipatory_judge(client: AsyncAnthropicBedrock) -> AppropriatenessJudge:
+    """BedrockAppropriatenessJudgeAdapter — gate #1 of the ANTIC-02 dark pipeline (D-07/D-09).
+
+    Registered so the pipeline is DI-constructible (D-01); the pipeline itself
+    is not invoked anywhere in the live turn loop (D-12 — dark by default via
+    ANTICIPATORY_PROMPTING_ENABLED=False, checked by the caller, not here).
+    """
+    settings = get_settings()
+    return BedrockAppropriatenessJudgeAdapter(
+        client=client,
+        model_id=settings.anticipatory_judge_model_id,
+        max_tokens=settings.ANTICIPATORY_JUDGE_MAX_TOKENS,
+        timeout_seconds=settings.ANTICIPATORY_JUDGE_TIMEOUT_SECONDS,
+        threshold=settings.ANTICIPATORY_APPROPRIATENESS_THRESHOLD,
+    )
+
+
+def _provide_evaluate_anticipatory_candidates(
+    judge: AppropriatenessJudge,
+    cap_store: AnticipatoryCapStore,
+) -> EvaluateAnticipatoryCandidates:
+    """Factory for EvaluateAnticipatoryCandidates — the ANTIC-02 gate-chain use case (D-01/D-08).
+
+    Both collaborators are the domain PORTS (not concrete adapters) — mirrors
+    every other Protocol-typed use case factory in this module.
+    """
+    return EvaluateAnticipatoryCandidates(judge=judge, cap_store=cap_store)
+
+
 def _provide_httpx_client() -> httpx.AsyncClient:
     """Shared httpx AsyncClient singleton for outbound streaming HTTP calls (OpenRouter, D-07 seam).
 
@@ -809,6 +842,14 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_chat_widget_interaction_repository, provides=ChatWidgetInteractionRepository)
     provider.provide(_provide_run_chat_turn, provides=RunChatTurn)
     provider.provide(_provide_submit_widget_interaction, provides=SubmitWidgetInteraction)
+
+    # ── Anticipatory-prompting SPIKE — dark gate-chain pipeline (Phase 25-02, D-01/D-12) ──
+    # Registered so the whole pipeline is real, DI-constructible infrastructure — NOT invoked
+    # anywhere in the live turn loop. ANTICIPATORY_PROMPTING_ENABLED defaults to False; live
+    # observation wiring into the turn loop is a documented Plan 25-03 seam.
+    provider.provide(_provide_anticipatory_judge, provides=AppropriatenessJudge)
+    provider.provide(InMemoryAnticipatoryCapStore, provides=AnticipatoryCapStore)
+    provider.provide(_provide_evaluate_anticipatory_candidates, provides=EvaluateAnticipatoryCandidates)
 
     return provider
 

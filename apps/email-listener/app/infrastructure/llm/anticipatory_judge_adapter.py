@@ -148,19 +148,37 @@ class BedrockAppropriatenessJudgeAdapter(AppropriatenessJudge):
         return self._parse_response(response)
 
     def _parse_response(self, response: Any) -> AppropriatenessScore:
-        """Extract + clamp score from the score_appropriateness tool_use block (D-07 fail-closed)."""
+        """Extract + clamp score from the score_appropriateness tool_use block (D-07 fail-closed).
+
+        Real Bedrock usage (input/output tokens) is read off `response.usage`
+        whenever present and logged alongside the outcome — regardless of
+        which parsing branch is taken, mirroring GenuiCodeJudgeAdapter's D-22
+        "a real call was billed, so surface its real usage" posture.
+        """
+        input_tokens, output_tokens = _extract_usage(response)
+
         for block in response.content:
             if getattr(block, "type", None) != "tool_use":
                 continue
             try:
                 raw_input: dict[str, Any] = dict(block.input)
             except (TypeError, ValueError):
-                logger.warning("anticipatory_judge_parse_failed", exc_info=True)
+                logger.warning(
+                    "anticipatory_judge_parse_failed",
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    exc_info=True,
+                )
                 return _SUPPRESS_ON_ERROR
 
             raw_score = raw_input.get("score")
             if not isinstance(raw_score, int | float) or isinstance(raw_score, bool):
-                logger.warning("anticipatory_judge_invalid_score", raw_score=raw_score)
+                logger.warning(
+                    "anticipatory_judge_invalid_score",
+                    raw_score=raw_score,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                )
                 return _SUPPRESS_ON_ERROR
 
             reason = raw_input.get("reason")
@@ -173,11 +191,28 @@ class BedrockAppropriatenessJudgeAdapter(AppropriatenessJudge):
                 score=clamped,
                 threshold=self._threshold,
                 would_pass=clamped >= self._threshold,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
             )
             return AppropriatenessScore(score=clamped, reason=reason)
 
-        logger.warning("anticipatory_judge_no_tool_use")
+        logger.warning(
+            "anticipatory_judge_no_tool_use",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
         return _SUPPRESS_ON_ERROR
+
+
+def _extract_usage(response: Any) -> tuple[int, int]:
+    """Read real (input_tokens, output_tokens) off a Bedrock response.
+
+    Mirrors GenuiCodeJudgeAdapter's `_extract_usage` idiom exactly.
+    """
+    usage = getattr(response, "usage", None)
+    input_tokens = getattr(usage, "input_tokens", 0) or 0
+    output_tokens = getattr(usage, "output_tokens", 0) or 0
+    return input_tokens, output_tokens
 
 
 def _build_user_content(*, proposed_prompt_text: str, rationale: str, context_summary: str) -> str:
