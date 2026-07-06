@@ -46,6 +46,13 @@ function dimensionsFor(nodeType: string | undefined): {
  * Apply dagre LR layout to React Flow canvas nodes/edges (chat node leads,
  * genui panels fan out to the right). Returns a NEW array of nodes with
  * computed `position` — inputs are never mutated.
+ *
+ * `nodesep: 64` (26-UI-SPEC.md POLISH-02): every genui-panel directly
+ * connected to the chat node lands in the SAME dagre rank, so this is the
+ * gutter between SIBLING panels stacked within that rank — bumped from the
+ * prior `32` to the next 8-pt step so same-rank panels get real vertical
+ * breathing room instead of cramming. `ranksep: 64` (rank-to-rank distance,
+ * chat -> panel column) is unchanged.
  */
 export function layoutCanvasNodes<NodeData extends Record<string, unknown>>(
   nodes: ReadonlyArray<Node<NodeData>>,
@@ -57,7 +64,7 @@ export function layoutCanvasNodes<NodeData extends Record<string, unknown>>(
   g.setGraph({
     rankdir: "LR",
     ranksep: 64,
-    nodesep: 32,
+    nodesep: 64,
   });
 
   for (const node of nodes) {
