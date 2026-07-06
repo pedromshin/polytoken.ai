@@ -112,7 +112,12 @@ token-correct base)
   3. A teal-only, `motion-safe:`-gated `<GeneratingRing>` primitive visibly marks "generating" state on genui cards in Chat and on the sandbox/history tabs in Studio
   4. A slim project reference doc contains the 3 copied `ux-designer-skill` files (canvas-navigation, canvas-objects-performance, ai-ux-patterns)
   5. 3-4 retokenized `transitions.dev` CSS snippets (modal, panel-reveal, dropdown) are visibly used at their corresponding UI moments, using the app's own custom properties
-**Plans**: TBD
+**Plans**: 5 plans
+- [ ] 27-01-PLAN.md — Docs: impeccable product-register + 13-item bans + 3 ux-designer reference files (ADOPT-01, ADOPT-04)
+- [ ] 27-02-PLAN.md — Ported Magic UI FileTree (raw Radix accordion, zero deps) mounted in the Code-Island preset browser (ADOPT-02)
+- [ ] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
+- [ ] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
+- [ ] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
 **UI hint**: yes
 
 ### Phase 28: Design-System Token Upgrades
@@ -139,7 +144,7 @@ papered-over token gap before Phase C touches the token layer)
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
 | 26. Zero-Dependency Contract Fixes + Backlog Polish | 7/7 | Complete   | 2026-07-06 |
-| 27. Adopted External Design Picks | 0/? | Not started | - |
+| 27. Adopted External Design Picks | 0/5 | Planned | - |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 
 ## Next
