@@ -124,6 +124,29 @@ describe("InteractiveWidgetBoundary", () => {
     expect(onSubmitResult).not.toHaveBeenCalled();
   });
 
+  // 24-05 fix pass (24-UI-REVIEW.md Top Fix #2): the submitted (locked) card shell
+  // must match the live catalog Card's chrome (rounded-xl/border/shadow/p-6) instead
+  // of a hand-rolled border-less rounded-lg/p-4 div — no visible container downgrade
+  // at the exact moment a choice locks in.
+  it("submitted: card shells match the live Card's chrome (rounded-xl/border/shadow/p-6)", async () => {
+    const container = await mount(
+      <InteractiveWidgetBoundary
+        part={PART}
+        displayState="submitted"
+        submittedValue={{ optionId: "opt-0" }}
+        onSubmitResult={vi.fn()}
+      />,
+    );
+
+    const shells = container.querySelectorAll(".rounded-xl");
+    expect(shells.length).toBe(2); // chosen + the one dimmed sibling in PART.options
+    for (const shell of Array.from(shells)) {
+      expect(shell.className).toContain("border");
+      expect(shell.className).toContain("shadow");
+      expect(shell.className).toContain("p-6");
+    }
+  });
+
   it("superseded: shows the Superseded badge + caption, dims the group, and never fires onSubmitResult", async () => {
     const onSubmitResult = vi.fn();
     const container = await mount(
