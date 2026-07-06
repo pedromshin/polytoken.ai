@@ -81,3 +81,51 @@
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
+
+/* FIX-01 (26-05-PLAN.md): React Flow's stock chrome (Controls/MiniMap/
+   Attribution) restyled from existing tokens — no new custom property,
+   consumes :root/.dark var(...) values declared above as-is. */
+@layer components {
+  .react-flow__controls {
+    @apply rounded-md border border-border bg-card shadow-sm;
+  }
+  .react-flow__controls-button {
+    @apply border-b border-border/60 bg-transparent text-foreground last:border-b-0;
+  }
+  .react-flow__controls-button:hover {
+    @apply bg-muted;
+  }
+  .react-flow__controls-button svg {
+    fill: hsl(var(--foreground));
+  }
+  .react-flow__minimap {
+    @apply overflow-hidden rounded-md border border-border bg-card;
+  }
+  .react-flow__attribution {
+    @apply bg-background/70 text-[10px] text-muted-foreground;
+  }
+}
+
+/* FIX-10 (26-05-PLAN.md): shared scrollbar aesthetic for native elements that
+   structurally cannot host the Radix `ScrollArea` primitive (e.g. a native
+   <textarea>) — replicates packages/ui/src/scroll-area.tsx's ScrollBar thumb
+   (10px, bg-border, rounded-full). */
+@layer utilities {
+  .scrollbar-token {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  .scrollbar-token::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scrollbar-token::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-token::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    background-clip: content-box;
+    border: 1px solid transparent;
+  }
+}
