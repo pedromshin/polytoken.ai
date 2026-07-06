@@ -674,7 +674,7 @@ async def test_no_retrieval_no_exemplar_section(
 
 
 @pytest.mark.unit()
-def test_system_prompt_teaches_dataRef_state_binding() -> None:
+def test_system_prompt_teaches_dataref_state_binding() -> None:
     """Regression test (POLISH-01 / 999.8 option (a)): the built system prompt must teach
     declared-state display via `dataRef`-bound `list`/`conditional` nodes, forbid a
     `{{mustache}}` placeholder inside a `text` node's `content`, and clarify `setState`
@@ -702,9 +702,8 @@ def test_system_prompt_teaches_dataRef_state_binding() -> None:
         "System prompt must explicitly forbid mustache placeholders in text content"
     )
     assert "setstate" in text_lower, "System prompt must clarify setState semantics"
-    assert "increment" in text_lower and "decrement" in text_lower, (
-        "System prompt must clarify increment/decrement absolute-vs-relative semantics"
-    )
+    assert "increment" in text_lower, "System prompt must clarify increment semantics"
+    assert "decrement" in text_lower, "System prompt must clarify decrement semantics"
 
 
 @pytest.mark.unit()
