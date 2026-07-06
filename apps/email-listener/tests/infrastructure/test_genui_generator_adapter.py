@@ -674,6 +674,40 @@ async def test_no_retrieval_no_exemplar_section(
 
 
 @pytest.mark.unit()
+def test_system_prompt_teaches_dataRef_state_binding() -> None:
+    """Regression test (POLISH-01 / 999.8 option (a)): the built system prompt must teach
+    declared-state display via `dataRef`-bound `list`/`conditional` nodes, forbid a
+    `{{mustache}}` placeholder inside a `text` node's `content`, and clarify `setState`
+    absolute-vs-increment semantics.
+
+    A full behavioral assertion ("a counter bound to state produces a live dataRef
+    render, not a static {{count}} literal") requires a live Bedrock call — out of scope
+    for offline CI (per 26-UI-SPEC.md's POLISH-01 section). This test is the deterministic
+    proxy: it asserts the guidance text itself is present in the built, cache-stable
+    system prompt block that _repair_loop() sends as `system=` on every call.
+    """
+    from app.infrastructure.llm.genui_generator_adapter import _build_system_blocks
+
+    blocks = _build_system_blocks()
+    text = " ".join(b.get("text", "") for b in blocks if isinstance(b, dict))
+    text_lower = text.lower()
+
+    assert "dataref" in text_lower, "System prompt must mention dataRef binding"
+    assert "list" in text_lower, "System prompt must name list as a state-bound node type"
+    assert "conditional" in text_lower, (
+        "System prompt must name conditional as a state-bound node type"
+    )
+    assert "{{" in text, "System prompt must show the forbidden {{mustache}} example"
+    assert "never" in text_lower or "not interpolat" in text_lower, (
+        "System prompt must explicitly forbid mustache placeholders in text content"
+    )
+    assert "setstate" in text_lower, "System prompt must clarify setState semantics"
+    assert "increment" in text_lower and "decrement" in text_lower, (
+        "System prompt must clarify increment/decrement absolute-vs-relative semantics"
+    )
+
+
+@pytest.mark.unit()
 @pytest.mark.asyncio()
 async def test_empty_retrieval_no_exemplar_section(
     adapter: GenuiGeneratorAdapter,
