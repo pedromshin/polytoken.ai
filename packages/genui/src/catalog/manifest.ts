@@ -1172,6 +1172,9 @@ export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
         fields: z.array(FormFieldSchema).min(1),
         submitLabel: z.string().optional(),
         onSubmit: ActionSchema.optional(),
+        // 24-05 fix pass (24-UI-REVIEW.md Top Fix #1) — see spec-schema.ts's
+        // FormNodeSchema for the full rationale; matches the wire schema 1:1.
+        hideOwnSubmittedAffordance: z.boolean().optional(),
       })
       .strict(),
     lockedProps: [],

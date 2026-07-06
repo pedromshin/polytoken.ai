@@ -81,6 +81,11 @@ export function buildClarifyWidgetSpec(declaration: ClarifyWidgetDeclaration): S
     fields: declaration.fields.map(mappedField),
     submitLabel: declaration.submitLabel,
     onSubmit: { type: "setState" as const, key: CLARIFY_SUBMIT_ACTION_KEY, value: null },
+    // 24-05 fix pass (24-UI-REVIEW.md Top Priority Fix #1): InteractiveWidgetBoundary
+    // owns the submitted/submitting signal for this widget (badge + "Submitting…" row)
+    // — suppress FormComponent's own internal "Submitted ✓" affordance so the two never
+    // co-render a contradictory second status channel.
+    hideOwnSubmittedAffordance: true,
   };
 
   return { v: 1, root } as unknown as SpecRoot;

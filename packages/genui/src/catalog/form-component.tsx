@@ -36,6 +36,14 @@ export interface FormComponentProps {
   readonly fields: readonly FormFieldSpec[];
   readonly submitLabel?: string;
   readonly onSubmit?: FormSubmitAction;
+  /** 24-05 fix pass (24-UI-REVIEW.md Top Priority Fix #1): when true, suppresses this
+   * component's own internal "Submitted ✓" affordance. A host chrome that wraps this
+   * form with its own submitted/submitting signal (InteractiveWidgetBoundary's
+   * "Submitting…" row + "Submitted" badge) is the SOLE source of truth for that state
+   * in that context — this component's own affordance would otherwise co-render a
+   * contradictory second status channel (see form-component.tsx's module doc).
+   * Defaults to unset/false — every standalone (Phase-19 studio) usage is unaffected. */
+  readonly hideOwnSubmittedAffordance?: boolean;
 }
 
 const CONTROL_CLASS =
@@ -203,6 +211,7 @@ export function FormComponent({
   fields,
   submitLabel = "Submit",
   onSubmit,
+  hideOwnSubmittedAffordance = false,
 }: FormComponentProps): React.ReactElement {
   const registry = React.useContext(ActionRegistryContext);
   const [values, setValues] = React.useState<FormValues>(() => initialValues(fields));
@@ -276,7 +285,7 @@ export function FormComponent({
         >
           {submitLabel}
         </button>
-        {submitted ? (
+        {submitted && !hideOwnSubmittedAffordance ? (
           <span role="status" className="text-sm text-emerald-600">
             Submitted ✓
           </span>

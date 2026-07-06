@@ -445,6 +445,12 @@ const FormNodeSchema = z
     submitLabel: z.string().optional(),
     onSubmit: ActionSchema.optional(),
     colSpan: z.number().int().min(1).max(12).optional(),
+    // 24-05 fix pass (24-UI-REVIEW.md Top Fix #1): opt-in flag a host chrome (e.g.
+    // InteractiveWidgetBoundary) sets to suppress FormComponent's own internal
+    // "Submitted ✓" affordance when that host already owns the submitted/submitting
+    // signal. Defaults to unset/false — every existing (Phase-19 studio) spec keeps
+    // rendering "Submitted ✓" exactly as before.
+    hideOwnSubmittedAffordance: z.boolean().optional(),
   })
   .strict();
 
