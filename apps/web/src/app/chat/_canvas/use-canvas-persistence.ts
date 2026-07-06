@@ -365,6 +365,11 @@ function validateSavedRow(
  * `chat.saveCanvasLayout` call. */
 const SAVE_DEBOUNCE_MS = 800;
 
+/** Reference-stable empty fallback for `initialEdges` (see its useMemo below) —
+ * a bare `?? []` would allocate a new array every render and loop the reconcile
+ * effect in chat-canvas.tsx. */
+const EMPTY_PERSISTED_EDGES: readonly PersistedCanvasEdge[] = [];
+
 /**
  * useCanvasPersistence — restore side: fetches `chat.getCanvasLayout`,
  * validates it, and returns the restored `{ initialNodes, initialEdges,
@@ -400,7 +405,16 @@ export function useCanvasPersistence({
     () => (validatedRow ? reconcileNodesFromHistory(validatedRow.nodes, []) : []),
     [validatedRow],
   );
-  const initialEdges = validatedRow?.edges ?? [];
+  // MUST be reference-stable: `initialEdges` is a dependency of chat-canvas.tsx's
+  // reconcile effect (which calls setNodes). A bare `validatedRow?.edges ?? []`
+  // allocates a NEW `[]` every render whenever no saved layout exists (a fresh
+  // conversation's first canvas visit) — that unstable dep re-fires the effect on
+  // every render → setNodes → re-render → new `[]` → "Maximum update depth exceeded"
+  // (found live 2026-07-06). Memoized on `validatedRow` with a stable empty fallback.
+  const initialEdges = useMemo(
+    () => validatedRow?.edges ?? EMPTY_PERSISTED_EDGES,
+    [validatedRow],
+  );
   const initialViewport = validatedRow?.viewport;
   const initialSharedState = validatedRow?.sharedState;
   const isRestoring = layoutQuery.isPending;
