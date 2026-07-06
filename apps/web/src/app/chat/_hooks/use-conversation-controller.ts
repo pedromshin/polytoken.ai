@@ -35,6 +35,31 @@ import type { UseWebllmEngineResult } from "./use-webllm-engine";
 export const STREAMING_TURN_ID = "__streaming-turn__";
 export const OPTIMISTIC_USER_TURN_ID = "__optimistic-user-turn__";
 
+/**
+ * errorMessageForWidgetError — maps a widget-submit rejection's errorKind to its
+ * user-facing message (24-UI-SPEC.md Copywriting Contract, 24-05 fix pass).
+ *
+ * "invalid" is the one retryable case (D-10) — the widget re-enables for another
+ * attempt. "conflict" is the double-submit 409 (D-11) — "This was already answered.",
+ * no retry offered (previously unrendered anywhere, 24-UI-REVIEW.md Copywriting
+ * violation #1). "stale" deliberately returns null — a stale 409 reconciles to the
+ * SAME "Stale" badge + caption the proactive staleness detection already renders
+ * (D-12); a second, separate error row here would duplicate that message.
+ */
+export function errorMessageForWidgetError(
+  errorKind: "conflict" | "stale" | "invalid" | undefined,
+): string | null {
+  switch (errorKind) {
+    case "invalid":
+      return "This response couldn't be saved. Please try again.";
+    case "conflict":
+      return "This was already answered.";
+    case "stale":
+    case undefined:
+      return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Turn grouping — chat.getHistory returns EVERY sibling version row (D-16),
 // not just the active one, so the regenerate SiblingNav has something to
@@ -624,14 +649,13 @@ export function useConversationController({
         submittedValues[interaction.id] = submitted as Readonly<Record<string, unknown>>;
       }
 
-      // Only the retryable validation error surfaces an inline error row that
-      // re-enables the widget (D-10). Conflict/stale reconcile to their own
-      // badge/caption via the invalidated server state — no separate row.
+      // "invalid" surfaces a retryable inline error row (D-10); "conflict" now
+      // surfaces "This was already answered." (24-05 fix pass — previously
+      // unrendered); "stale" stays null, reconciling via the Stale badge's own
+      // caption instead (D-12) — see errorMessageForWidgetError.
       errorMessages[interaction.id] =
-        inFlightWidget?.interactionId === interaction.id &&
-        inFlightWidget.status === "error" &&
-        inFlightWidget.errorKind === "invalid"
-          ? "This response couldn't be saved. Please try again."
+        inFlightWidget?.interactionId === interaction.id && inFlightWidget.status === "error"
+          ? errorMessageForWidgetError(inFlightWidget.errorKind)
           : null;
     }
 
