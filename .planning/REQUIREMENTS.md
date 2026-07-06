@@ -61,6 +61,7 @@ Deferred, tracked in ROADMAP.md backlog — not in this roadmap.
 
 - **999.3**: v1.3/v1.2 connected-env verification + measurement (needs live Bedrock + browser)
 - **999.7**: editable genui panels / studio-on-canvas (overlaps 999.4)
+- **999.8(b)**: renderer affordance resolving declared-state into text — touches the locked `SpecRenderer`; explicitly out of scope for v1.4 (option (a) is POLISH-01 above)
 - Anticipatory-prompting go/no-go follow-through (7 seams, 25-SPIKE-FINDINGS.md)
 
 ## Out of Scope
@@ -84,13 +85,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| _(populated by roadmap)_ | | |
+| FIX-01 | Phase 26 | Pending |
+| FIX-02 | Phase 26 | Pending |
+| FIX-03 | Phase 26 | Pending |
+| FIX-04 | Phase 26 | Pending |
+| FIX-05 | Phase 26 | Pending |
+| FIX-06 | Phase 26 | Pending |
+| FIX-07 | Phase 26 | Pending |
+| FIX-08 | Phase 26 | Pending |
+| FIX-09 | Phase 26 | Pending |
+| FIX-10 | Phase 26 | Pending |
+| FIX-11 | Phase 26 | Pending |
+| POLISH-01 | Phase 26 | Pending |
+| POLISH-02 | Phase 26 | Pending |
+| ADOPT-01 | Phase 27 | Pending |
+| ADOPT-02 | Phase 27 | Pending |
+| ADOPT-03 | Phase 27 | Pending |
+| ADOPT-04 | Phase 27 | Pending |
+| ADOPT-05 | Phase 27 | Pending |
+| TOKEN-01 | Phase 28 | Pending |
+| TOKEN-02 | Phase 28 | Pending |
+| TOKEN-03 | Phase 28 | Pending |
+| TOKEN-04 | Phase 28 | Pending |
+| TOKEN-05 | Phase 28 | Pending |
 
 **Coverage:**
 - v1 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23 ⚠️ (pending roadmap)
+- Mapped to phases: 23
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-06*
-*Last updated: 2026-07-06 at v1.4 milestone open (derived from .planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md)*
+*Last updated: 2026-07-06 at v1.4 roadmap creation — 23/23 requirements mapped to Phases 26 (FIX-01..11, POLISH-01..02), 27 (ADOPT-01..05), 28 (TOKEN-01..05); no orphans*

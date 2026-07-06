@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: planning
-last_updated: "2026-07-06T19:36:45.093Z"
+last_updated: "2026-07-06T19:47:43.000Z"
 last_activity: 2026-07-06
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 25 — Anticipatory Prompting (SPIKE) — COMPLETE (verdict: ship-with-conditions)
+**Current focus:** v1.4 roadmap created (Phases 26-28); next: `/gsd:plan-phase 26`. Prior: Phase 25 — Anticipatory Prompting (SPIKE) — COMPLETE (verdict: ship-with-conditions).
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Not started (roadmap created, ready for phase planning)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-06 — Milestone v1.4 started
+Status: Roadmap created (Phases 26-28, 23/23 requirements mapped)
+Last activity: 2026-07-06 — Milestone v1.4 roadmap created (Phases 26-28)
+
+## v1.4 Roadmap Summary (2026-07-06)
+
+Phase numbering continues from v1.3 (ended at Phase 25). v1.4 = Phases 26-28, derived from the
+locked 3-phase punch list in `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md` (zero-dep contract
+fixes -> adopted external picks -> design-system token upgrades). Full detail: .planning/ROADMAP.md
+Phase Details.
+
+| Phase | Goal | Requirements |
+|-------|------|--------------|
+| 26 - Zero-Dependency Contract Fixes + Backlog Polish | `/chat`/`/studio`'s own chrome uses app tokens instead of stock/hardcoded values; two small backlog fixes land | FIX-01..11, POLISH-01, POLISH-02 |
+| 27 - Adopted External Design Picks | Impeccable/Magic-UI/ux-designer-skill/transitions.dev takeaways land at near-zero footprint | ADOPT-01..05 |
+| 28 - Design-System Token Upgrades | Foundational token layer upgraded (secondary/muted/accent, chart/sidebar, shadow, radius, entrance animation) | TOKEN-01..05 |
+
+Coverage: 23/23 v1.4 requirements mapped, no orphans. Execution order locked: 26 -> 27 -> 28
+(research doc rationale: Phase 26 surfaces every papered-over token gap before Phase 28 touches the
+token layer). Next: `/gsd:plan-phase 26`.
 
 ## v1.3 Roadmap Summary (2026-07-02)
 
