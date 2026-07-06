@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T22:11:46.054Z"
-last_activity: "2026-07-06 -- Phase 26 plan 07 complete: POLISH-01 generator prompt"
+last_updated: "2026-07-06T23:37:54.691Z"
+last_activity: 2026-07-06 -- Phase 27 Plan 01 (Adopted External Design Picks — Docs) complete
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 12
+  completed_plans: 8
   percent: 33
 ---
 
@@ -20,25 +20,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 26 — Zero-Dependency Contract Fixes + Backlog Polish
+**Current focus:** Phase 27 — Adopted External Design Picks
 
 ## Current Position
 
-Phase: 26 (Zero-Dependency Contract Fixes + Backlog Polish) — COMPLETE (7/7 plans)
-Plan: 7 of 7 (26-07 complete — last plan in Phase 26)
-Status: Executing v1.4 — Phase 26 finished (7/7 plans), awaiting /gsd:transition into Phase 27
-Last activity: 2026-07-06 -- Phase 26 plan 07 complete: POLISH-01 generator prompt
-  declared-state dataRef binding (apps/email-listener/app/infrastructure/llm/
-  genui_generator_adapter.py — _SYSTEM_PROMPT_TEXT now teaches dataRef-bound list/
-  conditional state display instead of a {{mustache}} text literal, plus setState
-  absolute-vs-increment semantics). RED->GREEN regression test added
-  (test_system_prompt_teaches_dataref_state_binding); full generator-adapter suite
-  25/25 passing incl. the byte-identical pack-agnostic test. Zero renderer/schema
-  changes (spec-renderer.tsx/render-node.tsx/spec-schema.ts untouched). Commits:
-  6b4f637 (RED), 3d3fb2d (GREEN). Phase 26 is now fully complete (FIX-01..11 +
-  POLISH-01, POLISH-02 folded into an earlier plan). Next: run /gsd:transition,
-  then Phase 27 (Adopted External Design Picks) or Phase 28 (Design-System Token
-  Upgrades) per ROADMAP.md.
+Phase: 27 (Adopted External Design Picks) — EXECUTING
+Plan: 2 of 5
+Status: Executing Phase 27
+Last activity: 2026-07-06 -- Phase 27 Plan 01 (docs/design/ + product-register-and-bans.md +
+  3 copied ux-designer-skill reference files) complete. ADOPT-01 and ADOPT-04 satisfied. Both
+  external sources (pbakaus/impeccable, Apache-2.0; szilu/ux-designer-skill, MIT) vetted —
+  fetched + reviewed, no flags. Commits: 239e7a6 (Task 1), aa301ec (Task 2), bb660f5 (summary).
+  Next: Plan 02 (ADOPT-02 FileTree) or remaining Wave 1 plans per 27-01-PLAN.md's `depends_on: []`.
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -373,7 +366,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-None
+.planning/phases/27-adopted-external-design-picks/27-01-PLAN.md
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table

@@ -26,10 +26,10 @@
 
 ### Adopted External Picks (research doc Phase B — near-zero footprint; verdicts locked)
 
-- [ ] **ADOPT-01**: impeccable.style's product-register rules + 13-item absolute-bans checklist are folded into `UI-SPEC.md`/6-pillar review as a prose appendix (no install)
+- [x] **ADOPT-01**: impeccable.style's product-register rules + 13-item absolute-bans checklist are folded into `UI-SPEC.md`/6-pillar review as a prose appendix (no install)
 - [ ] **ADOPT-02**: Magic UI's `file-tree` is ported into the code-island file browser (zero new deps — only already-installed `@radix-ui/react-accordion` + `lucide-react`)
 - [ ] **ADOPT-03**: A `<GeneratingRing>` primitive hand-ported from Magic UI's shine-border/animated-shiny-text CSS techniques (teal-only, `motion-safe:`-gated, zero JS) marks "generating" state on genui cards in Chat and the sandbox/history tabs in Studio
-- [ ] **ADOPT-04**: The 3 `ux-designer-skill` reference files (canvas-navigation, canvas-objects-performance, ai-ux-patterns) are copied into a slim project reference doc
+- [x] **ADOPT-04**: The 3 `ux-designer-skill` reference files (canvas-navigation, canvas-objects-performance, ai-ux-patterns) are copied into a slim project reference doc
 - [ ] **ADOPT-05**: 3–4 `transitions.dev` CSS snippets (modal, panel-reveal, dropdown) are hand-copied and retokenized to the app's custom properties
 
 ### Design-System Token Upgrades (research doc Phase C — sequenced last, after A surfaces papered-over gaps)
@@ -98,10 +98,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FIX-11 | Phase 26 | Complete |
 | POLISH-01 | Phase 26 | Complete |
 | POLISH-02 | Phase 26 | Complete |
-| ADOPT-01 | Phase 27 | Pending |
+| ADOPT-01 | Phase 27 | Complete |
 | ADOPT-02 | Phase 27 | Pending |
 | ADOPT-03 | Phase 27 | Pending |
-| ADOPT-04 | Phase 27 | Pending |
+| ADOPT-04 | Phase 27 | Complete |
 | ADOPT-05 | Phase 27 | Pending |
 | TOKEN-01 | Phase 28 | Pending |
 | TOKEN-02 | Phase 28 | Pending |

@@ -147,3 +147,8 @@ produced file; both are complete, standalone documentation.
 ---
 *Phase: 27-adopted-external-design-picks*
 *Completed: 2026-07-06*
+
+## Self-Check: PASSED
+
+All 5 files confirmed present on disk; all 3 commit hashes (239e7a6, aa301ec, bb660f5) confirmed in
+`git log --oneline --all`.
