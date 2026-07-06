@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T23:37:54.691Z"
-last_activity: 2026-07-06 -- Phase 27 Plan 01 (Adopted External Design Picks — Docs) complete
+last_updated: "2026-07-06T23:52:00.000Z"
+last_activity: 2026-07-06 -- Phase 27 Plan 02 (ADOPT-02 FileTree hand-port) complete
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 12
-  completed_plans: 8
-  percent: 33
+  completed_plans: 9
+  percent: 75
 ---
 
 # State
@@ -25,13 +25,17 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 27 (Adopted External Design Picks) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Executing Phase 27
-Last activity: 2026-07-06 -- Phase 27 Plan 01 (docs/design/ + product-register-and-bans.md +
-  3 copied ux-designer-skill reference files) complete. ADOPT-01 and ADOPT-04 satisfied. Both
-  external sources (pbakaus/impeccable, Apache-2.0; szilu/ux-designer-skill, MIT) vetted —
-  fetched + reviewed, no flags. Commits: 239e7a6 (Task 1), aa301ec (Task 2), bb660f5 (summary).
-  Next: Plan 02 (ADOPT-02 FileTree) or remaining Wave 1 plans per 27-01-PLAN.md's `depends_on: []`.
+Last activity: 2026-07-06 -- Phase 27 Plan 02 (ADOPT-02 FileTree) complete. Hand-ported Magic
+  UI's `file-tree` (magicuidesign/magicui, MIT, fetched + reviewed — no flags — 2026-07-06) into
+  a trimmed, data-driven `FileTree` on raw `@radix-ui/react-accordion` (apps/web/src/components/
+  file-tree.tsx + colocated test, 5/5 passing) and mounted it (Plan A) as the Code-Island tab's
+  preset browser in code-sandbox-island.tsx, replacing the old `<Select>` — selecting an
+  island.js leaf calls the same handlePreset; Run preset unchanged (D-06). Zero new npm deps;
+  Studio font-medium count stays 0; full web vitest (163/163) + typecheck clean. ADOPT-02
+  satisfied. Commits: 3f1abc6 (Task 1), 2437d62 (Task 2), plan-metadata commit next.
+  Next: Plan 03+ (ADOPT-03 GeneratingRing / ADOPT-05 transitions.dev, per 27-UI-SPEC.md).
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
