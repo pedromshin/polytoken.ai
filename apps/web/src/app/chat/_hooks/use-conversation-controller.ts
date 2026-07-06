@@ -227,11 +227,14 @@ export interface ConversationController {
  * interactionId. */
 export interface WidgetSurface {
   readonly states: Readonly<Record<string, WidgetDisplayState>>;
-  readonly submittedValues: Readonly<Record<string, { readonly optionId: string }>>;
+  /** The raw submitted_value payload (opaque per widgetKind) — proposal_cards
+   * carries `{optionId}`, clarify_widget carries `{values}` (24-04). */
+  readonly submittedValues: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly errorMessages: Readonly<Record<string, string | null>>;
-  /** InteractiveWidgetBoundary's onSubmitOption gives just the optionId; the
-   * transcript/canvas bind the interactionId, so this takes both. */
-  readonly onSubmitOption: (interactionId: string, optionId: string) => void;
+  /** InteractiveWidgetBoundary's onSubmitResult gives the opaque result body;
+   * the transcript/canvas bind the interactionId, so this takes both
+   * (generalized over widgetKind, 24-04 Task 3). */
+  readonly onSubmitResult: (interactionId: string, result: Readonly<Record<string, unknown>>) => void;
 }
 
 /**
@@ -586,9 +589,9 @@ export function useConversationController({
     [handleLiveRetry, handleRegenerate],
   );
 
-  const onSubmitOption = useCallback(
-    (interactionId: string, optionId: string) => {
-      handleWidgetSubmit(interactionId, { optionId });
+  const onSubmitResult = useCallback(
+    (interactionId: string, result: Readonly<Record<string, unknown>>) => {
+      handleWidgetSubmit(interactionId, result);
     },
     [handleWidgetSubmit],
   );
@@ -597,7 +600,7 @@ export function useConversationController({
   // in render, so MessageList stays memo-friendly. Keyed by interactionId.
   const widgets: WidgetSurface = useMemo(() => {
     const states: Record<string, WidgetDisplayState> = {};
-    const submittedValues: Record<string, { optionId: string }> = {};
+    const submittedValues: Record<string, Readonly<Record<string, unknown>>> = {};
     const errorMessages: Record<string, string | null> = {};
 
     for (const interaction of widgetInteractions) {
@@ -612,15 +615,13 @@ export function useConversationController({
           inFlightWidget?.status === "submitting" ? inFlightWidget.interactionId : null,
       });
 
+      // Opaque per widgetKind (24-04): proposal_cards stores {optionId},
+      // clarify_widget stores {values} — InteractiveWidgetBoundary reads the
+      // shape it expects based on part.widgetKind, so this surface just
+      // passes the raw submitted object through unchanged.
       const submitted = interaction.submittedValue;
-      if (
-        submitted !== null &&
-        typeof submitted === "object" &&
-        typeof (submitted as { optionId?: unknown }).optionId === "string"
-      ) {
-        submittedValues[interaction.id] = {
-          optionId: (submitted as { optionId: string }).optionId,
-        };
+      if (submitted !== null && typeof submitted === "object" && !Array.isArray(submitted)) {
+        submittedValues[interaction.id] = submitted as Readonly<Record<string, unknown>>;
       }
 
       // Only the retryable validation error surfaces an inline error row that
@@ -634,8 +635,8 @@ export function useConversationController({
           : null;
     }
 
-    return { states, submittedValues, errorMessages, onSubmitOption };
-  }, [widgetInteractions, historyRows, supersededLocally, inFlightWidget, onSubmitOption]);
+    return { states, submittedValues, errorMessages, onSubmitResult };
+  }, [widgetInteractions, historyRows, supersededLocally, inFlightWidget, onSubmitResult]);
 
   return {
     turns,

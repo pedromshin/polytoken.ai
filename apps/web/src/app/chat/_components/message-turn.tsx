@@ -22,9 +22,13 @@ import { TurnStatusBadge } from "./turn-status-badge";
  * cycle back into the hooks-layer controller module. */
 export interface MessageTurnWidgets {
   readonly states: Readonly<Record<string, WidgetDisplayState>>;
-  readonly submittedValues: Readonly<Record<string, { readonly optionId: string }>>;
+  /** The raw submitted_value payload (opaque per widgetKind) — proposal_cards
+   * carries `{optionId}`, clarify_widget carries `{values}` (24-04). */
+  readonly submittedValues: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly errorMessages: Readonly<Record<string, string | null>>;
-  readonly onSubmitOption: (interactionId: string, optionId: string) => void;
+  /** Fires with the schema-conforming result body the 24-02 submit endpoint
+   * expects opaquely — generalized over widgetKind (24-04 Task 3). */
+  readonly onSubmitResult: (interactionId: string, result: Readonly<Record<string, unknown>>) => void;
 }
 
 /** Terminal turn status (mirrors chat_messages.status, D-15/D-19/D-21/D-25)
@@ -164,8 +168,8 @@ export function MessageTurn({
                     displayState={displayState}
                     submittedValue={widgets?.submittedValues[widgetPart.interactionId]}
                     errorMessage={widgets?.errorMessages[widgetPart.interactionId] ?? null}
-                    onSubmitOption={(optionId) =>
-                      widgets?.onSubmitOption(widgetPart.interactionId, optionId)
+                    onSubmitResult={(result) =>
+                      widgets?.onSubmitResult(widgetPart.interactionId, result)
                     }
                   />
                 );

@@ -56,13 +56,13 @@ describe("InteractiveWidgetBoundary", () => {
     containers = [];
   });
 
-  it("pending: renders the live spec with no status badge, and clicking a card fires onSubmitOption with the option id", async () => {
-    const onSubmitOption = vi.fn();
+  it("pending: renders the live spec with no status badge, and clicking a card fires onSubmitResult with the option id", async () => {
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="pending"
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
@@ -79,17 +79,17 @@ describe("InteractiveWidgetBoundary", () => {
       button!.click();
     });
 
-    expect(onSubmitOption).toHaveBeenCalledTimes(1);
-    expect(onSubmitOption).toHaveBeenCalledWith("opt-0");
+    expect(onSubmitResult).toHaveBeenCalledTimes(1);
+    expect(onSubmitResult).toHaveBeenCalledWith({ optionId: "opt-0" });
   });
 
-  it("submitting: group carries pointer-events-none and shows the 'Submitting…' row; clicking does NOT fire onSubmitOption (noop registry)", async () => {
-    const onSubmitOption = vi.fn();
+  it("submitting: group carries pointer-events-none and shows the 'Submitting…' row; clicking does NOT fire onSubmitResult (noop registry)", async () => {
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="submitting"
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
@@ -104,33 +104,33 @@ describe("InteractiveWidgetBoundary", () => {
         button.click();
       });
     }
-    expect(onSubmitOption).not.toHaveBeenCalled();
+    expect(onSubmitResult).not.toHaveBeenCalled();
   });
 
-  it("submitted: chosen card gets the Selected badge, others render dimmed with no button; clicking anything does NOT fire onSubmitOption", async () => {
-    const onSubmitOption = vi.fn();
+  it("submitted: chosen card gets the Selected badge, others render dimmed with no button; clicking anything does NOT fire onSubmitResult", async () => {
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="submitted"
         submittedValue={{ optionId: "opt-0" }}
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
     expect(container.textContent).toContain("Selected");
     expect(container.querySelector("button")).toBeNull();
     expect(container.querySelectorAll('[aria-disabled="true"]').length).toBeGreaterThan(0);
-    expect(onSubmitOption).not.toHaveBeenCalled();
+    expect(onSubmitResult).not.toHaveBeenCalled();
   });
 
-  it("superseded: shows the Superseded badge + caption, dims the group, and never fires onSubmitOption", async () => {
-    const onSubmitOption = vi.fn();
+  it("superseded: shows the Superseded badge + caption, dims the group, and never fires onSubmitResult", async () => {
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="superseded"
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
@@ -146,16 +146,16 @@ describe("InteractiveWidgetBoundary", () => {
         button.click();
       });
     }
-    expect(onSubmitOption).not.toHaveBeenCalled();
+    expect(onSubmitResult).not.toHaveBeenCalled();
   });
 
-  it("stale: shows the Stale badge + caption, dims the group, and never fires onSubmitOption", async () => {
-    const onSubmitOption = vi.fn();
+  it("stale: shows the Stale badge + caption, dims the group, and never fires onSubmitResult", async () => {
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="stale"
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
@@ -170,17 +170,17 @@ describe("InteractiveWidgetBoundary", () => {
         button.click();
       });
     }
-    expect(onSubmitOption).not.toHaveBeenCalled();
+    expect(onSubmitResult).not.toHaveBeenCalled();
   });
 
   it("renders the unboxed error row (no border/background) when errorMessage is set, and re-enables the live spec", async () => {
-    const onSubmitOption = vi.fn();
+    const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
         displayState="pending"
         errorMessage="This response couldn't be saved. Please try again."
-        onSubmitOption={onSubmitOption}
+        onSubmitResult={onSubmitResult}
       />,
     );
 
@@ -198,7 +198,7 @@ describe("InteractiveWidgetBoundary", () => {
     await act(async () => {
       button!.click();
     });
-    expect(onSubmitOption).toHaveBeenCalledWith("opt-0");
+    expect(onSubmitResult).toHaveBeenCalledWith({ optionId: "opt-0" });
   });
 
   it("passes variant='bare' through to the underlying GenuiPartBoundary (no GenuiCard wrapper)", async () => {
@@ -206,7 +206,7 @@ describe("InteractiveWidgetBoundary", () => {
       <InteractiveWidgetBoundary
         part={PART}
         displayState="pending"
-        onSubmitOption={vi.fn()}
+        onSubmitResult={vi.fn()}
         variant="bare"
       />,
     );

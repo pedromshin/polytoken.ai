@@ -112,10 +112,10 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
                   (part as unknown as InteractiveWidgetPart).interactionId
                 ] ?? null
               }
-              onSubmitOption={(optionId) =>
-                controller?.widgets.onSubmitOption(
+              onSubmitResult={(result) =>
+                controller?.widgets.onSubmitResult(
                   (part as unknown as InteractiveWidgetPart).interactionId,
-                  optionId,
+                  result,
                 )
               }
               variant="bare"

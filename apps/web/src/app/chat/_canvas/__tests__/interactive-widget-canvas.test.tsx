@@ -3,7 +3,7 @@
  * 24-03, D-08): the SAME interactive_widget message part renders in BOTH the
  * transcript (MessageTurn) and the canvas (the GenuiPanelNodeBody seam),
  * driven by ONE controller-derived widget surface — a click in the canvas
- * fires the SAME onSubmitOption with the SAME interactionId, and flipping the
+ * fires the SAME onSubmitResult with the SAME interactionId, and flipping the
  * shared state map to "submitted" flips BOTH surfaces to the Selected
  * treatment.
  *
@@ -70,7 +70,7 @@ function CanvasWidgetHarness({ provenance }: { readonly provenance: Provenance }
       displayState={controller?.widgets.states[ip.interactionId] ?? "pending"}
       submittedValue={controller?.widgets.submittedValues[ip.interactionId]}
       errorMessage={controller?.widgets.errorMessages[ip.interactionId] ?? null}
-      onSubmitOption={(optionId) => controller?.widgets.onSubmitOption(ip.interactionId, optionId)}
+      onSubmitResult={(result) => controller?.widgets.onSubmitResult(ip.interactionId, result)}
       variant="bare"
     />
   );
@@ -112,12 +112,12 @@ describe("interactive_widget dual-surface parity (D-08)", () => {
   });
 
   it("one click handler + one state source drive BOTH transcript and canvas", async () => {
-    const onSubmitOption = vi.fn();
+    const onSubmitResult = vi.fn();
     const widgets: MessageTurnWidgets = {
       states: {},
       submittedValues: {},
       errorMessages: {},
-      onSubmitOption,
+      onSubmitResult,
     };
 
     const { createRoot } = await import("react-dom/client");
@@ -136,19 +136,19 @@ describe("interactive_widget dual-surface parity (D-08)", () => {
       canvasButton!.click();
     });
 
-    // ONE handler — the canvas click fires the SAME onSubmitOption with the
+    // ONE handler — the canvas click fires the SAME onSubmitResult with the
     // SAME interactionId + optionId the transcript would.
-    expect(onSubmitOption).toHaveBeenCalledTimes(1);
-    expect(onSubmitOption).toHaveBeenCalledWith(INTERACTION_ID, "opt-0");
+    expect(onSubmitResult).toHaveBeenCalledTimes(1);
+    expect(onSubmitResult).toHaveBeenCalledWith(INTERACTION_ID, { optionId: "opt-0" });
   });
 
   it("flipping the shared state map to 'submitted' flips BOTH surfaces to Selected", async () => {
-    const onSubmitOption = vi.fn();
+    const onSubmitResult = vi.fn();
     const pendingWidgets: MessageTurnWidgets = {
       states: {},
       submittedValues: {},
       errorMessages: {},
-      onSubmitOption,
+      onSubmitResult,
     };
 
     const { createRoot } = await import("react-dom/client");
@@ -165,7 +165,7 @@ describe("interactive_widget dual-surface parity (D-08)", () => {
       states: { [INTERACTION_ID]: "submitted" },
       submittedValues: { [INTERACTION_ID]: { optionId: "opt-0" } },
       errorMessages: {},
-      onSubmitOption,
+      onSubmitResult,
     };
     await act(async () => {
       root.render(<DualSurface widgets={submittedWidgets} />);

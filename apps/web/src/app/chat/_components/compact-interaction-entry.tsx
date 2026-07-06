@@ -10,11 +10,10 @@
  * justify-end` + `max-w-[85%] rounded-lg bg-muted px-4 py-2`) — not a new
  * visual treatment, a direct reuse (24-UI-SPEC.md Spacing Scale exceptions).
  *
- * proposal_cards: `Selected "{chosenTitle}"`. Any other widgetKind (clarify
- * widgets land in 24-04) stubs to the same bubble rendering one `{key}:
- * {value}` row per submitted field — the full `key-value-list` catalog
- * treatment lands in 24-04, but this component accepts both kinds NOW so the
- * part renderer never needs a second entry point later.
+ * proposal_cards: `Selected "{chosenTitle}"`. clarify_widget (24-04, D-16):
+ * one `{label}: {value}` row per submitted field, resolved server-side from
+ * the summary's `fields: [{label, value}]` shape (submit_widget_interaction.py's
+ * `_resolve_summary`) — a boolean value renders as "Yes"/"No".
  */
 
 import * as React from "react";
@@ -31,14 +30,25 @@ function ProposalSummary({ summary }: { readonly summary: Readonly<Record<string
   return <span className="text-sm">Selected &quot;{chosenTitle}&quot;</span>;
 }
 
+function formatFieldValue(value: unknown): string {
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
+interface ClarifySummaryField {
+  readonly label?: unknown;
+  readonly value?: unknown;
+}
+
 function ClarifySummary({ summary }: { readonly summary: Readonly<Record<string, unknown>> }): React.ReactElement {
-  const entries = Object.entries(summary);
+  const fields = Array.isArray(summary.fields) ? (summary.fields as readonly ClarifySummaryField[]) : [];
   return (
     <dl className="space-y-1 text-sm">
-      {entries.map(([label, value]) => (
-        <div key={label} className="flex gap-1">
-          <dt className="font-medium">{label}:</dt>
-          <dd>{String(value)}</dd>
+      {fields.map((field, index) => (
+        <div key={index} className="flex gap-1">
+          <dt className="font-medium">{String(field.label ?? "")}:</dt>
+          <dd>{formatFieldValue(field.value)}</dd>
         </div>
       ))}
     </dl>

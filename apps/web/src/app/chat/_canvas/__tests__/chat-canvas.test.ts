@@ -39,7 +39,7 @@ function baseController(overrides: Partial<ConversationController>): Conversatio
       states: {},
       submittedValues: {},
       errorMessages: {},
-      onSubmitOption: () => undefined,
+      onSubmitResult: () => undefined,
     },
     ...overrides,
   };

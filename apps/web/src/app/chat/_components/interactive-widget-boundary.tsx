@@ -3,31 +3,44 @@
 /**
  * interactive-widget-boundary.tsx — InteractiveWidgetBoundary: the state
  * chrome (badges/submitting/error rows) around the UNMODIFIED SpecRenderer
- * path (Task 2, 24-03 — D-05/D-06/D-10/D-11/D-12).
+ * path (24-03 Task 2, 24-04 Task 3 — D-05/D-06/D-09/D-10/D-11/D-12/D-16).
  *
- * pending    — the live catalog spec (buildProposalCardsSpec) via
- *              GenuiPartBoundary, with a `setState` actions registry that
- *              calls onSubmitOption(optionId) on a real DOM click. No badge
- *              (24-UI-SPEC.md Design Decision 4 — the unmarked common case).
+ * Generalized over widgetKind (Phase 24-04): proposal_cards (24-03) and
+ * clarify_widget (24-04) share the SAME state-chrome machinery
+ * (pending/submitting/submitted/superseded/stale, error row, variant prop) —
+ * only the LIVE spec builder, the submitted (locked) view, and the
+ * setState -> onSubmitResult mapping differ per kind. `onSubmitResult` fires
+ * with the schema-conforming result body the 24-02 submit endpoint expects
+ * opaquely — `{optionId}` for proposal_cards, `{values}` for clarify_widget.
+ *
+ * pending    — the live catalog spec (proposal cards OR the unmodified
+ *              Phase-19 form engine) via GenuiPartBoundary, with a `setState`
+ *              actions registry that calls onSubmitResult(result) on a real
+ *              DOM interaction. No badge (24-UI-SPEC.md Design Decision 4).
  * submitting — the SAME live spec, wrapped in a pointer-events-none group
  *              (cosmetic per D-11) plus a Loader2 "Submitting…" row; actions
  *              are a noop (the server round-trip is the real gate).
- * submitted  — REPLACES the live spec entirely (SpecRenderer output can't be
- *              reliably per-card styled from outside without fragile DOM
- *              selectors): the chosen option renders as one
- *              ring+wash+"Selected"-badged card, every other option renders
- *              as a plain dimmed (opacity-50, aria-disabled) title/description
- *              row — matching D-06 without per-node style injection.
- * superseded/stale — keeps the live spec rendered (buttons present but
- *              inert, cosmetic per D-11 — the server lock is authoritative)
+ * submitted  — REPLACES the live spec entirely:
+ *                proposal_cards: the chosen option renders as one
+ *                  ring+wash+"Selected"-badged card, every other option
+ *                  renders as a plain dimmed (opacity-50, aria-disabled) row
+ *                  (D-06) — SpecRenderer output can't be reliably per-card
+ *                  styled from outside without fragile DOM selectors.
+ *                clarify_widget: the ENTIRE live form is replaced by the
+ *                  "Your response" heading + Submitted badge + the
+ *                  key-value-list read-out of the submitted values (D-16,
+ *                  Design Decision 6) — rendered through GenuiPartBoundary,
+ *                  the SAME FOUND-6 gate, not a hand-rolled <dl>.
+ * superseded/stale — keeps the live spec rendered (buttons/controls present
+ *              but inert, cosmetic per D-11 — the server lock is authoritative)
  *              inside an opacity-50 pointer-events-none aria-disabled
  *              container carrying the matching badge + caption.
  *
  * Uses GenuiPartBoundary (never SpecRenderer directly) for every state that
  * still shows the live spec — the same FOUND-6 safeParse gate every other
  * genui part goes through. Consumes the SAME `variant` prop identically
- * (Component Inventory) so this new chrome never re-introduces a fourth
- * nesting layer inside a canvas panel (23-UI-REVIEW Top Fix #1).
+ * (Component Inventory) so this chrome never re-introduces a fourth nesting
+ * layer inside a canvas panel (23-UI-REVIEW Top Fix #1).
  */
 
 import * as React from "react";
@@ -35,6 +48,12 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 
 import type { ActionRegistry } from "@nauta/genui/renderer";
 
+import {
+  buildClarifySubmittedSpec,
+  buildClarifyWidgetSpec,
+  CLARIFY_SUBMIT_ACTION_KEY,
+  type ClarifyWidgetDeclaration,
+} from "./build-clarify-widget-spec";
 import {
   buildProposalCardsSpec,
   PROPOSAL_CHOICE_ACTION_KEY,
@@ -50,19 +69,28 @@ export type WidgetDisplayState =
   | "superseded"
   | "stale";
 
+/** Either widget kind this boundary knows how to render — generic over
+ * widgetKind (24-04): the declaration's own shape disambiguates (proposal
+ * cards always have `options`, clarify widgets always have `submitLabel` +
+ * `fields`), but callers/tests always know which kind they're passing via
+ * `part.widgetKind`, so this boundary branches on that string instead. */
+export type WidgetDeclaration = ProposalCardsDeclaration | ClarifyWidgetDeclaration;
+
 export interface InteractiveWidgetPart {
   readonly type: "interactive_widget";
   readonly interactionId: string;
   readonly widgetKind: string;
-  readonly declaration: ProposalCardsDeclaration;
+  readonly declaration: WidgetDeclaration;
 }
 
 export interface InteractiveWidgetBoundaryProps {
   readonly part: InteractiveWidgetPart;
   readonly displayState: WidgetDisplayState;
-  readonly submittedValue?: { readonly optionId: string };
+  /** The raw submitted_value payload (opaque per widgetKind) — proposal_cards
+   * stores `{optionId}`, clarify_widget stores `{values}`. */
+  readonly submittedValue?: Readonly<Record<string, unknown>>;
   readonly errorMessage?: string | null;
-  readonly onSubmitOption: (optionId: string) => void;
+  readonly onSubmitResult: (result: Readonly<Record<string, unknown>>) => void;
   /** Same contract as GenuiPartBoundary's own variant — "bare" for canvas
    * panels (their own node shell is the one surviving border), "default"
    * (unset) for the transcript. */
@@ -73,6 +101,7 @@ export interface InteractiveWidgetBoundaryProps {
 // Copy strings — verbatim per 24-UI-SPEC.md Copywriting Contract.
 const SUPERSEDED_CAPTION = "You replied by typing instead.";
 const STALE_CAPTION = "This is no longer the active response.";
+const YOUR_RESPONSE_HEADING = "Your response";
 
 const NOOP_ACTIONS: ActionRegistry = Object.freeze({});
 
@@ -80,6 +109,18 @@ function isValidChoicePayload(action: unknown): action is { key: string; value: 
   if (action === null || typeof action !== "object") return false;
   const record = action as { key?: unknown; value?: unknown };
   return record.key === PROPOSAL_CHOICE_ACTION_KEY && typeof record.value === "string";
+}
+
+function isValidClarifySubmitPayload(
+  action: unknown,
+): action is { key: string; values: Readonly<Record<string, unknown>> } {
+  if (action === null || typeof action !== "object") return false;
+  const record = action as { key?: unknown; values?: unknown };
+  return (
+    record.key === CLARIFY_SUBMIT_ACTION_KEY &&
+    record.values !== null &&
+    typeof record.values === "object"
+  );
 }
 
 function ErrorRow({ message }: { readonly message: string }): React.ReactElement {
@@ -103,9 +144,9 @@ function SubmittingRow(): React.ReactElement {
   );
 }
 
-/** The submitted (locked) view — bypasses SpecRenderer entirely (see module
- * doc): the chosen option is one ring+wash+badge card, every other option is
- * a plain dimmed row. */
+/** The submitted (locked) proposal_cards view — bypasses SpecRenderer entirely (see module
+ * doc): the chosen option is one ring+wash+badge card, every other option is a plain dimmed
+ * row. */
 function SubmittedProposalView({
   declaration,
   chosenOptionId,
@@ -141,28 +182,63 @@ function SubmittedProposalView({
   );
 }
 
+/** The submitted (locked) clarify_widget view (D-16, Design Decision 6): the ENTIRE live form
+ * is replaced by a "Your response" heading + Submitted badge + the key-value-list read-out —
+ * rendered through GenuiPartBoundary (the same FOUND-6 gate), not a hand-rolled <dl>. */
+function SubmittedClarifyView({
+  declaration,
+  values,
+  variant,
+}: {
+  readonly declaration: ClarifyWidgetDeclaration;
+  readonly values: Readonly<Record<string, unknown>>;
+  readonly variant: "default" | "bare";
+}): React.ReactElement {
+  const specJson = JSON.stringify(buildClarifySubmittedSpec(declaration, values));
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs text-muted-foreground">{YOUR_RESPONSE_HEADING}</span>
+        <WidgetStatusBadge kind="submitted" />
+      </div>
+      <GenuiPartBoundary specJson={specJson} isStreaming={false} variant={variant} />
+    </div>
+  );
+}
+
+function extractSubmittedValues(
+  submittedValue: Readonly<Record<string, unknown>> | undefined,
+): Readonly<Record<string, unknown>> {
+  const values = submittedValue?.values;
+  return values !== null && typeof values === "object" ? (values as Readonly<Record<string, unknown>>) : {};
+}
+
 export function InteractiveWidgetBoundary({
   part,
   displayState,
   submittedValue,
   errorMessage,
-  onSubmitOption,
+  onSubmitResult,
   variant = "default",
   data,
 }: InteractiveWidgetBoundaryProps): React.ReactElement {
   const captionId = `widget-caption-${part.interactionId}`;
   const declaration = part.declaration;
-  const groupAriaLabel =
-    declaration.prompt !== undefined && declaration.prompt.length > 0
-      ? declaration.prompt
-      : "Choose an option";
+  const isClarify = part.widgetKind === "clarify_widget";
 
   if (displayState === "submitted") {
+    if (isClarify) {
+      return (
+        <SubmittedClarifyView
+          declaration={declaration as ClarifyWidgetDeclaration}
+          values={extractSubmittedValues(submittedValue)}
+          variant={variant}
+        />
+      );
+    }
+    const optionId = typeof submittedValue?.optionId === "string" ? submittedValue.optionId : "";
     return (
-      <SubmittedProposalView
-        declaration={declaration}
-        chosenOptionId={submittedValue?.optionId ?? ""}
-      />
+      <SubmittedProposalView declaration={declaration as ProposalCardsDeclaration} chosenOptionId={optionId} />
     );
   }
 
@@ -170,22 +246,42 @@ export function InteractiveWidgetBoundary({
   const isSubmitting = displayState === "submitting";
   const isLive = displayState === "pending";
 
-  const liveActions: ActionRegistry = {
-    setState: (action?: unknown) => {
-      if (isValidChoicePayload(action)) {
-        onSubmitOption(action.value);
+  const liveActions: ActionRegistry = isClarify
+    ? {
+        setState: (action?: unknown) => {
+          if (isValidClarifySubmitPayload(action)) {
+            onSubmitResult({ values: action.values });
+          }
+        },
       }
-    },
-  };
+    : {
+        setState: (action?: unknown) => {
+          if (isValidChoicePayload(action)) {
+            onSubmitResult({ optionId: action.value });
+          }
+        },
+      };
   const actions = isLive ? liveActions : NOOP_ACTIONS;
 
-  const specJson = JSON.stringify(buildProposalCardsSpec(declaration));
+  const specJson = isClarify
+    ? JSON.stringify(buildClarifyWidgetSpec(declaration as ClarifyWidgetDeclaration))
+    : JSON.stringify(buildProposalCardsSpec(declaration as ProposalCardsDeclaration));
 
   const groupClassName = isSubmitting
     ? "pointer-events-none"
     : isDimmed
       ? "pointer-events-none opacity-50"
       : undefined;
+
+  // Group semantics (role="group"/aria-label) only apply to the proposal-card
+  // stack (24-UI-SPEC.md Accessibility) — a clarify-widget's own `form`
+  // element already carries its own aria-label (FormComponent, unmodified).
+  const proposalPrompt = !isClarify ? (declaration as ProposalCardsDeclaration).prompt : undefined;
+  const groupAriaLabel = isClarify
+    ? undefined
+    : proposalPrompt !== undefined && proposalPrompt.length > 0
+      ? proposalPrompt
+      : "Choose an option";
 
   return (
     <div>
@@ -199,7 +295,7 @@ export function InteractiveWidgetBoundary({
         </div>
       )}
       <div
-        role="group"
+        role={isClarify ? undefined : "group"}
         aria-label={groupAriaLabel}
         className={groupClassName}
         aria-disabled={isDimmed ? true : undefined}
