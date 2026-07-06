@@ -108,26 +108,26 @@ function EntryPropTable({
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border/50 text-muted-foreground">
-                <th className="pb-1 pr-3 text-left font-medium">Prop</th>
-                <th className="pb-1 pr-3 text-left font-medium">Type</th>
-                <th className="pb-1 pr-3 text-left font-medium">Req</th>
-                <th className="pb-1 text-left font-medium">Locked</th>
+              <tr className="border-b border-border/50 bg-muted/40 text-muted-foreground">
+                <th className="px-2 py-2 text-left font-semibold">Prop</th>
+                <th className="px-2 py-2 text-left font-semibold">Type</th>
+                <th className="px-2 py-2 text-left font-semibold">Req</th>
+                <th className="px-2 py-2 text-left font-semibold">Locked</th>
               </tr>
             </thead>
             <tbody>
               {descriptors.map((d) => (
-                <tr key={d.name} className="border-b border-border/30 last:border-0">
-                  <td className="py-0.5 pr-3 font-mono">{d.name}</td>
-                  <td className="py-0.5 pr-3 text-muted-foreground">{d.typeLabel}</td>
-                  <td className="py-0.5 pr-3">
+                <tr key={d.name} className="border-b border-border/30 odd:bg-muted/20 last:border-0">
+                  <td className="px-2 py-1 font-mono">{d.name}</td>
+                  <td className="px-2 py-1 text-muted-foreground">{d.typeLabel}</td>
+                  <td className="px-2 py-1">
                     {d.required ? (
                       <span className="text-foreground">yes</span>
                     ) : (
                       <span className="text-muted-foreground/60">—</span>
                     )}
                   </td>
-                  <td className="py-0.5">
+                  <td className="px-2 py-1">
                     {d.locked ? (
                       <Badge variant="outline" className="px-1 py-0 text-[10px]">
                         locked
