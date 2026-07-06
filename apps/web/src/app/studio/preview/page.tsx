@@ -7,12 +7,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@nauta/ui/resizable";
-import { ScrollArea } from "@nauta/ui/scroll-area";
 
 import { SHOWCASE_SPEC } from "@nauta/genui/demo";
 import { REGISTRY_VERSION } from "@nauta/genui/registry";
 
 import { SpecRendererIsland } from "./_components/spec-renderer-island";
+import { JsonPane } from "../_components/json-pane";
 
 export const metadata: Metadata = {
   title: "Studio — Nauta",
@@ -85,19 +85,7 @@ export default function StudioPreviewPage(): React.ReactElement {
               aria-label="Spec JSON"
               className="flex h-full flex-col bg-muted"
             >
-              {/* Pane label */}
-              <div className="shrink-0 border-b border-border/50 px-4 py-3">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Spec JSON
-                </span>
-              </div>
-
-              {/* Scrollable JSON body */}
-              <ScrollArea className="flex-1">
-                <pre className="p-4 font-mono text-xs text-foreground">
-                  {JSON.stringify(SHOWCASE_SPEC, null, 2)}
-                </pre>
-              </ScrollArea>
+              <JsonPane value={SHOWCASE_SPEC} />
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>

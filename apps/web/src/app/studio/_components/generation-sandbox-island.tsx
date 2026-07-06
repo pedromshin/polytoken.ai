@@ -50,7 +50,6 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@nauta/ui/resizable";
-import { ScrollArea } from "@nauta/ui/scroll-area";
 import {
   Select,
   SelectContent,
@@ -68,6 +67,7 @@ import type { StylePackId } from "@nauta/genui/theme";
 
 import { SpecRendererIsland } from "./spec-renderer-island";
 import { GenerationStateChrome } from "./generation-state-chrome";
+import { JsonPane } from "./json-pane";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -396,16 +396,7 @@ export function GenerationSandboxIsland({
                   aria-label="Spec JSON"
                   className="flex h-full flex-col bg-muted"
                 >
-                  <div className="shrink-0 border-b border-border/50 px-4 py-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Spec JSON
-                    </span>
-                  </div>
-                  <ScrollArea className="flex-1">
-                    <pre className="p-4 font-mono text-xs text-foreground">
-                      {JSON.stringify(specToRender, null, 2)}
-                    </pre>
-                  </ScrollArea>
+                  <JsonPane value={specToRender} />
                 </div>
               </ResizablePanel>
             </ResizablePanelGroup>
