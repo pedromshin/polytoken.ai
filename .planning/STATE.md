@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T21:06:44.968Z"
-last_activity: "2026-07-06 -- Phase 26 plan 02 complete: studio token & weight cleanup (FIX-02/03/06)"
+last_updated: "2026-07-06T21:18:25.769Z"
+last_activity: "2026-07-06 -- Phase 26 plan 03 complete: font-medium purged at Button source + hover affordances + assistant left rail (FIX-02/07/08)"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 7
-  completed_plans: 2
-  percent: 29
+  completed_plans: 3
+  percent: 43
 ---
 
 # State
@@ -25,17 +25,18 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 26 (Zero-Dependency Contract Fixes + Backlog Polish) — EXECUTING
-Plan: 3 of 7 (26-02 complete)
+Plan: 4 of 7 (26-03 complete)
 Status: Executing Phase 26
-Last activity: 2026-07-06 -- Phase 26 plan 02 complete: code-island-frame's PHASE_TONE map +
-  ViolationList tone recipes + iframe wrapper moved to destructive/primary/muted/background
-  tokens (no dark: overrides); catalog-browser-island's prop table gained a bg-muted/40 header
-  band + odd:bg-muted/20 zebra rows; 8 of 11 studio font-medium sites cleared (#1-8,#11) across
-  generation-state-chrome.tsx, code-sandbox-island.tsx (error text -> text-destructive), and
-  page-ideas-island.tsx (curveball badge -> Badge variant="outline"). FIX-02's root cause
-  (packages/ui/src/button.tsx's buttonVariants) and FIX-03(e)/other FIX-0x items remain for later
-  26-xx plans. Commits: 53664a3, 53069ff, 62d80b8, 94c3817, 431b32d. Next: execute 26-03-PLAN.md
-  (or /gsd:plan-phase if not yet generated).
+Last activity: 2026-07-06 -- Phase 26 plan 03 complete: FIX-02 root cause fixed
+  (packages/ui/src/button.tsx buttonVariants base font-medium -> font-normal, app-wide blast
+  radius) plus the 2 chat-side drift sites (cost-cap-blocked-card.tsx / inline-error-card.tsx
+  destructive headings -> font-semibold) — app-wide FIX-02 grep gate (chat + studio +
+  button.tsx, excluding __tests__) now passes. FIX-07 hover affordances added to
+  conversation-row.tsx (row transition-colors, overflow-trigger hover:bg-muted) and
+  turn-action-row.tsx (copy/regenerate transition-colors + hover:bg-muted). FIX-08 assistant
+  left rail (border-l-2 border-l-border/60 pl-3) added to message-turn.tsx. Both typechecks +
+  full genui (477) + web (153) vitest suites pass. Commits: 7919ca8, ab1ec11, b38cf5f. Next:
+  execute 26-04-PLAN.md (or /gsd:plan-phase if not yet generated).
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -370,7 +371,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-.planning/phases/26-zero-dependency-contract-fixes-backlog-polish/26-01-PLAN.md
+None
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -1213,6 +1214,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 25 P02 | 23min | 3 tasks | 10 files |
 | Phase 25 P03 | ~20min | 2 tasks | 2 files |
 | Phase 26 P01 | 15min | 3 tasks | 6 files |
+| Phase 26 P03 | ~10m | 3 tasks | 6 files |
 
 ## Operator Next Steps
 
