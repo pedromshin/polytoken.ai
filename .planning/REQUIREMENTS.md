@@ -12,7 +12,7 @@
 
 ### Zero-Dependency Contract Fixes (research doc Phase A — do first; pure token/class-level changes)
 
-- [ ] **FIX-01**: React Flow's stock chrome (`.react-flow__controls`, `__minimap`, `__background`, `__attribution`) is styled with the app's existing token vars — no more off-the-shelf light-gray boxes on the canvas, correct in dark mode
+- [x] **FIX-01**: React Flow's stock chrome (`.react-flow__controls`, `__minimap`, `__background`, `__attribution`) is styled with the app's existing token vars — no more off-the-shelf light-gray boxes on the canvas, correct in dark mode
 - [x] **FIX-02**: No `font-medium` anywhere on `/chat` or `/studio` — fixed at the source (`packages/ui/src/button.tsx` `buttonVariants` base class) and across the 11 Studio call-sites, restoring the locked 2-weight typography contract
 - [x] **FIX-03**: Studio's three hardcoded color systems (`code-island-frame.tsx` PHASE_TONE + ViolationList + `bg-white` iframe wrapper, `page-ideas-island.tsx` curveball badge, `history-island.tsx` FallbackNotice, `code-sandbox-island.tsx` `text-red-600`) use semantic tokens (`destructive`/`primary`/`muted`) and render correctly in dark mode
 - [x] **FIX-04**: `ChatNode` and `GenuiPanelNode` have visually differentiated header chrome (per-kind accent or icon) — the canvas no longer reads as identical gray boxes
@@ -20,8 +20,8 @@
 - [x] **FIX-06**: The catalog prop table is styled to match its surrounding card chrome (zebra rows, muted header fill) instead of a bare HTML `<table>`
 - [x] **FIX-07**: Conversation rows and turn-action icon buttons have `transition-colors` and real hover affordances (background/border at rest and hover)
 - [x] **FIX-08**: Assistant messages carry minimal role chrome (a thin left rail) so role is distinguishable beyond alignment alone
-- [ ] **FIX-09**: The composer reads as a visual "dock" (`border-t` + subtle token-safe top shadow)
-- [ ] **FIX-10**: Scrollbar treatment is uniform — composer textarea and markdown code/table wrappers match the Radix-styled `ScrollArea` aesthetic used by MessageList/ConversationRail
+- [x] **FIX-09**: The composer reads as a visual "dock" (`border-t` + subtle token-safe top shadow)
+- [x] **FIX-10**: Scrollbar treatment is uniform — composer textarea and markdown code/table wrappers match the Radix-styled `ScrollArea` aesthetic used by MessageList/ConversationRail
 - [ ] **FIX-11**: The 3–4 near-duplicate empty-state components are differentiated instead of repeating one identical icon+heading+paragraph recipe
 
 ### Adopted External Picks (research doc Phase B — near-zero footprint; verdicts locked)
