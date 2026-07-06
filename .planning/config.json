@@ -1,16 +1,37 @@
 {
   "mode": "yolo",
   "granularity": "coarse",
-  "parallelization": false,
-  "commit_docs": true,
   "model_profile": "balanced",
+  "commit_docs": true,
+  "parallelization": {
+    "enabled": true,
+    "plan_level": true,
+    "task_level": false,
+    "skip_checkpoints": true,
+    "max_concurrent_agents": 3,
+    "min_plans_for_parallel": 2
+  },
   "workflow": {
     "research": false,
-    "plan_check": true,
+    "plan_check": false,
     "verifier": true,
     "nyquist_validation": false,
+    "pattern_mapper": false,
     "auto_approve_non_critical": true,
-    "_auto_chain_active": false
+    "_auto_chain_active": false,
+    "auto_advance": true,
+    "code_review": false,
+    "use_worktrees": false
+  },
+  "gates": {
+    "confirm_project": false,
+    "confirm_phases": false,
+    "confirm_roadmap": false,
+    "confirm_breakdown": false,
+    "confirm_plan": false,
+    "execute_next_plan": false,
+    "issues_review": false,
+    "confirm_transition": false
   },
   "ship": {
     "pr_body_sections": []

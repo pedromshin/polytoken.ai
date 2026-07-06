@@ -46,3 +46,5 @@ tfplan*
 apps/web/.next/
 packages/api-client/dist/
 *.tsbuildinfo
+
+.env*
