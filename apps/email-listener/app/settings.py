@@ -142,7 +142,11 @@ class BaseAppSettings(BaseSettings):
     # --- Chat turn agent (Phase 22-06, SEAM-04) ---
     # Hard cap on generated tokens for a single chat turn (always set, no implicit
     # default — required by the ChatProvider.stream contract).
-    CHAT_MAX_OUTPUT_TOKENS: int = 4096
+    # 4096 truncated large emit_ui_spec tool calls mid-JSON (stream stops at the cap,
+    # json.loads fails at finalize, the widget part is dropped) — found live 2026-07-06
+    # on a "generate everything you can" prompt with 10k input tokens. 12000 gives a
+    # full-page spec ~3x headroom while staying well under the $0.50 per-turn cost cap.
+    CHAT_MAX_OUTPUT_TOKENS: int = 12000
 
     # --- Code-island parallel multi-candidate + judge (Phase 21) ---
     # N candidates generated CONCURRENTLY (varied temperature) then an LLM judge picks the best.
