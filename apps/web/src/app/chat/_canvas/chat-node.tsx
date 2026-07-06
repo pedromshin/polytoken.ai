@@ -13,17 +13,22 @@
  * `useConversationController` — it only ever reads the shared instance
  * through context.
  *
- * Chrome per 23-UI-SPEC.md: `h-9 node-drag-handle` header (`bg-muted/60
- * border-border/60`, intentionally the SAME neutral treatment as
- * `GenuiPanelNode` — "never special-case chat"), `min-w-[400px]
- * min-h-[320px]` body with internal scroll (`MessageList`'s own
- * `ScrollArea`), `ring-2 ring-primary ring-offset-1` selection idiom.
+ * Chrome per 23-UI-SPEC.md, revised by 26-UI-SPEC.md FIX-04: `h-9
+ * node-drag-handle` header (`bg-muted/60 border-border/60`) now carries a
+ * `MessageSquare` icon + a `border-l-2 border-l-primary` left-edge stripe on
+ * the outer shell — the one accent-allowlist member this phase adds — so
+ * `ChatNode` reads distinct from `GenuiPanelNode`'s neutral chrome at a
+ * glance (FIX-04 supersedes 23-UI-SPEC.md's "never special-case chat" shell
+ * clause; drag-handle, dimensions, and selection ring are unchanged).
+ * `min-w-[400px] min-h-[320px]` body with internal scroll (`MessageList`'s
+ * own `ScrollArea`), `ring-2 ring-primary ring-offset-1` selection idiom.
  */
 
 import * as React from "react";
 import { createContext, memo, useContext } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
+import { MessageSquare } from "lucide-react";
 
 import { api } from "~/trpc/react";
 
@@ -110,6 +115,7 @@ const ChatNodeBody = memo(function ChatNodeBody({
   return (
     <>
       <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center gap-2 border-b border-border/60 bg-muted/60 px-3 active:cursor-grabbing">
+        <MessageSquare className="size-3 shrink-0 text-primary" aria-hidden />
         <span className="truncate text-sm font-semibold text-foreground">
           {title}
         </span>
@@ -141,7 +147,7 @@ export const ChatNode = memo(function ChatNode({
 }: NodeProps<ChatNodeType>) {
   return (
     <div
-      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
+      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 border-l-2 border-l-primary bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
     >
       <Handle type="target" position={Position.Left} />
       <ChatNodeBody conversationId={data.conversationId} />

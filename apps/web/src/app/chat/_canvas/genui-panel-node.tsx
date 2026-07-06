@@ -11,14 +11,18 @@
  * never lifted into the React Flow `nodes` array (D-07: a streamed token must
  * never force a full-array `setNodes` identity change).
  *
- * Chrome per 23-UI-SPEC.md: the `h-9` header row is the ONLY drag handle
- * (`.node-drag-handle` — plan 23-03 sets `dragHandle=".node-drag-handle"` on
- * the mounted `<ReactFlow>`), `bg-muted/60 border-border/60`, a provenance
- * caption ("From turn {n}"), and — while streaming — an animated
- * `text-primary` pulsing dot with `aria-label="Streaming"`. The body is a
- * fixed-min-dimension (320x240) `ScrollArea` with inner scroll only — the
- * node's own dimensions never change while its spec streams, so the graph
- * never relayouts mid-stream.
+ * Chrome per 23-UI-SPEC.md, revised by 26-UI-SPEC.md FIX-04: the `h-9`
+ * header row is the ONLY drag handle (`.node-drag-handle` — plan 23-03 sets
+ * `dragHandle=".node-drag-handle"` on the mounted `<ReactFlow>`), a
+ * `bg-muted/40` fill (one step lighter than `ChatNode`'s `bg-muted/60` — a
+ * neutral tonal shift, never a second hue) with `border-border/60`, a
+ * `PanelsTopLeft` icon + provenance caption ("From turn {n}"), and — while
+ * streaming — an animated `text-primary` pulsing dot with
+ * `aria-label="Streaming"`. The outer shell carries no left-edge accent
+ * (that stripe is `ChatNode`-only). The body is a fixed-min-dimension
+ * (320x240) `ScrollArea` with inner scroll only — the node's own dimensions
+ * never change while its spec streams, so the graph never relayouts
+ * mid-stream.
  *
  * STATE-01 (23-05): the panel's own `panels.{id}.*` canvas-store slice feeds
  * into the UNMODIFIED `SpecRenderer` via `GenuiPartBoundary`'s `data` prop —
@@ -29,6 +33,7 @@
 import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
+import { PanelsTopLeft } from "lucide-react";
 
 import { ScrollArea } from "@nauta/ui/scroll-area";
 
@@ -78,9 +83,15 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
 
   return (
     <>
-      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-border/60 bg-muted/60 px-3 active:cursor-grabbing">
-        <span className="truncate text-xs font-normal text-muted-foreground">
-          From turn {turnIndex}
+      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 active:cursor-grabbing">
+        <span className="flex min-w-0 items-center gap-2">
+          <PanelsTopLeft
+            className="size-3 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+          <span className="truncate text-xs font-normal text-muted-foreground">
+            From turn {turnIndex}
+          </span>
         </span>
         {isStreaming && (
           <span
