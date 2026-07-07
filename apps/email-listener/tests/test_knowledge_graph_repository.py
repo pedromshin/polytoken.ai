@@ -25,6 +25,7 @@ def _make_chain_mock(return_data: list[dict] | None = None) -> MagicMock:
     chain.update.return_value = chain
     chain.select.return_value = chain
     chain.delete.return_value = chain
+    chain.in_.return_value = chain
     return chain
 
 
@@ -257,3 +258,79 @@ def test_upsert_node_updates_existing_active_node() -> None:
     update_payload = select_chain.update.call_args.args[0]
     assert update_payload["title"] == "Acme Corp"
     assert not select_chain.insert.called, "must not insert a duplicate when a node was reused"
+
+
+def test_find_edge_by_id_flattens_owning_importer_id() -> None:
+    client = _make_client_mock(
+        return_data=[
+            {
+                "id": "edge-001",
+                "source_node_id": "node-001",
+                "tier": "INFERRED",
+                "is_active": True,
+                "knowledge_nodes": {"importer_id": "imp-abc"},
+            }
+        ]
+    )
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.find_edge_by_id("edge-001"))
+
+    client.table.assert_called_with("knowledge_node_edges")
+    chain = client.table.return_value
+    select_args = chain.select.call_args.args[0]
+    assert "knowledge_nodes" in select_args
+    assert result is not None
+    assert result["importer_id"] == "imp-abc"
+    assert result["tier"] == "INFERRED"
+    assert "knowledge_nodes" not in result
+
+
+def test_find_edge_by_id_returns_none_when_missing() -> None:
+    client = _make_client_mock(return_data=[])
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.find_edge_by_id("missing-edge"))
+
+    assert result is None
+
+
+def test_promote_edge_writes_tier_and_promotion_filtered_by_cas() -> None:
+    client = _make_client_mock(return_data=[{"id": "edge-001", "tier": "EXTRACTED"}])
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    promotion = {"promoted_at": "2026-07-07T00:00:00+00:00", "from_tier": "INFERRED", "mechanism": "human_promote"}
+    updated = asyncio.run(repo.promote_edge(edge_id="edge-001", promotion=promotion))
+
+    assert updated is True
+    client.table.assert_called_with("knowledge_node_edges")
+    chain = client.table.return_value
+    assert chain.update.called, "promote_edge must call update"
+    assert not chain.delete.called, "promote_edge must never call delete"
+    payload = chain.update.call_args.args[0]
+    assert payload["tier"] == "EXTRACTED"
+    assert payload["promotion"] == promotion
+
+    eq_calls = [str(c) for c in chain.eq.call_args_list]
+    combined = " ".join(eq_calls)
+    assert "id" in combined
+    assert "is_active" in combined
+    in_calls = [str(c) for c in chain.in_.call_args_list]
+    assert any("tier" in c and "INFERRED" in c and "AMBIGUOUS" in c for c in in_calls), (
+        f"tier CAS filter missing: {in_calls}"
+    )
+
+
+def test_promote_edge_returns_false_when_cas_matches_no_row() -> None:
+    """Concurrent promote/dismiss already changed the row -- no update applied (T-30-06)."""
+    client = _make_client_mock(return_data=[])
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    updated = asyncio.run(
+        repo.promote_edge(
+            edge_id="edge-001",
+            promotion={"promoted_at": "2026-07-07T00:00:00+00:00", "from_tier": "INFERRED", "mechanism": "human_promote"},
+        )
+    )
+
+    assert updated is False
