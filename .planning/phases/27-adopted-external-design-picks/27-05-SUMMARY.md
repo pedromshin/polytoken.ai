@@ -137,3 +137,15 @@ None - no external service configuration required.
 ---
 *Phase: 27-adopted-external-design-picks*
 *Completed: 2026-07-07*
+
+## Self-Check: PASSED
+- FOUND: apps/web/src/app/globals.css
+- FOUND: apps/web/src/app/chat/_components/delete-conversation-dialog.tsx
+- FOUND: apps/web/src/app/chat/_components/conversation-rail.tsx
+- FOUND: apps/web/src/app/chat/_components/model-picker.tsx
+- FOUND: packages/ui/src/command.tsx
+- FOUND: .planning/phases/27-adopted-external-design-picks/27-05-SUMMARY.md
+- FOUND: .planning/REQUIREMENTS.md
+- FOUND commit: e6a837f
+- FOUND commit: 9979a0c
+- FOUND commit: 4477da0
