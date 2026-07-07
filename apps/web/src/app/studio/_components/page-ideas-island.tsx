@@ -114,9 +114,11 @@ function IdeaChips({ idea }: { readonly idea: PageIdea }): React.ReactElement {
 /** A single idea card with prompt text, chips, and a "Use this idea" button. */
 function IdeaCard({
   idea,
+  index,
   onUseIdea,
 }: {
   readonly idea: PageIdea;
+  readonly index: number;
   readonly onUseIdea: (prompt: string) => void;
 }): React.ReactElement {
   const handleUse = useCallback((): void => {
@@ -124,7 +126,10 @@ function IdeaCard({
   }, [idea.prompt, onUseIdea]);
 
   return (
-    <Card className="flex flex-col gap-0">
+    <Card
+      className="flex flex-col gap-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+      style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+    >
       <CardHeader className="pb-2 pt-4 px-4">
         <p className="text-sm leading-relaxed text-foreground">{idea.prompt}</p>
         <IdeaChips idea={idea} />
@@ -350,8 +355,13 @@ export function PageIdeasIsland({
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((idea) => (
-              <IdeaCard key={idea.id} idea={idea} onUseIdea={onUseIdea} />
+            {filtered.map((idea, index) => (
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                index={index}
+                onUseIdea={onUseIdea}
+              />
             ))}
           </div>
         )}
