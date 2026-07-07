@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-07T00:20:00.000Z"
-last_activity: 2026-07-07 -- Phase 27 Plan 04 (GeneratingRing component + Chat/Studio mounts, ADOPT-03) complete
+last_updated: "2026-07-07T00:29:44.225Z"
+last_activity: 2026-07-07 -- Phase 27 Plan 05 (ADOPT-05 transitions wiring + FIX-02 command.tsx spillover) complete. Phase 27 (ADOPT-01..05) fully complete.
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 12
-  completed_plans: 11
-  percent: 92
+  completed_plans: 12
+  percent: 67
 ---
 
 # State
@@ -24,31 +24,32 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 
 ## Current Position
 
-Phase: 27 (Adopted External Design Picks) — EXECUTING
+Phase: 27 (Adopted External Design Picks) — COMPLETE (all 5 plans executed)
 Plan: 5 of 5
-Status: Executing Phase 27
-Last activity: 2026-07-07 -- Phase 27 Plan 04 (GeneratingRing component + Chat/Studio mounts,
-  ADOPT-03) complete. Task 1: `apps/web/src/components/generating-ring.tsx` — the trivial
-  `<GeneratingRing active className children>` wrapper consuming Plan 03's `.generating-ring`
-  utility (`cn(active && "generating-ring", className)`, decorative-only, no ARIA/handlers),
-  attributed to Magic UI shine-border + animated-shiny-text (MIT); colocated
-  `generating-ring.test.tsx` (5 tests: active toggles class, className always merges,
-  children render, decorative-only). Task 2 mounted it at both consumer sites: Studio
-  `generation-sandbox-island.tsx` wraps `#sandbox-output-region` driven by
-  `chromeProps.isPending` (moved the flex-1/min-h-0 sizing onto the GeneratingRing wrapper
-  itself since its own contract is active/className/children-only, region div now fills via
-  h-full — 55/45 resizable layout preserved); Chat `message-turn.tsx` wraps ONLY the two
-  streaming `GenuiPartBoundary` call sites (`genui_spec_streaming`, `interactive_widget_streaming`)
-  with `<GeneratingRing active>` — the finalized `genui_spec`/`interactive_widget` branches are
-  NOT wrapped. `GenuiPartBoundary`/`InteractiveWidgetBoundary`/`spec-renderer.tsx` remain
-  untouched (locked, ring wraps from the caller only — verified via git diff). Full web vitest
-  (23 files / 168 tests) + web typecheck green. ADOPT-03 marked complete in REQUIREMENTS.md
-  (CSS from Plan 03 + component/mounts here fully satisfy it). Commits: d6a860a (Task 1),
-  bde3ac4 (Task 2). Plan 05 (ADOPT-05 transitions.dev wiring) remains BLOCKED per Plan 03's
-  license-verification finding — `.t-modal-reveal`/`.t-panel-reveal`/`.t-dropdown-reveal` do
-  not exist in globals.css yet; needs a resolution (alternative vetted source / hand-authored
-  recipes / user decision) before Plan 05 can execute. Next: resolve the ADOPT-05 CSS-source
-  gap, then Plan 05.
+Status: Phase 27 complete. Next: Phase 28 (Design-System Token Upgrades)
+Last activity: 2026-07-07 -- Phase 27 Plan 05 (ADOPT-05 transitions wiring + FIX-02 command.tsx
+  spillover) complete. **Orchestrator amendment applied:** Plan 03's transitions.dev port was
+  license-blocked (no discoverable license anywhere in `Jakubantalik/transitions.dev`'s repo — no
+  LICENSE file, no package.json license field, GitHub license API `null`; the only "MIT" text
+  scopes an unrelated sub-tool). Resolution: hand-authored `.t-modal-reveal`/`.t-panel-reveal`/
+  `.t-dropdown-reveal` as ORIGINAL CSS in `globals.css`, implementing the exact numeric
+  timing/scale values already locked in 27-UI-SPEC.md's ADOPT-05 section (unprotectable facts,
+  not copyrightable expression) — additive only, `:root`/`.dark` byte-for-byte unchanged. Wired
+  each utility to its one designated consumer via a NEW inner wrapper (never a className override
+  on a shared `@nauta/ui` primitive): `.t-modal-reveal` on `delete-conversation-dialog.tsx`'s
+  inner content div, `.t-panel-reveal` replacing `conversation-rail.tsx`'s ad hoc
+  motion-safe:transition-[width] trio, `.t-dropdown-reveal` on `model-picker.tsx`'s Command
+  wrapper. Also closed the FIX-02 spillover in `packages/ui/src/command.tsx`'s `CommandGroup`
+  group-heading (`font-medium`→`font-semibold`, `py-1.5`→`py-1`) — live in ModelPicker today,
+  missed by Phase 26's app-scoped grep; `CommandDialog`'s separate, unrelated `font-medium`
+  occurrence left untouched (out of scope). `@nauta/ui` + `@nauta/web` typecheck clean, full
+  `apps/web` vitest (23 files / 168 tests) green after every task. `.planning/REQUIREMENTS.md`'s
+  ADOPT-05 line amended to reflect hand-authored (not hand-copied) provenance and checked off.
+  Commits: e6a837f (Task 0 — hand-author CSS), 9979a0c (Task 1 — wire consumers), 4477da0
+  (Task 2 — FIX-02 spillover). See 27-05-SUMMARY.md for the full per-source vetting outcome
+  table (impeccable Apache-2.0 / Magic UI MIT / ux-designer-skill MIT / transitions.dev NO
+  LICENSE → hand-authored). **Phase 27 (ADOPT-01..05) is now fully complete — all 5 plans
+  executed.** Next: Phase 28 (Design-System Token Upgrades, TOKEN-01..05) — not yet planned.
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -383,7 +384,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-.planning/phases/27-adopted-external-design-picks/27-01-PLAN.md
+None
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -1236,6 +1237,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 26 P06 | 9min | 2 tasks | 5 files |
 | Phase 27 P04 | ~20min | 2 tasks | 4 files — GeneratingRing wrapper primitive (ADOPT-03) + colocated vitest (5 tests) + Studio sandbox mount (chromeProps.isPending) + Chat streaming-parts mount (2 sites); locked GenuiPartBoundary/InteractiveWidgetBoundary/spec-renderer untouched; full web vitest 23/23 files green |
 | Phase 26 P07 | 15min | 2 tasks | 2 files |
+| Phase 27 P05 | 15min | 3 tasks | 5 files |
 
 ## Operator Next Steps
 

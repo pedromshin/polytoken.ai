@@ -70,7 +70,7 @@ milestone touches `packages/genui/src/renderer/spec-renderer.tsx` or `GenuiPartB
 `InteractiveWidgetBoundary` chrome (already owned/fixed by Phase 24).
 
 - [x] **Phase 26: Zero-Dependency Contract Fixes + Backlog Polish** - `/chat` and `/studio`'s own chrome (React Flow, node differentiation, hardcoded colors, JSON panes, prop table, hover states, role chrome, composer dock, scrollbars, empty states) matches the app's existing token system instead of stock/hardcoded values, plus two small independent backlog fixes (declared-state binding, canvas auto-layout) (completed 2026-07-06)
-- [ ] **Phase 27: Adopted External Design Picks** - Impeccable's product-register rules, Magic UI's file-tree + generating-ring CSS technique, ux-designer-skill references, and transitions.dev snippets are folded into the app and its docs at near-zero footprint
+- [x] **Phase 27: Adopted External Design Picks** - Impeccable's product-register rules, Magic UI's file-tree + generating-ring CSS technique, ux-designer-skill references, and transitions.dev snippets are folded into the app and its docs at near-zero footprint (completed 2026-07-07)
 - [ ] **Phase 28: Design-System Token Upgrades** - The foundational token set (secondary/muted/accent, chart/sidebar hues, shadow scale, radius steps, entrance animation) is upgraded so every consuming surface benefits at once
 
 ## Phase Details
@@ -117,7 +117,7 @@ token-correct base)
 - [x] 27-02-PLAN.md — Ported Magic UI FileTree (raw Radix accordion, zero deps) mounted in the Code-Island preset browser (ADOPT-02)
 - [x] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
 - [x] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
-- [ ] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
+- [x] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
 **UI hint**: yes
 
 ### Phase 28: Design-System Token Upgrades
@@ -144,7 +144,7 @@ papered-over token gap before Phase C touches the token layer)
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
 | 26. Zero-Dependency Contract Fixes + Backlog Polish | 7/7 | Complete   | 2026-07-06 |
-| 27. Adopted External Design Picks | 3/5 | In Progress|  |
+| 27. Adopted External Design Picks | 5/5 | Complete   | 2026-07-07 |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 
 ## Next

@@ -30,7 +30,7 @@
 - [x] **ADOPT-02**: Magic UI's `file-tree` is ported into the code-island file browser (zero new deps — only already-installed `@radix-ui/react-accordion` + `lucide-react`)
 - [x] **ADOPT-03**: A `<GeneratingRing>` primitive hand-ported from Magic UI's shine-border/animated-shiny-text CSS techniques (teal-only, `motion-safe:`-gated, zero JS) marks "generating" state on genui cards in Chat and the sandbox/history tabs in Studio
 - [x] **ADOPT-04**: The 3 `ux-designer-skill` reference files (canvas-navigation, canvas-objects-performance, ai-ux-patterns) are copied into a slim project reference doc
-- [ ] **ADOPT-05**: 3–4 `transitions.dev` CSS snippets (modal, panel-reveal, dropdown) are hand-copied and retokenized to the app's custom properties
+- [x] **ADOPT-05**: 3–4 `transitions.dev` CSS snippets (modal, panel-reveal, dropdown) are hand-authored from the UI-SPEC's locked timing values, retokenized to the app's custom properties (verbatim copy license-blocked — see 27-03/27-05 SUMMARYs)
 
 ### Design-System Token Upgrades (research doc Phase C — sequenced last, after A surfaces papered-over gaps)
 
@@ -102,7 +102,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADOPT-02 | Phase 27 | Complete |
 | ADOPT-03 | Phase 27 | Complete |
 | ADOPT-04 | Phase 27 | Complete |
-| ADOPT-05 | Phase 27 | Pending |
+| ADOPT-05 | Phase 27 | Complete |
 | TOKEN-01 | Phase 28 | Pending |
 | TOKEN-02 | Phase 28 | Pending |
 | TOKEN-03 | Phase 28 | Pending |
