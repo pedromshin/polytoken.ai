@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T22:37:08.485Z"
-last_activity: 2026-07-07 -- Phase 30 execution started
+last_updated: "2026-07-07T23:20:00.000Z"
+last_activity: 2026-07-07 -- Phase 30 Plan 02 (TIER-03) complete; Phase 30 (Suggest-Only Promotion Gate) done
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
-  percent: 25
+  completed_plans: 6
+  percent: 50
 ---
 
 # State
@@ -24,10 +24,12 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 30 (Suggest-Only Promotion Gate) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 30
-Last activity: 2026-07-07 -- Phase 30 Plan 01 (TIER-02) complete; resumed after a mid-plan session-limit cutoff
+Phase: 30 (Suggest-Only Promotion Gate) — COMPLETE
+Plan: 2 of 2 (done)
+Status: Phase 30 complete; ready for Phase 31/32
+Last activity: 2026-07-07 -- Phase 30 Plan 02 (TIER-03) complete: migration 0027 (promotion jsonb
+column), PromoteEdgeUseCase (fail-closed guard), authenticated POST /v1/knowledge/edges/{id}/promote
+endpoint. Phase 30 (TIER-02 + TIER-03) fully shipped.
 
 ## v1.5 Roadmap Summary (2026-07-07)
 
@@ -1243,6 +1245,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-07 (29-02): pre-existing test-isolation flake found in test_genui_retrieval_provider.py (24 tests fail only when the full suite runs together; pass in isolation; reproduces on unmodified main) — logged to deferred-items.md, out of scope for this plan
 - 2026-07-07 (29-03): node identity = the confirmed region (scope_ref_id=component_id, scope="entity_type"), not the entity_type row, so deactivate_edges_for_node on re-confirm touches exactly and only this region's edges (T-29-08)
 - 2026-07-07 (29-03): title/content composition uses raw entity_type_id (no EntityType label lookup) since the synthesizer's collaborators are components/knowledge/entity_instances only — no entity_types port injected
+- 2026-07-07 (30-02): PromoteEdgeUseCase's tenant-ownership guard runs BEFORE the active/tier guards (not the plan's literal listed order) so a cross-importer probe gets the identical EdgeNotPromotable('tenant_mismatch') regardless of the edge's real state — can't distinguish "wrong tenant" from "already promoted" (T-30-07 information-disclosure disposition)
+- 2026-07-07 (30-02): repo-level promote_edge CAS filter (tier IN (INFERRED, AMBIGUOUS)) duplicates the use case's own tier-guard allowlist intentionally — defense-in-depth beneath the guard, mirrors Phase-24's double-submit CAS posture; a False return from promote_edge is itself a rejection (EdgeNotPromotable('conflict')), never silently swallowed
+- 2026-07-07 (30-02): find_edge_by_id resolves the owning importer_id via a nested PostgREST select (knowledge_node_edges.select('*, knowledge_nodes(importer_id)')) — reuses the existing entity_type_fields(*) nested-embed idiom rather than a second round-trip query
+- 2026-07-07 (30-02): Docker Desktop + local Supabase were not running at session start — started both before applying migration 0027 to local Postgres; no live-DB verification step was skipped
 
 ## Performance Metrics
 
