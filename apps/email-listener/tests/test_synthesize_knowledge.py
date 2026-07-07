@@ -116,6 +116,8 @@ def _make_ports(
     active_node: dict[str, object] | None = None,
     co_occurring: list[Component] | None = None,
     selected_instance: EntityInstance | None = None,
+    unconfirmed: list[Component] | None = None,
+    unselected_candidates: list[EntityInstance] | None = None,
 ) -> tuple[AsyncMock, AsyncMock, AsyncMock]:
     components = AsyncMock()
 
@@ -135,6 +137,8 @@ def _make_ports(
     entity_instances = AsyncMock()
     entity_instances.find_confirmed_entity_components_for_email.return_value = co_occurring or []
     entity_instances.find_selected_instance_for_component.return_value = selected_instance
+    entity_instances.find_unconfirmed_entity_components_for_email.return_value = unconfirmed or []
+    entity_instances.find_unselected_candidate_instances_for_component.return_value = unselected_candidates or []
 
     return components, knowledge, entity_instances
 
@@ -381,3 +385,123 @@ def test_no_duplicate_anchor_edge_across_first_then_reconfirm_sequence() -> None
         c for c in knowledge2.insert_edge.await_args_list if c.kwargs.get("relation_type") == "evidenced_by"
     ]
     assert len(second_anchor_calls) == 1
+
+
+# ---------------------------------------------------------------------------
+# Task 2 (30-01, RED -> GREEN): suggestion-edge emission (INFERRED / AMBIGUOUS)
+# ---------------------------------------------------------------------------
+
+
+def test_inferred_suggestion_edge_emitted_per_unconfirmed_component() -> None:
+    component = _make_component()
+    page = _make_page()
+    unconfirmed_other = _make_component(component_id="comp-unconfirmed-001")
+    components, knowledge, entity_instances = _make_ports(
+        component=component,
+        page=page,
+        active_node=None,
+        unconfirmed=[component, unconfirmed_other],
+    )
+
+    service = KnowledgeSynthesizerService(components=components, knowledge=knowledge, entity_instances=entity_instances)
+    asyncio.run(
+        service.synthesize_from_confirmation(
+            component_id=_COMP_ID,
+            importer_id=_IMPORTER_ID,
+            confirmed_record=_make_extraction_record(),
+            corrected_fields=None,
+        )
+    )
+
+    inferred_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("tier") == "INFERRED"]
+    assert len(inferred_calls) == 1
+    assert inferred_calls[0].kwargs["target_ref_id"] == "comp-unconfirmed-001"
+    assert inferred_calls[0].kwargs["relation_type"] == "co_occurs_with"
+    assert inferred_calls[0].kwargs["source"] == "synthesis"
+
+
+def test_ambiguous_suggestion_edge_emitted_per_unselected_candidate() -> None:
+    component = _make_component()
+    page = _make_page()
+    candidate = _make_entity_instance(instance_id="ei-candidate-001")
+    components, knowledge, entity_instances = _make_ports(
+        component=component,
+        page=page,
+        active_node=None,
+        unselected_candidates=[candidate],
+    )
+
+    service = KnowledgeSynthesizerService(components=components, knowledge=knowledge, entity_instances=entity_instances)
+    asyncio.run(
+        service.synthesize_from_confirmation(
+            component_id=_COMP_ID,
+            importer_id=_IMPORTER_ID,
+            confirmed_record=_make_extraction_record(),
+            corrected_fields=None,
+        )
+    )
+
+    ambiguous_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("tier") == "AMBIGUOUS"]
+    assert len(ambiguous_calls) == 1
+    assert ambiguous_calls[0].kwargs["target_ref_id"] == "ei-candidate-001"
+    assert ambiguous_calls[0].kwargs["target_ref_type"] == "entity_instance"
+    assert ambiguous_calls[0].kwargs["relation_type"] == "possibly_about"
+    assert ambiguous_calls[0].kwargs["source"] == "synthesis"
+
+
+def test_suggestion_emission_excludes_self_and_no_ops_on_empty_sources() -> None:
+    component = _make_component()
+    page = _make_page()
+    components, knowledge, entity_instances = _make_ports(
+        component=component,
+        page=page,
+        active_node=None,
+        unconfirmed=[component],  # only self -- must be excluded, zero INFERRED edges
+        unselected_candidates=[],
+    )
+
+    service = KnowledgeSynthesizerService(components=components, knowledge=knowledge, entity_instances=entity_instances)
+    asyncio.run(
+        service.synthesize_from_confirmation(
+            component_id=_COMP_ID,
+            importer_id=_IMPORTER_ID,
+            confirmed_record=_make_extraction_record(),
+            corrected_fields=None,
+        )
+    )
+
+    inferred_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("tier") == "INFERRED"]
+    ambiguous_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("tier") == "AMBIGUOUS"]
+    assert not inferred_calls
+    assert not ambiguous_calls
+
+
+def test_no_suggestion_edge_is_ever_extracted_tier() -> None:
+    """Hard invariant: every source='synthesis' insert_edge call is INFERRED or AMBIGUOUS, never EXTRACTED."""
+    component = _make_component()
+    page = _make_page()
+    unconfirmed_other = _make_component(component_id="comp-unconfirmed-001")
+    candidate = _make_entity_instance(instance_id="ei-candidate-001")
+    components, knowledge, entity_instances = _make_ports(
+        component=component,
+        page=page,
+        active_node=None,
+        unconfirmed=[unconfirmed_other],
+        unselected_candidates=[candidate],
+    )
+
+    service = KnowledgeSynthesizerService(components=components, knowledge=knowledge, entity_instances=entity_instances)
+    asyncio.run(
+        service.synthesize_from_confirmation(
+            component_id=_COMP_ID,
+            importer_id=_IMPORTER_ID,
+            confirmed_record=_make_extraction_record(),
+            corrected_fields=None,
+        )
+    )
+
+    synthesis_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("source") == "synthesis"]
+    assert len(synthesis_calls) == 2
+    for call in synthesis_calls:
+        assert call.kwargs["tier"] in ("INFERRED", "AMBIGUOUS")
+        assert call.kwargs["tier"] != "EXTRACTED"
