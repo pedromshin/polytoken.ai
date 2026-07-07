@@ -301,8 +301,13 @@ function HistoryMasterList({
         )}
         {!isLoading && !isError && rows !== undefined && rows.length > 0 && (
           <ul role="list" aria-label="Generation history">
-            {rows.map((row) => (
-              <li key={row.id} role="listitem">
+            {rows.map((row, index) => (
+              <li
+                key={row.id}
+                role="listitem"
+                className="animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
+                style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+              >
                 <HistoryRow
                   id={row.id}
                   intentText={row.intentText}
