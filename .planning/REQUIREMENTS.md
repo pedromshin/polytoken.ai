@@ -29,7 +29,7 @@ Graphify's confidence *ladder* (not a float), doubled as governance graphify nev
 suggest-only promotion gate. "Being wrong is expensive" becomes a property of the tier.
 
 - [x] **TIER-01**: Every knowledge node and edge carries an ordinal trust tier (EXTRACTED | INFERRED | AMBIGUOUS); the existing `confidence real` remains as an intra-tier score
-- [ ] **TIER-02**: Synthesis-generated edges enter as INFERRED or AMBIGUOUS *suggestions* — display-only, never trusted for automatic prompt injection
+- [x] **TIER-02**: Synthesis-generated edges enter as INFERRED or AMBIGUOUS *suggestions* — display-only, never trusted for automatic prompt injection
 - [ ] **TIER-03**: A human confirmation promotes an edge to EXTRACTED with promotion provenance recorded; only EXTRACTED edges are eligible for auto-injection
 
 ### Recall & Measurement (RECALL)
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNTH-01 | Phase 29 | Complete |
 | SYNTH-02 | Phase 29 | Complete |
 | SYNTH-03 | Phase 29 | Complete |
-| TIER-02 | Phase 30 | Pending |
+| TIER-02 | Phase 30 | Complete |
 | TIER-03 | Phase 30 | Pending |
 | RECALL-01 | Phase 31 | Pending |
 | RECALL-02 | Phase 31 | Pending |

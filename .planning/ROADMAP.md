@@ -134,7 +134,7 @@ suggestions have a ladder to sit on and a tier to be promoted into)
   4. Promoting an edge records promotion provenance (what was promoted, when, from which suggestion)
      on the edge row, distinct from the original synthesis provenance
 **Plans**: 2 plans
-  - [ ] 30-01-PLAN.md — Suggestion emission (INFERRED/AMBIGUOUS) + EXTRACTED-only injection gate + tRPC tier visibility (TIER-02)
+  - [x] 30-01-PLAN.md — Suggestion emission (INFERRED/AMBIGUOUS) + EXTRACTED-only injection gate + tRPC tier visibility (TIER-02)
   - [ ] 30-02-PLAN.md — Promotion mechanic: migration 0027 promotion column + fail-closed promote use case + authenticated endpoint (TIER-03)
 
 ### Phase 31: Recall & Measurement
@@ -181,7 +181,7 @@ parallelizable alongside 29/30 if desired (no shared schema/table).
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
 | 29. Tier Ladder + Edge Materialization | 4/4 | Complete   | 2026-07-07 |
-| 30. Suggest-Only Promotion Gate | 0/? | Not started | - |
+| 30. Suggest-Only Promotion Gate | 1/2 | In Progress|  |
 | 31. Recall & Measurement | 0/? | Not started | - |
 | 32. Knowledge Canvas: Tiered Graph Exploration | 0/? | Not started | - |
 

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T19:20:00.000Z"
-last_activity: "2026-07-07 -- Phase 29 plan 04 (D-13 synthesis hook activated: ConfirmRegionUseCase wired to KnowledgeSynthesizerService via DI) executed -- Phase 29 (Tier Ladder + Edge Materialization) COMPLETE"
+last_updated: "2026-07-07T22:37:08.485Z"
+last_activity: 2026-07-07 -- Phase 30 execution started
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 25
 ---
 
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 29 — Tier Ladder + Edge Materialization
+**Current focus:** Phase 30 — Suggest-Only Promotion Gate
 
 ## Current Position
 
-Phase: 29 (Tier Ladder + Edge Materialization) — COMPLETE (4/4 plans executed)
-Plan: 4 of 4
-Status: Phase 29 complete; ready for verification / Phase 30
-Last activity: 2026-07-07 -- Phase 29 plan 04 (D-13 synthesis hook activated: ConfirmRegionUseCase wired to KnowledgeSynthesizerService via DI) executed
+Phase: 30 (Suggest-Only Promotion Gate) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 30
+Last activity: 2026-07-07 -- Phase 30 Plan 01 (TIER-02) complete; resumed after a mid-plan session-limit cutoff
 
 ## v1.5 Roadmap Summary (2026-07-07)
 
@@ -94,14 +94,17 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   types/nullability/defaults, and the partial index all confirmed present in local Supabase
   Postgres. `tsc --noEmit` clean. See 29-01-SUMMARY.md. **Next: 29-02** (materialization wiring —
   SYNTH-01).
+
 - **29-02 EXECUTED:** Provenance-carrying write substrate — `_token_provenance.capture_provenance`
   (shared OCR token∩polygon helper), `KnowledgeSynthesizer`/`KnowledgeGraphRepository` domain ports,
   and `SupabaseKnowledgeGraphRepository` (node-reuse upsert, never-delete `is_active` supersede).
   See 29-02-SUMMARY.md.
+
 - **29-03 EXECUTED:** `KnowledgeSynthesizerService` — confirming a region materializes one
   knowledge_node (1:1 with the region) plus a supersede-safe, provenance-carrying EXTRACTED-tier
   edge set (anchor/co-occurrence/conditional-about). Re-confirm deactivates-then-inserts, never
   deletes. See 29-03-SUMMARY.md.
+
 - **29-04 EXECUTED — PHASE 29 COMPLETE:** SYNTH-01 — activated the dormant D-13 synthesis-trigger
   comment in `ConfirmRegionUseCase` with a real best-effort call to
   `KnowledgeSynthesizer.synthesize_from_confirmation` (try/except log-and-swallow, mirrors
@@ -114,6 +117,26 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   (minus the pre-existing, already-logged genui_retrieval_provider flake) green; ruff/lint-imports
   clean. See 29-04-SUMMARY.md. **All Phase 29 requirements (TIER-01, SYNTH-01, SYNTH-02, SYNTH-03)
   now complete. Next: Phase 30** (Suggest-Only Promotion Gate — not yet planned).
+
+## Phase 30 — Suggest-Only Promotion Gate (executing 2026-07-07)
+
+- **30-01 EXECUTED:** TIER-02 — suggestion emission + injection gate + tRPC visibility seam.
+  `EntityInstanceRepository` gained `find_unconfirmed_entity_components_for_email` (INFERRED source,
+  `.neq("extraction_status","confirmed")`) and `find_unselected_candidate_instances_for_component`
+  (AMBIGUOUS source, `was_selected=False` candidate links). `KnowledgeSynthesizerService` now emits
+  INFERRED `co_occurs_with` and AMBIGUOUS `possibly_about` edges (always `source='synthesis'`, tier
+  hardcoded, never EXTRACTED — the suggest-only hard constraint, T-30-01) after its existing
+  deactivate-then-insert supersede. `KnowledgeGraphRepository.list_injectable_edges(importer_id)`
+  shipped as THE single sanctioned auto-injection read path — resolves the importer's `knowledge_nodes`
+  ids then filters `tier=EXTRACTED AND is_active=True`; a seeded three-tier exclusion test
+  (`test_list_injectable_edges_excludes_suggestion_tiers`) proves INFERRED/AMBIGUOUS/inactive-EXTRACTED
+  are all excluded (ROADMAP SC2). `graph.ts`'s `GraphEdge` now carries `tier`; a new pure
+  `shapeExplicitEdgeRow` helper excludes inactive edges from the tRPC payload and carries tier on
+  active ones (ROADMAP SC1), DB-free tested. This plan was resumed mid-Task-2 after a prior executor
+  session hit a session limit right after writing the RED test suite — recovered cleanly (Task 1
+  verified already-committed, RED tests inherited and re-confirmed failing before GREEN). 38 Python
+  tests + 14 TS tests pass; mypy/ruff/lint-imports/tsc all clean. See 30-01-SUMMARY.md.
+  **Next: 30-02** (TIER-03 promotion endpoint — not yet planned).
 
 ## Deferred Items
 
@@ -1297,6 +1320,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 27 P05 | 15min | 3 tasks | 5 files |
 | Phase 28 P01 | 15min | 3 tasks | 4 files |
 | Phase 29 P02 | 35min | 3 tasks | 5 files — _token_provenance.py shared helper (extracted from edit_region) + KnowledgeSynthesizer/KnowledgeGraphRepository domain ports + SupabaseKnowledgeGraphRepository adapter (tier + provenance jsonb + is_active supersede); 5 new call-shape tests |
+| Phase 30 P01 | 45 | - tasks | - files |
 
 ## Operator Next Steps
 
