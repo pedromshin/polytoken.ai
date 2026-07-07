@@ -115,7 +115,7 @@ token-correct base)
 **Plans**: 5 plans
 - [x] 27-01-PLAN.md — Docs: impeccable product-register + 13-item bans + 3 ux-designer reference files (ADOPT-01, ADOPT-04)
 - [x] 27-02-PLAN.md — Ported Magic UI FileTree (raw Radix accordion, zero deps) mounted in the Code-Island preset browser (ADOPT-02)
-- [ ] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
+- [x] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
 - [ ] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
 - [ ] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
 **UI hint**: yes
@@ -144,7 +144,7 @@ papered-over token gap before Phase C touches the token layer)
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
 | 26. Zero-Dependency Contract Fixes + Backlog Polish | 7/7 | Complete   | 2026-07-06 |
-| 27. Adopted External Design Picks | 2/5 | In Progress|  |
+| 27. Adopted External Design Picks | 3/5 | In Progress|  |
 | 28. Design-System Token Upgrades | 0/? | Not started | - |
 
 ## Next

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-06T23:52:00.000Z"
-last_activity: 2026-07-06 -- Phase 27 Plan 02 (ADOPT-02 FileTree hand-port) complete
+last_updated: "2026-07-07T00:02:31.000Z"
+last_activity: 2026-07-07 -- Phase 27 Plan 03 (ADOPT-03 CSS technique landed; ADOPT-05 CSS blocked on license) complete
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 12
-  completed_plans: 9
-  percent: 75
+  completed_plans: 10
+  percent: 83
 ---
 
 # State
@@ -25,17 +25,23 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 27 (Adopted External Design Picks) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Executing Phase 27
-Last activity: 2026-07-06 -- Phase 27 Plan 02 (ADOPT-02 FileTree) complete. Hand-ported Magic
-  UI's `file-tree` (magicuidesign/magicui, MIT, fetched + reviewed — no flags — 2026-07-06) into
-  a trimmed, data-driven `FileTree` on raw `@radix-ui/react-accordion` (apps/web/src/components/
-  file-tree.tsx + colocated test, 5/5 passing) and mounted it (Plan A) as the Code-Island tab's
-  preset browser in code-sandbox-island.tsx, replacing the old `<Select>` — selecting an
-  island.js leaf calls the same handlePreset; Run preset unchanged (D-06). Zero new npm deps;
-  Studio font-medium count stays 0; full web vitest (163/163) + typecheck clean. ADOPT-02
-  satisfied. Commits: 3f1abc6 (Task 1), 2437d62 (Task 2), plan-metadata commit next.
-  Next: Plan 03+ (ADOPT-03 GeneratingRing / ADOPT-05 transitions.dev, per 27-UI-SPEC.md).
+Last activity: 2026-07-07 -- Phase 27 Plan 03 (globals.css additive CSS, ADOPT-03/ADOPT-05) complete
+  with a BLOCKER surfaced. Task 1 landed `.generating-ring` (teal-only background-position sweep,
+  hand-ported from Magic UI shine-border + animated-shiny-text, MIT confirmed via GitHub API,
+  `prefers-reduced-motion: no-preference`-gated) in globals.css; token-value count verified
+  unchanged at 55. Task 2 (3 transitions.dev recipes) SKIPPED per the plan's own
+  SKIP+document+do-not-substitute fallback: `Jakubantalik/transitions.dev` has NO LICENSE file
+  anywhere in its git tree, no `license` field in package.json, and GitHub's license API returns
+  `null` — the only "MIT License" text in the repo is scoped to an unrelated sub-component (the
+  `transitions-refine` CLI tool), not the CSS-snippet library this plan needed. **BLOCKER for Plan
+  05:** no `.t-modal-reveal`/`.t-panel-reveal`/`.t-dropdown-reveal` utilities exist yet — Plan 05
+  ("wire the 3 transitions to their consumers") has nothing to wire until this is resolved (vet an
+  alternative source / hand-author the 3 recipes from the already-locked UI-SPEC timing values /
+  escalate to user). Full evidence in 27-03-SUMMARY.md. `apps/web` typecheck clean. Commit: 7992ebc
+  (Task 1). Next: Plan 04 (GeneratingRing component + Chat/Studio mounts, ADOPT-03 — unblocked) or
+  resolve the ADOPT-05 CSS-source gap before Plan 05.
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
