@@ -114,6 +114,34 @@ class EntityInstanceRepository(Protocol):
         """
         ...
 
+    async def find_confirmed_entity_components_for_email(
+        self,
+        email_id: str,
+    ) -> list[Component]:
+        """Return confirmed role='entity' components for this email (co-occurrence source).
+
+        Filters: email_id = <given id>, role='entity', extraction_status='confirmed'.
+        Deliberately email-scoped (not importer-scoped like list_confirmed_entity_components)
+        because co-occurrence means "confirmed in the same email" per CONTEXT.md. Used by
+        KnowledgeSynthesizerService to derive co_occurs_with edges from a confirmed region
+        to the other confirmed entity components in the same email.
+        """
+        ...
+
+    async def find_selected_instance_for_component(
+        self,
+        component_id: str,
+    ) -> EntityInstance | None:
+        """Return the selected entity instance linked to this component, or None.
+
+        Reads component_entity_candidate_links where component_id = <given id> and
+        was_selected = True, then resolves the winning entity_instance_id. Returns None
+        when no selected link exists -- this is the expected first-confirm case, since
+        PromoteEntityOnConfirmUseCase (which writes the selected link) runs AFTER
+        ConfirmRegionUseCase/KnowledgeSynthesizerService in the confirm flow.
+        """
+        ...
+
     async def set_merge_state(
         self,
         entity_instance_id: str,

@@ -445,3 +445,98 @@ def test_entity_type_repo_find_by_slug_with_none_importer_id() -> None:
     assert result is not None
     assert result.slug == "bill_of_lading"
     assert result.importer_id is None
+
+
+# ---------------------------------------------------------------------------
+# SupabaseEntityInstanceRepository: co-occurrence + selected-instance reads (29-03)
+# ---------------------------------------------------------------------------
+
+
+_ENTITY_COMPONENT_ROW = {
+    "id": "comp-002",
+    "email_id": "email-001",
+    "importer_id": "imp-abc",
+    "attachment_id": None,
+    "parent_component_id": None,
+    "source_type": "region",
+    "location": {"page_index": 0, "polygon": [[0, 0], [1, 0], [1, 1], [0, 1]]},
+    "content_text": "Acme Corp",
+    "content_markdown": None,
+    "content_raw": None,
+    "embedding": None,
+    "sequence_index": 0,
+    "extraction_status": "confirmed",
+    "role": "entity",
+    "entity_type_id": "et-001",
+    "entity_type_field_id": None,
+}
+
+_ENTITY_INSTANCE_ROW = {
+    "id": "ei-001",
+    "importer_id": "imp-abc",
+    "entity_type_id": "et-001",
+    "nauta_id": None,
+    "source": "email_extracted",
+    "display_name": "Acme Corp",
+    "identifiers": {},
+    "aliases": [],
+    "summary_text": None,
+    "embedding": None,
+    "is_active": True,
+}
+
+
+def test_entity_instance_repo_find_confirmed_entity_components_for_email_filters_email_scope() -> None:
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    client = _make_client_mock(return_data=[_ENTITY_COMPONENT_ROW])
+    repo = SupabaseEntityInstanceRepository(client)
+    result = asyncio.run(repo.find_confirmed_entity_components_for_email("email-001"))
+
+    client.table.assert_called_with("email_components")
+    chain = client.table.return_value
+    eq_calls = [str(c) for c in chain.eq.call_args_list]
+    assert any("email_id" in c for c in eq_calls), f"email_id filter missing: {eq_calls}"
+    assert any("role" in c and "entity" in c for c in eq_calls), f"role='entity' filter missing: {eq_calls}"
+    assert any(
+        "extraction_status" in c and "confirmed" in c for c in eq_calls
+    ), f"extraction_status='confirmed' filter missing: {eq_calls}"
+    assert len(result) == 1
+    assert result[0].id == "comp-002"
+
+
+def test_entity_instance_repo_find_selected_instance_for_component_filters_was_selected() -> None:
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    link_chain = _make_chain_mock(return_data=[{"entity_instance_id": "ei-001"}])
+    instance_chain = _make_chain_mock(return_data=[_ENTITY_INSTANCE_ROW])
+
+    client = MagicMock()
+
+    def _table(name: str) -> MagicMock:
+        if name == "component_entity_candidate_links":
+            return link_chain
+        if name == "entity_instances":
+            return instance_chain
+        raise AssertionError(f"unexpected table: {name}")
+
+    client.table.side_effect = _table
+
+    repo = SupabaseEntityInstanceRepository(client)
+    result = asyncio.run(repo.find_selected_instance_for_component("comp-002"))
+
+    eq_calls = [str(c) for c in link_chain.eq.call_args_list]
+    assert any("component_id" in c for c in eq_calls), f"component_id filter missing: {eq_calls}"
+    assert any("was_selected" in c and "True" in c for c in eq_calls), f"was_selected=True filter missing: {eq_calls}"
+    assert result is not None
+    assert result.id == "ei-001"
+
+
+def test_entity_instance_repo_find_selected_instance_for_component_returns_none_when_absent() -> None:
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    client = _make_client_mock(return_data=[])
+    repo = SupabaseEntityInstanceRepository(client)
+    result = asyncio.run(repo.find_selected_instance_for_component("comp-002"))
+
+    assert result is None

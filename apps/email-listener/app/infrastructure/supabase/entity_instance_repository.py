@@ -226,6 +226,47 @@ class SupabaseEntityInstanceRepository:
         )
         return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
 
+    async def find_confirmed_entity_components_for_email(
+        self,
+        email_id: str,
+    ) -> list[Component]:
+        """Return confirmed role='entity' components for this email (co-occurrence source).
+
+        Deliberately email-scoped (not importer-scoped like list_confirmed_entity_components)
+        because co-occurrence means "confirmed in the same email".
+        """
+        result = (
+            self._client.table("email_components")
+            .select("*")
+            .eq("email_id", email_id)
+            .eq("role", "entity")
+            .eq("extraction_status", "confirmed")
+            .execute()
+        )
+        return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
+
+    async def find_selected_instance_for_component(
+        self,
+        component_id: str,
+    ) -> EntityInstance | None:
+        """Return the selected entity instance linked to this component, or None.
+
+        Reads component_entity_candidate_links for the winning (was_selected=True) link.
+        None is expected on first confirm, since PromoteEntityOnConfirmUseCase (which
+        writes the selected link) runs after the synthesizer in the confirm flow.
+        """
+        result = (
+            self._client.table("component_entity_candidate_links")
+            .select("*")
+            .eq("component_id", component_id)
+            .eq("was_selected", True)
+            .execute()
+        )
+        if not result.data:
+            return None
+        entity_instance_id = cast("dict[str, Any]", result.data[0])["entity_instance_id"]
+        return await self.find_by_id(cast("str", entity_instance_id))
+
     async def select_candidate_link(
         self,
         *,
