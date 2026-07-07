@@ -107,10 +107,11 @@ lists (Apache-2.0), restated against this app's own vocabulary:
 
 ## Available Transition Utilities (ADOPT-05)
 
-Three CSS transition utilities are part of this phase's design contract (hand-copied and
-retokenized from `transitions.dev`, MIT — see `27-UI-SPEC.md` ADOPT-05). The CSS itself is authored
-in a later plan of this phase; this section documents the contract now so the utilities are
-discoverable from day one.
+Three CSS transition utilities are part of this phase's design contract — hand-AUTHORED clean-room
+CSS implementing the timing/easing/scale values locked in `27-UI-SPEC.md` ADOPT-05. Verbatim copy
+from `transitions.dev` was license-blocked (execution-time vetting found no discoverable license on
+that repo — see `27-03-SUMMARY.md`/`27-05-SUMMARY.md` for the evidence trail); numeric timing
+values are unprotectable facts, so the utilities are original work, not a port.
 
 **`.t-modal-reveal`** — a 250ms scale-and-fade entrance (`scale(0.96)` → `scale(1)`, opacity 0 → 1,
 plus a soft shadow settle) for modal content.
