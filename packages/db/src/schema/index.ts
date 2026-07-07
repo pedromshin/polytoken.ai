@@ -30,3 +30,4 @@ export * from "./chat-run-events";
 export * from "./chat-cost-ledger";
 export * from "./chat-canvas-layouts";
 export * from "./chat-widget-interactions";
+export * from "./autofill-retrieval-events";
