@@ -48,6 +48,7 @@ from app.application.use_cases.manage_entity_types import (
     UpdateEntityTypeUseCase,
     UpdateFieldUseCase,
 )
+from app.application.use_cases.promote_edge import PromoteEdgeUseCase
 from app.application.use_cases.promote_entity_on_confirm import PromoteEntityOnConfirmUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailUseCase
@@ -362,6 +363,18 @@ def _provide_confirm_region_use_case(
         embedder=embedder,
         knowledge_synthesizer=knowledge_synthesizer,
     )
+
+
+def _provide_promote_edge_use_case(client: Client) -> PromoteEdgeUseCase:
+    """Factory for PromoteEdgeUseCase (Phase 30-02, TIER-03).
+
+    SupabaseKnowledgeGraphRepository is a concrete infrastructure class (not a
+    port) — dishka cannot bind it via provide(class) because Protocol-typed
+    params require explicit provides=. Mirrors _provide_confirm_region_use_case:
+    instantiates the adapter directly and injects it as the sole collaborator.
+    """
+    knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
+    return PromoteEdgeUseCase(knowledge=knowledge_repo)
 
 
 def _provide_resolve_candidates_use_case(
@@ -821,6 +834,8 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # SupabaseEntityResolutionRepository is concrete (no port Protocol) so each use
     # case that needs it gets a factory that instantiates it directly from Client.
     provider.provide(_provide_promote_entity_use_case, provides=PromoteEntityOnConfirmUseCase)
+    # Human promotion mechanic (Phase 30-02, TIER-03) — suggest-only gate write.
+    provider.provide(_provide_promote_edge_use_case, provides=PromoteEdgeUseCase)
     provider.provide(_provide_resolve_candidates_use_case, provides=ResolveEntityCandidatesUseCase)
     provider.provide(_provide_backfill_use_case, provides=BackfillEntityIdentitiesUseCase)
     # Human curation loop (Phase 10-03, D-20): confirm/reject/unmerge.
