@@ -17,10 +17,10 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-27)
+See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 28 — Design-System Token Upgrades — COMPLETE; v1.4 milestone plans all executed
+**Current focus:** v1.5 Knowledge-Graph Uplift — defining requirements
 
 ## Current Position
 
