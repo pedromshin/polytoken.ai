@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-07T00:29:44.225Z"
-last_activity: 2026-07-07 -- Phase 27 Plan 05 (ADOPT-05 transitions wiring + FIX-02 command.tsx spillover) complete. Phase 27 (ADOPT-01..05) fully complete.
+last_updated: "2026-07-07T01:34:30.222Z"
+last_activity: 2026-07-07 -- Phase 28 execution started
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 12
-  completed_plans: 12
+  total_plans: 15
+  completed_plans: 13
   percent: 67
 ---
 
@@ -20,14 +20,31 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-27)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 27 — Adopted External Design Picks
+**Current focus:** Phase 28 — Design-System Token Upgrades
 
 ## Current Position
 
-Phase: 27 (Adopted External Design Picks) — COMPLETE (all 5 plans executed)
-Plan: 5 of 5
-Status: Phase 27 complete. Next: Phase 28 (Design-System Token Upgrades)
-Last activity: 2026-07-07 -- Phase 27 Plan 05 (ADOPT-05 transitions wiring + FIX-02 command.tsx
+Phase: 28 (Design-System Token Upgrades) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 28
+Last activity: 2026-07-07 -- **28-01 EXECUTED:** TOKEN-01/TOKEN-02/TOKEN-03/TOKEN-04 foundation-layer
+  token upgrade. `secondary`/`muted`/`accent` rebased to tonally distinct hue-164 neutrals in both
+  modes (no longer one shared `0 0% 96.1%` gray); `chart-1..5` rebased onto a teal-anchored
+  categorical ramp; all 8 `sidebar-*` vars now alias existing tokens (`--sidebar-ring` -> `var(--primary)`,
+  killing the accidental blue). `--elevation-1/2/3` (stacked-hairline + teal-tinted ambient scale,
+  max blur 8px, ban-item-9 ceiling) + `shadow-elevation-1/2/3` registered in `base.ts`;
+  `--radius-xl`/`--radius-2xl` + `xl`/`2xl` `borderRadius` registered in `web.ts` (`card.tsx`'s
+  literal `rounded-xl` now token-driven at the same 12px, zero className edit). Committed
+  `token-contrast.test.ts` parses the live `globals.css` and asserts all 6 neutral-pair WCAG-AA
+  ratios (>=4.5:1, both modes) — proven sensitive via a manual temporary-corruption/revert cycle.
+  **Deviation (Rule 1):** the UI-SPEC's literal `new URL("../globals.css", import.meta.url)` throws
+  under vitest's jsdom environment (resolves relative refs against jsdom's document location, not
+  the module's `file:` base) — fixed via `path.dirname(fileURLToPath(import.meta.url))` instead.
+  `--primary` (teal `164 39% 22%`) and `--radius` left byte-identical. Full `apps/web` vitest
+  (24 files / 174 tests) + typecheck green. TOKEN-01/02 marked complete in REQUIREMENTS.md;
+  TOKEN-03/04 stay open until their consumer-file wiring (`card.tsx`/`composer.tsx`/`chat-node.tsx`/
+  `genui-panel-node.tsx`) lands in 28-02/28-03. Commits: d0804b6 (Task 1), c9f67c0 (Task 2),
+  21ce56f (Task 3). See 28-01-SUMMARY.md. **Next: 28-02** (TOKEN-03/04/05 consumer wiring).
   spillover) complete. **Orchestrator amendment applied:** Plan 03's transitions.dev port was
   license-blocked (no discoverable license anywhere in `Jakubantalik/transitions.dev`'s repo — no
   LICENSE file, no package.json license field, GitHub license API `null`; the only "MIT" text
@@ -1238,6 +1255,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 27 P04 | ~20min | 2 tasks | 4 files — GeneratingRing wrapper primitive (ADOPT-03) + colocated vitest (5 tests) + Studio sandbox mount (chromeProps.isPending) + Chat streaming-parts mount (2 sites); locked GenuiPartBoundary/InteractiveWidgetBoundary/spec-renderer untouched; full web vitest 23/23 files green |
 | Phase 26 P07 | 15min | 2 tasks | 2 files |
 | Phase 27 P05 | 15min | 3 tasks | 5 files |
+| Phase 28 P01 | 15min | 3 tasks | 4 files |
 
 ## Operator Next Steps
 
