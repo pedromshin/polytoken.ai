@@ -36,7 +36,7 @@
 
 - [x] **TOKEN-01**: `secondary`, `muted`, and `accent` are tonally differentiated (still neutral, still 60/30/10-compliant) instead of three names for one stock shadcn gray
 - [x] **TOKEN-02**: `chart-1..5` and `sidebar-*` tokens are rebased off the teal `primary` instead of stock shadcn demo colors
-- [ ] **TOKEN-03**: A real shadow scale (e.g. `elevation-1/2/3`, teal-tinted ambient) exists in `packages/tailwind-config/base.ts` (cite styles.refero.design's numeric backing per research doc)
+- [x] **TOKEN-03**: A real shadow scale (e.g. `elevation-1/2/3`, teal-tinted ambient) exists in `packages/tailwind-config/base.ts` (cite styles.refero.design's numeric backing per research doc)
 - [ ] **TOKEN-04**: `xl`/`2xl` radius steps exist and `packages/ui/src/card.tsx`'s hardcoded `rounded-xl` consumes the token
 - [ ] **TOKEN-05**: The already-installed `tailwindcss-animate` powers entrance/stagger beyond Radix defaults — genui panel mount and Studio's history/page-ideas list items
 
@@ -105,7 +105,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ADOPT-05 | Phase 27 | Complete |
 | TOKEN-01 | Phase 28 | Complete |
 | TOKEN-02 | Phase 28 | Complete |
-| TOKEN-03 | Phase 28 | Pending |
+| TOKEN-03 | Phase 28 | Complete |
 | TOKEN-04 | Phase 28 | Pending |
 | TOKEN-05 | Phase 28 | Pending |
 

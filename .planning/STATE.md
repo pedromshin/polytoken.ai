@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-07T01:34:30.222Z"
-last_activity: 2026-07-07 -- Phase 28 execution started
+last_updated: "2026-07-07T01:40:05Z"
+last_activity: "2026-07-07 -- **28-02 EXECUTED:** elevation-scale consumers (card/composer/canvas nodes) + genui panel mount entrance"
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 15
-  completed_plans: 13
-  percent: 67
+  completed_plans: 14
+  percent: 93
 ---
 
 # State
@@ -25,9 +25,24 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 28 (Design-System Token Upgrades) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Executing Phase 28
-Last activity: 2026-07-07 -- **28-01 EXECUTED:** TOKEN-01/TOKEN-02/TOKEN-03/TOKEN-04 foundation-layer
+Last activity: 2026-07-07 -- **28-02 EXECUTED:** elevation-scale consumers (TOKEN-03) + genui panel
+  mount entrance (TOKEN-05a). `card.tsx` (`shadow` -> `shadow-elevation-1`) and `composer.tsx`'s dock
+  (`shadow-sm` -> `shadow-elevation-2`) now visibly consume 28-01's elevation scale; `chat-node.tsx`/
+  `genui-panel-node.tsx` gained a resting/selected split (`shadow-elevation-1` at rest,
+  `${SELECTED_RING} shadow-elevation-2` when selected) on their previously-inert
+  `transition-shadow duration-150` class — FIX-04's `border-l-2 border-l-primary` stripe on
+  `chat-node.tsx` preserved. `genui-panel-node.tsx`'s outer shell only (never
+  `GenuiPanelNodeBody`/`GenuiPartBoundary`/`InteractiveWidgetBoundary`/`SpecRenderer`) gained the
+  TOKEN-05(a) mount entrance: `animate-in fade-in-0 zoom-in-95 duration-[250ms]
+  motion-reduce:animate-none`. Full `apps/web` vitest (24 files / 174 tests, incl.
+  `use-canvas-persistence*`/`panel-data-flow` re-verified) + typecheck green. No deviations — all 4
+  cited interface strings matched verbatim before editing. TOKEN-03 marked complete (all 4 named
+  consumers landed this plan); TOKEN-05 stays open (Studio list stagger items (b) land in 28-03).
+  Commits: e180c31 (Task 1), 7f1e64d (Task 2). See 28-02-SUMMARY.md. **Next: 28-03** (Studio
+  history/page-ideas stagger + conversation-rail blur-debt resolution + bans-doc closure).
+2026-07-07 -- **28-01 EXECUTED:** TOKEN-01/TOKEN-02/TOKEN-03/TOKEN-04 foundation-layer
   token upgrade. `secondary`/`muted`/`accent` rebased to tonally distinct hue-164 neutrals in both
   modes (no longer one shared `0 0% 96.1%` gray); `chart-1..5` rebased onto a teal-anchored
   categorical ramp; all 8 `sidebar-*` vars now alias existing tokens (`--sidebar-ring` -> `var(--primary)`,

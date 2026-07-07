@@ -136,7 +136,7 @@ already surfaced every place a token gap was papered over with a hardcoded value
 **Plans**: 3 plans (wave 1: 28-01 token foundation; wave 2: 28-02, 28-03 consumers — disjoint file sets)
 Plans:
 - [x] 28-01-PLAN.md — Token foundation: TOKEN-01/02 values + TOKEN-03/04 vars & config (globals.css, base.ts, web.ts) + committed WCAG contrast test
-- [ ] 28-02-PLAN.md — Elevation consumers (card, composer, both canvas nodes) + genui panel mount entrance (TOKEN-03, TOKEN-05a)
+- [x] 28-02-PLAN.md — Elevation consumers (card, composer, both canvas nodes) + genui panel mount entrance (TOKEN-03, TOKEN-05a)
 - [ ] 28-03-PLAN.md — Studio history/page-ideas list stagger + conversation-rail blur-debt resolution + bans-doc closure & radius allowlist note (TOKEN-05b/c, TOKEN-04 docs)
 **UI hint**: yes
 
@@ -150,7 +150,7 @@ papered-over token gap before Phase C touches the token layer)
 |-------|-----------------|--------|-----------|
 | 26. Zero-Dependency Contract Fixes + Backlog Polish | 7/7 | Complete   | 2026-07-06 |
 | 27. Adopted External Design Picks | 5/5 | Complete   | 2026-07-07 |
-| 28. Design-System Token Upgrades | 1/3 | In Progress|  |
+| 28. Design-System Token Upgrades | 2/3 | In Progress|  |
 
 ## Next
 
