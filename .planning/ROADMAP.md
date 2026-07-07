@@ -116,7 +116,7 @@ token-correct base)
 - [x] 27-01-PLAN.md — Docs: impeccable product-register + 13-item bans + 3 ux-designer reference files (ADOPT-01, ADOPT-04)
 - [x] 27-02-PLAN.md — Ported Magic UI FileTree (raw Radix accordion, zero deps) mounted in the Code-Island preset browser (ADOPT-02)
 - [x] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
-- [ ] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
+- [x] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
 - [ ] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
 **UI hint**: yes
 

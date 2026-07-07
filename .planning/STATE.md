@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
 status: executing
-last_updated: "2026-07-07T00:02:31.000Z"
-last_activity: 2026-07-07 -- Phase 27 Plan 03 (ADOPT-03 CSS technique landed; ADOPT-05 CSS blocked on license) complete
+last_updated: "2026-07-07T00:20:00.000Z"
+last_activity: 2026-07-07 -- Phase 27 Plan 04 (GeneratingRing component + Chat/Studio mounts, ADOPT-03) complete
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 12
-  completed_plans: 10
-  percent: 83
+  completed_plans: 11
+  percent: 92
 ---
 
 # State
@@ -25,23 +25,30 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 ## Current Position
 
 Phase: 27 (Adopted External Design Picks) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Executing Phase 27
-Last activity: 2026-07-07 -- Phase 27 Plan 03 (globals.css additive CSS, ADOPT-03/ADOPT-05) complete
-  with a BLOCKER surfaced. Task 1 landed `.generating-ring` (teal-only background-position sweep,
-  hand-ported from Magic UI shine-border + animated-shiny-text, MIT confirmed via GitHub API,
-  `prefers-reduced-motion: no-preference`-gated) in globals.css; token-value count verified
-  unchanged at 55. Task 2 (3 transitions.dev recipes) SKIPPED per the plan's own
-  SKIP+document+do-not-substitute fallback: `Jakubantalik/transitions.dev` has NO LICENSE file
-  anywhere in its git tree, no `license` field in package.json, and GitHub's license API returns
-  `null` — the only "MIT License" text in the repo is scoped to an unrelated sub-component (the
-  `transitions-refine` CLI tool), not the CSS-snippet library this plan needed. **BLOCKER for Plan
-  05:** no `.t-modal-reveal`/`.t-panel-reveal`/`.t-dropdown-reveal` utilities exist yet — Plan 05
-  ("wire the 3 transitions to their consumers") has nothing to wire until this is resolved (vet an
-  alternative source / hand-author the 3 recipes from the already-locked UI-SPEC timing values /
-  escalate to user). Full evidence in 27-03-SUMMARY.md. `apps/web` typecheck clean. Commit: 7992ebc
-  (Task 1). Next: Plan 04 (GeneratingRing component + Chat/Studio mounts, ADOPT-03 — unblocked) or
-  resolve the ADOPT-05 CSS-source gap before Plan 05.
+Last activity: 2026-07-07 -- Phase 27 Plan 04 (GeneratingRing component + Chat/Studio mounts,
+  ADOPT-03) complete. Task 1: `apps/web/src/components/generating-ring.tsx` — the trivial
+  `<GeneratingRing active className children>` wrapper consuming Plan 03's `.generating-ring`
+  utility (`cn(active && "generating-ring", className)`, decorative-only, no ARIA/handlers),
+  attributed to Magic UI shine-border + animated-shiny-text (MIT); colocated
+  `generating-ring.test.tsx` (5 tests: active toggles class, className always merges,
+  children render, decorative-only). Task 2 mounted it at both consumer sites: Studio
+  `generation-sandbox-island.tsx` wraps `#sandbox-output-region` driven by
+  `chromeProps.isPending` (moved the flex-1/min-h-0 sizing onto the GeneratingRing wrapper
+  itself since its own contract is active/className/children-only, region div now fills via
+  h-full — 55/45 resizable layout preserved); Chat `message-turn.tsx` wraps ONLY the two
+  streaming `GenuiPartBoundary` call sites (`genui_spec_streaming`, `interactive_widget_streaming`)
+  with `<GeneratingRing active>` — the finalized `genui_spec`/`interactive_widget` branches are
+  NOT wrapped. `GenuiPartBoundary`/`InteractiveWidgetBoundary`/`spec-renderer.tsx` remain
+  untouched (locked, ring wraps from the caller only — verified via git diff). Full web vitest
+  (23 files / 168 tests) + web typecheck green. ADOPT-03 marked complete in REQUIREMENTS.md
+  (CSS from Plan 03 + component/mounts here fully satisfy it). Commits: d6a860a (Task 1),
+  bde3ac4 (Task 2). Plan 05 (ADOPT-05 transitions.dev wiring) remains BLOCKED per Plan 03's
+  license-verification finding — `.t-modal-reveal`/`.t-panel-reveal`/`.t-dropdown-reveal` do
+  not exist in globals.css yet; needs a resolution (alternative vetted source / hand-authored
+  recipes / user decision) before Plan 05 can execute. Next: resolve the ADOPT-05 CSS-source
+  gap, then Plan 05.
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -1154,6 +1161,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-06 (26-04): FIX-04 differentiation lives entirely in header fill opacity + a decorative aria-hidden icon + ChatNode's one left-edge accent stripe — GenuiPanelNode's outer shell stays unchanged (no left-edge accent, no second hue), matching 26-UI-SPEC.md's explicit revision of 23-UI-SPEC.md's "never special-case chat" shell clause
 - 2026-07-06 (26-04): POLISH-02 tuned only dagre's same-rank `nodesep` (32 -> 64, next 8-pt step) rather than adding a column-wrap cap — directly resolves the cramped same-rank sibling-panel stacking without new branching logic in canvas-layout.ts; ranksep/rankdir/node-dims/CASCADE_STEP_PX left untouched
 - 2026-07-06 (26-04): no dedicated canvas-layout.test.ts exists in the repo — ran the existing use-canvas-persistence + panel-data-flow vitest suites instead (15 tests pass) to confirm the nodesep change doesn't affect saved-position round-trip or overlap-cascade logic
+- 2026-07-06 (27-04): GeneratingRing's interface is locked to active/className/children only (no id/role/aria passthrough) — the Studio mount moves the flex-1/min-h-0 layout classes onto the GeneratingRing wrapper itself (now the flex item within the parent's flex-col) and the #sandbox-output-region div fills it via h-full, rather than dropping those classes and breaking the 55/45 resizable-panel sizing (Rule 1, layout-preservation fix)
+- 2026-07-06 (27-04): Chat mount wraps ONLY the two streaming part branches (genui_spec_streaming, interactive_widget_streaming) with GeneratingRing active — the finalized genui_spec/interactive_widget branches stay unwrapped per the UI-SPEC's "nothing is generating once finalized" contract; GenuiPartBoundary/InteractiveWidgetBoundary/spec-renderer.tsx confirmed untouched via git diff (locked-file grep gate)
 
 ## Performance Metrics
 
@@ -1225,6 +1234,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 26 P03 | ~10m | 3 tasks | 6 files |
 | Phase 26 P04 | 8min | 2 tasks | 3 files |
 | Phase 26 P06 | 9min | 2 tasks | 5 files |
+| Phase 27 P04 | ~20min | 2 tasks | 4 files — GeneratingRing wrapper primitive (ADOPT-03) + colocated vitest (5 tests) + Studio sandbox mount (chromeProps.isPending) + Chat streaming-parts mount (2 sites); locked GenuiPartBoundary/InteractiveWidgetBoundary/spec-renderer untouched; full web vitest 23/23 files green |
 | Phase 26 P07 | 15min | 2 tasks | 2 files |
 
 ## Operator Next Steps
