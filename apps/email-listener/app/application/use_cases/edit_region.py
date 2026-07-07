@@ -11,7 +11,8 @@ import uuid
 
 import structlog
 
-from app.application.use_cases.propose_regions import _page_tokens, _union_polygon
+from app.application.use_cases._token_provenance import capture_text as _capture_text
+from app.application.use_cases.propose_regions import _union_polygon
 from app.domain.entities.component import Component
 from app.domain.ports.component_repository import ComponentRepository
 
@@ -30,36 +31,6 @@ def _merge_lineage(content_raw: dict[str, object] | None, **updates: object) -> 
     lineage.update(updates)
     merged["lineage"] = lineage
     return merged
-
-
-def _capture_text(page: Component, polygon: list[list[float]]) -> str:
-    """Capture token text from the page whose bboxes intersect the given polygon.
-
-    The polygon is treated as its axis-aligned bounding box (min/max x,y).
-    Token bboxes are (left, top, width, height) in [0,1] normalized coords.
-    Returns "" when no tokens overlap or the page has no token data.
-    """
-    if not polygon:
-        return ""
-
-    xs = [pt[0] for pt in polygon]
-    ys = [pt[1] for pt in polygon]
-    p_left = min(xs)
-    p_right = max(xs)
-    p_top = min(ys)
-    p_bottom = max(ys)
-
-    tokens = _page_tokens(page)
-    texts: list[str] = []
-    for token in tokens:
-        t_left, t_top, t_width, t_height = token.bbox
-        t_right = t_left + t_width
-        t_bottom = t_top + t_height
-        # Check bounding box overlap
-        if t_right > p_left and t_left < p_right and t_bottom > p_top and t_top < p_bottom:
-            texts.append(token.text)
-
-    return " ".join(texts)
 
 
 class AcceptRegionUseCase:
