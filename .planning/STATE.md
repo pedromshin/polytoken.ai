@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
-status: planning
-last_updated: "2026-07-07T04:30:00.000Z"
-last_activity: 2026-07-07
+status: executing
+last_updated: "2026-07-07T18:41:13.025Z"
+last_activity: 2026-07-07 -- Phase 29 plan 01 (tier ladder schema + migration 0026) executed
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 4
+  completed_plans: 1
+  percent: 25
 ---
 
 # State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** v1.5 roadmap created (Phases 29-32); next: `/gsd:plan-phase 29`. Prior: v1.4 shipped 2026-07-07.
+**Current focus:** Phase 29 — Tier Ladder + Edge Materialization
 
 ## Current Position
 
-Phase: Not started (roadmap created, ready for phase planning)
-Plan: —
-Status: Roadmap created (Phases 29-32, 11/11 requirements mapped)
-Last activity: 2026-07-07 — Milestone v1.5 roadmap created (Phases 29-32)
+Phase: 29 (Tier Ladder + Edge Materialization) — EXECUTING
+Plan: 2 of 4
+Status: Executing Phase 29
+Last activity: 2026-07-07 -- Phase 29 plan 01 (tier ladder schema + migration 0026) executed
 
 ## v1.5 Roadmap Summary (2026-07-07)
 
@@ -78,6 +78,22 @@ Phase numbering continues from v1.2 (ended at Phase 20, informal Phase 21 qualit
 | 25 — Anticipatory Prompting (SPIKE) | Eval-gated, frequency-capped proactive prompt triggers | ANTIC-01, ANTIC-02 |
 
 Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`.
+
+## Phase 29 — Tier Ladder + Edge Materialization (executing 2026-07-07)
+
+- **29-01 EXECUTED:** TIER-01 — the ordinal trust-tier ladder schema, live in local Postgres.
+  New `knowledgeTrustTierEnum` (`EXTRACTED | INFERRED | AMBIGUOUS`, ordinal, doc-commented) added
+  to `knowledge_nodes.tier` and `knowledge_node_edges.tier` (both `.notNull().default("AMBIGUOUS")`,
+  `confidence real` untouched on both). `knowledge_node_edges` also gained `provenance jsonb`
+  (nullable, for 29-03's OCR token-polygon capture) and `is_active boolean` (default true, for
+  supersede) plus a partial index `idx_knowledge_node_edges_active_identity` on
+  `(source_node_id, target_ref_id, relation_type) WHERE is_active`. Migration 0026 (idempotent
+  DO-block enum guard + `ADD COLUMN IF NOT EXISTS` x4 + `CREATE INDEX IF NOT EXISTS`) applied via
+  `npm run migrate:local` and live-verified with a direct `pg` query (`packages/db/scripts/
+  verify-0026-live.ts`, since `psql` is not installed in this environment) — enum labels, column
+  types/nullability/defaults, and the partial index all confirmed present in local Supabase
+  Postgres. `tsc --noEmit` clean. See 29-01-SUMMARY.md. **Next: 29-02** (materialization wiring —
+  SYNTH-01).
 
 ## Deferred Items
 

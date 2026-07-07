@@ -28,7 +28,7 @@ corrections compound. Without this, every other borrow is a no-op.
 Graphify's confidence *ladder* (not a float), doubled as governance graphify never needed: the
 suggest-only promotion gate. "Being wrong is expensive" becomes a property of the tier.
 
-- [ ] **TIER-01**: Every knowledge node and edge carries an ordinal trust tier (EXTRACTED | INFERRED | AMBIGUOUS); the existing `confidence real` remains as an intra-tier score
+- [x] **TIER-01**: Every knowledge node and edge carries an ordinal trust tier (EXTRACTED | INFERRED | AMBIGUOUS); the existing `confidence real` remains as an intra-tier score
 - [ ] **TIER-02**: Synthesis-generated edges enter as INFERRED or AMBIGUOUS *suggestions* — display-only, never trusted for automatic prompt injection
 - [ ] **TIER-03**: A human confirmation promotes an edge to EXTRACTED with promotion provenance recorded; only EXTRACTED edges are eligible for auto-injection
 
@@ -96,7 +96,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TIER-01 | Phase 29 | Pending |
+| TIER-01 | Phase 29 | Complete |
 | SYNTH-01 | Phase 29 | Pending |
 | SYNTH-02 | Phase 29 | Pending |
 | SYNTH-03 | Phase 29 | Pending |
