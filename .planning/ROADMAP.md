@@ -6,7 +6,7 @@
 - ✅ **v1.1 — Generative UI Engine** (Phases 12–15) — spec-first Catalog→Spec→Registry→Renderer→Generation→Cache→Studio. Archived: [milestones/v1.1-ROADMAP.md](milestones/v1.1-ROADMAP.md).
 - ✅ **v1.2 — Generative UI: Realism & Interactivity** (Phases 16–20) — SHIPPED 2026-07-03. Eval harness + style packs + catalog expansion + declarative form engine + jailed-eval code-island (multi-candidate + judge). Archived: [milestones/v1.2-ROADMAP.md](milestones/v1.2-ROADMAP.md) · Audit: [milestones/v1.2-MILESTONE-AUDIT.md](milestones/v1.2-MILESTONE-AUDIT.md).
 - ✅ **v1.3 — Conversational GenUI: Chat, Canvas & Dual-Channel** (Phases 22–25) — SHIPPED 2026-07-06. Persistent streamed `/chat` on a 2D infinite canvas of genui panels with bidirectional (agent↔user) interactive widgets, plus an anticipatory-prompting spike. Local/sandbox only. Archived: [milestones/v1.3-ROADMAP.md](milestones/v1.3-ROADMAP.md) · Audit: [milestones/v1.3-MILESTONE-AUDIT.md](milestones/v1.3-MILESTONE-AUDIT.md).
-- 🚧 **v1.4 — Chat & Studio Design Uplift** (Phases 26–28) — IN PROGRESS. A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built chrome — zero new npm dependencies — executing the locked 3-phase punch list (zero-dep contract fixes → adopted external picks → design-system token upgrades) from `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`.
+- ✅ **v1.4 — Chat & Studio Design Uplift** (Phases 26–28) — SHIPPED 2026-07-07. A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built chrome — zero new npm dependencies — executing the locked 3-phase punch list (zero-dep contract fixes → adopted external picks → design-system token upgrades). Archived: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) · Audit: [milestones/v1.4-MILESTONE-AUDIT.md](milestones/v1.4-MILESTONE-AUDIT.md).
 
 ## Phases
 
@@ -54,107 +54,23 @@ verifications deferred (STATE.md → Deferred Items). SPIKE verdict: ship-with-c
 
 </details>
 
-### 🚧 v1.4 — Chat & Studio Design Uplift (In Progress)
+<details>
+<summary>✅ v1.4 — Chat & Studio Design Uplift (Phases 26–28) — SHIPPED 2026-07-07</summary>
 
-**Milestone Goal:** A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built
-chrome — zero new npm dependencies — executing the locked 3-phase punch list in
-`.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md` (the source of truth for phase ordering and every
-item below: zero-dep contract fixes → adopted external picks → design-system token upgrades). Local/
-sandbox only — no deploy criteria.
+- [x] Phase 26 — Zero-Dependency Contract Fixes + Backlog Polish (7/7 plans) — completed 2026-07-06
+- [x] Phase 27 — Adopted External Design Picks (5/5 plans) — completed 2026-07-07
+- [x] Phase 28 — Design-System Token Upgrades (3/3 plans) — completed 2026-07-07
 
-**Hard constraints (apply to every phase below, locked from the research doc):** teal `primary`
-(`hsl(164 39% 22%)`) only — never a second brand hue; 2-weight typography (`font-normal`/
-`font-semibold` only, no `font-medium`); 4-role type scale; 8-point spacing; 60/30/10 color
-discipline with an explicit accent allowlist; **zero new npm dependencies**. Nothing in this
-milestone touches `packages/genui/src/renderer/spec-renderer.tsx` or `GenuiPartBoundary`/
-`InteractiveWidgetBoundary` chrome (already owned/fixed by Phase 24).
+Full detail: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md). Audit `tech_debt`, 0 gaps:
+23/23 requirements + 18/18 integration seams (one FIX-02 primitive leak closed at audit e9faa55);
+deferred: browser/OS visual checks + 1 pending todo (STATE.md → Deferred Items).
 
-- [x] **Phase 26: Zero-Dependency Contract Fixes + Backlog Polish** - `/chat` and `/studio`'s own chrome (React Flow, node differentiation, hardcoded colors, JSON panes, prop table, hover states, role chrome, composer dock, scrollbars, empty states) matches the app's existing token system instead of stock/hardcoded values, plus two small independent backlog fixes (declared-state binding, canvas auto-layout) (completed 2026-07-06)
-- [x] **Phase 27: Adopted External Design Picks** - Impeccable's product-register rules, Magic UI's file-tree + generating-ring CSS technique, ux-designer-skill references, and transitions.dev snippets are folded into the app and its docs at near-zero footprint
- (completed 2026-07-07)
-- [x] **Phase 28: Design-System Token Upgrades** - The foundational token set (secondary/muted/accent, chart/sidebar hues, shadow scale, radius steps, entrance animation) is upgraded so every consuming surface benefits at once (completed 2026-07-07)
-
-## Phase Details
-
-### Phase 26: Zero-Dependency Contract Fixes + Backlog Polish
-**Goal**: `/chat` and `/studio`'s hand-built chrome stops reading as an unstyled library drop-in or a
-set of undifferentiated boxes — every surface correctly uses the app's existing token system, in both
-light and dark mode — and two small, independent backlog defects (declared-state text binding,
-cramped canvas auto-layout) are fixed.
-**Depends on**: Nothing (first v1.4 phase; builds on the existing v1.1–v1.3 chat/canvas/studio
-surfaces). Research doc: do this phase first so Phases 27–28 build on a clean base.
-**Requirements**: FIX-01, FIX-02, FIX-03, FIX-04, FIX-05, FIX-06, FIX-07, FIX-08, FIX-09, FIX-10, FIX-11, POLISH-01, POLISH-02
-**Success Criteria** (what must be TRUE):
-  1. React Flow's own chrome (`Controls`/`MiniMap`/`Background`/`Attribution`) renders with the app's token vars in both light and dark mode instead of the library's stock light-gray boxes, and `ChatNode` vs `GenuiPanelNode` are visually distinguishable at a glance via per-kind header accent/icon
-  2. No rendered text in `/chat` or `/studio` uses `font-medium` — fixed at the source (`buttonVariants` base class) and across all 11 Studio call-sites — restoring the locked 2-weight typography contract app-wide
-  3. Studio's three hardcoded amber/red color systems and the 3 duplicated raw-JSON debug panes are replaced by shared, token-based treatments (`destructive`/`primary`/`muted`) that render correctly in dark mode, the JSON panes share one component with a copy button, and the catalog prop table has zebra rows + a muted header matching its surrounding card chrome
-  4. Conversation rows, turn-action icon buttons, the composer, and scrollbars all present consistent eased hover/transition affordances and a visual "dock" treatment, and assistant messages carry a thin role-chrome rail distinguishing them from user messages beyond alignment alone
-  5. The 3-4 empty-state components are visually differentiated from one another, new canvas panels no longer stack in a cramped vertical column by default, and a "counter bound to state" chat prompt produces a live-updating `dataRef`-bound render instead of a static `{{count}}` literal
-**Plans**: 7 plans (all wave 1 — disjoint file sets, fully parallel)
-Plans:
-- [x] 26-01-PLAN.md — Shared JSON pane component + history-island token cleanup (FIX-05, FIX-02, FIX-03)
-- [x] 26-02-PLAN.md — Studio token discipline: PHASE_TONE/ViolationList/iframe, catalog prop table, remaining font-medium (FIX-02, FIX-03, FIX-06)
-- [x] 26-03-PLAN.md — Button-source font-medium + chat hover affordances + assistant left rail (FIX-02, FIX-07, FIX-08)
-- [x] 26-04-PLAN.md — Canvas node differentiation + auto-layout tuning (FIX-04, POLISH-02)
-- [x] 26-05-PLAN.md — React Flow chrome CSS + composer dock + uniform scrollbars (FIX-01, FIX-09, FIX-10)
-- [x] 26-06-PLAN.md — Shared EmptyState primitive + 3 call sites (FIX-11)
-- [x] 26-07-PLAN.md — Generator prompt: declared-state dataRef binding (POLISH-01)
-**UI hint**: yes
-
-### Phase 27: Adopted External Design Picks
-**Goal**: The five researched external resources' narrowly-scoped, zero/near-zero-footprint
-takeaways are actually present in the app and its documentation — not just decided in research.
-**Depends on**: Phase 26 (research doc's dependency order: fixes first, so external picks land on a
-token-correct base)
-**Requirements**: ADOPT-01, ADOPT-02, ADOPT-03, ADOPT-04, ADOPT-05
-**Success Criteria** (what must be TRUE):
-  1. `UI-SPEC.md` (or the 6-pillar review doc) contains a new appendix with impeccable.style's product-register rules and its 13-item absolute-bans checklist
-  2. The code-island file browser renders a ported Magic UI `file-tree` component built only from already-installed `@radix-ui/react-accordion` + `lucide-react` (zero new deps)
-  3. A teal-only, `motion-safe:`-gated `<GeneratingRing>` primitive visibly marks "generating" state on genui cards in Chat and on the sandbox/history tabs in Studio
-  4. A slim project reference doc contains the 3 copied `ux-designer-skill` files (canvas-navigation, canvas-objects-performance, ai-ux-patterns)
-  5. 3-4 retokenized `transitions.dev` CSS snippets (modal, panel-reveal, dropdown) are visibly used at their corresponding UI moments, using the app's own custom properties
-**Plans**: 5 plans
-- [x] 27-01-PLAN.md — Docs: impeccable product-register + 13-item bans + 3 ux-designer reference files (ADOPT-01, ADOPT-04)
-- [x] 27-02-PLAN.md — Ported Magic UI FileTree (raw Radix accordion, zero deps) mounted in the Code-Island preset browser (ADOPT-02)
-- [x] 27-03-PLAN.md — Additive globals.css: .generating-ring technique + 3 transitions.dev recipes, token-count unchanged (ADOPT-03, ADOPT-05 CSS)
-- [x] 27-04-PLAN.md — GeneratingRing component + Studio-sandbox & Chat-streaming mounts (ADOPT-03)
-- [x] 27-05-PLAN.md — Wire the 3 transitions to their consumers + command.tsx FIX-02 spillover fix (ADOPT-05)
-**UI hint**: yes
-
-### Phase 28: Design-System Token Upgrades
-**Goal**: The foundational token layer (`globals.css` + Tailwind preset) stops papering over gaps
-with hardcoded values — every surface that consumes `secondary`/`muted`/`accent`, `chart-*`/
-`sidebar-*`, shadow, radius, or entrance-animation tokens benefits at once.
-**Depends on**: Phase 26 (research doc's rationale: sequence token upgrades last so Phase 26 has
-already surfaced every place a token gap was papered over with a hardcoded value)
-**Requirements**: TOKEN-01, TOKEN-02, TOKEN-03, TOKEN-04, TOKEN-05
-**Success Criteria** (what must be TRUE):
-  1. `secondary`, `muted`, and `accent` render as tonally distinct neutral tones (no longer one shared stock-shadcn gray) in both light and dark mode, still 60/30/10-compliant
-  2. Chart series colors and the sidebar visibly use teal-derived hues instead of stock shadcn demo colors
-  3. A real elevation/shadow scale (`elevation-1/2/3`, teal-tinted) exists in `packages/tailwind-config/base.ts` and is visibly applied; `xl`/`2xl` radius steps exist and `packages/ui/src/card.tsx` consumes the radius token instead of a hardcoded `rounded-xl`
-  4. Genui panel mount and Studio's history/page-ideas list items visibly animate in (entrance/stagger) via the already-installed `tailwindcss-animate`, going beyond bare Radix open/close transitions
-**Plans**: 3 plans (wave 1: 28-01 token foundation; wave 2: 28-02, 28-03 consumers — disjoint file sets)
-Plans:
-- [x] 28-01-PLAN.md — Token foundation: TOKEN-01/02 values + TOKEN-03/04 vars & config (globals.css, base.ts, web.ts) + committed WCAG contrast test
-- [x] 28-02-PLAN.md — Elevation consumers (card, composer, both canvas nodes) + genui panel mount entrance (TOKEN-03, TOKEN-05a)
-- [x] 28-03-PLAN.md — Studio history/page-ideas list stagger + conversation-rail blur-debt resolution + bans-doc closure & radius allowlist note (TOKEN-05b/c, TOKEN-04 docs)
-**UI hint**: yes
-
-## Progress
-
-**Execution Order:**
-Phases execute in numeric order: 26 → 27 → 28 (locked by the research doc: Phase A surfaces every
-papered-over token gap before Phase C touches the token layer)
-
-| Phase | Plans Complete | Status | Completed |
-|-------|-----------------|--------|-----------|
-| 26. Zero-Dependency Contract Fixes + Backlog Polish | 7/7 | Complete   | 2026-07-06 |
-| 27. Adopted External Design Picks | 5/5 | Complete   | 2026-07-07 |
-| 28. Design-System Token Upgrades | 3/3 | Complete   | 2026-07-07 |
+</details>
 
 ## Next
 
-Roadmap created. Run `/gsd:plan-phase 26` to break Phase 26 into executable plans.
+v1.4 shipped. Run `/gsd:new-milestone` to open the next milestone (candidates: 999.4 Design Engine,
+999.5 Orchestration Visualizer, 999.7 editable genui panels — see Backlog).
 
 ## Backlog
 

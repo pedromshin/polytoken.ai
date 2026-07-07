@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: Chat & Studio Design Uplift
-status: verifying
-last_updated: "2026-07-06T22:51:44-03:00"
-last_activity: "2026-07-06 -- **28-03 EXECUTED (PHASE 28 COMPLETE, v1.4 MILESTONE PLANS ALL EXECUTED):** Studio history/page-ideas stagger + conversation-rail blur-debt resolution + bans-doc closure"
+status: Awaiting next milestone
+last_updated: "2026-07-07T03:25:33.086Z"
+last_activity: 2026-07-07 — Milestone v1.4 completed and archived
 progress:
   total_phases: 3
   completed_phases: 3
@@ -24,78 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 
 ## Current Position
 
-Phase: 28 (Design-System Token Upgrades) — COMPLETE (3/3 plans)
-Plan: 3 of 3 (28-01, 28-02, 28-03 all complete)
-Status: Phase 28 complete; v1.4 milestone plans all executed — ready for milestone-level verification/close
-Last activity: 2026-07-06 -- **28-03 EXECUTED (PHASE 28 COMPLETE):** Studio history-island/
-  page-ideas-island list stagger (TOKEN-05b, capped-6 40ms-step cascade via `Math.min(index, 5) * 40`,
-  `motion-reduce:animate-none`) + `conversation-rail.tsx`'s backdrop-blur-md glassmorphism debt
-  resolved (`bg-background/70 backdrop-blur-md` -> `bg-background/95`, the UI-SPEC's default/
-  first-attempt branch — live-canvas legibility spot-check deferred to the user, fallbacks documented
-  in 28-UI-SPEC.md if `/95` reads wrong) + `docs/design/product-register-and-bans.md` item 3's
-  "documented debt, 2026-07-06" note replaced with a dated "Resolved (Phase 28, ...)" closure, item 10
-  gained the TOKEN-04 radius-allowlist forward-guidance note (cites styles.refero.design via
-  `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`). Full `apps/web` vitest (24 files / 174 tests) +
-  typecheck green throughout. No deviations — all 4 cited interface strings matched verbatim.
-  **TOKEN-04 and TOKEN-05 both marked complete — every v1.4 requirement (TOKEN-01..05, plus Phases
-  26/27's FIX/POLISH/ADOPT sets) is now closed.** Commits: 5e03dc1 (Task 1), d583cfb (Task 2), 53a8f22
-  (Task 3). See 28-03-SUMMARY.md. **All 3 v1.4 milestone phases (26, 27, 28) now have executed plans —
-  next: milestone-level verification/close.**
-2026-07-07 -- **28-02 EXECUTED:** elevation-scale consumers (TOKEN-03) + genui panel
-  mount entrance (TOKEN-05a). `card.tsx` (`shadow` -> `shadow-elevation-1`) and `composer.tsx`'s dock
-  (`shadow-sm` -> `shadow-elevation-2`) now visibly consume 28-01's elevation scale; `chat-node.tsx`/
-  `genui-panel-node.tsx` gained a resting/selected split (`shadow-elevation-1` at rest,
-  `${SELECTED_RING} shadow-elevation-2` when selected) on their previously-inert
-  `transition-shadow duration-150` class — FIX-04's `border-l-2 border-l-primary` stripe on
-  `chat-node.tsx` preserved. `genui-panel-node.tsx`'s outer shell only (never
-  `GenuiPanelNodeBody`/`GenuiPartBoundary`/`InteractiveWidgetBoundary`/`SpecRenderer`) gained the
-  TOKEN-05(a) mount entrance: `animate-in fade-in-0 zoom-in-95 duration-[250ms]
-  motion-reduce:animate-none`. Full `apps/web` vitest (24 files / 174 tests, incl.
-  `use-canvas-persistence*`/`panel-data-flow` re-verified) + typecheck green. No deviations — all 4
-  cited interface strings matched verbatim before editing. TOKEN-03 marked complete (all 4 named
-  consumers landed this plan); TOKEN-05 stays open (Studio list stagger items (b) land in 28-03).
-  Commits: e180c31 (Task 1), 7f1e64d (Task 2). See 28-02-SUMMARY.md. **Next: 28-03** (Studio
-  history/page-ideas stagger + conversation-rail blur-debt resolution + bans-doc closure).
-2026-07-07 -- **28-01 EXECUTED:** TOKEN-01/TOKEN-02/TOKEN-03/TOKEN-04 foundation-layer
-  token upgrade. `secondary`/`muted`/`accent` rebased to tonally distinct hue-164 neutrals in both
-  modes (no longer one shared `0 0% 96.1%` gray); `chart-1..5` rebased onto a teal-anchored
-  categorical ramp; all 8 `sidebar-*` vars now alias existing tokens (`--sidebar-ring` -> `var(--primary)`,
-  killing the accidental blue). `--elevation-1/2/3` (stacked-hairline + teal-tinted ambient scale,
-  max blur 8px, ban-item-9 ceiling) + `shadow-elevation-1/2/3` registered in `base.ts`;
-  `--radius-xl`/`--radius-2xl` + `xl`/`2xl` `borderRadius` registered in `web.ts` (`card.tsx`'s
-  literal `rounded-xl` now token-driven at the same 12px, zero className edit). Committed
-  `token-contrast.test.ts` parses the live `globals.css` and asserts all 6 neutral-pair WCAG-AA
-  ratios (>=4.5:1, both modes) — proven sensitive via a manual temporary-corruption/revert cycle.
-  **Deviation (Rule 1):** the UI-SPEC's literal `new URL("../globals.css", import.meta.url)` throws
-  under vitest's jsdom environment (resolves relative refs against jsdom's document location, not
-  the module's `file:` base) — fixed via `path.dirname(fileURLToPath(import.meta.url))` instead.
-  `--primary` (teal `164 39% 22%`) and `--radius` left byte-identical. Full `apps/web` vitest
-  (24 files / 174 tests) + typecheck green. TOKEN-01/02 marked complete in REQUIREMENTS.md;
-  TOKEN-03/04 stay open until their consumer-file wiring (`card.tsx`/`composer.tsx`/`chat-node.tsx`/
-  `genui-panel-node.tsx`) lands in 28-02/28-03. Commits: d0804b6 (Task 1), c9f67c0 (Task 2),
-  21ce56f (Task 3). See 28-01-SUMMARY.md. **Next: 28-02** (TOKEN-03/04/05 consumer wiring).
-  spillover) complete. **Orchestrator amendment applied:** Plan 03's transitions.dev port was
-  license-blocked (no discoverable license anywhere in `Jakubantalik/transitions.dev`'s repo — no
-  LICENSE file, no package.json license field, GitHub license API `null`; the only "MIT" text
-  scopes an unrelated sub-tool). Resolution: hand-authored `.t-modal-reveal`/`.t-panel-reveal`/
-  `.t-dropdown-reveal` as ORIGINAL CSS in `globals.css`, implementing the exact numeric
-  timing/scale values already locked in 27-UI-SPEC.md's ADOPT-05 section (unprotectable facts,
-  not copyrightable expression) — additive only, `:root`/`.dark` byte-for-byte unchanged. Wired
-  each utility to its one designated consumer via a NEW inner wrapper (never a className override
-  on a shared `@nauta/ui` primitive): `.t-modal-reveal` on `delete-conversation-dialog.tsx`'s
-  inner content div, `.t-panel-reveal` replacing `conversation-rail.tsx`'s ad hoc
-  motion-safe:transition-[width] trio, `.t-dropdown-reveal` on `model-picker.tsx`'s Command
-  wrapper. Also closed the FIX-02 spillover in `packages/ui/src/command.tsx`'s `CommandGroup`
-  group-heading (`font-medium`→`font-semibold`, `py-1.5`→`py-1`) — live in ModelPicker today,
-  missed by Phase 26's app-scoped grep; `CommandDialog`'s separate, unrelated `font-medium`
-  occurrence left untouched (out of scope). `@nauta/ui` + `@nauta/web` typecheck clean, full
-  `apps/web` vitest (23 files / 168 tests) green after every task. `.planning/REQUIREMENTS.md`'s
-  ADOPT-05 line amended to reflect hand-authored (not hand-copied) provenance and checked off.
-  Commits: e6a837f (Task 0 — hand-author CSS), 9979a0c (Task 1 — wire consumers), 4477da0
-  (Task 2 — FIX-02 spillover). See 27-05-SUMMARY.md for the full per-source vetting outcome
-  table (impeccable Apache-2.0 / Magic UI MIT / ux-designer-skill MIT / transitions.dev NO
-  LICENSE → hand-authored). **Phase 27 (ADOPT-01..05) is now fully complete — all 5 plans
-  executed.** Next: Phase 28 (Design-System Token Upgrades, TOKEN-01..05) — not yet planned.
+Phase: Milestone v1.4 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-07 — Milestone v1.4 completed and archived
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
@@ -128,6 +60,23 @@ Phase numbering continues from v1.2 (ended at Phase 20, informal Phase 21 qualit
 Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`.
 
 ## Deferred Items
+
+### v1.4 (acknowledged and deferred at the v1.4 milestone close, 2026-07-07)
+
+All verification gaps are browser/OS-level visual+motion checks — no code gaps (every phase scored
+full marks on code-level verification; the milestone audit closed its one integration blocker,
+FIX-02 primitive leaks, before archive at e9faa55). The user was live-testing this build during the
+milestone, which is the ongoing de-facto visual check.
+
+| Category | Item | Status |
+|----------|------|--------|
+| verification_gap | 26-VERIFICATION.md | human_needed — light/dark visuals (React Flow chrome, node differentiation, studio dark-mode colors, empty-state/button-weight) |
+| verification_gap | 27-VERIFICATION.md | human_needed — ring sweep, 3 reveal transitions, OS reduced-motion behavior |
+| verification_gap | 28-VERIFICATION.md | human_needed — panel mount entrance, studio stagger, rail legibility over live canvas, light/dark max-drift gestalt |
+| todo | 2026-07-06-salvage-truncated-tool-calls | pending — salvage/surface truncated chat tool calls (interim cap raise e501e57 shipped) |
+
+Also carried: 999.3 connected-env measurement (live Bedrock + browser) and the Phase-25 SPIKE
+go/no-go seams — both unchanged from the v1.3 close.
 
 ### v1.3 (acknowledged and deferred at the v1.3 milestone close, 2026-07-06)
 

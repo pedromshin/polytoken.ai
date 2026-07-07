@@ -13,7 +13,30 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
-## Current Milestone: v1.4 Chat & Studio Design Uplift
+## Current State (v1.4 shipped 2026-07-07)
+
+**Shipped:** **v1.4 — Chat & Studio Design Uplift** (Phases 26–28, 15 plans, 23/23 requirements).
+`/chat` + `/studio`'s hand-built chrome now fully honors the app's own design contracts — zero new
+npm dependencies: token-styled React Flow chrome, differentiated canvas nodes (teal ChatNode stripe),
+assistant role rail, composer dock, one scrollbar aesthetic, shared JsonPane/EmptyState/FileTree/
+GeneratingRing primitives, `font-medium` purged at the design-system source (incl. tabs/sidebar
+primitive leaks caught at milestone audit), 3 hand-authored reveal transitions (transitions.dev copy
+was license-blocked — clean-room reimplementation from locked timing values), hue-164 neutral +
+teal-anchored chart/sidebar token rebase, elevation shadow scale, xl/2xl radius steps, mount/stagger
+entrances, and `docs/design/` (impeccable-derived product-register + bans appendix, 3 ux reference
+docs). Two committed regression gates replace the old token-count check (WCAG-AA contrast; token
+family registration). Backlog 999.8(a)+999.9 folded and fixed (generator dataRef prompt; dagre
+nodesep). Live-testing fixes shipped same-day: chat output cap 4096→12000 (truncated emit_ui_spec
+tool calls silently dropped — salvage/surface todo filed), globals.css comment self-termination
+build break. Audit `tech_debt`: deferred items are browser/OS visual checks only.
+
+**Next:** run `/gsd:new-milestone`. Candidates: **999.4 Design Engine** (DSGN-01..04), **999.5
+Orchestration Visualizer** (ORCH-01), **999.7 editable genui panels / studio-on-canvas**, the
+anticipatory-prompting go/no-go follow-through, and **999.3 connected-env verification** (live
+Bedrock + browser).
+
+<details>
+<summary>v1.4 original milestone goal (opened 2026-07-06)</summary>
 
 **Goal:** A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built chrome
 (backlog 999.6, UPLIFT-01..03) — zero new npm dependencies, executing the pre-baked 3-phase punch
@@ -46,7 +69,9 @@ typography, 4-role type scale, 8-pt spacing, 60/30/10 color discipline, **zero n
 dependencies**. 999.8(b) (renderer affordance for declared-state text) is explicitly out of
 scope — it touches the locked renderer.
 
-## Current State (v1.3 shipped 2026-07-06)
+</details>
+
+## Prior State (v1.3 shipped 2026-07-06)
 
 **Shipped:** **v1.3 — Conversational GenUI: Chat, Canvas & Dual-Channel** (Phases 22–25). The genui
 engine now has a conversational surface: a persistent, streamed `/chat` (typed message parts, cost
@@ -62,12 +87,9 @@ through all four phases. Local/sandbox only. Audit `tech_debt`, 24/24 requiremen
 cross-phase integration verified WIRED; 6 connected-env/browser verifications deferred
 (STATE.md → Deferred Items).
 
-**Next:** run `/gsd:new-milestone`. Candidates surfaced by v1.3: **999.6 Chat & Studio Design
-Uplift** (queued, research pre-baked in `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`), **v1.4
-Design Engine** (DSGN-01..04 — unify-vs-hybrid lock, rendered-visual-compare repair, promptable
-design system, screenshot/URL→token extraction), **v1.5 Orchestration Visualizer** (ORCH-01, seams
-SEAM-03/04 + CANVAS-03 left open), and the anticipatory-prompting go/no-go follow-through. R4 seams
-remain open for orchestration. Research base: `.planning/research/v1.3/V1.3-RESEARCH-SYNTHESIS.md`.
+*(v1.3's "Next" candidates resolved: 999.6 became v1.4, shipped 2026-07-07 — see Current State.
+Remaining candidates carried forward: 999.4 Design Engine, 999.5 Orchestration Visualizer,
+anticipatory-prompting go/no-go. Research base: `.planning/research/v1.3/V1.3-RESEARCH-SYNTHESIS.md`.)*
 
 ## Prior State (v1.2 shipped 2026-07-03)
 
@@ -131,20 +153,13 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 - ✓ Generative-UI engine spine: Catalog → Spec → Registry → Renderer → Generation → Cache → `/studio` (spec-first, no eval) — v1.1, Phases 12–15
 - ✓ GenUI realism + interactivity: eval harness + LLM-judge, 6 DTCG style packs + assembly RAG, expanded catalog (16 entries), zero-eval form engine, jailed-eval sandboxed code-island (verified live on Bedrock, multi-candidate + judge, $30 cost guard) — v1.2, Phases 16–20
 - ✓ Conversational GenUI: persistent streamed `/chat` (cost breaker, regenerate-siblings, progressive spec render, multi-provider + WebGPU registry) + 2D infinite canvas of genui panels (React Flow, versioned node registry, shared per-chat state + data edges, exact persistence) + dual-channel widgets (proposal cards + clarify-widgets, server-re-validated + double-submit-locked round-trip, persisted in history+canvas) + anticipatory-prompting SPIKE (ship-with-conditions) — v1.3, Phases 22–25 (24/24 reqs; 6 connected-env verifications deferred)
+- ✓ Chat & Studio design uplift: zero-dep contract fixes (FIX-01..11 — React Flow chrome, app-wide font-medium purge incl. primitive leaks, token discipline, node differentiation, shared JsonPane/EmptyState, hover/dock/scrollbar/role chrome) + narrowly-adopted external picks (ADOPT-01..05 — impeccable bans appendix, FileTree port, GeneratingRing, ux refs, hand-authored reveal transitions after license block) + token upgrades (TOKEN-01..05 — hue-164 neutral split, teal chart/sidebar rebase, elevation scale, radius steps, entrances; WCAG + registration regression gates) + POLISH-01/02 backlog folds — v1.4, Phases 26–28 (23/23 reqs; browser/OS visual checks deferred)
 
 ### Active
 
-<!-- v1.4 Chat & Studio Design Uplift. Full REQ-IDs in .planning/REQUIREMENTS.md. -->
+<!-- No active milestone. Run /gsd:new-milestone to open the next one. Candidates in "Current State → Next". -->
 
-- [ ] Zero-dependency contract fixes on `/chat` + `/studio` (FIX-01..11 — React Flow chrome,
-  font-medium purge, token discipline, node differentiation, JSON-pane consolidation,
-  hover/transition states, role chrome, scrollbars, empty states)
-- [ ] Narrowly-adopted external design picks (ADOPT-01..05 — impeccable bans appendix, Magic UI
-  file-tree, GeneratingRing CSS port, ux-designer-skill refs, transitions.dev snippets)
-- [ ] Design-system token upgrades (TOKEN-01..05 — secondary/muted/accent split, teal-based
-  chart/sidebar, shadow scale, radius steps, tailwindcss-animate entrances)
-- [ ] Folded backlog polish (POLISH-01 generator declared-state binding prompt fix,
-  POLISH-02 canvas auto-layout direction)
+_(none — v1.4 shipped; next milestone not yet opened)_
 
 ### Out of Scope
 
@@ -186,7 +201,11 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 | **v1.3 FOUND-6**: One untrusted-input boundary pattern | Raw email (quarantine), LLM output (safeParse + allowlists), and widget submissions (Phase-24 re-validation) are instances of one rule: ALL untrusted input crosses a schema gate at the tRPC/FastAPI boundary | ✓ Good — widget submit re-validates against the STORED schema server-side (D-10) |
 | **v1.3 FOUND-7**: Eval dimensions, not eval harnesses | Each phase registers new dimensions into the Phase-16 harness (streaming correctness, round-trip integrity, anticipatory appropriateness) — never parallel eval mechanisms | ⚠️ Revisit — Phase-25 spike built a standalone fixture harness (dark/spike-scoped); fold its appropriateness dimension into the Phase-16 harness when anticipatory prompting graduates from spike |
 | **v1.3**: Convergence stays behind the procedure allowlist | Dual-channel widgets reach Nauta product data (entities/inbox/knowledge) only via the existing allowed-tRPC-procedures gate — product convergence becomes a config change, not a rearchitecture | — Pending — v1.3 widgets are self-contained (DCUI D-14); live product-data binding left an explicit seam |
-| **v1.3**: Thread style_pack_id through chat + canvas | Chat-generated specs and canvas panels carry style_pack_id (already on the spec envelope) so the v1.4 promptable-design-system conditioning layer lands cleanly | — Pending — envelope carries it; v1.4 conditioning layer consumes it |
+| **v1.3**: Thread style_pack_id through chat + canvas | Chat-generated specs and canvas panels carry style_pack_id (already on the spec envelope) so a future promptable-design-system conditioning layer lands cleanly | — Pending — envelope carries it; the Design Engine milestone (999.4) consumes it |
+| **v1.4**: Fix typography contract at the design-system SOURCE (buttonVariants etc.), not per call-site | One primitive edit corrects every consumer; per-site sweeps always miss shared-primitive leaks | ✓ Good — audit proved the corollary: contract greps must trace packages/ui primitives too (tabs/sidebar leaks found only at milestone audit) |
+| **v1.4**: Clean-room hand-authoring over unlicensed external copy (ADOPT-05) | transitions.dev had no license grant; numeric timing values are unprotectable facts, so original CSS implementing the locked values is license-safe and preserves the requirement's substance | ✓ Good — shipped with full vetting evidence trail |
+| **v1.4**: Committed regression gates over one-off checks (WCAG contrast test + token-family registration test) | Point-in-time verifications rot; the "var exists but utility never registered" bug class and contrast regressions now fail CI-style on every run | ✓ Good — registration test would have caught the sidebar-ring blue-fallback bug this milestone found |
+| **v1.4**: CHAT_MAX_OUTPUT_TOKENS 4096→12000 (interim) | Large emit_ui_spec tool calls truncated at the cap and were silently dropped — user-facing "prompt not working" | — Pending — real fix is salvage/surface of truncated tool calls (todo filed 2026-07-06) |
 
 ## Evolution
 
@@ -206,4 +225,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-06 after v1.4 milestone start — Chat & Studio Design Uplift opened (backlog 999.6 promoted per standing user directive; 999.8a + 999.9 folded in); requirements FIX/ADOPT/TOKEN/POLISH derived from the pre-baked `.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`*
+*Last updated: 2026-07-07 after v1.4 milestone — Chat & Studio Design Uplift shipped (Phases 26–28, 23/23 requirements moved to Validated); Key Decisions updated with 4 v1.4 entries; Active reset pending next milestone*

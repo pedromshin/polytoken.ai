@@ -1,5 +1,38 @@
 # Milestones
 
+## v1.4 Chat & Studio Design Uplift (Shipped: 2026-07-07)
+
+**Phases completed:** 3 phases, 15 plans, 36 tasks
+
+**Delivered:** A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s hand-built chrome —
+zero new npm dependencies — executing the pre-baked 3-phase punch list (zero-dep contract fixes →
+narrowly-adopted external picks → design-system token upgrades) from
+`.planning/research/CHAT-STUDIO-DESIGN-UPLIFT.md`. 23/23 requirements; audit `tech_debt`
+(deferred browser/OS visual checks only); milestone audit closed one integration blocker
+(FIX-02 leaks via tabs/sidebar primitives) before archive.
+
+Known deferred items at close: 4 (1 pending todo — truncated-tool-call salvage; 3 human_needed
+verification gaps — browser/OS visual checks; see STATE.md Deferred Items).
+
+**Key accomplishments:**
+
+- One shared `JsonPane` component (header bar + ScrollArea/pre + Copy/Check clipboard button) now backs all three studio Spec JSON debug panes, and `history-island.tsx` is fully token-compliant (zero `font-medium`, zero `amber`, destructive-token `FallbackNotice`).
+- Replaced code-island-frame's 6-entry raw amber/emerald/red PHASE_TONE map and 2-recipe red/amber ViolationList with 3 semantic-token buckets, gave the catalog prop table a muted header band + zebra rows, and cleared 8 of 11 remaining studio `font-medium` sites — zero new dependencies.
+- Purged `font-medium` at its root cause (`packages/ui/src/button.tsx`'s `buttonVariants` base, app-wide blast radius) plus 2 chat drift sites, added eased `transition-colors` + `hover:bg-muted` affordances to conversation rows and turn-action buttons, and gave assistant messages a neutral left-rail role marker — zero new dependencies, app-wide FIX-02 grep gate now passes.
+- ChatNode gets a teal `border-l-primary` stripe + `MessageSquare` icon, GenuiPanelNode gets a lighter `bg-muted/40` header + `PanelsTopLeft` icon, and dagre's `nodesep` widened 32→64 so sibling genui-panels stop cramming into one vertical rank.
+- Token-colored React Flow Controls/MiniMap/Background chrome, a full-width composer dock band, and one Radix-ScrollArea-matching scrollbar aesthetic across every native-scroll spot on `/chat` — zero new npm dependencies, zero token-value changes.
+- One `EmptyState` primitive (layout/tone/size/action/caption variant props) replacing three near-identical icon+heading+body JSX recipes across ChatHomeEmptyState, CanvasEmptyState, and UnknownNodeTypePlaceholder — pixel-identical output, zero copy changes.
+- Taught the declarative genui generator's system prompt to bind declared-state display through `dataRef`-bound `list`/`conditional` nodes instead of an uninterpolated `{{mustache}}` text literal, and clarified `setState`'s absolute-vs-increment semantics — a prompt-only fix with zero renderer/schema changes.
+- Created `docs/design/` (repo's first standing design-reference directory) with a paraphrased impeccable.style product-register + 13-item bans appendix and 3 copied ux-designer-skill reference files, both fully attributed.
+- Hand-ported Magic UI's `file-tree` into a trimmed, data-driven `FileTree` component on raw `@radix-ui/react-accordion`, mounted as the Code-Island tab's preset browser (4 preset folders → `island.js` leaves), replacing the old `<Select>` — zero new npm dependencies.
+- Landed the `.generating-ring` teal-only, reduced-motion-gated background-position sweep technique (hand-ported from Magic UI's shine-border + animated-shiny-text, MIT-confirmed) in globals.css, plus the `<GeneratingRing>` wrapper primitive mounted at both designated consumer sites — Studio's Generation Sandbox (`chromeProps.isPending`) and Chat's two streaming genui part branches in `message-turn.tsx` — without touching the locked `GenuiPartBoundary`/`InteractiveWidgetBoundary`/`spec-renderer.tsx` files.
+- ADOPT-05 license discipline: execution-time vetting found transitions.dev carries NO license grant for its CSS snippets (the only "MIT" text covers an unrelated CLI tool), so the verbatim copy was SKIPPED and the 3 reveal utilities were hand-AUTHORED clean-room from the UI-SPEC's locked timing values, each wired to its single designated consumer (delete-conversation dialog, conversation-rail collapse, model-picker dropdown) — plus the FIX-02 typography spillover closed in `packages/ui/src/command.tsx`.
+- TOKEN-01/02 rebased secondary/muted/accent to tonally-distinct hue-164 neutrals and chart/sidebar onto teal-anchored values, guarded by two committed regression tests (WCAG-AA contrast over all 6 neutral pairs in both modes; token-family registration against the unregistered-utility bug class).
+- Wired the 28-01 elevation scale into its 4 named consumers (card, composer, both canvas node shells) and gave GenuiPanelNode's outer shell a motion-reduce-safe fade+zoom mount entrance via the already-installed tailwindcss-animate plugin.
+- Studio history/page-ideas lists now cascade in with a capped-6, 40ms-step stagger; the last standing glassmorphism exception (conversation-rail's backdrop-blur-md) is resolved to a solid bg-background/95 surface; both bans-doc obligations (blur-debt closure, TOKEN-04 radius-allowlist forward guidance) are recorded -- closing every v1.4 requirement.
+
+---
+
 ## v1.3 Conversational GenUI: Chat, Canvas & Dual-Channel (Shipped: 2026-07-06)
 
 **Phases completed:** 4 phases, 24 plans, 65 tasks

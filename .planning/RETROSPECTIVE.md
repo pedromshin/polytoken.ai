@@ -39,6 +39,60 @@ Living retrospective, one section per milestone. Newest first.
 - Sessions: ~4 (multiple session-limit resets across a ~3-day span).
 - Notable: subagents-as-context-firewalls kept the orchestrator lean across 25 plans + lifecycle; the main cost sink was re-running full gates independently after cutoffs (worth it).
 
+## Milestone: v1.4 — Chat & Studio Design Uplift
+
+**Shipped:** 2026-07-07
+**Phases:** 3 (26–28) | **Plans:** 15 | **Tasks:** 36
+
+### What Was Built
+A zero-new-dependency visual/token-discipline uplift of `/chat` + `/studio`: eleven contract-drift
+fixes (React Flow chrome, app-wide `font-medium` purge, token discipline, node differentiation,
+shared JsonPane/EmptyState, hover/dock/scrollbar/role chrome), five narrowly-adopted external picks
+(impeccable bans appendix, FileTree port, GeneratingRing, ux reference docs, hand-authored reveal
+transitions), and the token-layer upgrade (hue-164 neutral split, teal chart/sidebar rebase,
+elevation scale, radius steps, mount/stagger entrances) guarded by two committed regression tests.
+Plus two folded backlog fixes (generator dataRef prompt, dagre nodesep) and two same-day live-test
+fixes (chat output-cap truncation, globals.css comment self-termination).
+
+### What Worked
+- Pre-baked research as a locked CONTEXT-equivalent: zero re-research, every UI-SPEC/plan/executor
+  copied literal values from one source of truth — the fastest milestone so far (~1 day).
+- The UI-SPEC → checker revision loop caught real spec defects cheaply (off-grid spacing twice)
+  before any code was written.
+- Execution-time license vetting did its job: the transitions.dev no-license discovery triggered the
+  documented SKIP-not-substitute path, resolved by clean-room hand-authoring with an evidence trail.
+- User live-testing during the run surfaced two real defects (truncated tool calls, CSS build break)
+  that no offline gate covered — fixed same-day with root causes, not patches.
+
+### What Was Inefficient
+- Executors gate on typecheck+vitest, which never compile CSS — the `--duration-*/` comment
+  self-termination broke the dev build and was only caught by the user. A postcss/tailwind compile
+  belongs in the per-plan gate for any globals.css-touching plan.
+- FIX-02's app-dir-scoped grep missed shared-primitive leaks (tabs/sidebar) that only the milestone
+  audit's integration checker caught — contract checks must trace packages/ui, not just app dirs.
+- Two zombie next-dev process trees corrupted a fresh `.next` during the service restart — kill by
+  command-line match, not by port PID alone.
+
+### Patterns Established
+- Fix design-contract violations at the design-system SOURCE (one primitive edit > N call-site sweeps).
+- Committed regression gates over point-in-time checks (WCAG contrast; token-family registration
+  against the "var exists, utility unregistered" bug class).
+- Clean-room reimplementation from locked numeric values as the standard answer to unlicensed
+  external sources.
+- docs/design/ as the standing home for externally-derived design guidance (attributed, paraphrased).
+
+### Key Lessons
+- "Silently dropped" is the worst failure mode: the truncated emit_ui_spec tool call rendered as
+  plain text with no error — always surface degradation to the user (salvage todo filed).
+- Advisory UI reviews are worth acting on immediately: all 8 warnings across 3 phases were
+  closed inline within minutes each; deferring them would have compounded into audit blockers.
+
+### Cost Observations
+- Model mix: orchestrator on Fable-5; planners on Opus; executors/verifiers/UI agents on Sonnet.
+- Sessions: ~2 (one session-limit reset mid-execution, one mid-audit).
+- Notable: 15 sequential executors (worktrees disabled) was the wall-clock bottleneck; disjoint
+  files_modified across all plans made ordering trivially safe.
+
 ## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Shipped | Audit | Deferred (connected-env) |
@@ -46,5 +100,6 @@ Living retrospective, one section per milestone. Newest first.
 | v1.1 | 12–15 | — | 2026-06-27 | — | — |
 | v1.2 | 16–20 | — | 2026-07-03 | tech_debt | 15 |
 | v1.3 | 22–25 | 25 | 2026-07-06 | tech_debt | 6 |
+| v1.4 | 26–28 | 15 | 2026-07-07 | tech_debt | 4 |
 
-**Recurring theme:** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass — a stable, honest pattern, not slippage. The locked-renderer + reusable-registry discipline (FOUND-2) has held across three milestones.
+**Recurring theme:** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass — a stable, honest pattern, not slippage. The locked-renderer + reusable-registry discipline (FOUND-2) has held across four milestones, and the deferred-item count keeps shrinking (15 → 6 → 4) as committed regression gates replace one-off checks.
