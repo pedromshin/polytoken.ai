@@ -13,6 +13,41 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
+## Current Milestone: v1.5 Knowledge-Graph Uplift
+
+**Goal:** Activate the dormant knowledge-graph substrate — human confirms materialize
+confidence-tiered edges (with OCR token provenance) through a suggest-only promotion gate — adopting
+graphify's *algorithms* (tier ladder, bounded neighbour-expand, tier-pruned detail) onto the live
+Postgres store, per backlog 999.10's staged plan (stages 1–2 + the cheap recall win; stage-3
+BFS-into-prompts explicitly deferred until a retrieval miss is *measured*).
+
+**Target features:**
+- **Edge materialization (do regardless):** wire the scaffolded synthesis hook
+  (`confirm_region.py:169`) so confirming a region materializes `knowledge_nodes` +
+  `knowledge_node_edges` rows (Phase-11 table, currently empty/read-only), tagged EXTRACTED and
+  carrying OCR token-polygon provenance — without this every graphify borrow is a no-op
+- **Tier ladder + promotion gate (cheap + defensible):** ordinal trust tier
+  (EXTRACTED | INFERRED | AMBIGUOUS) on nodes/edges with the float kept as intra-tier score;
+  synthesis emits INFERRED/AMBIGUOUS as display-only *suggestions*; a human confirm promotes to
+  EXTRACTED; only EXTRACTED is ever trusted for prompt auto-injection ("being wrong is expensive"
+  becomes a property of the tier — the design-case defense narrative)
+- **Cheap recall win + measurement:** inject the resolved entity's `aliases[]`/`identifiers` into
+  the autofill few-shot prompt (no BFS, no migration needed for this part), and instrument
+  retrieval outcomes so a retrieval-miss rate becomes measurable — the go/no-go gate for stage 3
+- **`/knowledge` canvas fit:** tier → edge visual encoding (EXTRACTED solid / INFERRED dashed /
+  AMBIGUOUS faint), click-a-node-expand-neighbours via a bounded (≤2-hop) server graph query, and
+  a tier "detail" filter (the budget-prune analog)
+
+**Key context:** Selected autonomously (this run was invoked as `/gsd:new-milestone /gsd:autonomous`
+with all confirmation gates off). Rationale: 999.10 is the freshest user-captured intent (committed
+2026-07-07, the day of this run, alongside the design-case PDFs and graphify artifacts), it directly
+arms the in-person design-case defense, and its scope is backend-testable — a better autonomous fit
+than 999.3 (needs live browser/Bedrock), 999.4 Design Engine, or 999.7 (both heavy visual
+verification). Explicitly **out of scope** (from 999.10's own honest analysis): seed-then-expand BFS
+into autofill prompts, budget-aware tier-pruning of prompts, snapshot/diff + staleness (defer until a
+retrieval miss is measured); graphify's static `graph.json` build model and LLM-from-prose extractor
+(never borrow); hyperedges (premature).
+
 ## Current State (v1.4 shipped 2026-07-07)
 
 **Shipped:** **v1.4 — Chat & Studio Design Uplift** (Phases 26–28, 15 plans, 23/23 requirements).
@@ -30,8 +65,9 @@ nodesep). Live-testing fixes shipped same-day: chat output cap 4096→12000 (tru
 tool calls silently dropped — salvage/surface todo filed), globals.css comment self-termination
 build break. Audit `tech_debt`: deferred items are browser/OS visual checks only.
 
-**Next:** run `/gsd:new-milestone`. Candidates: **999.4 Design Engine** (DSGN-01..04), **999.5
-Orchestration Visualizer** (ORCH-01), **999.7 editable genui panels / studio-on-canvas**, the
+**Next:** v1.5 Knowledge-Graph Uplift opened 2026-07-07 (see Current Milestone above). Remaining
+candidates carried forward: **999.4 Design Engine** (DSGN-01..04), **999.5 Orchestration
+Visualizer** (ORCH-01), **999.7 editable genui panels / studio-on-canvas**, the
 anticipatory-prompting go/no-go follow-through, and **999.3 connected-env verification** (live
 Bedrock + browser).
 
@@ -157,9 +193,14 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 
 ### Active
 
-<!-- No active milestone. Run /gsd:new-milestone to open the next one. Candidates in "Current State → Next". -->
+<!-- v1.5 Knowledge-Graph Uplift (backlog 999.10 stages 1–2 + cheap recall win) -->
 
-_(none — v1.4 shipped; next milestone not yet opened)_
+- [ ] Confirming a region materializes knowledge nodes + EXTRACTED-tier edges with OCR token-polygon provenance (the `confirm_region.py:169` hook goes live)
+- [ ] Ordinal trust tier (EXTRACTED | INFERRED | AMBIGUOUS) on knowledge nodes/edges; float confidence kept as intra-tier score
+- [ ] Suggest-only promotion gate: synthesis emits INFERRED/AMBIGUOUS display-only suggestions; human confirm promotes to EXTRACTED; only EXTRACTED eligible for prompt injection
+- [ ] Autofill few-shot prompts include the resolved entity's aliases/identifiers (cheap recall win, no BFS)
+- [ ] Retrieval outcomes instrumented so a retrieval-miss rate is measurable (stage-3 go/no-go gate)
+- [ ] `/knowledge` graph renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
 
 ### Out of Scope
 
@@ -225,4 +266,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-07 after v1.4 milestone — Chat & Studio Design Uplift shipped (Phases 26–28, 23/23 requirements moved to Validated); Key Decisions updated with 4 v1.4 entries; Active reset pending next milestone*
+*Last updated: 2026-07-07 after opening milestone v1.5 — Knowledge-Graph Uplift (backlog 999.10 promoted; selected autonomously, rationale in Current Milestone → Key context)*

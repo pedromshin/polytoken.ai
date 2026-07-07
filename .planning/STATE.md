@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.4
-milestone_name: Chat & Studio Design Uplift
-status: Awaiting next milestone
-last_updated: "2026-07-07T03:25:33.086Z"
-last_activity: 2026-07-07 — Milestone v1.4 completed and archived
+milestone: v1.5
+milestone_name: Knowledge-Graph Uplift
+status: planning
+last_updated: "2026-07-07T03:54:35.308Z"
+last_activity: 2026-07-07
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 15
-  completed_plans: 15
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-06-27)
 
 ## Current Position
 
-Phase: Milestone v1.4 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-07 — Milestone v1.4 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-07 — Milestone v1.5 started
 
 ## v1.4 Roadmap Summary (2026-07-06)
 
