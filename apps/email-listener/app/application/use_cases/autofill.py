@@ -22,8 +22,10 @@ from datetime import UTC, datetime
 
 import structlog
 
+from app.domain.entities.autofill_retrieval_event import AutofillRetrievalEvent
 from app.domain.entities.extraction_record import ExtractionRecord
 from app.domain.ports.autofill_protocol import AutofillProtocol, AutofillResult
+from app.domain.ports.autofill_retrieval_event_repository import AutofillRetrievalEventRepository
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
 from app.domain.ports.entity_instance_repository import EntityInstanceRepository
@@ -61,6 +63,9 @@ class AutofillUseCase:
         entity_instances: EntityInstanceRepository | None — resolved-entity read
             for the cheap recall win (RECALL-01, 31-01). Best-effort: a read
             failure never breaks autofill.
+        retrieval_events: AutofillRetrievalEventRepository | None — best-effort
+            instrumentation write for RECALL-02 (31-02). A write failure never
+            breaks autofill.
 
     Cold-start behaviour (D-13):
         When retrieval returns [] (or embedder/retrieval not set), calls autofiller
@@ -89,6 +94,7 @@ class AutofillUseCase:
         embedder: EmbeddingProtocol | None = None,
         retrieval: RetrievalPort | None = None,
         entity_instances: EntityInstanceRepository | None = None,
+        retrieval_events: AutofillRetrievalEventRepository | None = None,
     ) -> None:
         self._components = components
         self._entity_types = entity_types
@@ -97,6 +103,7 @@ class AutofillUseCase:
         self._embedder = embedder
         self._retrieval = retrieval
         self._entity_instances = entity_instances
+        self._retrieval_events = retrieval_events
 
     async def execute(
         self,
@@ -157,12 +164,13 @@ class AutofillUseCase:
         # Graceful degradation: if retrieval returns [] or ports are absent,
         # cold-start path is preserved (D-13).
         examples: tuple[dict[str, object], ...] = ()
+        retrieved: list[RetrievedExample] = []
 
         if self._embedder is not None and self._retrieval is not None:
             try:
                 region_text = component.content_text or ""
                 embedding = await self._embedder.embed(text=region_text)
-                retrieved: list[RetrievedExample] = await self._retrieval.find_similar_confirmed(
+                retrieved = await self._retrieval.find_similar_confirmed(
                     component_embedding=embedding,
                     entity_type_id=entity_type.id,
                     importer_id=importer_id,
@@ -177,6 +185,7 @@ class AutofillUseCase:
             except Exception:
                 log.warning("autofill_retrieval_failed_fallback_cold_start", exc_info=True)
                 examples = ()
+                retrieved = []
 
         log.info(
             "autofill_calling_llm",
@@ -220,7 +229,68 @@ class AutofillUseCase:
             field_count=len(result.extracted_fields),
         )
 
+        # ── Retrieval-outcome instrumentation (RECALL-02) ────────────────────────
+        # Best-effort: an instrumentation write failure never breaks autofill (mirrors
+        # the confirm_region.py synthesis-hook posture, T-31-04).
+        await self._save_retrieval_event(
+            component_id=component_id,
+            importer_id=importer_id,
+            entity_type_id=entity_type.id,
+            retrieved=retrieved,
+            entity_context=entity_context,
+            routing_reason=routing_reason,
+            log=log,
+        )
+
         return result
+
+    async def _save_retrieval_event(
+        self,
+        *,
+        component_id: str,
+        importer_id: str,
+        entity_type_id: str,
+        retrieved: list[RetrievedExample],
+        entity_context: dict[str, object] | None,
+        routing_reason: str,
+        log: structlog.stdlib.BoundLogger,
+    ) -> None:
+        """Best-effort persist one AutofillRetrievalEvent for this run (RECALL-02).
+
+        No-op when no repository is wired (unit tests / not-yet-DI-configured
+        callers). A write failure is swallowed and logged — never breaks autofill.
+        """
+        if self._retrieval_events is None:
+            return
+
+        seed_hits = tuple(
+            {"id": ex.component_id, "score": ex.score} for ex in retrieved
+        )
+        aliases = entity_context.get("aliases") if entity_context else None
+        identifiers = entity_context.get("identifiers") if entity_context else None
+        injected_entity_instance_id = (
+            str(entity_context.get("entity_instance_id"))
+            if entity_context and entity_context.get("entity_instance_id") is not None
+            else None
+        )
+
+        event = AutofillRetrievalEvent(
+            id=str(uuid.uuid4()),
+            component_id=component_id,
+            importer_id=importer_id,
+            entity_type_id=entity_type_id,
+            seed_hits=seed_hits,
+            seed_hit_count=len(seed_hits),
+            injected_entity_instance_id=injected_entity_instance_id,
+            injected_alias_count=len(aliases) if isinstance(aliases, list) else 0,
+            injected_identifier_count=len(identifiers) if isinstance(identifiers, dict) else 0,
+            routing_reason=routing_reason,
+            created_at=datetime.now(UTC),
+        )
+        try:
+            await self._retrieval_events.save(event)
+        except Exception:
+            log.warning("autofill_retrieval_event_save_failed", exc_info=True)
 
     async def _resolve_entity_context(
         self,
@@ -256,6 +326,10 @@ class AutofillUseCase:
             return {
                 "aliases": list(instance.aliases),
                 "identifiers": dict(instance.identifiers),
+                # Not rendered into the prompt (the adapter only reads "aliases"/
+                # "identifiers") — carried through for RECALL-02 instrumentation
+                # (_save_retrieval_event) so the event can name the injected entity.
+                "entity_instance_id": instance.id,
             }
         except Exception:
             log.warning("autofill_entity_context_read_failed", exc_info=True)

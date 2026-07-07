@@ -67,6 +67,7 @@ from app.domain.ports.anticipatory_ports import AnticipatoryCapStore, Appropriat
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
+from app.domain.ports.autofill_retrieval_event_repository import AutofillRetrievalEventRepository
 from app.domain.ports.chat_repositories import (
     ChatConversationRepository,
     ChatMessageRepository,
@@ -117,6 +118,9 @@ from app.infrastructure.pdf.pdf_parser import PdfParser
 from app.infrastructure.s3.raw_email_store import S3RawEmailStore
 from app.infrastructure.supabase.attachment_repository import SupabaseAttachmentRepository
 from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentStorage
+from app.infrastructure.supabase.autofill_retrieval_event_repository import (
+    SupabaseAutofillRetrievalEventRepository,
+)
 from app.infrastructure.supabase.client import get_supabase_client
 from app.infrastructure.supabase.component_repository import SupabaseComponentRepository
 from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
@@ -226,6 +230,11 @@ def _provide_retrieval(client: Client) -> RetrievalPort:
     return SupabaseRetrievalRepository(client=client)
 
 
+def _provide_autofill_retrieval_event_repository(client: Client) -> AutofillRetrievalEventRepository:
+    """SupabaseAutofillRetrievalEventRepository — best-effort instrumentation writer (RECALL-02, 31-02)."""
+    return SupabaseAutofillRetrievalEventRepository(client=client)
+
+
 def _provide_autofill_use_case(
     components: ComponentRepository,
     entity_types: EntityTypeRepository,
@@ -234,16 +243,19 @@ def _provide_autofill_use_case(
     embedder: EmbeddingProtocol,
     retrieval: RetrievalPort,
     entity_instances: EntityInstanceRepository,
+    retrieval_events: AutofillRetrievalEventRepository,
 ) -> AutofillUseCase:
     """Factory for AutofillUseCase wired with the 04-08 few-shot retrieval ports.
 
-    AutofillUseCase accepts ``embedder``/``retrieval``/``entity_instances`` as
-    Optional with None defaults so unit tests can omit them; dishka does not
-    auto-inject defaulted Optional params, so this factory passes them
-    explicitly to enable the few-shot path (D-15) and the cheap recall win
-    (RECALL-01, 31-01) in the live container.  When retrieval returns [] the
-    use case still preserves the cold-start path (D-13); a resolved-entity
-    read failure never breaks autofill (best-effort).
+    AutofillUseCase accepts ``embedder``/``retrieval``/``entity_instances``/
+    ``retrieval_events`` as Optional with None defaults so unit tests can omit
+    them; dishka does not auto-inject defaulted Optional params, so this
+    factory passes them explicitly to enable the few-shot path (D-15), the
+    cheap recall win (RECALL-01, 31-01), and the retrieval-outcome
+    instrumentation write (RECALL-02, 31-02) in the live container.  When
+    retrieval returns [] the use case still preserves the cold-start path
+    (D-13); a resolved-entity read failure or instrumentation write failure
+    never breaks autofill (both best-effort).
     """
     return AutofillUseCase(
         components=components,
@@ -253,6 +265,7 @@ def _provide_autofill_use_case(
         embedder=embedder,
         retrieval=retrieval,
         entity_instances=entity_instances,
+        retrieval_events=retrieval_events,
     )
 
 
@@ -770,6 +783,8 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(SupabaseExtractionRepository, provides=ExtractionRepository)
     # Entity identity repository (D-02/D-09/D-10/D-11) — bound to port Protocol.
     provider.provide(SupabaseEntityInstanceRepository, provides=EntityInstanceRepository)
+    # Retrieval-outcome instrumentation writer (RECALL-02, 31-02) — best-effort.
+    provider.provide(_provide_autofill_retrieval_event_repository, provides=AutofillRetrievalEventRepository)
 
     # ── Ingestion adapters ────────────────────────────────────────────────────
     provider.provide(_provide_raw_email_store, provides=RawEmailStore)

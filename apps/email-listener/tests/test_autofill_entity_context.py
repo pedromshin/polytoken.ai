@@ -237,6 +237,7 @@ def test_selected_instance_injects_entity_context() -> None:
     assert entity_context == {
         "aliases": ["Acme Corp", "Acme Corporation"],
         "identifiers": {"tax_id": "12-3456789"},
+        "entity_instance_id": "ent-selected-001",
     }
     # Candidate fallback must not be consulted when a selected instance exists.
     assert entity_instances.candidate_calls == []
@@ -268,6 +269,7 @@ def test_falls_back_to_top_unselected_candidate() -> None:
     assert entity_context == {
         "aliases": ["Beta Corp"],
         "identifiers": {"tax_id": "98-7654321"},
+        "entity_instance_id": "ent-candidate-001",
     }
 
 
