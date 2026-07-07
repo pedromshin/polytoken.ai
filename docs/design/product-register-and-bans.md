@@ -49,6 +49,10 @@ lists (Apache-2.0), restated against this app's own vocabulary:
    decorative colored accent on a card, row, or callout is never intentional here. This repo already
    prefers a full border, a background tint (`bg-primary/10`), or a leading icon for accent — see
    `conversation-row.tsx`'s `isActive` recipe — never a colored stripe as pure decoration.
+   *Allowlisted exception (Phase 26, FIX-04):* `chat-node.tsx`'s `border-l-2 border-l-primary`
+   left-edge stripe is a canvas node-KIND identity signal (chat node vs. genui panel), approved as
+   the accent-allowlist member in `26-UI-SPEC.md` — functional differentiation, not decoration. The
+   ban still applies to any new stripe whose only job is to look accented.
 2. **Gradient text.** `background-clip: text` combined with a gradient fill on a heading or label is
    banned. Emphasis in this app comes from weight (`font-semibold`) or size, never a gradient
    overlay on type.

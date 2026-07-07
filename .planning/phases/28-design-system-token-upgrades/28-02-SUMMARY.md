@@ -10,7 +10,7 @@ requires:
     provides: "--elevation-1/2/3 custom properties + shadow-elevation-1/2/3 Tailwind utilities registered in base.ts"
 provides:
   - "TOKEN-03 fully consumed: all 4 named elevation call sites (card.tsx, composer.tsx, chat-node.tsx, genui-panel-node.tsx) now use shadow-elevation-1/2 instead of stock shadow/shadow-sm"
-  - "TOKEN-05 item (a): genui panel mount entrance (animate-in fade-in-0 zoom-in-95 duration-[250ms] motion-reduce:animate-none) on GenuiPanelNode's outer shell only"
+  - "TOKEN-05 item (a): genui panel mount entrance (animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] motion-reduce:animate-none) on GenuiPanelNode's outer shell only — CORRECTED 2026-07-06: the originally-shipped duration-[250ms] collided with the shell's duration-150 transition utility (Tailwind ambiguity warning); hotfixed to the unambiguous arbitrary property in commit 64f3cbc"
 affects: [28-03-design-system-token-upgrades]
 
 # Tech tracking
