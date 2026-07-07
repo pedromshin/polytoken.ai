@@ -175,3 +175,63 @@
     }
   }
 }
+
+/* ADOPT-05 (27-05-PLAN.md, orchestrator amendment): 3 CSS transition
+   utilities for modal / panel / dropdown reveal. Timing values informed by
+   transitions.dev's published scale (Jakubantalik/transitions.dev's own
+   documented duration tokens: --duration-quick: 150ms, --duration-fast:
+   250ms, --duration-medium: 350ms, --duration-slow: 400ms, plus its
+   --scale-large: 0.96 / --scale-small: 0.98 scale tokens); CSS hand-authored
+   2026-07-06 (verbatim copy blocked: no discoverable license — see
+   27-03-SUMMARY.md / 27-05-SUMMARY.md for the vetting evidence trail).
+   Numeric timing/scale values are unprotectable facts, not copyrightable
+   expression — this is a clean-room implementation, not a port. Colors
+   retokenized to this app's existing custom properties per the phase's
+   no-new-token-VALUE constraint (durations/scales have no --duration-*/
+   --ease-* set of their own to retokenize into). One designated consumer
+   each — see 27-UI-SPEC.md ADOPT-05. */
+@layer utilities {
+  /* Modal — DeleteConversationDialog's inner content wrapper */
+  .t-modal-reveal {
+    animation: t-modal-in 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes t-modal-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+      box-shadow: 0 0 0 0 hsl(var(--foreground) / 0);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+      box-shadow: 0 8px 24px -4px hsl(var(--foreground) / 0.12);
+    }
+  }
+
+  /* Panel-reveal — ConversationRail's collapse (replaces its ad hoc
+     motion-safe:transition-[width] duration-200 ease-in-out) */
+  .t-panel-reveal {
+    transition:
+      width 400ms cubic-bezier(0.16, 1, 0.3, 1),
+      opacity 350ms ease-out;
+  }
+
+  /* Dropdown — ModelPicker's Command wrapper */
+  .t-dropdown-reveal {
+    animation: t-dropdown-in 150ms ease-out both;
+  }
+  @keyframes t-dropdown-in {
+    from { opacity: 0; transform: scale(0.98); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .t-modal-reveal,
+    .t-dropdown-reveal {
+      animation: none;
+    }
+    .t-panel-reveal {
+      transition: none;
+    }
+  }
+}
