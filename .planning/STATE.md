@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T23:45:00.000Z"
-last_activity: 2026-07-07 -- Phase 31 Plan 01 (RECALL-01) executed
+last_updated: "2026-07-07T23:59:00.000Z"
+last_activity: 2026-07-07 -- Phase 31 Plan 02 (RECALL-02) executed — Phase 31 COMPLETE
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
-  percent: 63
+  completed_phases: 3
+  total_plans: 9
+  completed_plans: 9
+  percent: 88
 ---
 
 # State
@@ -20,18 +20,41 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 31 — Recall & Measurement
+**Current focus:** Phase 32 — Knowledge Canvas: Tiered Graph Exploration
 
 ## Current Position
 
-Phase: 31 (Recall & Measurement) — EXECUTING
-Plan: 2 of ? (31-01 EXECUTED; 31-02 not yet planned)
-Status: Executing Phase 31
-Last activity: 2026-07-07 -- Phase 31 Plan 01 (RECALL-01) executed
+Phase: 31 (Recall & Measurement) — COMPLETE (RECALL-01, RECALL-02 both shipped)
+Plan: 2 of 2 (31-01 EXECUTED, 31-02 EXECUTED)
+Status: Phase 31 complete. Next: Phase 32 (not yet planned).
+Last activity: 2026-07-07 -- Phase 31 Plan 02 (RECALL-02) executed — Phase 31 COMPLETE
 column), PromoteEdgeUseCase (fail-closed guard), authenticated POST /v1/knowledge/edges/{id}/promote
 endpoint. Phase 30 (TIER-02 + TIER-03) fully shipped.
 
-## Phase 31 — Recall & Measurement (executing 2026-07-07)
+## Phase 31 — Recall & Measurement (COMPLETE 2026-07-07)
+
+- **31-02 EXECUTED — PHASE 31 COMPLETE:** RECALL-02 — migration 0028 creates
+  `autofill_retrieval_events` (seed hits, injected entity-context counts, routing_reason;
+  RESTRICTIVE deny-all RLS for anon + authenticated, live-verified `relrowsecurity=true`).
+  `AutofillRetrievalEvent` domain entity + `AutofillRetrievalEventRepository` Protocol +
+  `SupabaseAutofillRetrievalEventRepository` (best-effort insert, mirrors
+  `SupabaseGenerationAuditRepository`'s catch-log-swallow posture). `AutofillUseCase` now
+  writes exactly one event per `execute` run at the end (after the `ExtractionRecord` save),
+  wrapped in its own try/except (defense in depth on top of the adapter's own swallow,
+  T-31-04) — an instrumentation-write failure never breaks autofill. `container.py` wires
+  the writer through `_provide_autofill_use_case`. `packages/db/scripts/
+  retrieval-miss-rate.ts` joins events to `extraction_records.corrected_fields` on
+  `component_id` AT QUERY TIME (no event mutation) and prints `total_runs`/`total_misses`/
+  a type-A (had-context-still-wrong) vs type-B (no-context-hand-filled) breakdown/
+  `miss_rate` (0 on an empty table, not NaN); `RETRIEVAL-MISS-RATE.md` writes down both
+  miss types and names this the stage-3 (KGX-01..03) go/no-go gate. 31/31 targeted tests
+  pass (6 new instrumentation + 2 pre-existing entity-context assertions updated for a new
+  non-rendered `entity_instance_id` key), full suite green, ruff/mypy/lint-imports clean,
+  0 UPDATE/DELETE in the miss-rate script (grep-verified). See 31-02-SUMMARY.md.
+  **Phase 31 (RECALL-01 + RECALL-02) is now fully complete. Next: Phase 32**
+  (Knowledge Canvas: Tiered Graph Exploration — not yet planned).
+
+## Phase 31 Plan 01 (historical entry, superseded by the COMPLETE summary above)
 
 - **31-01 EXECUTED:** RECALL-01 — closed the verified few-shot rendering gap (`AnthropicAutofiller`
   accepted `examples` but never rendered them into the Bedrock messages) and injected the resolved
@@ -47,6 +70,7 @@ endpoint. Phase 30 (TIER-02 + TIER-03) fully shipped.
   `_provide_autofill_use_case`. 25/25 targeted tests pass (12 adapter + 6 use-case + 7 pre-existing
   regression), full suite green, ruff/mypy/lint-imports clean, no `knowledge_node_edges` reference
   introduced (grep-verified). See 31-01-SUMMARY.md. **Next: 31-02** (RECALL-02 instrumentation store
+
   + retrieval-miss-rate artifact — not yet planned).
 
 ## v1.5 Roadmap Summary (2026-07-07)

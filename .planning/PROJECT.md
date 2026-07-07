@@ -198,8 +198,8 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 - [ ] Confirming a region materializes knowledge nodes + EXTRACTED-tier edges with OCR token-polygon provenance (the `confirm_region.py:169` hook goes live)
 - [ ] Ordinal trust tier (EXTRACTED | INFERRED | AMBIGUOUS) on knowledge nodes/edges; float confidence kept as intra-tier score
 - [ ] Suggest-only promotion gate: synthesis emits INFERRED/AMBIGUOUS display-only suggestions; human confirm promotes to EXTRACTED; only EXTRACTED eligible for prompt injection
-- [ ] Autofill few-shot prompts include the resolved entity's aliases/identifiers (cheap recall win, no BFS)
-- [ ] Retrieval outcomes instrumented so a retrieval-miss rate is measurable (stage-3 go/no-go gate)
+- [x] Autofill few-shot prompts include the resolved entity's aliases/identifiers (cheap recall win, no BFS)
+- [x] Retrieval outcomes instrumented so a retrieval-miss rate is measurable (stage-3 go/no-go gate)
 - [ ] `/knowledge` graph renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
 
 ### Out of Scope

@@ -86,7 +86,7 @@ retrieval-miss rate).
 - [x] **Phase 29: Tier Ladder + Edge Materialization** - Confirming a region durably materializes provenance-carrying knowledge graph edges, tagged with an ordinal trust tier, so corrections compound instead of evaporating
  (completed 2026-07-07)
 - [x] **Phase 30: Suggest-Only Promotion Gate** - Synthesis-generated relationships surface only as human-reviewable suggestions; a human promotes a suggestion to EXTRACTED before it is ever trusted for auto-injection (completed 2026-07-07)
-- [ ] **Phase 31: Recall & Measurement** - Autofill prompts recall an entity's known aliases/identifiers cheaply, and every autofill run's retrieval outcome is measured well enough to gate the deferred stage-3 BFS work
+- [x] **Phase 31: Recall & Measurement** - Autofill prompts recall an entity's known aliases/identifiers cheaply, and every autofill run's retrieval outcome is measured well enough to gate the deferred stage-3 BFS work (completed 2026-07-07)
 - [ ] **Phase 32: Knowledge Canvas: Tiered Graph Exploration** - `/knowledge` renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
 
 ## Phase Details
@@ -155,7 +155,7 @@ autofill run's retrieval outcome is measured well enough to tell whether the def
      persisted records) — the concrete artifact that gates the stage-3 BFS go/no-go decision
 **Plans**: 2 plans
 - [x] 31-01-PLAN.md — Few-shot rendering gap + alias/identifier injection (RECALL-01)
-- [ ] 31-02-PLAN.md — Retrieval instrumentation event table + miss-rate artifact (RECALL-02)
+- [x] 31-02-PLAN.md — Retrieval instrumentation event table + miss-rate artifact (RECALL-02)
 
 ### Phase 32: Knowledge Canvas: Tiered Graph Exploration
 **Goal**: Reviewers can see and explore the confidence-tiered knowledge graph directly on
@@ -184,7 +184,7 @@ parallelizable alongside 29/30 if desired (no shared schema/table).
 |-------|-----------------|--------|-----------|
 | 29. Tier Ladder + Edge Materialization | 4/4 | Complete   | 2026-07-07 |
 | 30. Suggest-Only Promotion Gate | 2/2 | Complete   | 2026-07-07 |
-| 31. Recall & Measurement | 1/2 | In Progress|  |
+| 31. Recall & Measurement | 2/2 | Complete   | 2026-07-07 |
 | 32. Knowledge Canvas: Tiered Graph Exploration | 0/? | Not started | - |
 
 ## Next
