@@ -213,3 +213,48 @@ class SupabaseKnowledgeGraphRepository:
             .execute()
         )
         return [cast("dict[str, object]", row) for row in result.data]
+
+    async def find_edge_by_id(self, edge_id: str) -> dict[str, object] | None:
+        """Load an edge plus its owning importer_id via a nested knowledge_nodes select.
+
+        Mirrors the entity_types(*) nested-embed idiom (entity_type_repository.py)
+        -- PostgREST resolves the source_node_id -> knowledge_nodes FK
+        automatically. Flattens the nested `knowledge_nodes.importer_id` onto
+        the returned dict for PromoteEdgeUseCase's tenant guard (T-30-07).
+        """
+        result = (
+            self._client.table("knowledge_node_edges")
+            .select("*, knowledge_nodes(importer_id)")
+            .eq("id", edge_id)
+            .execute()
+        )
+        if not result.data:
+            return None
+        row = dict(cast("dict[str, Any]", result.data[0]))
+        node = row.pop("knowledge_nodes", None)
+        row["importer_id"] = node.get("importer_id") if isinstance(node, dict) else None
+        return cast("dict[str, object]", row)
+
+    async def promote_edge(
+        self,
+        *,
+        edge_id: str,
+        promotion: dict[str, object],
+    ) -> bool:
+        """CAS-guarded promotion write (T-30-06): id + is_active=true + tier in suggestion tiers.
+
+        NEVER .delete() -- flips tier to EXTRACTED and writes `promotion`
+        (distinct from the synthesis `provenance` column) in one filtered
+        update call. Returns True only when a row actually matched the CAS
+        filter and was updated.
+        """
+        payload = cast("dict[str, Any]", strip_nul({"tier": "EXTRACTED", "promotion": promotion}))
+        result = (
+            self._client.table("knowledge_node_edges")
+            .update(payload)
+            .eq("id", edge_id)
+            .eq("is_active", True)
+            .in_("tier", ["INFERRED", "AMBIGUOUS"])
+            .execute()
+        )
+        return bool(result.data)

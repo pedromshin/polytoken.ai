@@ -85,3 +85,31 @@ class KnowledgeGraphRepository(Protocol):
         trusted for auto-injection).
         """
         ...
+
+    async def find_edge_by_id(self, edge_id: str) -> dict[str, object] | None:
+        """Return the edge row plus its owning importer_id, or None if not found.
+
+        The returned dict flattens `importer_id` (resolved via the
+        source_node_id -> knowledge_nodes join) alongside the raw edge
+        columns (`tier`, `is_active`, etc.) -- powers PromoteEdgeUseCase's
+        load + tenant-ownership guard step (T-30-07).
+        """
+        ...
+
+    async def promote_edge(
+        self,
+        *,
+        edge_id: str,
+        promotion: dict[str, object],
+    ) -> bool:
+        """CAS-guarded promotion write: flips tier to EXTRACTED, writes `promotion`.
+
+        The update is filtered by id AND is_active=true AND tier IN
+        (INFERRED, AMBIGUOUS) -- defense-in-depth so a concurrent
+        promote/dismiss cannot double-apply (T-30-06). `promotion` is
+        written to the promotion column, distinct from the synthesis
+        provenance column, and is NEVER a delete. Returns whether a row was
+        updated (False when the CAS filter matched no row -- edge already
+        promoted/deactivated concurrently).
+        """
+        ...

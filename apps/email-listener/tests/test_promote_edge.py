@@ -15,6 +15,8 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock
 
+import pytest
+
 from app.application.use_cases.promote_edge import (
     EdgeNotFound,
     EdgeNotPromotable,
@@ -77,11 +79,8 @@ def test_promote_ambiguous_edge_succeeds() -> None:
 def test_reject_not_found_before_any_write() -> None:
     use_case, repo = _use_case(None)
 
-    try:
+    with pytest.raises(EdgeNotFound):
         asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
-        raise AssertionError("expected EdgeNotFound")
-    except EdgeNotFound:
-        pass
 
     assert not repo.promote_edge.await_count, "promote_edge must NOT be called on not-found rejection"
 
@@ -89,11 +88,9 @@ def test_reject_not_found_before_any_write() -> None:
 def test_reject_already_extracted_before_any_write() -> None:
     use_case, repo = _use_case(_edge(tier="EXTRACTED"))
 
-    try:
+    with pytest.raises(EdgeNotPromotable) as exc_info:
         asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
-        raise AssertionError("expected EdgeNotPromotable")
-    except EdgeNotPromotable as exc:
-        assert exc.reason == "not_promotable"
+    assert exc_info.value.reason == "not_promotable"
 
     assert not repo.promote_edge.await_count, "promote_edge must NOT be called on already-EXTRACTED rejection"
 
@@ -101,11 +98,9 @@ def test_reject_already_extracted_before_any_write() -> None:
 def test_reject_inactive_before_any_write() -> None:
     use_case, repo = _use_case(_edge(tier="INFERRED", is_active=False))
 
-    try:
+    with pytest.raises(EdgeNotPromotable) as exc_info:
         asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
-        raise AssertionError("expected EdgeNotPromotable")
-    except EdgeNotPromotable as exc:
-        assert exc.reason == "inactive"
+    assert exc_info.value.reason == "inactive"
 
     assert not repo.promote_edge.await_count, "promote_edge must NOT be called on inactive rejection"
 
@@ -113,11 +108,9 @@ def test_reject_inactive_before_any_write() -> None:
 def test_reject_cross_importer_before_any_write() -> None:
     use_case, repo = _use_case(_edge(importer_id=_OTHER_IMPORTER))
 
-    try:
+    with pytest.raises(EdgeNotPromotable) as exc_info:
         asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
-        raise AssertionError("expected EdgeNotPromotable")
-    except EdgeNotPromotable as exc:
-        assert exc.reason == "tenant_mismatch"
+    assert exc_info.value.reason == "tenant_mismatch"
 
     assert not repo.promote_edge.await_count, "promote_edge must NOT be called on cross-importer rejection"
 
@@ -126,11 +119,9 @@ def test_reject_cas_conflict_when_repo_reports_no_row_updated() -> None:
     """Concurrent promote/dismiss already changed the row (T-30-06)."""
     use_case, repo = _use_case(_edge(tier="INFERRED"), promote_result=False)
 
-    try:
+    with pytest.raises(EdgeNotPromotable) as exc_info:
         asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
-        raise AssertionError("expected EdgeNotPromotable")
-    except EdgeNotPromotable as exc:
-        assert exc.reason == "conflict"
+    assert exc_info.value.reason == "conflict"
 
     repo.promote_edge.assert_awaited_once()
 
