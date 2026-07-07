@@ -83,7 +83,8 @@ Migrations-first deploy discipline (`packages/db/migrations/`). Do NOT borrow gr
 snapshot-diff work in this milestone (tracked as KGX-01..03, deferred until RECALL-02 measures a real
 retrieval-miss rate).
 
-- [x] **Phase 29: Tier Ladder + Edge Materialization** - Confirming a region durably materializes provenance-carrying knowledge graph edges, tagged with an ordinal trust tier, so corrections compound instead of evaporating (completed 2026-07-07)
+- [x] **Phase 29: Tier Ladder + Edge Materialization** - Confirming a region durably materializes provenance-carrying knowledge graph edges, tagged with an ordinal trust tier, so corrections compound instead of evaporating
+ (completed 2026-07-07)
 - [ ] **Phase 30: Suggest-Only Promotion Gate** - Synthesis-generated relationships surface only as human-reviewable suggestions; a human promotes a suggestion to EXTRACTED before it is ever trusted for auto-injection
 - [ ] **Phase 31: Recall & Measurement** - Autofill prompts recall an entity's known aliases/identifiers cheaply, and every autofill run's retrieval outcome is measured well enough to gate the deferred stage-3 BFS work
 - [ ] **Phase 32: Knowledge Canvas: Tiered Graph Exploration** - `/knowledge` renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
@@ -132,7 +133,9 @@ suggestions have a ladder to sit on and a tier to be promoted into)
      EXTRACTED
   4. Promoting an edge records promotion provenance (what was promoted, when, from which suggestion)
      on the edge row, distinct from the original synthesis provenance
-**Plans**: TBD
+**Plans**: 2 plans
+  - [ ] 30-01-PLAN.md — Suggestion emission (INFERRED/AMBIGUOUS) + EXTRACTED-only injection gate + tRPC tier visibility (TIER-02)
+  - [ ] 30-02-PLAN.md — Promotion mechanic: migration 0027 promotion column + fail-closed promote use case + authenticated endpoint (TIER-03)
 
 ### Phase 31: Recall & Measurement
 **Goal**: Autofill prompts recall an entity's already-known aliases and identifiers cheaply, and every
