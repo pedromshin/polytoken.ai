@@ -154,7 +154,7 @@ export const GenuiPanelNode = memo(function GenuiPanelNode({
 }: NodeProps<GenuiPanelNodeType>) {
   return (
     <div
-      className={`flex h-full min-h-[240px] w-full min-w-[320px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background transition-shadow duration-150 animate-in fade-in-0 zoom-in-95 duration-[250ms] motion-reduce:animate-none ${selected ? `${SELECTED_RING} shadow-elevation-2` : "shadow-elevation-1"}`}
+      className={`flex h-full min-h-[240px] w-full min-w-[320px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background transition-shadow duration-150 animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] motion-reduce:animate-none ${selected ? `${SELECTED_RING} shadow-elevation-2` : "shadow-elevation-1"}`}
     >
       <Handle type="target" position={Position.Left} />
       <GenuiPanelNodeBody

@@ -199,9 +199,9 @@
    Numeric timing/scale values are unprotectable facts, not copyrightable
    expression — this is a clean-room implementation, not a port. Colors
    retokenized to this app's existing custom properties per the phase's
-   no-new-token-VALUE constraint (durations/scales have no --duration-*/
-   --ease-* set of their own to retokenize into). One designated consumer
-   each — see 27-UI-SPEC.md ADOPT-05. */
+   no-new-token-VALUE constraint (durations/scales have no --duration- or
+   --ease- token set of their own to retokenize into). One designated
+   consumer each — see 27-UI-SPEC.md ADOPT-05. */
 @layer utilities {
   /* Modal — DeleteConversationDialog's inner content wrapper */
   .t-modal-reveal {
