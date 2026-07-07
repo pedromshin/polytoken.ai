@@ -147,7 +147,7 @@ export const ChatNode = memo(function ChatNode({
 }: NodeProps<ChatNodeType>) {
   return (
     <div
-      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 border-l-2 border-l-primary bg-background shadow-sm transition-shadow duration-150${selected ? ` ${SELECTED_RING}` : ""}`}
+      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 border-l-2 border-l-primary bg-background transition-shadow duration-150 ${selected ? `${SELECTED_RING} shadow-elevation-2` : "shadow-elevation-1"}`}
     >
       <Handle type="target" position={Position.Left} />
       <ChatNodeBody conversationId={data.conversationId} />
