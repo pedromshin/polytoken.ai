@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T18:54:12.964Z"
-last_activity: 2026-07-07 -- Phase 29 plan 02 (provenance write substrate: helper + ports + Supabase adapter) executed
+last_updated: "2026-07-07T19:05:19.583Z"
+last_activity: "2026-07-07 -- Phase 29 plan 03 (KnowledgeSynthesizerService: node-per-region + supersede-safe edges) executed"
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
-  percent: 50
+  completed_plans: 3
+  percent: 75
 ---
 
 # State
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 29 (Tier Ladder + Edge Materialization) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Executing Phase 29
-Last activity: 2026-07-07 -- Phase 29 plan 02 (provenance write substrate: helper + ports + Supabase adapter) executed
+Last activity: 2026-07-07 -- Phase 29 plan 03 (KnowledgeSynthesizerService: node-per-region + supersede-safe edges) executed
 
 ## v1.5 Roadmap Summary (2026-07-07)
 
@@ -1198,6 +1198,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-07 (29-02): capture_provenance() returns {tokens, text} in one call so the future synthesizer (29-03) and edit_region's text-only need share one source of truth for the OCR token∩polygon overlap predicate — no duplicated intersection logic
 - 2026-07-07 (29-02): upsert_node performs read-then-write (find_active_node lookup, then insert or update) rather than a DB-level upsert-on-conflict, because node identity is a business key (importer_id, scope, scope_ref_id), not a single unique column PostgREST can target
 - 2026-07-07 (29-02): pre-existing test-isolation flake found in test_genui_retrieval_provider.py (24 tests fail only when the full suite runs together; pass in isolation; reproduces on unmodified main) — logged to deferred-items.md, out of scope for this plan
+- 2026-07-07 (29-03): node identity = the confirmed region (scope_ref_id=component_id, scope="entity_type"), not the entity_type row, so deactivate_edges_for_node on re-confirm touches exactly and only this region's edges (T-29-08)
+- 2026-07-07 (29-03): title/content composition uses raw entity_type_id (no EntityType label lookup) since the synthesizer's collaborators are components/knowledge/entity_instances only — no entity_types port injected
 
 ## Performance Metrics
 
@@ -1210,6 +1212,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 05 P01 | 35m | 2 tasks | 7 files |
 | Phase 04 P08 | resumed | 4 tasks | retrieval schema + flywheel + RPCs; applied 3 envs |
 | Phase 04 P13 | ~30m | 2 tasks | retain token bbox geometry (text+OCR) |
+| Phase 29 P03 | 40m | 3 tasks | 5 files — KnowledgeSynthesizerService (node-per-region + supersede-safe edges) |
 | Phase 04 P14 | ~40m | 2 tasks | ground region polygons in token coords |
 | Phase 05 P03 | ~30m | 3 tasks | email detail route + DOMPurify body tabs + entities list |
 | Phase 05 P04 | ~35m | 3 tasks | react-pdf PdfPreviewPane + RegionOverlayBox + OverlayLayer |

@@ -21,7 +21,7 @@ corrections compound. Without this, every other borrow is a no-op.
 
 - [ ] **SYNTH-01**: Confirming a region materializes knowledge nodes and EXTRACTED-tier `knowledge_node_edges` rows linking the confirmed entity/field to its knowledge context (co-occurring entities, importer scope)
 - [x] **SYNTH-02**: Materialized edges carry OCR token-polygon provenance identifying exactly which tokens the knowledge came from
-- [ ] **SYNTH-03**: Re-confirming or superseding a region updates its edges supersede-safely — no duplicate or orphaned edges (consistent with the Phase-6 versioning convention)
+- [x] **SYNTH-03**: Re-confirming or superseding a region updates its edges supersede-safely — no duplicate or orphaned edges (consistent with the Phase-6 versioning convention)
 
 ### Tier Ladder & Promotion Gate (TIER)
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TIER-01 | Phase 29 | Complete |
 | SYNTH-01 | Phase 29 | Pending |
 | SYNTH-02 | Phase 29 | Complete |
-| SYNTH-03 | Phase 29 | Pending |
+| SYNTH-03 | Phase 29 | Complete |
 | TIER-02 | Phase 30 | Pending |
 | TIER-03 | Phase 30 | Pending |
 | RECALL-01 | Phase 31 | Pending |
