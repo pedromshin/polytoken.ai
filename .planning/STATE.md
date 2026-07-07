@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T23:20:00.000Z"
-last_activity: 2026-07-07 -- Phase 30 Plan 02 (TIER-03) complete; Phase 30 (Suggest-Only Promotion Gate) done
+last_updated: "2026-07-07T23:45:00.000Z"
+last_activity: 2026-07-07 -- Phase 31 Plan 01 (RECALL-01) executed
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 50
+  total_plans: 8
+  completed_plans: 8
+  percent: 63
 ---
 
 # State
@@ -20,16 +20,34 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 30 — Suggest-Only Promotion Gate
+**Current focus:** Phase 31 — Recall & Measurement
 
 ## Current Position
 
-Phase: 30 (Suggest-Only Promotion Gate) — COMPLETE
-Plan: 2 of 2 (done)
-Status: Phase 30 complete; ready for Phase 31/32
-Last activity: 2026-07-07 -- Phase 30 Plan 02 (TIER-03) complete: migration 0027 (promotion jsonb
+Phase: 31 (Recall & Measurement) — EXECUTING
+Plan: 2 of ? (31-01 EXECUTED; 31-02 not yet planned)
+Status: Executing Phase 31
+Last activity: 2026-07-07 -- Phase 31 Plan 01 (RECALL-01) executed
 column), PromoteEdgeUseCase (fail-closed guard), authenticated POST /v1/knowledge/edges/{id}/promote
 endpoint. Phase 30 (TIER-02 + TIER-03) fully shipped.
+
+## Phase 31 — Recall & Measurement (executing 2026-07-07)
+
+- **31-01 EXECUTED:** RECALL-01 — closed the verified few-shot rendering gap (`AnthropicAutofiller`
+  accepted `examples` but never rendered them into the Bedrock messages) and injected the resolved
+  entity's `aliases[]`/`identifiers` as a delimited `<known_entity_context>` block in the same user
+  turn. `_render_examples_block`/`_render_entity_context_block` render both as UNTRUSTED content
+  ONLY in the user turn (D-14 preserved, proven by dedicated system-prompt-absence tests); alias cap
+  `_MAX_RENDERED_ALIASES=20` bounds injected size (T-31-03); cold-start form (`examples=()`,
+  `entity_context=None`) stays byte-identical (regression-guarded). `AutofillUseCase` gained
+  `_resolve_entity_context` — a direct `entity_instances` read via `find_selected_instance_for_component`
+  falling back to `find_unselected_candidate_instances_for_component` (NO BFS/graph traversal),
+  best-effort try/except (mirrors `confirm_region.py`'s synthesis-hook posture), never breaks autofill
+  on failure; `routing_reason` untouched. `container.py` wires `EntityInstanceRepository` through
+  `_provide_autofill_use_case`. 25/25 targeted tests pass (12 adapter + 6 use-case + 7 pre-existing
+  regression), full suite green, ruff/mypy/lint-imports clean, no `knowledge_node_edges` reference
+  introduced (grep-verified). See 31-01-SUMMARY.md. **Next: 31-02** (RECALL-02 instrumentation store
+  + retrieval-miss-rate artifact — not yet planned).
 
 ## v1.5 Roadmap Summary (2026-07-07)
 

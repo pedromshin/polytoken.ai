@@ -37,7 +37,7 @@ suggest-only promotion gate. "Being wrong is expensive" becomes a property of th
 The cheaper 80% of the recall win first — and the instrumentation that gates whether stage-3
 graph-expand is ever justified.
 
-- [ ] **RECALL-01**: Autofill few-shot prompts include the resolved entity's `aliases[]` and `identifiers` (no BFS, no graph traversal)
+- [x] **RECALL-01**: Autofill few-shot prompts include the resolved entity's `aliases[]` and `identifiers` (no BFS, no graph traversal)
 - [ ] **RECALL-02**: Retrieval outcomes are instrumented per autofill run (seed hits, injected context, subsequent human correction) so a retrieval-miss rate can be measured — the stage-3 go/no-go gate
 
 ### Knowledge Canvas (GRAPH)
@@ -102,7 +102,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNTH-03 | Phase 29 | Complete |
 | TIER-02 | Phase 30 | Complete |
 | TIER-03 | Phase 30 | Complete |
-| RECALL-01 | Phase 31 | Pending |
+| RECALL-01 | Phase 31 | Complete |
 | RECALL-02 | Phase 31 | Pending |
 | GRAPH-01 | Phase 32 | Pending |
 | GRAPH-02 | Phase 32 | Pending |

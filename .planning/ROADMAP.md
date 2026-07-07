@@ -154,7 +154,7 @@ autofill run's retrieval outcome is measured well enough to tell whether the def
   4. A retrieval-miss rate is computable from the instrumented data (a query/report over the
      persisted records) — the concrete artifact that gates the stage-3 BFS go/no-go decision
 **Plans**: 2 plans
-- [ ] 31-01-PLAN.md — Few-shot rendering gap + alias/identifier injection (RECALL-01)
+- [x] 31-01-PLAN.md — Few-shot rendering gap + alias/identifier injection (RECALL-01)
 - [ ] 31-02-PLAN.md — Retrieval instrumentation event table + miss-rate artifact (RECALL-02)
 
 ### Phase 32: Knowledge Canvas: Tiered Graph Exploration
@@ -184,7 +184,7 @@ parallelizable alongside 29/30 if desired (no shared schema/table).
 |-------|-----------------|--------|-----------|
 | 29. Tier Ladder + Edge Materialization | 4/4 | Complete   | 2026-07-07 |
 | 30. Suggest-Only Promotion Gate | 2/2 | Complete   | 2026-07-07 |
-| 31. Recall & Measurement | 0/? | Not started | - |
+| 31. Recall & Measurement | 1/2 | In Progress|  |
 | 32. Knowledge Canvas: Tiered Graph Exploration | 0/? | Not started | - |
 
 ## Next
