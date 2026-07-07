@@ -83,7 +83,7 @@ Migrations-first deploy discipline (`packages/db/migrations/`). Do NOT borrow gr
 snapshot-diff work in this milestone (tracked as KGX-01..03, deferred until RECALL-02 measures a real
 retrieval-miss rate).
 
-- [ ] **Phase 29: Tier Ladder + Edge Materialization** - Confirming a region durably materializes provenance-carrying knowledge graph edges, tagged with an ordinal trust tier, so corrections compound instead of evaporating
+- [x] **Phase 29: Tier Ladder + Edge Materialization** - Confirming a region durably materializes provenance-carrying knowledge graph edges, tagged with an ordinal trust tier, so corrections compound instead of evaporating (completed 2026-07-07)
 - [ ] **Phase 30: Suggest-Only Promotion Gate** - Synthesis-generated relationships surface only as human-reviewable suggestions; a human promotes a suggestion to EXTRACTED before it is ever trusted for auto-injection
 - [ ] **Phase 31: Recall & Measurement** - Autofill prompts recall an entity's known aliases/identifiers cheaply, and every autofill run's retrieval outcome is measured well enough to gate the deferred stage-3 BFS work
 - [ ] **Phase 32: Knowledge Canvas: Tiered Graph Exploration** - `/knowledge` renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
@@ -113,7 +113,7 @@ an ordinal trust tier so that provenance is trustworthy from the first row writt
   - [x] 29-01-PLAN.md — Tier-ladder enum + provenance/is_active columns; migration 0026 applied + live-verified (TIER-01)
   - [x] 29-02-PLAN.md — Shared token-provenance helper, KnowledgeSynthesizer + KnowledgeGraphRepository ports, Supabase edge/node adapter (SYNTH-02)
   - [x] 29-03-PLAN.md — KnowledgeSynthesizerService: 1:1 region node + supersede-safe EXTRACTED edge set (SYNTH-03)
-  - [ ] 29-04-PLAN.md — Best-effort synthesis hook wired into ConfirmRegionUseCase + DI; end-to-end materialization (SYNTH-01)
+  - [x] 29-04-PLAN.md — Best-effort synthesis hook wired into ConfirmRegionUseCase + DI; end-to-end materialization (SYNTH-01)
 
 ### Phase 30: Suggest-Only Promotion Gate
 **Goal**: Synthesis-generated relationships surface only as human-reviewable suggestions — never as
@@ -177,7 +177,7 @@ parallelizable alongside 29/30 if desired (no shared schema/table).
 
 | Phase | Plans Complete | Status | Completed |
 |-------|-----------------|--------|-----------|
-| 29. Tier Ladder + Edge Materialization | 3/4 | In Progress|  |
+| 29. Tier Ladder + Edge Materialization | 4/4 | Complete   | 2026-07-07 |
 | 30. Suggest-Only Promotion Gate | 0/? | Not started | - |
 | 31. Recall & Measurement | 0/? | Not started | - |
 | 32. Knowledge Canvas: Tiered Graph Exploration | 0/? | Not started | - |

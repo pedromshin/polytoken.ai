@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-07T19:05:19.583Z"
-last_activity: "2026-07-07 -- Phase 29 plan 03 (KnowledgeSynthesizerService: node-per-region + supersede-safe edges) executed"
+last_updated: "2026-07-07T19:20:00.000Z"
+last_activity: "2026-07-07 -- Phase 29 plan 04 (D-13 synthesis hook activated: ConfirmRegionUseCase wired to KnowledgeSynthesizerService via DI) executed -- Phase 29 (Tier Ladder + Edge Materialization) COMPLETE"
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
-  percent: 75
+  completed_plans: 4
+  percent: 25
 ---
 
 # State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 29 (Tier Ladder + Edge Materialization) — EXECUTING
+Phase: 29 (Tier Ladder + Edge Materialization) — COMPLETE (4/4 plans executed)
 Plan: 4 of 4
-Status: Executing Phase 29
-Last activity: 2026-07-07 -- Phase 29 plan 03 (KnowledgeSynthesizerService: node-per-region + supersede-safe edges) executed
+Status: Phase 29 complete; ready for verification / Phase 30
+Last activity: 2026-07-07 -- Phase 29 plan 04 (D-13 synthesis hook activated: ConfirmRegionUseCase wired to KnowledgeSynthesizerService via DI) executed
 
 ## v1.5 Roadmap Summary (2026-07-07)
 
@@ -94,6 +94,26 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   types/nullability/defaults, and the partial index all confirmed present in local Supabase
   Postgres. `tsc --noEmit` clean. See 29-01-SUMMARY.md. **Next: 29-02** (materialization wiring —
   SYNTH-01).
+- **29-02 EXECUTED:** Provenance-carrying write substrate — `_token_provenance.capture_provenance`
+  (shared OCR token∩polygon helper), `KnowledgeSynthesizer`/`KnowledgeGraphRepository` domain ports,
+  and `SupabaseKnowledgeGraphRepository` (node-reuse upsert, never-delete `is_active` supersede).
+  See 29-02-SUMMARY.md.
+- **29-03 EXECUTED:** `KnowledgeSynthesizerService` — confirming a region materializes one
+  knowledge_node (1:1 with the region) plus a supersede-safe, provenance-carrying EXTRACTED-tier
+  edge set (anchor/co-occurrence/conditional-about). Re-confirm deactivates-then-inserts, never
+  deletes. See 29-03-SUMMARY.md.
+- **29-04 EXECUTED — PHASE 29 COMPLETE:** SYNTH-01 — activated the dormant D-13 synthesis-trigger
+  comment in `ConfirmRegionUseCase` with a real best-effort call to
+  `KnowledgeSynthesizer.synthesize_from_confirmation` (try/except log-and-swallow, mirrors
+  components.py's convention; `confirmed_record` hoisted to `None` so the no-candidate path stays
+  in scope) and wired `SupabaseKnowledgeGraphRepository` + `KnowledgeSynthesizerService` through a
+  new `_provide_confirm_region_use_case` DI factory (mirrors `_provide_promote_entity_use_case`).
+  A real region-confirm now materializes `knowledge_nodes` + EXTRACTED-tier `knowledge_node_edges`
+  rows end-to-end; synthesis failure never fails the confirm. 18/18 test_confirm_region.py tests
+  pass (4 new: ordering, best-effort swallow, no-candidate None, HTTP-seam invocation); full suite
+  (minus the pre-existing, already-logged genui_retrieval_provider flake) green; ruff/lint-imports
+  clean. See 29-04-SUMMARY.md. **All Phase 29 requirements (TIER-01, SYNTH-01, SYNTH-02, SYNTH-03)
+  now complete. Next: Phase 30** (Suggest-Only Promotion Gate — not yet planned).
 
 ## Deferred Items
 
