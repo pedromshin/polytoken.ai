@@ -78,7 +78,7 @@ export function TierFilterControl({
             size="sm"
             className={
               active
-                ? "border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                ? "border-primary bg-primary font-semibold text-primary-foreground hover:bg-primary hover:text-primary-foreground"
                 : "border-border bg-background text-muted-foreground"
             }
             onClick={() => onChange(segment.state)}
