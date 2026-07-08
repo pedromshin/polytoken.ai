@@ -57,6 +57,7 @@ import json
 import uuid
 from dataclasses import dataclass, replace
 from decimal import Decimal
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
 
 import structlog
@@ -87,9 +88,10 @@ from app.domain.services.chat_provider_router import ChatModelNotFoundError, Cha
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker, estimate_prompt_tokens
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+    from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
 
     from app.domain.ports.chat_provider import ChatDelta, ChatProvider
+    from app.domain.ports.tool_executor import ToolExecutor
 
 logger = structlog.get_logger(__name__)
 
@@ -145,6 +147,7 @@ class RunChatTurn:
         max_output_tokens: int = 4096,
         widget_interactions: ChatWidgetInteractionRepository | None = None,
         interactive_widget_tools: tuple[dict[str, Any], ...] = (),
+        tool_executors: Mapping[str, ToolExecutor] = MappingProxyType({}),
     ) -> None:
         self._messages = messages
         self._runs = runs
@@ -157,6 +160,11 @@ class RunChatTurn:
         self._max_output_tokens = max_output_tokens
         self._widget_interactions = widget_interactions
         self._interactive_widget_tools = interactive_widget_tools
+        # Phase 34-03 (LOOP-01): the bounded mid-turn server-tool round loop's
+        # seam. Additive default (mirrors interactive_widget_tools above) —
+        # empty in production until Phase 36 (container.py wires {} today).
+        self._tool_executors = tool_executors
+        self._server_tool_names: tuple[str, ...] = tuple(tool_executors.keys())
 
     async def run(
         self,
@@ -379,10 +387,27 @@ class RunChatTurn:
 
         # D-05: emit_ui_spec (+ Phase 24-02 interactive_widget_tools, e.g.
         # emit_proposal_cards) is offered ONLY to genui-capable models; a
-        # text-only model never even sees a tool exists (D-02/D-03).
+        # text-only model never even sees a tool exists (D-02/D-03). Phase
+        # 34-03 (LOOP-01, T-34-05): server tool schemas (self._tool_executors)
+        # are ALSO offered, independently of genui, but ONLY when the model's
+        # max_tool_rounds capability gate is open AND at least one executor is
+        # wired — a max_tool_rounds==0 model (every OpenRouter/browser entry)
+        # never sees a server tool and can never enter a round.
         tools: tuple[dict[str, Any], ...] = (
             (self._emit_ui_spec_tool, *self._interactive_widget_tools) if model.capabilities.genui else ()
         )
+        if model.capabilities.max_tool_rounds > 0 and self._tool_executors:
+            tools = (
+                *tools,
+                *(
+                    {
+                        "name": tool_name,
+                        "description": f"Server tool: {tool_name}",
+                        "input_schema": {"type": "object", "additionalProperties": False},
+                    }
+                    for tool_name in self._server_tool_names
+                ),
+            )
 
         # Cast: ChatProvider.stream() is typed AsyncIterator[ChatDelta] on the Protocol
         # (deliberately loose so a future non-generator implementation stays valid),
@@ -761,7 +786,12 @@ def _provider_content_blocks(parts: Sequence[dict[str, Any]]) -> list[dict[str, 
     would violate the API's block-alternation contract, so it becomes a
     compact text stand-in instead. Phase 24-02: 'interactive_widget'/
     'interaction_result' get the same treatment (run_chat_turn_widgets.py's
-    content_block_stand_in); full tool_use/tool_result replay is not
+    content_block_stand_in). Phase 34-03 (LOOP-01): 'tool_invocation'/
+    'tool_invocation_result' (a PRIOR turn's persisted server-tool round) get
+    the same text stand-in treatment for the same reason -- a bare
+    tool_use/tool_result pair replayed here (outside the SAME turn's native
+    in-round messages built by _execute_turn's round loop) would violate the
+    API's block-alternation contract. Full tool_use/tool_result replay is not
     attempted for any of these shapes.
     """
     blocks: list[dict[str, Any]] = []
@@ -772,6 +802,13 @@ def _provider_content_blocks(parts: Sequence[dict[str, Any]]) -> list[dict[str, 
             blocks.append({"type": "text", "text": f"[emitted UI spec: {spec_json}]"})
         elif part_type in ("interactive_widget", "interaction_result"):
             blocks.append(content_block_stand_in(part))
+        elif part_type == "tool_invocation":
+            args_json = json.dumps(part.get("arguments", {}), ensure_ascii=False)
+            blocks.append({"type": "text", "text": f"[dispatched tool {part.get('toolName')}: {args_json}]"})
+        elif part_type == "tool_invocation_result":
+            blocks.append(
+                {"type": "text", "text": f"[tool {part.get('toolName')} result: {part.get('content', '')}]"}
+            )
         else:
             blocks.append(part)
     return blocks

@@ -649,6 +649,12 @@ def _provide_run_chat_turn(
         max_output_tokens=settings.CHAT_MAX_OUTPUT_TOKENS,
         widget_interactions=widget_interactions,
         interactive_widget_tools=(build_emit_proposal_cards_tool(), build_emit_clarify_widget_tool()),
+        # Phase 34-03 (LOOP-01): EMPTY in production — no real server tool
+        # exists until Phase 36 adds one (e.g. lookup_entity). Even though the
+        # 2 Bedrock Claude registry entries already carry max_tool_rounds=4,
+        # an empty executor mapping means the round-loop gate never offers a
+        # server tool schema, so no round can ever be entered today.
+        tool_executors={},
     )
 
 
