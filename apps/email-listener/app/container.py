@@ -142,6 +142,16 @@ from app.infrastructure.supabase.supabase_chat_widget_interaction_repository imp
 from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
 from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
+from app.infrastructure.tools.lookup_entity_executor import (
+    LOOKUP_ENTITY_TOOL_NAME,
+    LookupEntityExecutor,
+    build_lookup_entity_tool,
+)
+from app.infrastructure.tools.search_emails_executor import (
+    SEARCH_EMAILS_TOOL_NAME,
+    SearchEmailsExecutor,
+    build_search_emails_tool,
+)
 from app.settings import get_settings
 
 
@@ -621,6 +631,13 @@ def _provide_run_chat_turn(
     breaker: CostCircuitBreaker,
     ledger: CostLedgerRepository,
     widget_interactions: ChatWidgetInteractionRepository,
+    client: Client,
+    entity_instances: EntityInstanceRepository,
+    entity_types: EntityTypeRepository,
+    embedder: EmbeddingProtocol,
+    retrieval: RetrievalPort,
+    components: ComponentRepository,
+    email_repo: EmailRepository,
 ) -> RunChatTurn:
     """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
@@ -635,8 +652,32 @@ def _provide_run_chat_turn(
     widget-interaction repository RunChatTurn needs to create the one pending
     row per emitted widget (D-04) and to supersede pending widgets on typing
     (D-02).
+
+    Phase 36-02: wires the first two real, production ToolExecutors —
+    lookup_entity (TOOL-01, 36-01) and search_emails (TOOL-02, this plan) —
+    both thin wrappers over EXISTING repository/port calls, zero new backend.
+    SupabaseEntityResolutionRepository is a concrete infrastructure class (not
+    a port), so it is instantiated directly here, mirroring
+    _provide_resolve_candidates_use_case's identical existing pattern. Both
+    tools are offered to every max_tool_rounds > 0 model (the 2 Bedrock
+    Claude registry entries) — no further per-model capability gating is
+    added by this plan (the existing max_tool_rounds gate already covers it).
     """
     settings = get_settings()
+    resolution_repo = SupabaseEntityResolutionRepository(client=client)
+    lookup_entity_executor = LookupEntityExecutor(
+        entity_instances=entity_instances,
+        resolution_repo=resolution_repo,
+        entity_types=entity_types,
+        embedder=embedder,
+    )
+    search_emails_executor = SearchEmailsExecutor(
+        retrieval=retrieval,
+        entity_types=entity_types,
+        components=components,
+        emails=email_repo,
+        embedder=embedder,
+    )
     return RunChatTurn(
         messages=messages,
         runs=runs,
@@ -649,12 +690,14 @@ def _provide_run_chat_turn(
         max_output_tokens=settings.CHAT_MAX_OUTPUT_TOKENS,
         widget_interactions=widget_interactions,
         interactive_widget_tools=(build_emit_proposal_cards_tool(), build_emit_clarify_widget_tool()),
-        # Phase 34-03 (LOOP-01): EMPTY in production — no real server tool
-        # exists until Phase 36 adds one (e.g. lookup_entity). Even though the
-        # 2 Bedrock Claude registry entries already carry max_tool_rounds=4,
-        # an empty executor mapping means the round-loop gate never offers a
-        # server tool schema, so no round can ever be entered today.
-        tool_executors={},
+        tool_executors={
+            LOOKUP_ENTITY_TOOL_NAME: lookup_entity_executor,
+            SEARCH_EMAILS_TOOL_NAME: search_emails_executor,
+        },
+        server_tool_defs={
+            LOOKUP_ENTITY_TOOL_NAME: build_lookup_entity_tool(),
+            SEARCH_EMAILS_TOOL_NAME: build_search_emails_tool(),
+        },
     )
 
 

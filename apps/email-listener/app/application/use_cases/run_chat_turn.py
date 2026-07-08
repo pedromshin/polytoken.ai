@@ -225,6 +225,7 @@ class RunChatTurn:
         widget_interactions: ChatWidgetInteractionRepository | None = None,
         interactive_widget_tools: tuple[dict[str, Any], ...] = (),
         tool_executors: Mapping[str, ToolExecutor] = MappingProxyType({}),
+        server_tool_defs: Mapping[str, dict[str, Any]] = MappingProxyType({}),
     ) -> None:
         self._messages = messages
         self._runs = runs
@@ -242,6 +243,12 @@ class RunChatTurn:
         # empty in production until Phase 36 (container.py wires {} today).
         self._tool_executors = tool_executors
         self._server_tool_names: tuple[str, ...] = tuple(tool_executors.keys())
+        # Phase 36-02: real per-tool schemas (name -> {"name","description",
+        # "input_schema"} dict, e.g. build_lookup_entity_tool()'s output).
+        # Additive default (empty mapping) — a tool name absent here falls
+        # back to _build_tool_offer's generic stub dict, so every existing
+        # Phase 34/35 test/caller that never passes this stays green.
+        self._server_tool_defs = server_tool_defs
 
     async def run(
         self,
@@ -445,6 +452,14 @@ class RunChatTurn:
         max_tool_rounds capability gate is open AND at least one executor is
         wired — a max_tool_rounds==0 model (every OpenRouter/browser entry)
         never sees a server tool and can never enter a round.
+
+        Phase 36-02: each server tool's real schema comes from
+        `self._server_tool_defs` when a matching entry exists (e.g.
+        `build_lookup_entity_tool()`'s dict) — the LLM sees the tool's real
+        argument shape instead of the Phase-34 placeholder. A tool name with
+        no matching entry (e.g. a test-only executor registered without a
+        def, like EchoToolExecutor in Phase 34/35's own tests) falls back to
+        the original generic stub dict, unchanged.
         """
         tools: tuple[dict[str, Any], ...] = (
             (self._emit_ui_spec_tool, *self._interactive_widget_tools) if model.capabilities.genui else ()
@@ -452,11 +467,14 @@ class RunChatTurn:
         if not (model.capabilities.max_tool_rounds > 0 and self._tool_executors):
             return tools
         server_tools = tuple(
-            {
-                "name": tool_name,
-                "description": f"Server tool: {tool_name}",
-                "input_schema": {"type": "object", "additionalProperties": False},
-            }
+            self._server_tool_defs.get(
+                tool_name,
+                {
+                    "name": tool_name,
+                    "description": f"Server tool: {tool_name}",
+                    "input_schema": {"type": "object", "additionalProperties": False},
+                },
+            )
             for tool_name in self._server_tool_names
         )
         return (*tools, *server_tools)
