@@ -14,7 +14,7 @@
 
 import * as React from "react";
 import { act } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createCanvasStore } from "../canvas-store";
 import { CanvasStoreProvider, usePanelData, type IncomingDataEdge } from "../canvas-store-context";
@@ -117,6 +117,186 @@ describe("panel write -> store -> picker field discovery -> live edge resolution
     // one-shot snapshot.
     expect(store.getState().read("panels.panel-a.choice")).toBe("C2");
     expect(container.querySelector('[data-testid="target-input"]')?.textContent).toBe("C2");
+
+    root.unmount();
+    document.body.removeChild(container);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 33 (BIND-01) — useDataBindings wiring into GenuiPanelNodeBody's merge
+// order (`{ ...panelData, ...liveBindingData }`, live keys win on collision).
+//
+// `~/trpc/react`'s `api.useQueries` is mocked with the SAME fake-`t`-proxy
+// convention as `use-data-bindings.test.tsx` (a real tRPC/QueryClient isn't
+// mounted anywhere in this test package). GenuiPanelNodeBody itself is
+// module-private and needs React Flow context (see file header) — this
+// harness reproduces its ACTUAL production wiring (usePanelData ->
+// useDataBindings -> merge -> GenuiPartBoundary's data prop) directly, the
+// same pattern this file's first describe block already established.
+// ---------------------------------------------------------------------------
+
+interface FakeQueryOptions {
+  readonly queryKey: readonly [string, string];
+  readonly __input: unknown;
+  readonly enabled?: boolean;
+  readonly staleTime?: number;
+}
+
+interface FakeQueryResult {
+  readonly data: unknown;
+  readonly isLoading: boolean;
+  readonly isError: boolean;
+}
+
+let BINDING_RESULTS: Record<string, FakeQueryResult> = {};
+
+function makeProcedureCall(router: string, procedure: string) {
+  return (
+    input: unknown,
+    opts?: { enabled?: boolean; staleTime?: number },
+  ): FakeQueryOptions => ({
+    queryKey: [router, procedure],
+    __input: input,
+    ...opts,
+  });
+}
+
+const FAKE_T = {
+  entities: {
+    byId: makeProcedureCall("entities", "byId"),
+    list: makeProcedureCall("entities", "list"),
+  },
+  emails: {
+    detail: makeProcedureCall("emails", "detail"),
+  },
+  knowledge: {
+    byId: makeProcedureCall("knowledge", "byId"),
+    graph: makeProcedureCall("knowledge", "graph"),
+  },
+};
+
+const useQueriesMock = vi.fn((callback: (t: typeof FAKE_T) => unknown[]) => {
+  const queries = callback(FAKE_T) as FakeQueryOptions[];
+  return queries.map((q) => {
+    if (q.enabled === false) {
+      return { data: undefined, isLoading: false, isError: false };
+    }
+    const key = q.queryKey.join(".");
+    return BINDING_RESULTS[key] ?? { data: undefined, isLoading: true, isError: false };
+  });
+});
+
+vi.mock("~/trpc/react", () => ({
+  api: {
+    useQueries: (cb: (t: typeof FAKE_T) => unknown[]) => useQueriesMock(cb),
+  },
+}));
+
+import { useDataBindings } from "../use-data-bindings";
+
+/** Reproduces GenuiPanelNodeBody's ACTUAL merge order over the real
+ * usePanelData/useDataBindings/GenuiPartBoundary seam. */
+function BoundPanelHarness({
+  panelId,
+  specJson,
+}: {
+  readonly panelId: string;
+  readonly specJson: string;
+}): React.ReactElement {
+  const { data: panelData, dispatch } = usePanelData(panelId);
+  const actions = usePanelActionRegistry(dispatch);
+  const liveBindingData = useDataBindings({ specJson, isStreaming: false, panelData });
+  return (
+    <GenuiPartBoundary
+      specJson={specJson}
+      isStreaming={false}
+      data={{ ...panelData, ...liveBindingData }}
+      actions={actions}
+    />
+  );
+}
+
+/** A `conditional` spec node whose `then`/`else` render distinguishable text —
+ * lets assertions observe exactly which value `data.{dataKey}` resolved to
+ * without needing a `dataRef`-capable leaf node (only `list`/`conditional`
+ * read `dataRef`, per render-node.tsx). */
+function conditionalSpecJson(
+  dataKey: string,
+  matchValue: string,
+  bindings?: Record<string, unknown>,
+): string {
+  return JSON.stringify({
+    v: 1,
+    ...(bindings !== undefined ? { bindings } : {}),
+    root: {
+      type: "conditional",
+      condition: { dataRef: `data.${dataKey}`, operator: "eq", value: matchValue },
+      then: { type: "text", content: "MATCHED" },
+      else: { type: "text", content: "NO_MATCH" },
+    },
+  });
+}
+
+describe("useDataBindings wiring into GenuiPanelNodeBody's merged data (Phase 33 BIND-01)", () => {
+  beforeEach(() => {
+    BINDING_RESULTS = {};
+    useQueriesMock.mockClear();
+  });
+
+  it("merges live binding data over panelData, with the live value winning on key collision", async () => {
+    const store = createCanvasStore({
+      panels: { "panel-bound": { sharedKey: "fromPanelData", selectedNodeId: "node-live-1" } },
+    });
+    BINDING_RESULTS["knowledge.byId"] = { data: "fromBinding", isLoading: false, isError: false };
+
+    const specJson = conditionalSpecJson("sharedKey", "fromBinding", {
+      sharedKey: { procedure: "knowledge.byId", params: {} },
+    });
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = (await import("react-dom/client")).createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <CanvasStoreProvider store={store}>
+          <BoundPanelHarness panelId="panel-bound" specJson={specJson} />
+        </CanvasStoreProvider>,
+      );
+    });
+
+    // panelData.sharedKey === "fromPanelData" but the live binding resolves
+    // "fromBinding" for the SAME key — {...panelData, ...liveBindingData}
+    // means the live value must win.
+    expect(container.textContent).toBe("MATCHED");
+
+    root.unmount();
+    document.body.removeChild(container);
+  });
+
+  it("renders identically to plain panelData when useDataBindings resolves to {} (no bindings declared)", async () => {
+    const store = createCanvasStore({
+      panels: { "panel-plain": { sharedKey: "onlyPanelData" } },
+    });
+
+    // No top-level `bindings` field at all — extractBindings degrades to {},
+    // so the merged data must equal panelData exactly (no key stripping).
+    const specJson = conditionalSpecJson("sharedKey", "onlyPanelData");
+
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = (await import("react-dom/client")).createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <CanvasStoreProvider store={store}>
+          <BoundPanelHarness panelId="panel-plain" specJson={specJson} />
+        </CanvasStoreProvider>,
+      );
+    });
+
+    expect(container.textContent).toBe("MATCHED");
 
     root.unmount();
     document.body.removeChild(container);

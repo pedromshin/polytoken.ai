@@ -28,6 +28,14 @@
  * into the UNMODIFIED `SpecRenderer` via `GenuiPartBoundary`'s `data` prop —
  * the node's own React Flow `id` IS its store panelId (stable across
  * reload, mirrors `use-canvas-persistence.ts`'s `genuiPanelNodeId`).
+ *
+ * BIND-01 (Phase 33): `useDataBindings` resolves the panel's `spec.bindings`
+ * (ABOVE the locked renderer chain, never inside it) into live tRPC query
+ * data, merged over `panelData` as `{ ...panelData, ...liveBindingData }`
+ * before reaching `GenuiPartBoundary`'s `data` prop — live binding values win
+ * on key collision (the freshest source). Applies only to the genui_spec
+ * branch below; the InteractiveWidgetBoundary branch is a separate D-08
+ * surface, out of this phase's scope.
  */
 
 import { memo } from "react";
@@ -46,6 +54,7 @@ import { usePanelData, useIncomingEdgesForPanel } from "./canvas-store-context";
 import { usePanelActionRegistry } from "./panel-action-bridge";
 import { useCanvasPart, useCanvasSpec } from "./canvas-spec-context";
 import { useOptionalChatController } from "./chat-node";
+import { useDataBindings } from "./use-data-bindings";
 import type { GenuiPanelNodeData } from "./node-data-schemas";
 
 export type GenuiPanelNodeType = Node<GenuiPanelNodeData, "genui-panel">;
@@ -74,6 +83,7 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
   const incomingEdges = useIncomingEdgesForPanel(panelId);
   const { data: panelData, dispatch } = usePanelData(panelId, incomingEdges);
   const actions = usePanelActionRegistry(dispatch);
+  const liveBindingData = useDataBindings({ specJson, isStreaming, panelData });
 
   // D-08: an interactive_widget part renders the SAME InteractiveWidgetBoundary
   // as the transcript, fed by the SAME controller-derived widget surface — a
@@ -136,7 +146,7 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
             <GenuiPartBoundary
               specJson={specJson}
               isStreaming={isStreaming}
-              data={panelData}
+              data={{ ...panelData, ...liveBindingData }}
               actions={actions}
               variant="bare"
             />
