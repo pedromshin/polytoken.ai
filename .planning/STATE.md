@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
 status: executing
-last_updated: "2026-07-08T06:44:58.692Z"
-last_activity: 2026-07-08 -- Phase 35 execution started
+last_updated: "2026-07-08T23:01:36.418Z"
+last_activity: 2026-07-08 -- Completed 36-01-PLAN.md (ToolExecutor importer_id + LookupEntityExecutor); next 36-02
 progress:
   total_phases: 9
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 6
-  percent: 22
+  completed_phases: 3
+  total_plans: 14
+  completed_plans: 9
+  percent: 33
 ---
 
 # State
@@ -20,14 +20,46 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 35 — cost-eval-scaffolding
+**Current focus:** Phase 36 — thin-wrapper-tools
 
 ## Current Position
 
-Phase: 35 (cost-eval-scaffolding) — EXECUTING
-Plan: 2 of 3
-Status: Executing Phase 35
-Last activity: 2026-07-08 -- Phase 35 execution started
+Phase: 36 (thin-wrapper-tools) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 36
+Last activity: 2026-07-08 -- Completed 36-01-PLAN.md (ToolExecutor importer_id + LookupEntityExecutor); next 36-02
+
+## Phase 36 — Thin-Wrapper Tools (executing 2026-07-08)
+
+- **36-01 EXECUTED:** `ToolExecutor.execute` gained a REQUIRED keyword-only `importer_id: str`
+  parameter (no default), threaded end-to-end from `_advance_round` through
+  `_run_server_tool_round` to `executor.execute(...)` in `run_chat_turn.py` (re-read fresh per the
+  plan's concurrency warning — Phase 35's per-round cost-ceiling wiring in that file confirmed
+  untouched by this diff). New `app/infrastructure/tools/envelope.py` (`ToolCitation`,
+  `build_citation`, `citation_to_dict`, `truncate_field`, `MAX_RESULT_FIELD_CHARS=300`) — the ONE
+  place a citation route string (`/entities/{id}`/`/emails/{id}`) is constructed, shared by this
+  plan's `LookupEntityExecutor` and 36-02's forthcoming `SearchEmailsExecutor`. New
+  `app/infrastructure/tools/lookup_entity_executor.py` — the FIRST real, production `ToolExecutor`
+  (`LOOKUP_ENTITY_TOOL_NAME`, `build_lookup_entity_tool()`, `LookupEntityExecutor`,
+  `EntityLookupResult`): a thin wrapper over the EXISTING
+  `EntityResolutionRepository.find_candidates()` / `EntityInstanceRepository.find_by_id()` /
+  `EntityTypeRepository.list_active()` — zero new repository methods, zero new SQL/migrations/RPCs.
+  id-hit path returns the instance itself (`match_type="id_exact"`, `score=1.0`) plus up to 4
+  `find_candidates` results, deduped, capped at 5; id-miss/cross-tenant-id path embeds the raw
+  search term and merges `find_candidates` across every active entity type, ranked by `rrf_score`,
+  capped at 5. Cross-tenant `find_by_id` hits treated identically to not-found (T-36-01, D-18
+  pattern) — never returns another tenant's instance/identifiers/aliases. Any collaborator
+  exception is caught, logged server-side via structlog, and returned as a friendly `is_error`
+  result — never raises past the `ToolExecutor` boundary. TDD RED/GREEN gate followed: the 7-test
+  suite was committed first and confirmed to fail (`ModuleNotFoundError`) before the implementation
+  existed, then the implementation was added and all 7 passed on the first run. 88/88 targeted
+  tests pass across both tasks' verification sweeps (31 Task 1 + 7 Task 2 + 50 full regression
+  sweep, 0 failures — some individual tests counted in more than one sweep), mypy/lint-imports
+  clean, zero `content_text`/`body_html`/`body_text` references (grep-verified — this executor only
+  ever surfaces `EntityInstance`/`EntityCandidate` fields, never raw email body). Not yet wired into
+  `container.py` — 36-02 does that alongside `search_emails` (single shared
+  `_provide_run_chat_turn` diff). See 36-01-SUMMARY.md. **Next: 36-02** (search_emails executor +
+  container.py wiring for both tools — not yet planned).
 
 ## Phase 33 — Live Bindings Plumbing (COMPLETE 2026-07-08, parallel track to Phase 34)
 
@@ -1503,6 +1535,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-07 (30-02): repo-level promote_edge CAS filter (tier IN (INFERRED, AMBIGUOUS)) duplicates the use case's own tier-guard allowlist intentionally — defense-in-depth beneath the guard, mirrors Phase-24's double-submit CAS posture; a False return from promote_edge is itself a rejection (EdgeNotPromotable('conflict')), never silently swallowed
 - 2026-07-07 (30-02): find_edge_by_id resolves the owning importer_id via a nested PostgREST select (knowledge_node_edges.select('*, knowledge_nodes(importer_id)')) — reuses the existing entity_type_fields(*) nested-embed idiom rather than a second round-trip query
 - 2026-07-07 (30-02): Docker Desktop + local Supabase were not running at session start — started both before applying migration 0027 to local Postgres; no live-DB verification step was skipped
+- 2026-07-08 (36-01): ToolExecutor.execute gains a REQUIRED (no-default) keyword-only importer_id kwarg — the concrete tenant-scoping enforcement mechanism for the port's existing quarantine-obligation docstring (T-36-04)
+- 2026-07-08 (36-01): LookupEntityExecutor treats a cross-tenant find_by_id hit IDENTICALLY to not-found — falls through to the name-search path scoped to the caller's importer_id, never surfaces a tenant-mismatch error that would reveal the id exists (T-36-01, D-18 pattern)
+- 2026-07-08 (36-01): find_candidates is called PER active entity type on the name-search fallback (its RPCs filter on a single entity_type_id) — results merged by entity_instance_id keeping the highest rrf_score, sorted descending, capped at 5
 
 ## Performance Metrics
 
@@ -1585,6 +1620,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 34 P02 | 20min | 2 tasks | 2 files |
 | Phase 34 P03 | 90 min | 3 tasks | 3 files |
 | Phase 35 P01 | ~35min | 2 tasks | 9 files |
+| Phase 36 P01 | ~55 min | 2 tasks | 10 files |
 
 ## Operator Next Steps
 
