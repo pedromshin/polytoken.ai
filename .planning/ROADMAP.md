@@ -294,7 +294,10 @@ the primitive Phase 41's preview node will also consume.
      primitive
   4. Citation chips deep-link correctly to `/emails/[id]`, `/entities/[id]`, or
      `/knowledge?focus={id}` depending on `kind`
-**Plans**: TBD
+**Plans**: 2 plans (coarse; both Wave 1, no file overlap — Python SSE emission / web rendering)
+Plans:
+- [ ] 39-01-PLAN.md — non-persisted server_tool_call/server_tool_result SSE mirror frames + naming-collision context
+- [ ] 39-02-PLAN.md — use-chat-stream.ts extension (collision fix) + ProvenanceLink + ToolRoundActivityRow/ToolInvocationResultRow wired into message-turn.tsx
 **UI hint**: yes
 
 ### Phase 40: Confirm-Action Widgets
