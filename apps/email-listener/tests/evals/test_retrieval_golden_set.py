@@ -50,7 +50,11 @@ async def test_golden_entries_round_trip_through_echo_stub_score_perfectly() -> 
 
     for entry in entries:
         arguments = {"expected_ids": entry["expected_ids"]}
-        result = await executor.execute(name="retrieval_stub", arguments=arguments)
+        result = await executor.execute(
+            name="retrieval_stub",
+            arguments=arguments,
+            importer_id="imp-test-0000-0000-0000-000000000001",
+        )
         actual_ids = json.loads(result.content)["expected_ids"]
 
         recall, precision = score_retrieval_at_k(actual_ids, entry["expected_ids"], k=5)
