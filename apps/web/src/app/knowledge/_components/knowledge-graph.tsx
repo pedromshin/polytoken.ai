@@ -41,6 +41,7 @@ import {
   Controls,
   MiniMap,
   MarkerType,
+  Panel,
   ReactFlow,
   useNodesState,
   useEdgesState,
@@ -69,6 +70,8 @@ import { NodeDetailPane, type SelectedNode } from "./node-detail-pane";
 import { TaxonomyBanner } from "./taxonomy-banner";
 import { layoutGraph } from "./graph-layout";
 import { nodeTypes } from "./graph-nodes";
+import { tierEdgeStyle } from "./tier-edge-style";
+import { GraphLegend } from "./graph-legend";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -133,15 +136,19 @@ function toFlowNodes(
 function toFlowEdges(graphEdges: ReadonlyArray<GraphEdge>): FlowEdge[] {
   return graphEdges.map((ge) => {
     const isTaxonomy = TAXONOMY_RELATION_TYPES.has(ge.relationType);
+    const isKnowledgeEdge = ge.id.startsWith("kne-");
+    // GRAPH-01: tier-based style override applies ONLY to kne- edges — structural
+    // FK-derived edges never carry a tier and must keep React Flow's default look.
+    const tierStyle = isKnowledgeEdge ? tierEdgeStyle(ge.tier) : {};
     return {
       id: ge.id,
       source: ge.source,
       target: ge.target,
       label: ge.relationType,
       type: "smoothstep",
-      // Carried through (not yet rendered — tier-based edge styling is
-      // GRAPH-01, a separate plan) so a merged edge keeps its tier.
+      // Carried through so a merged edge keeps its tier for future re-styling.
       data: { tier: ge.tier },
+      ...tierStyle,
       ...(isTaxonomy
         ? {}
         : {
@@ -533,6 +540,11 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
                 <Background gap={16} size={1} />
                 <Controls />
                 <MiniMap nodeStrokeWidth={2} pannable zoomable />
+
+                {/* GRAPH-01 — tier legend, bottom-left, always visible */}
+                <Panel position="bottom-left">
+                  <GraphLegend />
+                </Panel>
 
                 {/* Taxonomy Banner — absolute inside canvas */}
                 {!bannerDismissed && (
