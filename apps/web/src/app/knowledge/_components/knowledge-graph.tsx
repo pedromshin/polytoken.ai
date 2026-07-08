@@ -25,13 +25,17 @@
  *   D-02: Never blank — entity_type + entity_type_field always requested (even
  *         when visibleTypes excludes them, we still pass includeInstances=false
  *         and filter client-side so taxonomy is never lost).
- *   D-09: No useMutation, no node CRUD — purely read-only.
+ *   D-09: No node CRUD — purely read-only. GRAPH-02's `expandNode` useMutation
+ *         is an explicit user-triggered READ (a bounded server-side graph
+ *         walk), not a write — mirrors D-09's read-only posture, not an
+ *         exception to it.
  *   T-11-05: No dangerouslySetInnerHTML in this file or its children.
  *
  * No font-medium (500) anywhere — only font-normal (400) or font-semibold (600).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   Background,
   Controls,
@@ -60,6 +64,7 @@ import { api } from "~/trpc/react";
 import { FilterRail, type NodeTypeKey } from "./filter-rail";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphErrorState, GraphNoSchemaState } from "./graph-states";
+import { mergeGraph } from "./graph-merge";
 import { NodeDetailPane, type SelectedNode } from "./node-detail-pane";
 import { TaxonomyBanner } from "./taxonomy-banner";
 import { layoutGraph } from "./graph-layout";
@@ -97,6 +102,7 @@ interface GraphEdge {
   readonly source: string;
   readonly target: string;
   readonly relationType: string;
+  readonly tier?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,6 +139,9 @@ function toFlowEdges(graphEdges: ReadonlyArray<GraphEdge>): FlowEdge[] {
       target: ge.target,
       label: ge.relationType,
       type: "smoothstep",
+      // Carried through (not yet rendered — tier-based edge styling is
+      // GRAPH-01, a separate plan) so a merged edge keeps its tier.
+      data: { tier: ge.tier },
       ...(isTaxonomy
         ? {}
         : {
@@ -177,6 +186,11 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
   const [showInstances, setShowInstances] = useState<boolean>(false);
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+  // GRAPH-02 — the node currently mid-expand (pulse-ring loading state).
+  const [pendingExpandNodeId, setPendingExpandNodeId] = useState<
+    string | null
+  >(null);
 
   const [bannerDismissed, setBannerDismissed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -283,6 +297,51 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
   }, [initialEdges, setEdges]);
 
   // -------------------------------------------------------------------------
+  // GRAPH-02 — bounded click-expand
+  //
+  // Read-only (D-09) — `expandNode` is a tRPC `.query`, not a mutation
+  // (mirrors `knowledge.graph`'s read-only posture); triggered imperatively
+  // via `utils.knowledge.expandNode.fetch` on click (the "lazy query"
+  // alternative the UI-SPEC explicitly allows in place of `useMutation`,
+  // since this procedure never writes and shouldn't be misclassified as one).
+  // On success, the returned nodes/edges are deduped onto the current canvas
+  // (mergeGraph) and the WHOLE merged union is re-laid-out via the existing
+  // dagre helper (per UI-SPEC: acceptable to reposition existing nodes,
+  // documented as an implementation choice, not a visual regression).
+  // -------------------------------------------------------------------------
+
+  const utils = api.useUtils();
+
+  const expandNode = useCallback(
+    async (nodeId: string): Promise<void> => {
+      setPendingExpandNodeId(nodeId);
+      try {
+        const result = await utils.knowledge.expandNode.fetch({
+          nodeId,
+          depth: 1,
+        });
+
+        const newFlowNodes = toFlowNodes(result.nodes, visibleTypes);
+        const newFlowEdges = toFlowEdges(result.edges);
+        const merged = mergeGraph(nodes, edges, newFlowNodes, newFlowEdges);
+        const laidOutNodes = layoutGraph(merged.nodes, merged.edges);
+
+        setNodes(laidOutNodes);
+        setEdges(merged.edges);
+
+        if (result.truncated) {
+          toast.info(
+            "Showing the first 50 related items — narrow the tier filter to see more.",
+          );
+        }
+      } finally {
+        setPendingExpandNodeId(null);
+      }
+    },
+    [utils, nodes, edges, visibleTypes, setNodes, setEdges],
+  );
+
+  // -------------------------------------------------------------------------
   // ReactFlow instance for programmatic fitView
   // -------------------------------------------------------------------------
 
@@ -317,8 +376,10 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: FlowNode) => {
       setSelectedNodeId(node.id);
+      // GRAPH-02: selection and expand fire on the SAME click.
+      void expandNode(node.id);
     },
-    [],
+    [expandNode],
   );
 
   const handleNodeDoubleClick = useCallback(
@@ -395,8 +456,16 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
   // so dragged positions survive selection. selectedNodeId is the single source
   // of truth, so Escape / pane-click / detail-close clear the ring too.
   const displayedNodes = useMemo<FlowNode[]>(
-    () => nodes.map((n) => ({ ...n, selected: n.id === selectedNodeId })),
-    [nodes, selectedNodeId],
+    () =>
+      nodes.map((n) => ({
+        ...n,
+        selected: n.id === selectedNodeId,
+        className:
+          n.id === pendingExpandNodeId
+            ? "animate-pulse motion-reduce:animate-none"
+            : undefined,
+      })),
+    [nodes, selectedNodeId, pendingExpandNodeId],
   );
 
   // -------------------------------------------------------------------------
