@@ -227,7 +227,7 @@ to ship, but only after the loop itself exists)
      `/emails/[id]` or `/entities/[id]` routes
 **Plans**: 2 plans (coarse; Wave 1 = 36-01, Wave 2 = 36-02)
 Plans:
-- [ ] 36-01-PLAN.md — ToolExecutor importer_id contract + shared citation/envelope module + LookupEntityExecutor [TOOL-01]
+- [x] 36-01-PLAN.md — ToolExecutor importer_id contract + shared citation/envelope module + LookupEntityExecutor [TOOL-01]
 - [ ] 36-02-PLAN.md — SearchEmailsExecutor + container wiring + real tool-schema advertisement [TOOL-02]
 
 ### Phase 37: Knowledge Search + Python Read-Side
@@ -317,7 +317,10 @@ migration merges first (sequence by actual merge order, not by phase number)
      snapshot and rejects with 409 `stale` if it was promoted/rejected out-of-band elsewhere
   5. Dispatch runs through an explicit 2-entry use-case table (`knowledge_edge_tier_promotion`,
      `entity_merge_confirm`), idempotent by id — never "run use case by name from client input"
-**Plans**: TBD
+**Plans**: 2 plans (coarse; Wave 1 = 40-01, Wave 2 = 40-02)
+Plans:
+- [ ] 40-01-PLAN.md — emit_confirm_action tool + live edge-read finalization + widget_kind migration [CONF-01]
+- [ ] 40-02-PLAN.md — CONF-02 edge-tier staleness re-check + 2-entry dispatch table + compact-summary web fix [CONF-02]
 **UI hint**: yes
 
 ### Phase 41: Knowledge-Preview Canvas Node
@@ -352,11 +355,11 @@ execute last.
 | 33. Live Bindings Plumbing | 2/2 | Complete   | 2026-07-08 |
 | 34. Tool-Loop Mechanics (stub/echo executor) | 3/3 | Complete   | 2026-07-08 |
 | 35. Cost + Eval Scaffolding | 3/3 | Complete   | 2026-07-08 |
-| 36. Thin-Wrapper Tools | 0/2 | Not started | - |
+| 36. Thin-Wrapper Tools | 1/2 | In Progress|  |
 | 37. Knowledge Search + Python Read-Side | 0/2 | Not started | - |
 | 38. Quarantine + Adversarial Eval | 0/? | Not started | - |
 | 39. Tool-Round UI + Citation Chips | 0/? | Not started | - |
-| 40. Confirm-Action Widgets | 0/? | Not started | - |
+| 40. Confirm-Action Widgets | 0/2 | Not started | - |
 | 41. Knowledge-Preview Canvas Node | 0/? | Not started | - |
 
 ## Next
