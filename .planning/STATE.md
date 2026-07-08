@@ -6,7 +6,7 @@ status: planning
 last_updated: "2026-07-08T01:32:34.427Z"
 last_activity: 2026-07-08
 progress:
-  total_phases: 0
+  total_phases: 9
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -20,14 +20,39 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 32 — Knowledge Canvas: Tiered Graph Exploration
+**Current focus:** Phase 33 — Live Bindings Plumbing
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: Phase 33 — Live Bindings Plumbing (not yet planned; Phase 34 is also plan-ready in parallel)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-08 — Milestone v1.6 started
+Status: Roadmap created (Phases 33-41, 19/19 requirements mapped) — ready for `/gsd:plan-phase 33`
+Last activity: 2026-07-08 — v1.6 roadmap created
+
+## v1.6 Roadmap Summary (2026-07-08)
+
+Phase numbering continues from v1.5 (ended at Phase 32). v1.6 = Phases 33-41, mapped 1:1 onto the
+locked 9-phase build order (P1-P9) in `.planning/research/v1.6-chat-knowledge/SYNTHESIS.md`. Full
+detail: .planning/ROADMAP.md Phase Details.
+
+| Phase | Goal | Requirements |
+|-------|------|--------------|
+| 33 - Live Bindings Plumbing | Genui panels render live product data via spec.bindings, zero renderer edits | BIND-01, BIND-02 |
+| 34 - Tool-Loop Mechanics (stub/echo executor) | Bounded mid-turn round loop proven against a stub executor; 2 latent bugs fixed | LOOP-01, LOOP-02, LOOP-03 |
+| 35 - Cost + Eval Scaffolding | Per-round cost ceiling + retrieval/citation/injection eval dimensions, built against the stub | COST-05, EVAL-06, EVAL-07 |
+| 36 - Thin-Wrapper Tools | lookup_entity + search_emails, zero new backend | TOOL-01, TOOL-02 |
+| 37 - Knowledge Search + Python Read-Side | search_knowledge + NEW KnowledgeGraphRepository + extracted_only view (built, not yet exposed) | TOOL-03, TOOL-04 |
+| 38 - Quarantine + Adversarial Eval | Tier-filtered envelopes as interface obligation; search_knowledge becomes user-facing | QUAR-01, QUAR-02 |
+| 39 - Tool-Round UI + Citation Chips | "Searching..." UI surface + shared ProvenanceLink chips | TUI-01, TUI-02 |
+| 40 - Confirm-Action Widgets | emit_confirm_action over the Phase-24 CAS spine + edge-tier staleness re-check | CONF-01, CONF-02 |
+| 41 - Knowledge-Preview Canvas Node | Bounded non-interactive graph preview node, deep-links to /knowledge | PREV-01 |
+
+Coverage: 19/19 v1.6 requirements mapped, no orphans. Gates: G1-G3 (v1.5 Phases 29/30/32) all
+satisfied (v1.5 shipped 2026-07-08); G4 (Phase 34's ToolExecutor port + round mechanics) is v1.6's
+own gate. Parallel tracks: {33} independent from kickoff; {34->35->36->37->38->39} sequential (34 =
+G4); {40} needs only G2, can run parallel to 36-39 (migration numbered by merge order); {41} is the
+single most-gated phase (needs G3 + Phase 39's ProvenanceLink), planned last. Next:
+`/gsd:plan-phase 33`.
 
 ## Phase 32 — Knowledge Canvas: Tiered Graph Exploration (executing 2026-07-08)
 

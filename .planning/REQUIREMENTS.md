@@ -148,31 +148,31 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BIND-01 | — | Pending |
-| BIND-02 | — | Pending |
-| LOOP-01 | — | Pending |
-| LOOP-02 | — | Pending |
-| LOOP-03 | — | Pending |
-| COST-05 | — | Pending |
-| TOOL-01 | — | Pending |
-| TOOL-02 | — | Pending |
-| TOOL-03 | — | Pending |
-| TOOL-04 | — | Pending |
-| QUAR-01 | — | Pending |
-| QUAR-02 | — | Pending |
-| EVAL-06 | — | Pending |
-| EVAL-07 | — | Pending |
-| TUI-01 | — | Pending |
-| TUI-02 | — | Pending |
-| CONF-01 | — | Pending |
-| CONF-02 | — | Pending |
-| PREV-01 | — | Pending |
+| BIND-01 | Phase 33 | Pending |
+| BIND-02 | Phase 33 | Pending |
+| LOOP-01 | Phase 34 | Pending |
+| LOOP-02 | Phase 34 | Pending |
+| LOOP-03 | Phase 34 | Pending |
+| COST-05 | Phase 35 | Pending |
+| TOOL-01 | Phase 36 | Pending |
+| TOOL-02 | Phase 36 | Pending |
+| TOOL-03 | Phase 37 | Pending |
+| TOOL-04 | Phase 37 | Pending |
+| QUAR-01 | Phase 38 | Pending |
+| QUAR-02 | Phase 38 | Pending |
+| EVAL-06 | Phase 35 | Pending |
+| EVAL-07 | Phase 35 | Pending |
+| TUI-01 | Phase 39 | Pending |
+| TUI-02 | Phase 39 | Pending |
+| CONF-01 | Phase 40 | Pending |
+| CONF-02 | Phase 40 | Pending |
+| PREV-01 | Phase 41 | Pending |
 
 **Coverage:**
 - v1.6 requirements: 19 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 19 ⚠️
+- Mapped to phases: 19 (Phases 33–41, roadmap created 2026-07-08)
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-07-08*
-*Last updated: 2026-07-08 (initial definition; traceability filled at roadmap creation)*
+*Last updated: 2026-07-08 (traceability filled at roadmap creation — ROADMAP.md Phases 33–41, 19/19 mapped, no orphans)*
