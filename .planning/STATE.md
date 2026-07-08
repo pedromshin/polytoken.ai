@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
-status: completed
-last_updated: "2026-07-08T05:30:26.441Z"
-last_activity: 2026-07-08 -- 34-03 executed (Phase 34 complete)
+status: executing
+last_updated: "2026-07-08T06:44:58.692Z"
+last_activity: 2026-07-08 -- Phase 35 execution started
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
   percent: 22
 ---
 
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 34 complete (gate G4 satisfied) — Phase 35 next (Cost + Eval Scaffolding, not yet planned)
+**Current focus:** Phase 35 — cost-eval-scaffolding
 
 ## Current Position
 
-Phase: 34 (tool-loop-mechanics-stub-echo-executor) — COMPLETE
-Plan: 3 of 3 (all executed)
-Status: Phase 34 complete — gate G4 satisfied for Phases 35-39
-Last activity: 2026-07-08 -- 34-03 executed (Phase 34 complete)
+Phase: 35 (cost-eval-scaffolding) — EXECUTING
+Plan: 2 of 3
+Status: Executing Phase 35
+Last activity: 2026-07-08 -- Phase 35 execution started
 
 ## Phase 33 — Live Bindings Plumbing (COMPLETE 2026-07-08, parallel track to Phase 34)
 
@@ -1584,6 +1584,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 32 P01 | 55 | 2 tasks | 6 files |
 | Phase 34 P02 | 20min | 2 tasks | 2 files |
 | Phase 34 P03 | 90 min | 3 tasks | 3 files |
+| Phase 35 P01 | ~35min | 2 tasks | 9 files |
 
 ## Operator Next Steps
 

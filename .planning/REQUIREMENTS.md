@@ -35,7 +35,7 @@ stays a separate-turn human gate.
 - [x] **LOOP-01**: Chat agent can execute server tools mid-turn in a bounded round loop (≤4 rounds) behind a `ChatModelCapabilities.max_tool_rounds` gate (the 2 Bedrock Claude models only), via a new `ToolExecutor` domain port and new `tool_invocation`/`tool_invocation_result` message part types
 - [x] **LOOP-02**: Token usage accumulates across rounds (UsageDelta overwrite bug fixed) and a tool-call parse failure produces a visible text part instead of a silent drop (the 2026-07-06 truncated-tool-call lesson)
 - [x] **LOOP-03**: Exhausting the round cap fails closed with a visible "couldn't fully resolve" text part — never a bare `stopped` state
-- [ ] **COST-05**: A per-round cost ceiling distinct from per-turn is enforced through the FOUND-3 ledger, with defined mid-round `cost_capped` abort semantics that still emit the visible partial-text part
+- [x] **COST-05**: A per-round cost ceiling distinct from per-turn is enforced through the FOUND-3 ledger, with defined mid-round `cost_capped` abort semantics that still emit the visible partial-text part
 
 ### Knowledge Tool Surface (TOOL)
 
@@ -153,7 +153,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LOOP-01 | Phase 34 | Complete |
 | LOOP-02 | Phase 34 | Complete |
 | LOOP-03 | Phase 34 | Complete |
-| COST-05 | Phase 35 | Pending |
+| COST-05 | Phase 35 | Complete |
 | TOOL-01 | Phase 36 | Pending |
 | TOOL-02 | Phase 36 | Pending |
 | TOOL-03 | Phase 37 | Pending |
