@@ -717,6 +717,7 @@ def _provide_cost_circuit_breaker(ledger: CostLedgerRepository) -> CostCircuitBr
         per_turn_cap_usd=settings.COST_CAP_PER_TURN_USD,
         per_session_cap_usd=settings.COST_CAP_PER_SESSION_USD,
         per_day_cap_usd=settings.COST_CAP_PER_DAY_USD,
+        per_round_cap_usd=settings.COST_CAP_PER_ROUND_USD,
     )
 
 

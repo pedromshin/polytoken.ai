@@ -102,12 +102,14 @@ def _make_breaker(
     per_turn_cap_usd: float = 0.50,
     per_session_cap_usd: float = 2.00,
     per_day_cap_usd: float = 5.00,
+    per_round_cap_usd: float = 0.15,
 ) -> CostCircuitBreaker:
     return CostCircuitBreaker(
         ledger=ledger or _FakeLedger(),
         per_turn_cap_usd=per_turn_cap_usd,
         per_session_cap_usd=per_session_cap_usd,
         per_day_cap_usd=per_day_cap_usd,
+        per_round_cap_usd=per_round_cap_usd,
     )
 
 
@@ -320,6 +322,30 @@ def test_should_abort_true_above_cap() -> None:
 
 
 # ---------------------------------------------------------------------------
+# should_abort_round — COST-05 distinct per-round cap
+# ---------------------------------------------------------------------------
+
+
+def test_should_abort_round_false_below_cap() -> None:
+    breaker = _make_breaker(per_round_cap_usd=0.15)
+    assert breaker.should_abort_round(Decimal("0.14")) is False
+
+
+def test_should_abort_round_true_at_and_above_cap() -> None:
+    breaker = _make_breaker(per_round_cap_usd=0.15)
+    assert breaker.should_abort_round(Decimal("0.15")) is True
+    assert breaker.should_abort_round(Decimal("0.16")) is True
+
+
+def test_should_abort_round_is_distinct_from_should_abort_per_turn() -> None:
+    """Same breaker instance: the per-round cap trips independently of the per-turn cap."""
+    breaker = _make_breaker(per_turn_cap_usd=0.50, per_round_cap_usd=0.15)
+
+    assert breaker.should_abort_round(Decimal("0.20")) is True
+    assert breaker.should_abort(Decimal("0.20")) is False
+
+
+# ---------------------------------------------------------------------------
 # D-21 — no cap-override parameter anywhere on the breaker
 # ---------------------------------------------------------------------------
 
@@ -334,7 +360,7 @@ def test_no_cap_override_parameter_in_source() -> None:
     assert "override" not in source
 
 
-@pytest.mark.parametrize("method_name", ["estimate_turn_cost", "check_pre_turn", "should_abort"])
+@pytest.mark.parametrize("method_name", ["estimate_turn_cost", "check_pre_turn", "should_abort", "should_abort_round"])
 def test_public_methods_have_no_cap_parameter(method_name: str) -> None:
     """None of the breaker's public methods accept a per-call cap parameter."""
     import inspect

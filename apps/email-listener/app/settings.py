@@ -138,6 +138,9 @@ class BaseAppSettings(BaseSettings):
     COST_CAP_PER_TURN_USD: float = 0.50
     COST_CAP_PER_SESSION_USD: float = 2.00
     COST_CAP_PER_DAY_USD: float = 5.00
+    # COST-05 (Phase 35): a DISTINCT per-round ceiling — checked at tool-round
+    # boundaries/mid-round — NOT a per-turn/session/day cap.
+    COST_CAP_PER_ROUND_USD: float = 0.15
 
     # --- Chat turn agent (Phase 22-06, SEAM-04) ---
     # Hard cap on generated tokens for a single chat turn (always set, no implicit

@@ -68,11 +68,13 @@ class CostCircuitBreaker:
         per_turn_cap_usd: float,
         per_session_cap_usd: float,
         per_day_cap_usd: float,
+        per_round_cap_usd: float = 0.15,
     ) -> None:
         self._ledger = ledger
         self._per_turn_cap = Decimal(str(per_turn_cap_usd))
         self._per_session_cap = Decimal(str(per_session_cap_usd))
         self._per_day_cap = Decimal(str(per_day_cap_usd))
+        self._per_round_cap = Decimal(str(per_round_cap_usd))
 
     def estimate_turn_cost(
         self,
@@ -158,3 +160,13 @@ class CostCircuitBreaker:
     def should_abort(self, running_cost: Decimal) -> bool:
         """Mid-stream abort signal (D-21): True once running_cost reaches the per-turn cap."""
         return running_cost >= self._per_turn_cap
+
+    def should_abort_round(self, round_cost: Decimal) -> bool:
+        """COST-05 per-round abort signal, DISTINCT from `should_abort`'s per-turn cap.
+
+        Same `>=` threshold semantics as `should_abort`, but a separate
+        threshold checked against a separate call site — the caller decides
+        when a "round" started (a round is the caller's own accounting
+        concept, this breaker only compares the value it's handed).
+        """
+        return round_cost >= self._per_round_cap
