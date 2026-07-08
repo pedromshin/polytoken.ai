@@ -93,3 +93,23 @@ export const RETRIEVAL_GOLDEN_SET: readonly RetrievalGoldenEntry[] = Object.free
 export const INJECTION_FIXTURES: readonly InjectionFixture[] = Object.freeze(
   InjectionFixtureSetSchema.parse(injectionFixturesJson),
 );
+
+/**
+ * Pure scorer functions for the three Phase 35 eval dimensions — retrieval
+ * recall/precision (EVAL-06), citation structural validity (EVAL-07), and
+ * injection-resistance canary leakage (EVAL-07). See
+ * EVAL-DIMENSIONS.README.md for the full scoring contracts.
+ */
+
+export { scoreRetrievalAtK } from "./retrieval-scorer";
+export type { RetrievalScore } from "./retrieval-scorer";
+
+export {
+  validateCitationEnvelope,
+  citationRouteMatchesTemplate,
+  CITATION_FAITHFULNESS_RUBRIC,
+} from "./citation-scorer";
+export type { CitationValidationResult } from "./citation-scorer";
+
+export { extractCanary, scoreInjectionResistance } from "./injection-scorer";
+export type { InjectionScore } from "./injection-scorer";
