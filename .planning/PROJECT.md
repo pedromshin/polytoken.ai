@@ -13,6 +13,56 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
+## Current Milestone: v1.6 Chat × Knowledge Convergence (opened 2026-07-08)
+
+**Goal:** The v1.3 chat agent gains knowledge tools (a bounded mid-turn tool loop reading its own
+extracted data), genui panels gain live product-data bindings, and dual-channel widgets act on
+knowledge — suggest-only, human-confirm — cashing in the v1.3 promise that product convergence is
+"a config change, not a rearchitecture" (the seams already exist: dead-but-validated
+`spec.bindings`, the tRPC procedure allowlist, the Phase-24 widget spine, v1.5's tier ladder).
+
+**Target features:**
+- **Live data-bound panels (Fork 1):** a `use-data-bindings` hook *above* the renderer resolves
+  `spec.bindings` via a compile-time switch over the 5 already-allowlisted procedures
+  (`entities.byId/list`, `emails.detail`, `knowledge.byId/graph`), params injected from render
+  context (never model-authored), TanStack staleTime tiers + promotion-invalidation refresh —
+  zero edits to the locked renderer files
+- **Bounded mid-turn tool loop (Fork 4):** in-stream round loop (≤4 rounds, one ChatRun per turn)
+  behind a `max_tool_rounds` capability gate (2 Bedrock Claude models only), new `ToolExecutor`
+  domain port + `tool_invocation`/`tool_invocation_result` part types; fixes 2 latent bugs found
+  by research (UsageDelta overwrite → cost under-reporting; silent tool parse-failure drop)
+- **3 knowledge tools (Fork 5):** `lookup_entity` + `search_emails` (thin wrappers over existing
+  repos, zero new backend) + `search_knowledge(query, mode search|expand)` over a NEW Python
+  `KnowledgeGraphRepository` + DB-level `extracted_only` view (migrations 0029+); EXTRACTED-only
+  enforced by field omission, `citations[]` in every envelope
+- **Structural quarantine (Fork 3):** tier-split typed envelopes (Tier-1 knowledge: only EXTRACTED
+  text enters context; Tier-2 email: quarantine output, never raw body) as a ToolExecutor
+  interface obligation; adversarial fixture suite + live-model harness
+- **Cost + eval scaffolding (critic gaps a+b):** per-round ledger ceiling distinct from per-turn +
+  mid-round abort semantics; retrieval-quality / citation-faithfulness / injection-resistance
+  dimensions registered into the Phase-16 harness (FOUND-7)
+- **Tool-round UI + citations (critic gap c):** "searching knowledge…" run surface + citation
+  chips via ONE shared `<ProvenanceLink>` primitive (consumed by chips AND the preview node)
+- **Confirm-action widgets (Fork 2):** `emit_confirm_action` carrying only a `suggestion_ref`
+  (never raw mutation params) over the Phase-24 CAS spine, + the NEW edge-tier staleness re-check;
+  `widget_kind` CHECK migration
+- **Knowledge-preview canvas node (Fork 1 C):** 3rd `NODE_TYPE_REGISTRY` entry rendering a
+  bounded non-interactive ≤2-hop subgraph, deep-linking `/knowledge?focus={id}` — nested React
+  Flow REJECTED
+
+**Key context:** Opened autonomously (`/gsd:new-milestone /gsd:autonomous`): v1.6 was the
+pre-agreed next milestone — research locked 2026-07-07 in
+`.planning/research/v1.6-chat-knowledge/SYNTHESIS.md` (5 forks + completeness critic, file:line
+evidence), its hard gate (v1.5 fully shipped) satisfied 2026-07-08, and this document's own
+"Next" listed it first. Kickoff verifications the synthesis mandates, both done: migration head
+is `0028` → **v1.6 migrations number 0029+** (synthesis's "0027+" guess superseded); **no
+DB-level `extracted_only` view exists anywhere** (verified by grep over migrations + Python app)
+→ v1.6 builds it itself alongside the Python `KnowledgeGraphRepository` instead of importing it
+from v1.5. Build order locked by the synthesis: 9 phases P1–P9, gates G1–G3 (v1.5 — all now
+satisfied) + G4 (v1.6's own tool-loop mechanics). Standing exclusions: OpenRouter excluded from
+tool rounds (adapter drops tool blocks); `continue_after_widget` NOT unified with the machine
+loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-identical.
+
 ## Current State (v1.5 shipped 2026-07-08)
 
 **Shipped:** **v1.5 — Knowledge-Graph Uplift** (Phases 29–32, 11 plans, 11/11 requirements,
@@ -35,10 +85,10 @@ applied + live-verified locally. Deferred: 2 human_needed live-env verification 
 pending todos (STATE.md → Deferred Items). Selected + executed fully autonomously
 (`/gsd:new-milestone /gsd:autonomous`).
 
-**Next:** run `/gsd:new-milestone`. Candidates: **v1.6 chat↔knowledge integration** (research
-drafted in `.planning/research/v1.6-chat-knowledge/`), **999.4 Design Engine**, **999.5
-Orchestration Visualizer**, **999.7 editable genui panels**, **999.3 connected-env verification**,
-**999.11 polytoken.ai vision ladder** (post-v1.6).
+*(v1.5's "Next" resolved: v1.6 Chat × Knowledge Convergence opened 2026-07-08 — see Current
+Milestone above. Remaining candidates carried: 999.4 Design Engine, 999.5 Orchestration
+Visualizer, 999.7 editable genui panels, 999.3 connected-env verification, 999.11 polytoken.ai
+vision ladder (post-v1.6).)*
 
 <details>
 <summary>v1.5 original milestone goal (opened 2026-07-07)</summary>
@@ -220,9 +270,17 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 
 ### Active
 
-<!-- No active milestone. Run /gsd:new-milestone to open the next one. Candidates in "Current State → Next". -->
+<!-- v1.6 Chat × Knowledge Convergence. REQ-IDs in .planning/REQUIREMENTS.md. -->
 
-_(none — v1.5 shipped; next milestone not yet opened)_
+- [ ] Live data-bound genui panels: `spec.bindings` resolved via compile-time allowlist switch + staleTime/invalidation refresh, zero renderer edits (BIND-01/02)
+- [ ] Bounded mid-turn tool loop: ToolExecutor port, new part types, capability-gated, 2 latent bugs fixed, fail-closed round cap (LOOP-01..03)
+- [ ] Per-round cost ceiling + mid-round abort semantics on the FOUND-3 ledger (COST-05)
+- [ ] Knowledge tool surface: `lookup_entity`, `search_emails`, `search_knowledge` + Python `KnowledgeGraphRepository` + `extracted_only` DB view (TOOL-01..04)
+- [ ] Structural prompt-injection quarantine as ToolExecutor contract + adversarial harness (QUAR-01/02)
+- [ ] Retrieval-quality / citation-faithfulness / injection-resistance eval dimensions in the Phase-16 harness (EVAL-06/07)
+- [ ] Tool-round UI surface + citation chips via shared `<ProvenanceLink>` (TUI-01/02)
+- [ ] Confirm-action widgets over the Phase-24 CAS spine + edge-tier staleness re-check (CONF-01/02)
+- [ ] Knowledge-preview canvas node, bounded + non-interactive, deep-linking `/knowledge?focus={id}` (PREV-01)
 
 ### Out of Scope
 
@@ -292,4 +350,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-08 after v1.5 milestone — Knowledge-Graph Uplift shipped (Phases 29–32, 11/11 requirements moved to Validated); Key Decisions updated with 4 v1.5 entries; Active reset pending next milestone*
+*Last updated: 2026-07-08 after opening milestone v1.6 Chat × Knowledge Convergence (autonomous; goals from the locked `.planning/research/v1.6-chat-knowledge/SYNTHESIS.md`; kickoff verifications: migrations 0029+, no `extracted_only` view → build in-milestone)*
