@@ -32,12 +32,20 @@ ExecutionLocus = Literal["server", "browser", "remote-peer"]
 
 @dataclass(frozen=True)
 class ChatModelCapabilities:
-    """Honest capability flags surfaced by the picker (D-05, D-06)."""
+    """Honest capability flags surfaced by the picker (D-05, D-06).
+
+    max_tool_rounds (Phase 34, LOOP-01): 0 = server tools disabled -- the
+    field doubles as the capability gate for the bounded mid-turn tool loop
+    (no second boolean). Only the 2 Bedrock Claude entries set this to 4;
+    every other entry stays at the default 0 (OpenRouter's adapter drops
+    tool blocks regardless -- this field is the honest, enforced gate).
+    """
 
     tools: bool
     genui: bool
     streaming: bool
     context_tokens: int
+    max_tool_rounds: int = 0
 
 
 @dataclass(frozen=True)
@@ -70,7 +78,9 @@ CHAT_MODEL_REGISTRY: tuple[ChatModel, ...] = (
         execution_locus="server",
         price_in_per_mtok=3.0,
         price_out_per_mtok=15.0,
-        capabilities=ChatModelCapabilities(tools=True, genui=True, streaming=True, context_tokens=200_000),
+        capabilities=ChatModelCapabilities(
+            tools=True, genui=True, streaming=True, context_tokens=200_000, max_tool_rounds=4
+        ),
         best_for="Best overall quality: complex reasoning, reliable tool-calling and GenUI generation.",
     ),
     ChatModel(
@@ -80,7 +90,9 @@ CHAT_MODEL_REGISTRY: tuple[ChatModel, ...] = (
         execution_locus="server",
         price_in_per_mtok=1.0,
         price_out_per_mtok=5.0,
-        capabilities=ChatModelCapabilities(tools=True, genui=True, streaming=True, context_tokens=200_000),
+        capabilities=ChatModelCapabilities(
+            tools=True, genui=True, streaming=True, context_tokens=200_000, max_tool_rounds=4
+        ),
         best_for="Fast, cheap everyday chat; still reliable at tool-calling and GenUI.",
     ),
     ChatModel(

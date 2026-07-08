@@ -124,3 +124,25 @@ def test_get_model_returns_none_for_unknown_id() -> None:
 def test_no_duplicate_ids_in_registry() -> None:
     ids = [model.id for model in CHAT_MODEL_REGISTRY]
     assert len(ids) == len(set(ids)), "registry entries must have unique ids"
+
+
+# ---------------------------------------------------------------------------
+# max_tool_rounds capability gate (Phase 34, LOOP-01)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit()
+def test_only_bedrock_claude_entries_enable_tool_rounds() -> None:
+    """Only the 2 Bedrock Claude entries carry max_tool_rounds=4; everyone else stays 0."""
+    sonnet = get_model("us.anthropic.claude-sonnet-4-6")
+    haiku = get_model("us.anthropic.claude-haiku-4-5-20251001-v1:0")
+    assert sonnet is not None
+    assert haiku is not None
+    assert sonnet.capabilities.max_tool_rounds == 4
+    assert haiku.capabilities.max_tool_rounds == 4
+
+    for model in CHAT_MODEL_REGISTRY:
+        if model.transport != "bedrock":
+            assert model.capabilities.max_tool_rounds == 0, (
+                f"{model.id} (transport={model.transport}) must not enable tool rounds"
+            )
