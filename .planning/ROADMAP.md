@@ -154,7 +154,10 @@ tool-loop track, can run fully in parallel to Phase 34)
   4. A successful promotion mutation triggers event-driven invalidation of any bound panel showing
      that data, observable as a refetch — no manual refresh required
   5. `ALLOWED_PROCEDURES` has no new entries after this phase (still exactly the 5 existing ones)
-**Plans**: TBD
+**Plans**: 2 plans (coarse; Wave 1 = 33-01, Wave 2 = 33-02)
+Plans:
+- [ ] 33-01-PLAN.md — use-data-bindings.ts hook: compile-time procedure switch, params-from-context convention, staleTime tiers
+- [ ] 33-02-PLAN.md — wire hook into GenuiPanelNodeBody, promotion-success invalidation, SC2 locked-file diff verification
 **UI hint**: yes
 
 ### Phase 34: Tool-Loop Mechanics (stub/echo executor)
