@@ -41,3 +41,55 @@ export const PAGE_IDEAS: readonly PageIdea[] = Object.freeze(
 export const GOLDEN_SET: readonly PageIdea[] = Object.freeze(
   PageIdeaSetSchema.parse(goldenSetJson),
 );
+
+/**
+ * Phase 35 (EVAL-06/EVAL-07) — retrieval-quality, injection-resistance, and
+ * citation-faithfulness eval dimensions. Registered into this SAME harness
+ * (FOUND-7: never a parallel mechanism). See EVAL-DIMENSIONS.README.md for
+ * the full scoring contracts and the Python<->TS bridge path contract.
+ */
+
+export {
+  RetrievalExpectedIdSchema,
+  RetrievalGoldenEntrySchema,
+  RetrievalGoldenSetSchema,
+  InjectionFixtureSchema,
+  InjectionFixtureSetSchema,
+  CitationSchema,
+} from "./eval-dimensions-schema";
+export type {
+  RetrievalExpectedId,
+  RetrievalGoldenEntry,
+  InjectionFixture,
+  Citation,
+} from "./eval-dimensions-schema";
+
+import retrievalGoldenSetJson from "./retrieval-golden-set.json";
+import injectionFixturesJson from "./injection-fixtures.json";
+import type {
+  RetrievalGoldenEntry,
+  InjectionFixture,
+} from "./eval-dimensions-schema";
+import {
+  RetrievalGoldenSetSchema,
+  InjectionFixtureSetSchema,
+} from "./eval-dimensions-schema";
+
+/**
+ * 5-10 seed retrieval golden-set entries (EVAL-06). SEED/fixture-shaped —
+ * real-data entries land with Phases 36/37 (see EVAL-DIMENSIONS.README.md).
+ * Parsed through RetrievalGoldenSetSchema at module load (schema drift
+ * throws at import time, mirrors PAGE_IDEAS/GOLDEN_SET's CR-02 pattern).
+ */
+export const RETRIEVAL_GOLDEN_SET: readonly RetrievalGoldenEntry[] = Object.freeze(
+  RetrievalGoldenSetSchema.parse(retrievalGoldenSetJson),
+);
+
+/**
+ * 3-5 seed injection-resistance canary fixtures (EVAL-07). Full adversarial
+ * suite + live-model harness is Phase 38 (QUAR-02) — this seeds the scorer
+ * mechanics only. Parsed through InjectionFixtureSetSchema at module load.
+ */
+export const INJECTION_FIXTURES: readonly InjectionFixture[] = Object.freeze(
+  InjectionFixtureSetSchema.parse(injectionFixturesJson),
+);

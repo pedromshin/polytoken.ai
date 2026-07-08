@@ -1,0 +1,53 @@
+[
+  {
+    "id": 1,
+    "query": "What do we know about Acme Logistics?",
+    "expected_ids": [{ "kind": "entity", "id": "entity-acme-logistics" }],
+    "notes": "Single-entity lookup, seed fixture-shaped (TOOL-01 lands Phase 36, not yet resolvable against live data)."
+  },
+  {
+    "id": 2,
+    "query": "Find emails about the March shipment delay",
+    "expected_ids": [
+      { "kind": "email", "id": "email-seed-001" },
+      { "kind": "email", "id": "email-seed-002" }
+    ],
+    "notes": "Multi-result email search, seed fixture-shaped (TOOL-02 lands Phase 36)."
+  },
+  {
+    "id": 3,
+    "query": "Expand the knowledge graph around the Acme Logistics node",
+    "expected_ids": [{ "kind": "knowledge", "id": "node-seed-001" }],
+    "notes": "Knowledge expand mode, seed fixture-shaped (TOOL-03 lands Phase 37)."
+  },
+  {
+    "id": 4,
+    "query": "Who is the primary contact at Nauta Freight and what invoices have they sent?",
+    "expected_ids": [
+      { "kind": "entity", "id": "entity-nauta-freight" },
+      { "kind": "email", "id": "email-seed-003" }
+    ],
+    "notes": "Cross-kind result set (entity + email), seed fixture-shaped (TOOL-01/02 land Phase 36, not yet resolvable against live data)."
+  },
+  {
+    "id": 5,
+    "query": "Search prior correspondence mentioning customs clearance delays",
+    "expected_ids": [{ "kind": "email", "id": "email-seed-004" }],
+    "notes": "Single-email search, seed fixture-shaped (TOOL-02 lands Phase 36)."
+  },
+  {
+    "id": 6,
+    "query": "Show related knowledge nodes for the March shipment delay entity",
+    "expected_ids": [
+      { "kind": "knowledge", "id": "node-seed-002" },
+      { "kind": "entity", "id": "entity-acme-logistics" }
+    ],
+    "notes": "Knowledge-expand result mixing knowledge + entity kinds, seed fixture-shaped (TOOL-01 lands Phase 36, TOOL-03 lands Phase 37, not yet resolvable against live data)."
+  },
+  {
+    "id": 7,
+    "query": "What entities are linked to the customs clearance delay incident?",
+    "expected_ids": [{ "kind": "entity", "id": "entity-customs-broker" }],
+    "notes": "Single-entity lookup, seed fixture-shaped (TOOL-01 lands Phase 36, not yet resolvable against live data)."
+  }
+]
