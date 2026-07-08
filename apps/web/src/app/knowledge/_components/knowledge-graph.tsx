@@ -132,6 +132,59 @@ const DEFAULT_IMPORTER_ID = "00000000-0000-0000-0000-000000000001";
 const SUGGESTION_TIERS = new Set<string>(["INFERRED", "AMBIGUOUS"]);
 
 // ---------------------------------------------------------------------------
+// promoteEdge — the fetch + BIND-02 event-driven cache-invalidation
+// orchestration for the "Promote to confirmed" action, extracted as a
+// standalone async function (mirrors this file's own `mergeGraph`/
+// `tierAllowsEdge` pure-helper convention) so the T-33-06 mitigation —
+// `knowledge.byId`/`knowledge.graph` invalidation fires ONLY after a
+// successful response, never on a non-ok response — is unit-testable
+// without mounting the ReactFlow canvas host.
+// ---------------------------------------------------------------------------
+
+export interface PromoteEdgeUtils {
+  readonly knowledge: {
+    readonly byId: { readonly invalidate: () => void };
+    readonly graph: { readonly invalidate: () => void };
+  };
+}
+
+export interface PromoteEdgeOutcome {
+  readonly ok: boolean;
+  readonly errorMessage?: string;
+}
+
+export async function promoteEdge(
+  edgeId: string,
+  importerId: string,
+  utils: PromoteEdgeUtils,
+): Promise<PromoteEdgeOutcome> {
+  const response = await fetch(`/api/knowledge/edges/${edgeId}/promote`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ importerId }),
+  });
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { error?: string }
+      | null;
+    return {
+      ok: false,
+      errorMessage: body?.error ?? "This suggestion could not be promoted.",
+    };
+  }
+
+  // BIND-02: a bound chat-canvas panel's knowledge.byId/knowledge.graph
+  // query shares the SAME browser-side QueryClient singleton (mounted once
+  // at apps/web/src/app/layout.tsx) — invalidating here refetches it without
+  // navigating away from /chat first.
+  utils.knowledge.byId.invalidate();
+  utils.knowledge.graph.invalidate();
+
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Conversion helpers — GraphNode/GraphEdge → React Flow Node/Edge
 // Never mutates inputs; always returns new objects (CLAUDE.md immutability).
 // ---------------------------------------------------------------------------
@@ -505,22 +558,10 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
     const edgeId = selectedPopoverEdge.id.replace(/^kne-/, "");
     setPromotePending(true);
     try {
-      const response = await fetch(
-        `/api/knowledge/edges/${edgeId}/promote`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ importerId: DEFAULT_IMPORTER_ID }),
-        },
-      );
+      const outcome = await promoteEdge(edgeId, DEFAULT_IMPORTER_ID, utils);
 
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as
-          | { error?: string }
-          | null;
-        toast.error(
-          `Couldn't promote — ${body?.error ?? "This suggestion could not be promoted."}`,
-        );
+      if (!outcome.ok) {
+        toast.error(`Couldn't promote — ${outcome.errorMessage}`);
         return;
       }
 
@@ -543,7 +584,7 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
     } finally {
       setPromotePending(false);
     }
-  }, [selectedPopoverEdge, setEdges]);
+  }, [selectedPopoverEdge, setEdges, utils]);
 
   // Escape key deselects
   useEffect(() => {
