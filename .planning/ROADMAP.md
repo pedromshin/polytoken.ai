@@ -89,7 +89,7 @@ retrieval-miss rate).
  (completed 2026-07-07)
 - [x] **Phase 31: Recall & Measurement** - Autofill prompts recall an entity's known aliases/identifiers cheaply, and every autofill run's retrieval outcome is measured well enough to gate the deferred stage-3 BFS work
  (completed 2026-07-07)
-- [ ] **Phase 32: Knowledge Canvas: Tiered Graph Exploration** - `/knowledge` renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier
+- [x] **Phase 32: Knowledge Canvas: Tiered Graph Exploration** - `/knowledge` renders edge tiers distinctly, supports bounded click-to-expand-neighbours, and filters by tier (completed 2026-07-08)
 
 ## Phase Details
 
@@ -176,7 +176,7 @@ ones — to have anything meaningful to render, expand, or filter)
 **Plans**: 3 plans
   - [x] 32-01-PLAN.md — Bounded click-expand: expandNode server procedure + client dedupe-merge (GRAPH-02)
   - [x] 32-02-PLAN.md — Tier visual encoding + tier filter control + legend (GRAPH-01, GRAPH-03)
-  - [ ] 32-03-PLAN.md — Promote affordance: edge payload + Next proxy + suggestion-edge popover (TIER-03 UI closure)
+  - [x] 32-03-PLAN.md — Promote affordance: edge payload + Next proxy + suggestion-edge popover (TIER-03 UI closure)
 **UI hint**: yes
 
 ## Progress
@@ -190,7 +190,7 @@ parallelizable alongside 29/30 if desired (no shared schema/table).
 | 29. Tier Ladder + Edge Materialization | 4/4 | Complete   | 2026-07-07 |
 | 30. Suggest-Only Promotion Gate | 2/2 | Complete   | 2026-07-07 |
 | 31. Recall & Measurement | 2/2 | Complete   | 2026-07-07 |
-| 32. Knowledge Canvas: Tiered Graph Exploration | 2/3 | In Progress|  |
+| 32. Knowledge Canvas: Tiered Graph Exploration | 3/3 | Complete   | 2026-07-08 |
 
 ## Next
 

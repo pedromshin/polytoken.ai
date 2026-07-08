@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Knowledge-Graph Uplift
 status: executing
-last_updated: "2026-07-08T00:40:07.874Z"
-last_activity: 2026-07-08 -- 32-02 executed (GRAPH-01 tier styling + GRAPH-03 tier filter)
+last_updated: "2026-07-08T00:53:27.402Z"
+last_activity: 2026-07-08 -- 32-03 executed, PHASE 32 COMPLETE (promote affordance, TIER-03 closure)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 11
-  completed_plans: 10
-  percent: 75
+  completed_plans: 11
+  percent: 100
 ---
 
 # State
@@ -24,14 +24,35 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 32 (Knowledge Canvas: Tiered Graph Exploration) — EXECUTING
-Plan: 3 of 3
-Status: Executing Phase 32
-Last activity: 2026-07-08 -- 32-02 executed (GRAPH-01 tier styling + GRAPH-03 tier filter)
+Phase: 32 (Knowledge Canvas: Tiered Graph Exploration) — EXECUTED, awaiting verification
+Plan: 3 of 3 (all plans executed)
+Status: Phase 32 execution complete
+Last activity: 2026-07-08 -- 32-03 executed, PHASE 32 COMPLETE (promote affordance, TIER-03 closure)
 column), PromoteEdgeUseCase (fail-closed guard), authenticated POST /v1/knowledge/edges/{id}/promote
 endpoint. Phase 30 (TIER-02 + TIER-03) fully shipped.
 
 ## Phase 32 — Knowledge Canvas: Tiered Graph Exploration (executing 2026-07-08)
+
+- **32-03 EXECUTED — PHASE 32 COMPLETE:** Promote affordance (Phase-30 TIER-03 closure). `GraphEdge`
+  gained `confidence`/`provenanceSummary` (new `buildProvenanceSummary` maps the closed `source` enum
+  to a fixed plain-text descriptor, gated on `provenance` being non-null — never a raw jsonb blob), the
+  explicit-edge select carries the three new columns. New server-side-keyed Next proxy
+  `POST /api/knowledge/edges/[edgeId]/promote` (copies the chat-widget-submit proxy's
+  request-time-key/Zod/REJECTION_MESSAGES shape) forwards to FastAPI's promote endpoint. New
+  `EdgeDetailPopover` renders the UI-SPEC's LOCKED order (relation/tier badge/confidence/source +
+  "Promote to confirmed" button, Check/Loader2, disabled while pending); `onEdgeClick` in
+  `knowledge-graph.tsx` opens it only for `kne-*` edges with tier INFERRED/AMBIGUOUS. On promote
+  success the edge is patched to `tier: "EXTRACTED"` locally (no refetch, no success toast — the
+  re-styling IS the confirmation); on 4xx a sonner error toast fires and the popover stays open.
+  **Cross-plan fix:** closed 32-02's documented scope gap — GRAPH-02's click-expand merge now
+  re-applies `tierAllowsEdge` to the merged edge set, so the tier filter can no longer be bypassed by
+  expand-clicking while narrowed. 21/21 `graph.test.ts` green (7 new), `tsc --noEmit` clean in
+  `packages/api-client` and `apps/web`, `npm run build --workspace=@nauta/web` green (new route
+  registered). No blocking deviations (2 documented: `DEFAULT_IMPORTER_ID` duplicated locally since
+  importing the canonical constant crashes client-side per 23-04 precedent; the cross-plan gap fix
+  itself). See 32-03-SUMMARY.md. **All Phase 32 requirements (GRAPH-01, GRAPH-02, GRAPH-03) now
+  complete — v1.5 Knowledge-Graph Uplift's 4 phases (29-32) have all executed. Next: verification /
+  milestone close.**
 
 - **32-02 EXECUTED:** GRAPH-01 + GRAPH-03 — tier now a first-class visual concept on `/knowledge`.
   `tierEdgeStyle(tier)` (pure, token-only: `INFERRED` dashed muted / `AMBIGUOUS` faint muted + dimmer
