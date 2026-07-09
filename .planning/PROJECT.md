@@ -36,10 +36,10 @@ Migrations 0029–0030 applied + live-verified locally. Deferred: 7 items (2 vis
 gaps w/ persisted UAT files, 3 todos — STATE.md → Deferred Items). Executed fully autonomously
 (`/gsd:autonomous parallelize what possible`), surviving 3 session-limit interruptions.
 
-**Next:** run `/gsd:new-milestone`. Candidates: **999.11 polytoken.ai vision ladder E2**
-(rebrand/auth/tenancy — `.planning/research/polytoken-vision/VISION.md`), **999.4 Design Engine**,
-**999.13 genui catalog expansion**, **999.3 connected-env verification**, **999.12 Tailwind
-v4/React 19 migration**.
+*(v1.6's "Next" resolved: 999.11 polytoken.ai E2 selected → v1.7 opened 2026-07-09 — see Current
+Milestone below. Remaining candidates carried per VISION.md's absorption map: 999.4 Design Engine →
+v1.8, 999.3 connected-env verification → folded into v1.7 kickoff hygiene, 999.13 genui catalog
+expansion + 999.12 Tailwind v4/React 19 stay backlog.)*
 
 <details>
 <summary>v1.6 original milestone goal (opened 2026-07-08)</summary>
@@ -93,6 +93,43 @@ tool rounds (adapter drops tool blocks); `continue_after_widget` NOT unified wit
 loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-identical.
 
 </details>
+
+## Current Milestone: v1.7 polytoken.ai Foundation — Rename, Auth & Tenancy
+
+**Goal:** Turn the validated substrate into a product foundation — VISION.md E2's
+autonomously-verifiable half: atomic internal rename nauta → polytoken, real auth (Google OAuth +
+sessions) and per-user tenancy (Supabase RLS actually enforced), an email thread model over the
+message-oriented pipeline, and the v1.8 brand/design dossier prepared in parallel.
+
+**Target features:**
+- **Atomic internal rename** nauta → polytoken across repo code, packages (`@nauta/*` →
+  `@polytoken/*`), imports, docs, and UI strings — one phase, no hybrid states ("rename once"
+  guardrail); external renames (GitHub repo, AWS resources, Vercel project, domain purchase/DNS)
+  delivered as a user runbook, not executed autonomously
+- **Auth:** Google OAuth sign-in + server sessions — machinery, session storage, and env-var
+  config shipped and tested; live OAuth client creation in Google Cloud documented for the user
+- **Tenancy:** `user_id` scoping on user-owned tables + Supabase RLS enforced for real (today:
+  RESTRICTIVE deny-all + a single shared API key); absorbs backlog 999.1 per-importer
+  authorization as per-USER scoping; tenant-scoping columns on all new tables per VISION
+  guardrail #1
+- **Email threads:** thread model (grouping/threading over today's message-oriented ingestion)
+  + own-email forwarding seam for real personal use (live forwarding config user-runbook'd)
+- **Kickoff hygiene:** 999.3 connected-env verifications where locally feasible (live Bedrock
+  works locally via IAM, Playwright runs locally) + 999.2 folds (pytest event-loop cleanup,
+  grid colSpan)
+- **v1.8 Brand & Design dossier:** research track producing brand-identity options +
+  Claude/ChatGPT/Perplexity-class design-pattern research for the v1.8 re-skin — run during
+  v1.7 the way v1.6's research ran during v1.5
+
+**Key context:** Opened autonomously (`/gsd:new-milestone /gsd:autonomous /strategic-compact
+/gsd:graphify`): E2 selected because VISION.md (freshest user-captured intent, 2026-07-07) names
+it the next epoch and its gate — E1/v1.6 shipped — opened at the v1.6 close. E2 split per its own
+"each epoch becomes 1–3 milestones" rule: v1.7 = the backend-testable foundation (autonomous-fit
+precedent from the v1.5 selection); **v1.8 = the taste-heavy remainder** (total UI re-skin on the
+v1.4 token system, mobile-responsive canvas answer, 999.4 Design Engine absorption, 999.7 panel
+editing) which needs both the brand dossier and user reaction. `/gsd:graphify` directive honored:
+repo knowledge graph refreshed (`graphify --update`) and used as the architecture-question tool
+during planning. Phase numbering continues from 41.
 
 ## Prior State (v1.5 shipped 2026-07-08)
 
@@ -302,9 +339,14 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 
 ### Active
 
-<!-- No active milestone. Run /gsd:new-milestone to open the next one. Candidates in "Current State → Next". -->
+<!-- v1.7 polytoken.ai Foundation — see Current Milestone section. -->
 
-_(none — v1.6 shipped; next milestone not yet opened)_
+- [ ] Atomic internal rename nauta → polytoken (code/packages/imports/docs/UI) + external-rename runbook
+- [ ] Google OAuth sign-in + server sessions (env-configured; live client creation user-runbook'd)
+- [ ] Per-user tenancy: user_id scoping + enforced Supabase RLS (999.1 absorbed as per-user)
+- [ ] Email thread model + own-email forwarding seam
+- [ ] Kickoff hygiene: 999.3 locally-feasible connected-env verifications + 999.2 folds
+- [ ] v1.8 Brand & Design research dossier
 
 ### Out of Scope
 
@@ -380,4 +422,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-09 after v1.6 milestone — Chat × Knowledge Convergence shipped (Phases 33–41, 19/19 requirements moved to Validated); Key Decisions updated with 6 v1.6 entries; Active reset pending next milestone*
+*Last updated: 2026-07-09 after opening milestone v1.7 — polytoken.ai Foundation (Rename, Auth & Tenancy): VISION.md E2 selected autonomously, split v1.7 foundation / v1.8 re-skin; Active populated with 6 target features*
