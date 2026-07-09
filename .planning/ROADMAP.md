@@ -9,6 +9,7 @@
 - ✅ **v1.4 — Chat & Studio Design Uplift** (Phases 26–28) — SHIPPED 2026-07-07. A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built chrome — zero new npm dependencies — executing the locked 3-phase punch list (zero-dep contract fixes → adopted external picks → design-system token upgrades). Archived: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) · Audit: [milestones/v1.4-MILESTONE-AUDIT.md](milestones/v1.4-MILESTONE-AUDIT.md).
 - ✅ **v1.5 — Knowledge-Graph Uplift** (Phases 29–32) — SHIPPED 2026-07-08. Activated the dormant knowledge-graph substrate: confirms materialize confidence-tiered edges (OCR token provenance) through a suggest-only promotion gate; cheap alias/identifier recall + a measurable retrieval-miss-rate gate for stage 3; `/knowledge` tiered exploration canvas (encoding, bounded expand, filter, promote). Archived: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md) · Audit: [milestones/v1.5-MILESTONE-AUDIT.md](milestones/v1.5-MILESTONE-AUDIT.md).
 - ✅ **v1.6 — Chat × Knowledge Convergence** (Phases 33–41) — SHIPPED 2026-07-09. The chat agent reads its own extracted data: bounded mid-turn tool loop + 3 tiered knowledge tools with structural injection quarantine, per-round cost ceilings, visible tool rounds with citation chips, live data-bound panels, chat-confirmable promotions, and a knowledge-preview canvas node. Archived: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · Audit: [milestones/v1.6-MILESTONE-AUDIT.md](milestones/v1.6-MILESTONE-AUDIT.md).
+- ◆ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — IN PROGRESS (opened 2026-07-09). VISION.md E2's autonomously-verifiable half: atomic internal rename, Google OAuth + sessions (Supabase Auth), per-user tenancy with enforced isolation, email thread model + forwarding seam, kickoff hygiene + the v1.8 brand/design dossier. Research: [research/v1.7-polytoken-foundation/SUMMARY.md](research/v1.7-polytoken-foundation/SUMMARY.md).
 
 ## Phases
 
@@ -16,8 +17,8 @@
 - Phase numbering continues across milestones (never restarts). v1.2 formally ended at Phase 20 (an
   informal Phase 21 quality-verification effort is recorded in STATE.md history but was never a
   numbered roadmap phase). v1.3 ran Phases 22–25. v1.4 ran Phases 26–28. v1.5 ran Phases 29–32.
-  **v1.6 starts at Phase 33 (Phases 33–41).**
-- Integer phases (33–41): planned v1.6 milestone work.
+  v1.6 ran Phases 33–41. **v1.7 starts at Phase 42 (Phases 42–46).**
+- Integer phases (42–46): planned v1.7 milestone work.
 - Decimal phases (e.g. 33.1): urgent insertions via `/gsd:phase insert`, executed between the
   surrounding integers.
 
@@ -102,9 +103,67 @@ Full phase details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · 
 
 </details>
 
-## Next
+## v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy (Phases 42–46) — CURRENT
 
-v1.6 shipped 2026-07-09. Run `/gsd:new-milestone` to open the next one. Candidates: **999.11 polytoken.ai vision ladder E2** (rebrand/auth/tenancy — .planning/research/polytoken-vision/VISION.md), **999.4 Design Engine**, **999.13 genui catalog expansion**, **999.3 connected-env verification**, **999.12 Tailwind v4/React 19 migration**.
+19 requirements mapped (see REQUIREMENTS.md traceability). Dependency chain: 42 → 43 → 44 → 45;
+Phase 46 is independent/parallelizable. Research base:
+[research/v1.7-polytoken-foundation/SUMMARY.md](research/v1.7-polytoken-foundation/SUMMARY.md).
+
+- [ ] **Phase 42: Atomic Rename nauta → polytoken**
+- [ ] **Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)**
+- [ ] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation**
+- [ ] **Phase 45: Email Threads + Forwarding Seam**
+- [ ] **Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier**
+
+### Phase 42: Atomic Rename nauta → polytoken
+
+**Goal:** The codebase is polytoken everywhere internally — one atomic pass, no hybrid states — with external renames runbook'd for the user.
+**Requirements:** RENM-01, RENM-02
+**Success criteria:**
+1. Zero `@nauta/` references remain in code/config (package names, workspace `-w` selectors, vercel.json, CI YAML); user-visible chrome says polytoken
+2. Workspace symlinks regenerated (`npm install`); typecheck + web tests + Python tests green post-rename
+3. External-rename runbook exists (GitHub repo, AWS/Terraform incl. ECR `force_delete`/tfstate warnings, Vercel, domain); `terraform plan` proves live AWS resource names untouched
+
+### Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)
+
+**Goal:** The app has real user identity — Google sign-in via Supabase Auth (`@supabase/ssr`, the milestone's ONE new npm dependency), persistent sessions, session-derived identity in every server context.
+**Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
+**Success criteria:**
+1. User signs in with Google and returns authenticated; session persists across browser refresh; sign-out works
+2. Signed-out visitors to app surfaces are redirected to sign-in
+3. tRPC context resolves the session user server-side; a test proves identity cannot be supplied from client input
+4. Server-side FastAPI proxy routes forward the user's identity; `X-API-Key` service boundary unchanged (existing service tests green)
+5. Missing auth env vars fail startup with a clear message; Google Cloud OAuth client runbook exists
+
+### Phase 44: Tenancy — user_id Scoping + Enforced Isolation
+
+**Goal:** Every row of user-owned data belongs to a user and is unreachable across users — enforced at the app boundary (primary), defended in depth by RLS.
+**Requirements:** TENA-01, TENA-02, TENA-03, TENA-04
+**Success criteria:**
+1. `user_id` anchored on `importers` + direct `user_id` on chat tables, migrated + backfilled to the first real user (expand→backfill→contract, live-verified locally)
+2. Adversarial cross-tenant test suite passes as the acceptance gate — a second user cannot read/write the first user's data via ANY route/procedure, including the attachments download route and the knowledge-promote proxy
+3. No route/procedure accepts client-supplied importer/user IDs for scoping (sweep + regression tests)
+4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
+5. genui exact-match cache tables deliberately unscoped, documented
+
+### Phase 45: Email Threads + Forwarding Seam
+
+**Goal:** Emails group into threads at ingest — resilient to forwarded mail — and the personal-forwarding seam exists.
+**Requirements:** THRD-01, THRD-02, THRD-03, THRD-04
+**Success criteria:**
+1. Ingesting a reply chain yields one thread (`ThreadResolver` port at ingest, Union-Find over RFC headers); existing emails backfilled into threads
+2. Real Gmail-UI-forward `.eml` fixtures do not fragment threads (conservative fallback tier, proven in tests)
+3. Inbox lists emails grouped by thread
+4. Unique secret-token forwarding-address seam works (SES wildcard pattern) with an onboarding runbook covering Gmail's destination-verification handshake
+
+### Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier
+
+**Goal:** The substrate is verified before v1.8 re-skins it, small debts fold in, and the v1.8 dossier is decision-ready.
+**Requirements:** HYGN-01, HYGN-02, DSSR-01, DSSR-02
+**Success criteria:**
+1. Eval harness vs baseline executed on the v1.2 corpus and Playwright code-island isolation spec executed (both engines), with recorded evidence (999.3's locally-feasible set)
+2. pytest event-loop cleanup + grid `colSpan` support landed with tests (999.2)
+3. Brand-identity options document is decision-ready; design-pattern dossier maps Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system
 
 ## Backlog
 

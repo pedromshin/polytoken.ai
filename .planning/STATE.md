@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** v1.6 (Chat × Knowledge Convergence) — all 9 phases (33-41) now complete; milestone audit/ship pending
+**Current focus:** v1.7 (polytoken.ai Foundation — Rename, Auth & Tenancy), Phases 42–46
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 42 — Atomic Rename nauta → polytoken (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-07-09 — Milestone v1.7 started
+Status: Roadmap approved — ready to plan Phase 42
+Last activity: 2026-07-09 — Milestone v1.7 opened autonomously: research (4 docs + summary), 19 requirements, 5-phase roadmap (42–46)
 
 ## Phase 41 — Knowledge-Preview Canvas Node (COMPLETE 2026-07-09)
 
