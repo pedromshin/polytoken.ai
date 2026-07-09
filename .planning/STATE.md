@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: planning
-last_updated: "2026-07-09T17:31:21.796Z"
-last_activity: 2026-07-09
+last_updated: "2026-07-09T20:44:37.362Z"
+last_activity: "2026-07-09 — Milestone v1.7 opened autonomously: research (4 docs + summary), 19 requirements, 5-phase roadmap (42–46)"
 progress:
-  total_phases: 0
+  total_phases: 5
   completed_phases: 0
-  total_plans: 0
+  total_plans: 2
   completed_plans: 0
   percent: 0
 ---

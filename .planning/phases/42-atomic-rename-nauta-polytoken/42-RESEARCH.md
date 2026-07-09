@@ -339,14 +339,16 @@ Post-rename, `node_modules/@polytoken/*` should show the identical 6 entries aft
 
 **If this table is empty:** N/A — two low-risk discretionary items above, no HIGH-risk assumptions. Everything else in this document (file counts, git-tracked status, migration content, workflow YAML content) was grep/read-verified directly against the live repo in this session, not assumed.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does "nauta-teal" get renamed this phase?**
+   - RESOLVED: YES — renamed to `polytoken-teal` (no alias), including the hardcoded test-assertion strings. See `42-01-PLAN.md` `<autonomous_decisions>` DECISION 1 for full rationale (brand identifier, unlike the excluded `nauta_id` data surface; genui cache keys are regenerable per TENA-01).
    - What we know: it's a product-facing identifier (not a comment), spans 21 files across TS+Python, and is embedded in an LLM system-prompt-adjacent default value.
    - What's unclear: CONTEXT.md's locked-decision list doesn't explicitly enumerate it, and it's arguably closer to "config value" than "brand chrome."
    - Recommendation: planner should make an explicit, stated call (not silently include or silently skip) — either way, update the 5+ hardcoded test-assertion strings in `packages/genui/src/theme/__tests__/packs.test.ts` and `apps/email-listener/tests/application/test_cache_key.py` consistently with whatever is decided.
 
 2. **Should the `.claude/skills/nauta-design-system/` directory itself be `git mv`'d to `polytoken-design-system` this phase, or left as a follow-up?**
+   - RESOLVED: Renamed THIS phase as its own isolated task/commit (42-01 Task 2), per the recommendation below; pre-existing dirty edits (SKILL.md, untracked build-design-data.mjs) preserved through the rename. See `42-01-PLAN.md` `<autonomous_decisions>` DECISION 2.
    - What we know: its content (SKILL.md, references, scripts) is legitimate rename surface; it currently has uncommitted local changes.
    - What's unclear: whether combining a directory rename with in-flight uncommitted edits in the same commit is acceptable, or whether the planner should sequence it as its own isolated task so the diff is easy to review.
    - Recommendation: treat as its own task/commit within the phase (not skipped, not silently bundled into the bulk substitution commit) — this matches PITFALLS.md #15's own general advice to keep the rename as "an isolated commit... with no unrelated logic changes mixed in."
