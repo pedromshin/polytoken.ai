@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 42 (atomic-rename-nauta-polytoken) — COMPLETE
+Phase: 42 (atomic-rename-nauta-polytoken) — COMPLETE (verification: gaps_parked)
 Plan: 2 of 2 (COMPLETE)
-Status: Phase 42 complete (RENM-01 + RENM-02 both satisfied); next Phase 43
-Last activity: 2026-07-09 -- Plan 42-02 executed (external-rename runbook, RENM-02); Phase 42 (atomic-rename-nauta-polytoken) COMPLETE — both RENM-01 (internal rename) and RENM-02 (external-rename runbook) satisfied. Next: Phase 43.
+Status: Phase 42 complete (RENM-01 + RENM-02 both satisfied); verification gaps_found 7/8 → 1 gap PARKED to backlog 999.14 (autonomous default; ship not blocked); next Phase 43
+Last activity: 2026-07-09 -- Phase 42 verified (42-VERIFICATION.md, status gaps_found 7/8). Sole gap: untracked `apps/web/src/app/dev/design/` scratch pages still import `@nauta/ui/*`, so Next's regenerated `.next/types/validator.ts` transitively breaks `npm run typecheck -w @polytoken/web` (22 TS2307 errors) — rename-exposed but the dir is user-owned, hard-excluded, and untracked (git-based CI/Vercel builds unaffected). Parked as backlog 999.14 per the workflow's non-interactive default (fix requires editing the excluded dir). Everything else verified: atomic rename complete, KEEP surfaces untouched, 987 TS tests green, terraform plan "No changes", runbook accurate. Next: Phase 43.
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 
