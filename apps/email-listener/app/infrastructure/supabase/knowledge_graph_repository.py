@@ -9,11 +9,17 @@ wrapped in strip_nul, table().upsert/insert/update().execute() call shapes.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import Any, cast
 
 from supabase import Client
 
-from app.domain.ports.knowledge_graph_repository import DEFAULT_SEARCH_LIMIT
+from app.domain.ports.knowledge_graph_repository import (
+    DEFAULT_EXPAND_NODE_BUDGET,
+    DEFAULT_SEARCH_LIMIT,
+    MAX_EXPAND_DEPTH,
+    MIN_EXPAND_DEPTH,
+)
 from app.infrastructure.supabase.sanitize import strip_nul
 
 logger = logging.getLogger(__name__)
@@ -48,6 +54,33 @@ def _merge_rrf(ranked_lists: list[list[str]]) -> list[str]:
         for rank, item_id in enumerate(ranked):
             scores[item_id] = scores.get(item_id, 0.0) + _rrf_score(rank)
     return sorted(scores, key=lambda eid: scores[eid], reverse=True)
+
+
+def _clamp_depth(max_depth: int) -> int:
+    """Clamp max_depth to [MIN_EXPAND_DEPTH, MAX_EXPAND_DEPTH]. Mirrors expand.ts's clampDepth."""
+    if max_depth < MIN_EXPAND_DEPTH:
+        return MIN_EXPAND_DEPTH
+    if max_depth > MAX_EXPAND_DEPTH:
+        return MAX_EXPAND_DEPTH
+    return max_depth
+
+
+def _filter_edges_to_node_set(
+    edges: Iterable[dict[str, Any]], kept_ids: set[str]
+) -> list[dict[str, Any]]:
+    """Keep only edges whose source_node_id AND target_ref_id (when non-null) are both in kept_ids.
+
+    Mirrors expand.ts's final scopedEdges filter / capBudget's edge-drop step
+    -- the definitive tenant/existence boundary for edges (an edge touching
+    an id that failed view resolution, or fell outside the budget cap, is
+    silently dropped).
+    """
+    return [
+        edge
+        for edge in edges
+        if str(edge.get("source_node_id")) in kept_ids
+        and (edge.get("target_ref_id") is None or str(edge.get("target_ref_id")) in kept_ids)
+    ]
 
 
 def _node_to_row(
@@ -369,3 +402,150 @@ class SupabaseKnowledgeGraphRepository:
                 extra={"importer_id": importer_id},
             )
             return []
+
+    async def expand_neighbours(
+        self,
+        *,
+        node_id: str,
+        importer_id: str,
+        max_depth: int = MAX_EXPAND_DEPTH,
+        node_budget: int = DEFAULT_EXPAND_NODE_BUDGET,
+    ) -> dict[str, object]:
+        """Bounded BFS neighbour walk reading through knowledge_nodes_extracted_only.
+
+        Fail-closed (empty result, zero further queries) on an unknown,
+        inactive, or cross-tenant seed (T-37-03). Every hop's frontier
+        resolution filters .eq("importer_id", importer_id) against the view
+        (T-37-02) -- an id that fails to resolve there (foreign-importer,
+        inactive, or not a knowledge_node at all) is silently dropped and
+        never added to the next hop's frontier. The budget cap is applied
+        ONCE after the walk (mirrors TS capBudget), not per-hop.
+        """
+        if not await self._seed_is_valid(node_id=node_id, importer_id=importer_id):
+            return {"nodes": [], "edges": [], "truncated": False}
+
+        seed_view_rows = await self._resolve_view_rows(candidate_ids={node_id}, importer_id=importer_id)
+        if node_id not in seed_view_rows:
+            # Defense-in-depth: the base-table check above already confirmed
+            # is_active + same-importer; this should always resolve. Fail
+            # closed anyway rather than surface a partially-resolved seed.
+            return {"nodes": [], "edges": [], "truncated": False}
+
+        clamped_depth = _clamp_depth(max_depth)
+        node_ids, edges_by_id = await self._walk_bfs(
+            seed_id=node_id,
+            seed_row=seed_view_rows[node_id],
+            importer_id=importer_id,
+            clamped_depth=clamped_depth,
+        )
+
+        kept_ids = set(node_ids.keys())
+        kept_edges = _filter_edges_to_node_set(edges_by_id.values(), kept_ids)
+
+        node_id_list = list(node_ids.keys())
+        if len(node_id_list) <= node_budget:
+            return {"nodes": list(node_ids.values()), "edges": kept_edges, "truncated": False}
+
+        capped_ids = set(node_id_list[:node_budget])
+        nodes_out = [node_ids[nid] for nid in node_id_list[:node_budget]]
+        edges_out = _filter_edges_to_node_set(kept_edges, capped_ids)
+        return {"nodes": nodes_out, "edges": edges_out, "truncated": True}
+
+    async def _seed_is_valid(self, *, node_id: str, importer_id: str) -> bool:
+        """Fail-closed seed check: exists, is_active, and same-importer as the caller (T-37-03)."""
+        seed_result = (
+            self._client.table("knowledge_nodes").select("id, importer_id, is_active").eq("id", node_id).execute()
+        )
+        seed_rows = cast("list[dict[str, Any]]", seed_result.data or [])
+        if not seed_rows:
+            return False
+        seed_row = seed_rows[0]
+        return seed_row.get("is_active") is True and str(seed_row.get("importer_id")) == importer_id
+
+    async def _walk_bfs(
+        self,
+        *,
+        seed_id: str,
+        seed_row: dict[str, Any],
+        importer_id: str,
+        clamped_depth: int,
+    ) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+        """Breadth-first walk from seed_id, tenant-scoped to importer_id at every hop.
+
+        Returns (node_ids, edges_by_id) -- both insertion-ordered by
+        discovery, which the budget cap this feeds into relies on.
+        """
+        node_ids: dict[str, dict[str, Any]] = {seed_id: seed_row}
+        edges_by_id: dict[str, dict[str, Any]] = {}
+        frontier: set[str] = {seed_id}
+
+        for _hop in range(clamped_depth):
+            if not frontier:
+                break
+            next_candidates = await self._collect_hop_candidates(
+                frontier=frontier, node_ids=node_ids, edges_by_id=edges_by_id
+            )
+            if not next_candidates:
+                break
+            resolved = await self._resolve_view_rows(candidate_ids=next_candidates, importer_id=importer_id)
+            frontier = set()
+            for candidate_id, row in resolved.items():
+                if candidate_id not in node_ids:
+                    node_ids[candidate_id] = row
+                    frontier.add(candidate_id)
+
+        return node_ids, edges_by_id
+
+    async def _collect_hop_candidates(
+        self,
+        *,
+        frontier: set[str],
+        node_ids: dict[str, dict[str, Any]],
+        edges_by_id: dict[str, dict[str, Any]],
+    ) -> set[str]:
+        """Fetch active edges touching every node in frontier; mutates edges_by_id in place.
+
+        Returns the set of newly-discovered (not already in node_ids) endpoint ids.
+        """
+        next_candidates: set[str] = set()
+        for current_id in frontier:
+            edge_rows = await self._fetch_edges_for_node(current_id)
+            for edge in edge_rows:
+                edges_by_id[str(edge["id"])] = edge
+                for candidate in (edge.get("source_node_id"), edge.get("target_ref_id")):
+                    if candidate is not None and str(candidate) not in node_ids:
+                        next_candidates.add(str(candidate))
+        return next_candidates
+
+    async def _resolve_view_rows(self, *, candidate_ids: set[str], importer_id: str) -> dict[str, dict[str, Any]]:
+        """Batched, tenant-scoped resolve of candidate node ids through knowledge_nodes_extracted_only.
+
+        THE tenant boundary for expand_neighbours (T-37-02, defense-in-depth
+        mirroring T-32-02): the view already filters is_active=true
+        internally, and this adds .eq("importer_id", importer_id) -- any id
+        that fails to resolve here (foreign-importer, inactive, or not a
+        knowledge_node at all -- a polymorphic target_ref_id) is silently
+        excluded from the returned mapping.
+        """
+        if not candidate_ids:
+            return {}
+        result = (
+            self._client.table("knowledge_nodes_extracted_only")
+            .select("id, title, content, scope, scope_ref_id, tier, confidence")
+            .in_("id", list(candidate_ids))
+            .eq("importer_id", importer_id)
+            .execute()
+        )
+        rows = cast("list[dict[str, Any]]", result.data or [])
+        return {str(row["id"]): row for row in rows}
+
+    async def _fetch_edges_for_node(self, node_id: str) -> list[dict[str, Any]]:
+        """Fetch active knowledge_node_edges rows touching node_id as either endpoint."""
+        result = (
+            self._client.table("knowledge_node_edges")
+            .select("*")
+            .or_(f"source_node_id.eq.{node_id},target_ref_id.eq.{node_id}")
+            .eq("is_active", True)
+            .execute()
+        )
+        return cast("list[dict[str, Any]]", result.data or [])
