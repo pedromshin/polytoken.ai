@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: verifying
-last_updated: "2026-07-09T22:44:38.667Z"
-last_activity: "2026-07-09 -- Phase 42 verified (42-VERIFICATION.md, status gaps_found 7/8). Sole gap: untracked `apps/web/src/app/dev/design/` scratch pages still import `@nauta/ui/*`, so Next's regenerated `.next/types/validator.ts` transitively breaks `npm run typecheck -w @polytoken/web` (22 TS2307 errors) — rename-exposed but the dir is user-owned, hard-excluded, and untracked (git-based CI/Vercel builds unaffected). Parked as backlog 999.14 per the workflow's non-interactive default (fix requires editing the excluded dir). Everything else verified: atomic rename complete, KEEP surfaces untouched, 987 TS tests green, terraform plan "No changes", runbook accurate. Next: Phase 43."
+status: executing
+last_updated: "2026-07-09T22:52:26.600Z"
+last_activity: 2026-07-09 -- Phase 46 execution started
 progress:
   total_phases: 5
   completed_phases: 1
-  total_plans: 9
+  total_plans: 10
   completed_plans: 2
   percent: 20
 ---
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 42 — atomic-rename-nauta-polytoken
+**Current focus:** Phase 46 — kickoff-hygiene-v1-8-brand-design-dossier
 
 ## Current Position
 
-Phase: 42 (atomic-rename-nauta-polytoken) — COMPLETE (verification: gaps_parked)
-Plan: 2 of 2 (COMPLETE)
-Status: Phase 42 complete (RENM-01 + RENM-02 both satisfied); verification gaps_found 7/8 → 1 gap PARKED to backlog 999.14 (autonomous default; ship not blocked); next Phase 43
-Last activity: 2026-07-09 -- Phase 42 verified (42-VERIFICATION.md, status gaps_found 7/8). Sole gap: untracked `apps/web/src/app/dev/design/` scratch pages still import `@nauta/ui/*`, so Next's regenerated `.next/types/validator.ts` transitively breaks `npm run typecheck -w @polytoken/web` (22 TS2307 errors) — rename-exposed but the dir is user-owned, hard-excluded, and untracked (git-based CI/Vercel builds unaffected). Parked as backlog 999.14 per the workflow's non-interactive default (fix requires editing the excluded dir). Everything else verified: atomic rename complete, KEEP surfaces untouched, 987 TS tests green, terraform plan "No changes", runbook accurate. Next: Phase 43.
+Phase: 46 (kickoff-hygiene-v1-8-brand-design-dossier) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 46
+Last activity: 2026-07-09 -- Phase 46 execution started
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 

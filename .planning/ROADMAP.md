@@ -14,10 +14,12 @@
 ## Phases
 
 **Phase Numbering:**
+
 - Phase numbering continues across milestones (never restarts). v1.2 formally ended at Phase 20 (an
   informal Phase 21 quality-verification effort is recorded in STATE.md history but was never a
   numbered roadmap phase). v1.3 ran Phases 22–25. v1.4 ran Phases 26–28. v1.5 ran Phases 29–32.
   v1.6 ran Phases 33–41. **v1.7 starts at Phase 42 (Phases 42–46).**
+
 - Integer phases (42–46): planned v1.7 milestone work.
 - Decimal phases (e.g. 33.1): urgent insertions via `/gsd:phase insert`, executed between the
   surrounding integers.
@@ -120,12 +122,15 @@ Phase 46 is independent/parallelizable. Research base:
 **Goal:** The codebase is polytoken everywhere internally — one atomic pass, no hybrid states — with external renames runbook'd for the user.
 **Requirements:** RENM-01, RENM-02
 **Success criteria:**
+
 1. Zero `@nauta/` references remain in code/config (package names, workspace `-w` selectors, vercel.json, CI YAML); user-visible chrome says polytoken
 2. Workspace symlinks regenerated (`npm install`); typecheck + web tests + Python tests green post-rename
 3. External-rename runbook exists (GitHub repo, AWS/Terraform incl. ECR `force_delete`/tfstate warnings, Vercel, domain); `terraform plan` proves live AWS resource names untouched
+
 **Plans:** 2/2 plans complete
 
 Plans:
+
 - [x] 42-01-PLAN.md — Atomic internal rename (`@nauta/*` → `@polytoken/*`, UI chrome, `nauta-teal`, skill dir) + workspace regeneration + full verification matrix
 - [x] 42-02-PLAN.md — External-rename runbook (GitHub repo, AWS/Terraform, Vercel, domain) — documented, not executed
 
@@ -134,6 +139,7 @@ Plans:
 **Goal:** The app has real user identity — Google sign-in via Supabase Auth (`@supabase/ssr`, the milestone's ONE new npm dependency), persistent sessions, session-derived identity in every server context.
 **Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
 **Success criteria:**
+
 1. User signs in with Google and returns authenticated; session persists across browser refresh; sign-out works
 2. Signed-out visitors to app surfaces are redirected to sign-in
 3. tRPC context resolves the session user server-side; a test proves identity cannot be supplied from client input
@@ -143,10 +149,18 @@ Plans:
 **Plans:** 5 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 43-01-PLAN.md — Foundation: @supabase/ssr install, Zod env fail-fast validation, browser/server/middleware Supabase client helpers
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 43-02-PLAN.md — Sign-in/out UX + route protection: middleware guard, /login + Continue-with-Google, /auth/callback, sidebar sign-out
 - [ ] 43-03-PLAN.md — tRPC session context + protectedProcedure + identity-injection test
 - [ ] 43-04-PLAN.md — Identity forwarding: server-derived X-User-Id on BFF proxy routes + non-enforcing FastAPI reader
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 43-05-PLAN.md — Google OAuth user runbook + config.toml/.env.example wiring + Playwright redirect smoke spec
 
 ### Phase 44: Tenancy — user_id Scoping + Enforced Isolation
@@ -154,6 +168,7 @@ Plans:
 **Goal:** Every row of user-owned data belongs to a user and is unreachable across users — enforced at the app boundary (primary), defended in depth by RLS.
 **Requirements:** TENA-01, TENA-02, TENA-03, TENA-04
 **Success criteria:**
+
 1. `user_id` anchored on `importers` + direct `user_id` on chat tables, migrated + backfilled to the first real user (expand→backfill→contract, live-verified locally)
 2. Adversarial cross-tenant test suite passes as the acceptance gate — a second user cannot read/write the first user's data via ANY route/procedure, including the attachments download route and the knowledge-promote proxy
 3. No route/procedure accepts client-supplied importer/user IDs for scoping (sweep + regression tests)
@@ -165,6 +180,7 @@ Plans:
 **Goal:** Emails group into threads at ingest — resilient to forwarded mail — and the personal-forwarding seam exists.
 **Requirements:** THRD-01, THRD-02, THRD-03, THRD-04
 **Success criteria:**
+
 1. Ingesting a reply chain yields one thread (`ThreadResolver` port at ingest, Union-Find over RFC headers); existing emails backfilled into threads
 2. Real Gmail-UI-forward `.eml` fixtures do not fragment threads (conservative fallback tier, proven in tests)
 3. Inbox lists emails grouped by thread
@@ -175,12 +191,15 @@ Plans:
 **Goal:** The substrate is verified before v1.8 re-skins it, small debts fold in, and the v1.8 dossier is decision-ready.
 **Requirements:** HYGN-01, HYGN-02, DSSR-01, DSSR-02
 **Success criteria:**
+
 1. Eval harness vs baseline executed on the v1.2 corpus and Playwright code-island isolation spec executed (both engines), with recorded evidence (999.3's locally-feasible set)
 2. pytest event-loop cleanup + grid `colSpan` support landed with tests (999.2)
 3. Brand-identity options document is decision-ready; design-pattern dossier maps Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system
+
 **Plans:** 3/3 plans (all wave 1, disjoint files — parallelizable)
 
 Plans:
+
 - [ ] 46-01-PLAN.md — HYGN-01: connected-env evidence (eval harness vs baseline on v1.2 corpus via live Bedrock; code-island isolation disposition) recorded honestly in 46-EVIDENCE.md
 - [ ] 46-02-PLAN.md — HYGN-02: debt folds (Python-3.13 asyncio test migration + resolve todo; colSpan-aware grid clamp + corrected generator guidance) with targeted tests
 - [ ] 46-03-PLAN.md — DSSR-01/02: v1.8 dossier (brand-identity options + design-pattern dossier mapping Claude/ChatGPT/Perplexity flows onto the v1.4 token system)
