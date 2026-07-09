@@ -21,7 +21,11 @@ function mockResponse(body: unknown, status = 200): Response {
 }
 
 function makeCaller() {
-  return appRouter.createCaller({ db: {} as never, headers: new Headers() });
+  return appRouter.createCaller({
+    db: {} as never,
+    headers: new Headers(),
+    user: null,
+  });
 }
 
 const URL = "http://listener.test";

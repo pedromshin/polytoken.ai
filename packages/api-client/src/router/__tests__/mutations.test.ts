@@ -28,7 +28,11 @@ function mockResponse(body: unknown, status = 200): Response {
 
 /** Create a tRPC caller with a stub ctx that has no real db connection. */
 function makeCaller() {
-  return appRouter.createCaller({ db: {} as never, headers: new Headers() });
+  return appRouter.createCaller({
+    db: {} as never,
+    headers: new Headers(),
+    user: null,
+  });
 }
 
 // ---------------------------------------------------------------------------
