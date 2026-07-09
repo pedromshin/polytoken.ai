@@ -128,7 +128,7 @@ G3 + Phase 39's `<ProvenanceLink>`) — plan and execute last.
 - [ ] **Phase 35: Cost + Eval Scaffolding** - A per-round cost ceiling with fail-closed abort semantics is enforced on the FOUND-3 ledger, and retrieval-quality/citation-faithfulness/injection-resistance become measurable Phase-16 harness dimensions — both built against Phase 34's stub
 - [x] **Phase 36: Thin-Wrapper Tools** - User can ask about a known entity or find related emails from chat via `lookup_entity`/`search_emails`, thin wrappers over existing repos with zero new backend (completed 2026-07-08)
 - [x] **Phase 37: Knowledge Search + Python Read-Side** - User can search or expand the knowledge graph from chat via `search_knowledge`, backed by a NEW Python `KnowledgeGraphRepository` + a DB-level `extracted_only` view — built but not yet exposed to users (completed 2026-07-09)
-- [ ] **Phase 38: Quarantine + Adversarial Eval** - Every wired `ToolExecutor` structurally enforces tier-filtered envelopes, proven against an adversarial fixture suite + live-model harness; `search_knowledge` becomes safely user-facing
+- [x] **Phase 38: Quarantine + Adversarial Eval** - Every wired `ToolExecutor` structurally enforces tier-filtered envelopes, proven against an adversarial fixture suite + live-model harness; `search_knowledge` becomes safely user-facing (completed 2026-07-09)
 - [ ] **Phase 39: Tool-Round UI + Citation Chips** - `/chat` visibly surfaces in-progress tool rounds and renders citation chips through one shared `<ProvenanceLink>` primitive
 - [x] **Phase 40: Confirm-Action Widgets** - Agent can end a turn with a confirm-action widget letting a human promote/reject a knowledge suggestion, over the existing Phase-24 CAS spine, with an edge-tier staleness re-check (completed 2026-07-09)
 - [ ] **Phase 41: Knowledge-Preview Canvas Node** - User can place a bounded, non-interactive knowledge-graph preview on the `/chat` canvas that deep-links out to `/knowledge`
@@ -279,7 +279,7 @@ executors — and `search_knowledge` becomes safely exposed to users.
 **Plans**: 2 plans (coarse; Wave 1 = 38-01, Wave 2 = 38-02)
 Plans:
 - [x] 38-01-PLAN.md — FOUND-6 envelope schema gate wired once in _run_server_tool_round + system-prompt hardening line + contract tests over all 3 real executors [QUAR-01]
-- [ ] 38-02-PLAN.md — injection-fixtures.json expanded to full adversarial suite + deterministic/live scoring + real-data golden-set entries + gated search_knowledge exposure flip [QUAR-02]
+- [x] 38-02-PLAN.md — injection-fixtures.json expanded to full adversarial suite + deterministic/live scoring + real-data golden-set entries + gated search_knowledge exposure flip [QUAR-02]
 
 ### Phase 39: Tool-Round UI + Citation Chips
 **Goal**: `/chat` visibly surfaces in-progress tool rounds and renders every tool result's citations
@@ -363,7 +363,7 @@ execute last.
 | 35. Cost + Eval Scaffolding | 3/3 | Complete   | 2026-07-08 |
 | 36. Thin-Wrapper Tools | 2/2 | Complete   | 2026-07-08 |
 | 37. Knowledge Search + Python Read-Side | 2/2 | Complete   | 2026-07-09 |
-| 38. Quarantine + Adversarial Eval | 1/2 | In Progress|  |
+| 38. Quarantine + Adversarial Eval | 2/2 | Complete   | 2026-07-09 |
 | 39. Tool-Round UI + Citation Chips | 0/? | Not started | - |
 | 40. Confirm-Action Widgets | 2/2 | Complete   | 2026-07-09 |
 | 41. Knowledge-Preview Canvas Node | 0/? | Not started | - |

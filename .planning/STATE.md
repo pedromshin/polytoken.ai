@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
 status: executing
-last_updated: "2026-07-09T05:19:07.000Z"
-last_activity: 2026-07-09 -- Phase 38 Plan 01 executed (QUAR-01 structural quarantine gate + tool-round hardening line) -- Phase 38 Plan 02 (QUAR-02 adversarial suite + flag flip) remains
+last_updated: "2026-07-09T06:07:55.346Z"
+last_activity: 2026-07-09 -- Phase 38 Plan 02 executed (QUAR-02 adversarial fixture suite + live Bedrock harness + SEARCH_KNOWLEDGE_TOOL_ENABLED flag flip) -- Phase 38 COMPLETE; Phases 39 + 41 remain in v1.6
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 18
-  completed_plans: 15
-  percent: 67
+  completed_plans: 16
+  percent: 78
 ---
 
 # State
@@ -20,16 +20,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 38 — quarantine-adversarial-eval — Plan 01 executed, Plan 02 remains
+**Current focus:** Phase 38 COMPLETE — quarantine-adversarial-eval (both plans executed) — Phases 39 (tool-round UI + citation chips) and 41 (knowledge-preview canvas node) remain in v1.6
 
 ## Current Position
 
-Phase: 38 (quarantine-adversarial-eval) — EXECUTING
-Plan: 38-01 executed, 38-02 remains
-Status: Plan 38-01 (QUAR-01) complete -- Plan 38-02 (QUAR-02 adversarial fixture suite + live-model harness + SEARCH_KNOWLEDGE_TOOL_ENABLED flag flip) not yet executed
-Last activity: 2026-07-09 -- Phase 38 Plan 01 executed (QUAR-01 structural quarantine gate + tool-round hardening line) -- Phase 38 Plan 02 (QUAR-02 adversarial suite + flag flip) remains
+Phase: 38 (quarantine-adversarial-eval) — COMPLETE
+Plan: 38-01 + 38-02 both executed
+Status: Phase 38 (QUAR-01, QUAR-02) fully complete -- search_knowledge is now live for real chat users. Remaining v1.6 phases: 39 (Tool-Round UI + Citation Chips), 41 (Knowledge-Preview Canvas Node)
+Last activity: 2026-07-09 -- Phase 38 Plan 02 executed (QUAR-02 adversarial fixture suite + live Bedrock harness + SEARCH_KNOWLEDGE_TOOL_ENABLED flag flip) -- Phase 38 COMPLETE
 
-## Phase 38 — Quarantine + Adversarial Eval (IN PROGRESS 2026-07-09)
+## Phase 38 — Quarantine + Adversarial Eval (COMPLETE 2026-07-09)
 
 - **38-01 EXECUTED:** QUAR-01. New `app/domain/services/tool_envelope_gate.py`
   (`EnvelopeGateOutcome` frozen dataclass + pure `validate_tool_envelope(content: str)`, mirrors
@@ -62,8 +62,43 @@ Last activity: 2026-07-09 -- Phase 38 Plan 01 executed (QUAR-01 structural quara
   fixtures are local hand-built helpers per executor (not cross-file imports of each executor's
   own private test helpers) -- mirrors this repo's established per-test-file-local-copy
   convention while still exercising the REAL executor classes, never a `MagicMock`'d Supabase
-  client. See 38-01-SUMMARY.md. **Next: 38-02** (QUAR-02 adversarial fixture suite + live-model
-  harness + the `SEARCH_KNOWLEDGE_TOOL_ENABLED` flag flip -- not yet executed).
+  client. See 38-01-SUMMARY.md.
+
+- **38-02 EXECUTED — PHASE 38 COMPLETE:** QUAR-02. `injection-fixtures.json` grown from the
+  Phase-35 4-fixture seed to 26 fixtures across 7 categories (`delimiter-breakout`,
+  `role-confusion`, `encoded-override` -- adds leetspeak + Portuguese/Spanish + hex variants --
+  `nested-tool-call-request`, and the 2 NEW categories `citation-spoofing` and
+  `markdown-link-exfiltration`, plus exactly one `knowledge-inferred-crafted-search` fixture
+  proving the `extracted_only` view holds under an adversarial QUERY, not just retrieved
+  content). New `tests/evals/test_injection_adversarial_suite.py` scores the full set
+  deterministically against the REAL `SearchKnowledgeExecutor` (51 cases: 25 non-EXTRACTED-seeded
+  never-leak + 25 EXTRACTED-seeded surfaces-and-passes-the-gate + 1 crafted-query-reaches-the-repo-
+  unmodified), all passing -- proving Plan 38-01's envelope gate holds across the FULL adversarial
+  set, not just the 2 hand-picked cases 38-01's own contract test wrote. `retrieval-golden-set.json`
+  grew from 7 to 14 entries: 7 new real-data entries (EVAL-06 fold-in) sourced from real
+  `entity_instances`/`emails`/`knowledge_nodes` rows under `DEFAULT_IMPORTER_ID` in the local dev
+  DB (5 already-present real emails + 2 entities + 1 EXTRACTED knowledge node seeded once via an
+  uncommitted script). New `tests/evals/test_live_injection_harness.py` drove a REAL
+  `RunChatTurn` + REAL `BedrockChatAdapter` (Haiku 4.5) against 7 representative fixtures (one per
+  category) seeded as legitimate EXTRACTED tool_result content -- **attempted for real and ALL 7
+  PASSED live** (not the human_needed fallback): the model's visible text never echoed a canary
+  token, proving the hardening line + native `tool_result` blocks resist injection "beyond didn't
+  call a tool." Gated strictly on the deterministic `tests/evals/` sweep (excluding the live-harness
+  module) passing in this same run -- verified twice, 69/69 -- `app/settings.py`'s
+  `SEARCH_KNOWLEDGE_TOOL_ENABLED` flipped `False` -> `True`: **search_knowledge is now live for
+  real chat users.** `tests/test_container.py`'s `TestSearchKnowledgeExposureGate` updated
+  (renamed disabled_by_default -> enabled_by_default; added a can-still-disable-via-flag
+  regression proving the flag remains a real kill-switch post-flip). **Deviations (2, both Rule 1
+  bug fixes directly caused by this plan's own changes, both documented):** widened
+  `test_injection_fixtures.py`'s stale 3-5 entry-count bound to 20-30 (broken by Task 1's own
+  fixture growth); re-scoped `test_run_chat_turn_real_tools_wiring.py`'s Phase-36-only wiring test
+  to explicitly force the exposure flag off via monkeypatch (broken by Task 3's own default flip).
+  One confirmed pre-existing, unrelated failure (10 tests in `test_genui_retrieval_provider.py`,
+  a Python 3.13 `asyncio.get_event_loop()` incompatibility, last touched Phase 17) logged to
+  `deferred-items.md`, not fixed (out of scope). See 38-02-SUMMARY.md. **All Phase 38 requirements
+  (QUAR-01, QUAR-02) now complete -- Phase 38 (Quarantine + Adversarial Eval) is DONE. Next:**
+  Phase 39 (Tool-Round UI + Citation Chips) or Phase 41 (Knowledge-Preview Canvas Node) -- both
+  remain in v1.6, neither yet planned.
 
 ## Phase 40 — Confirm-Action Widgets (COMPLETE 2026-07-09)
 
@@ -1739,6 +1774,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-09 (38-01): validate_tool_envelope takes NO tool_name parameter — the 4 structural checks are generic across every current and future ToolExecutor, so a future 4th executor is covered by default without anyone remembering to register a per-tool schema
 - 2026-07-09 (38-01): tier/label field-omission is re-derived independently in the domain-layer gate (belt 4) rather than trusted from search_knowledge_executor's own belt-2 output — defense-in-depth against a future regression in belt 2 alone
 - 2026-07-09 (38-01): the tool-round hardening line is threaded as a per-call system_prompt parameter (computed once in _execute_turn from the exact _build_tool_offer eligibility condition) rather than a second fixed module constant — guarantees the line can never drift out of sync with whether a server tool is actually offered that turn
+- 2026-07-09 (38-02): representative live-harness fixtures = the un-suffixed (first) entry of each of the 7 categories — deterministic, evenly covers every category at the FOUND-3 ~7-fixture cost ceiling, no cross-run randomness
+- 2026-07-09 (38-02): real retrieval-golden-set.json entries seeded as PERSISTENT rows in the local dev DB (not cleaned up like verify-00NN-live.ts's finally-block pattern) — the ids must stay resolvable going forward, so a self-deleting seed would defeat EVAL-06's purpose; original 7 synthetic entries left byte-for-byte verbatim, new entries strictly appended (ids 8-14)
+- 2026-07-09 (38-02): live-harness Bedrock-reachability check uses boto3's own default credential-chain resolver (Session().get_credentials() is not None), not an AWS_ACCESS_KEY_ID env-var sniff — this environment authenticates via IAM/SSO, so test_corpus_pipeline.py's literal _HAS_TEXTRACT pattern doesn't apply; runtime try/except around the actual network call is the second, defense-in-depth skip layer
+- 2026-07-09 (38-02): SEARCH_KNOWLEDGE_TOOL_ENABLED flipped True — gated strictly on the deterministic tests/evals/ sweep (excl. the live-harness module) passing in the SAME execution run, verified twice (69/69); the live harness's own pass/fail is explicitly NOT part of that gate (it passed anyway, live, for real)
+- 2026-07-09 (38-02): test_genui_retrieval_provider.py's asyncio.get_event_loop() failures are the SAME pre-existing test-isolation issue 29-02 already logged on 2026-07-07 (10 failures this run vs 24 then, likely test-order-dependent) — confirmed unrelated to this plan (zero diff, last touched Phase 17), re-logged to this phase's own deferred-items.md rather than fixed
 
 ## Performance Metrics
 
@@ -1825,7 +1865,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 36 P02 | 70m | 3 tasks | 5 files |
 | Phase 40 P02 | 50min | 3 tasks | 9 files |
 | Phase 38 P01 | ~30min | 3 tasks | 4 files |
+| Phase 38 P02 | ~55min | 3 tasks | 12 files |
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- v1.6 continues: Phase 39 (Tool-Round UI + Citation Chips) and Phase 41 (Knowledge-Preview Canvas
+  Node) remain unplanned/unexecuted. Plan the next phase with /gsd:plan-phase.
