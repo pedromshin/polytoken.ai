@@ -21,5 +21,13 @@
     "plugins": [{ "name": "next" }]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", "e2e", "playwright.config.ts"]
+  "exclude": [
+    "node_modules",
+    "e2e",
+    "playwright.config.ts",
+    // Pre-existing untracked scratch content (Phase 42 hard exclusion —
+    // not renamed, still imports the old pre-rename UI package scope).
+    // Excluded from typecheck only; file contents are untouched.
+    "src/app/dev/design"
+  ]
 }

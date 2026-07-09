@@ -295,7 +295,7 @@ def test_style_pack_ids_is_immutable_sequence() -> None:
 
 
 @pytest.mark.unit()
-def test_default_pack_id_is_nauta_teal() -> None:
+def test_default_pack_id_is_polytoken_teal() -> None:
     """DEFAULT_PACK_ID must equal 'polytoken-teal' (mirrors TS DEFAULT_PACK_ID)."""
     from app.infrastructure.llm.genui_style_packs import DEFAULT_PACK_ID
 
