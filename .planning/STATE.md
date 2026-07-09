@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
 status: executing
-last_updated: "2026-07-09T00:46:10.050Z"
-last_activity: 2026-07-09 -- Phase 37 Plan 01 executed (search_nodes + expand_neighbours)
+last_updated: "2026-07-09T01:10:00.000Z"
+last_activity: 2026-07-09 -- Phase 37 Plan 02 executed (search_knowledge ToolExecutor + flag-gated wiring) -- PHASE 37 COMPLETE
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 16
-  completed_plans: 11
-  percent: 44
+  completed_plans: 12
+  percent: 56
 ---
 
 # State
@@ -24,12 +24,39 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 37 (knowledge-search-python-read-side) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 37
-Last activity: 2026-07-09 -- Phase 37 Plan 01 executed (search_nodes + expand_neighbours)
+Phase: 37 (knowledge-search-python-read-side) — COMPLETE
+Plan: 2 of 2 (all executed)
+Status: Phase 37 complete — next: Phase 38 (Quarantine + Adversarial Eval, not yet planned)
+Last activity: 2026-07-09 -- Phase 37 Plan 02 executed (search_knowledge ToolExecutor + flag-gated wiring) -- PHASE 37 COMPLETE
 
-## Phase 37 — Knowledge Search + Python Read-Side (executing 2026-07-09)
+## Phase 37 — Knowledge Search + Python Read-Side (COMPLETE 2026-07-09)
+
+- **37-02 EXECUTED — PHASE 37 COMPLETE:** TOOL-03 + TOOL-04 belt 2. New
+  `app/infrastructure/tools/search_knowledge_executor.py` — the THIRD real, production
+  `ToolExecutor` (`SEARCH_KNOWLEDGE_TOOL_NAME`, `build_search_knowledge_tool()`,
+  `SearchKnowledgeExecutor`): a mode-dispatching (`"search"`/`"expand"`) thin wrapper over 37-01's
+  `search_nodes`/`expand_neighbours` — zero new SQL/migrations/RPCs (grep-verified). Belt 2
+  (T-37-06): `_belt_two_label` is the SOLE place in the module reading `title`/`content`, gated on
+  the row's OWN `tier == 'EXTRACTED'` — proven by two hostile-fixture tests (a non-EXTRACTED row
+  arriving WITH non-null text still gets NO `label` key, marker string absent from the whole
+  envelope), independent of 37-01's view (belt 1) and RPC filters (belt 3). Embedding failure
+  degrades to trgm-only (`query_embedding=None`) with `embedding_degraded: true` noted in the
+  envelope (key omitted entirely when not degraded) — never fails the tool (T-37-08). Expand
+  depth/budget are hardcoded constants, never caller-controlled; the schema declares no such
+  property (T-37-10). Citations: `/knowledge?focus={id}` per distinct node id (envelope.py's
+  `CitationKind` widened to include `"knowledge"`). Exposure gate (T-37-09, synthesis P6):
+  `SEARCH_KNOWLEDGE_TOOL_ENABLED: bool = False` in settings; `container.py`'s
+  `tool_executors`/`server_tool_defs` structurally OMIT `search_knowledge` unless the flag is
+  explicitly true (immutable dict-literal `**` conditional unpacking, zero mutation,
+  grep-verified) — regression-guarded by `test_container_search_knowledge_disabled_by_default` +
+  `test_container_search_knowledge_enabled_via_flag` in tests/test_container.py. TDD RED/GREEN
+  followed (11-behavior suite committed first, ModuleNotFoundError confirmed, then GREEN on first
+  run). 66/66 plan-level sweep green (26 tools-dir + 29 container/run_chat_turn + e2e), Phase 36's
+  3 real-tools wiring tests still green, mypy 0 new errors (12 pre-existing in the same 4
+  unrelated files as 36-02), lint-imports 3 kept/0 broken, ruff clean. **search_knowledge is NOT
+  yet offered to real chat users — Phase 38 flips the flag after the adversarial fixture suite
+  passes (SC5).** See 37-02-SUMMARY.md. **All Phase 37 requirements (TOOL-03, TOOL-04) now
+  complete — Phase 37 is DONE. Next: Phase 38** (Quarantine + Adversarial Eval — not yet planned).
 
 - **37-01 EXECUTED:** Read-side foundation for TOOL-03/TOOL-04 (interface-first, Wave 1 of 2).
   Migration `0029_knowledge_search_extracted_only.sql` creates `knowledge_nodes_extracted_only`

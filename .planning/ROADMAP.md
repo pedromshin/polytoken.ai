@@ -127,7 +127,7 @@ G3 + Phase 39's `<ProvenanceLink>`) — plan and execute last.
 - [x] **Phase 34: Tool-Loop Mechanics (stub/echo executor)** - Chat agent runs a bounded (≤4-round) mid-turn tool loop against a stub/echo `ToolExecutor`, proving the round mechanics and fixing 2 latent bugs, before any real tool exists (completed 2026-07-08)
 - [ ] **Phase 35: Cost + Eval Scaffolding** - A per-round cost ceiling with fail-closed abort semantics is enforced on the FOUND-3 ledger, and retrieval-quality/citation-faithfulness/injection-resistance become measurable Phase-16 harness dimensions — both built against Phase 34's stub
 - [x] **Phase 36: Thin-Wrapper Tools** - User can ask about a known entity or find related emails from chat via `lookup_entity`/`search_emails`, thin wrappers over existing repos with zero new backend (completed 2026-07-08)
-- [ ] **Phase 37: Knowledge Search + Python Read-Side** - User can search or expand the knowledge graph from chat via `search_knowledge`, backed by a NEW Python `KnowledgeGraphRepository` + a DB-level `extracted_only` view — built but not yet exposed to users
+- [x] **Phase 37: Knowledge Search + Python Read-Side** - User can search or expand the knowledge graph from chat via `search_knowledge`, backed by a NEW Python `KnowledgeGraphRepository` + a DB-level `extracted_only` view — built but not yet exposed to users (completed 2026-07-09)
 - [ ] **Phase 38: Quarantine + Adversarial Eval** - Every wired `ToolExecutor` structurally enforces tier-filtered envelopes, proven against an adversarial fixture suite + live-model harness; `search_knowledge` becomes safely user-facing
 - [ ] **Phase 39: Tool-Round UI + Citation Chips** - `/chat` visibly surfaces in-progress tool rounds and renders citation chips through one shared `<ProvenanceLink>` primitive
 - [ ] **Phase 40: Confirm-Action Widgets** - Agent can end a turn with a confirm-action widget letting a human promote/reject a knowledge suggestion, over the existing Phase-24 CAS spine, with an edge-tier staleness re-check
@@ -253,7 +253,7 @@ are structurally unable to leak free text into model context by field omission, 
 **Plans**: 2 plans (coarse; Wave 1 = 37-01, Wave 2 = 37-02)
 Plans:
 - [x] 37-01-PLAN.md — Migration 0029 (extracted_only view + BlendedRAG search RPCs + indexes, live-verified) + KnowledgeGraphRepository.search_nodes/expand_neighbours (belt 1)
-- [ ] 37-02-PLAN.md — SearchKnowledgeExecutor (belt 2 field omission) + flag-gated container wiring (SEARCH_KNOWLEDGE_TOOL_ENABLED default False)
+- [x] 37-02-PLAN.md — SearchKnowledgeExecutor (belt 2 field omission) + flag-gated container wiring (SEARCH_KNOWLEDGE_TOOL_ENABLED default False)
 
 ### Phase 38: Quarantine + Adversarial Eval
 **Goal**: Every `ToolExecutor` returns tier-filtered typed envelopes as an interface obligation,
@@ -359,7 +359,7 @@ execute last.
 | 34. Tool-Loop Mechanics (stub/echo executor) | 3/3 | Complete   | 2026-07-08 |
 | 35. Cost + Eval Scaffolding | 3/3 | Complete   | 2026-07-08 |
 | 36. Thin-Wrapper Tools | 2/2 | Complete   | 2026-07-08 |
-| 37. Knowledge Search + Python Read-Side | 1/2 | In Progress|  |
+| 37. Knowledge Search + Python Read-Side | 2/2 | Complete   | 2026-07-09 |
 | 38. Quarantine + Adversarial Eval | 0/? | Not started | - |
 | 39. Tool-Round UI + Citation Chips | 0/? | Not started | - |
 | 40. Confirm-Action Widgets | 0/2 | Not started | - |

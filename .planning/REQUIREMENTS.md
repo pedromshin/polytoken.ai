@@ -45,8 +45,8 @@ stays a separate-turn human gate.
 
 - [x] **TOOL-01**: User can ask the chat agent about a known entity and get grounded results via `lookup_entity` — a thin wrapper over the existing `find_candidates()` (top-5, zero new backend)
 - [x] **TOOL-02**: User can ask the chat agent to find related emails via `search_emails` — a thin wrapper over the existing `find_similar_confirmed()` (top-5, zero new backend) that returns the quarantine adapter's output, never raw email body
-- [ ] **TOOL-03**: User can ask the chat agent to search or expand the knowledge graph via `search_knowledge(query, mode: search|expand)` backed by a NEW Python `KnowledgeGraphRepository` + new RPCs (migrations 0029+; top-8 results, 300-char truncation)
-- [ ] **TOOL-04**: Non-EXTRACTED tiers can never leak free text into model context because prompt-facing text fields are omitted (not flag-gated), backed by a DB-level `extracted_only` view created this milestone
+- [x] **TOOL-03**: User can ask the chat agent to search or expand the knowledge graph via `search_knowledge(query, mode: search|expand)` backed by a NEW Python `KnowledgeGraphRepository` + new RPCs (migrations 0029+; top-8 results, 300-char truncation)
+- [x] **TOOL-04**: Non-EXTRACTED tiers can never leak free text into model context because prompt-facing text fields are omitted (not flag-gated), backed by a DB-level `extracted_only` view created this milestone
 
 ### Prompt-Injection Quarantine (QUAR)
 
@@ -156,8 +156,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | COST-05 | Phase 35 | Complete |
 | TOOL-01 | Phase 36 | Complete |
 | TOOL-02 | Phase 36 | Complete |
-| TOOL-03 | Phase 37 | Pending |
-| TOOL-04 | Phase 37 | Pending |
+| TOOL-03 | Phase 37 | Complete |
+| TOOL-04 | Phase 37 | Complete |
 | QUAR-01 | Phase 38 | Pending |
 | QUAR-02 | Phase 38 | Pending |
 | EVAL-06 | Phase 35 | Complete |
