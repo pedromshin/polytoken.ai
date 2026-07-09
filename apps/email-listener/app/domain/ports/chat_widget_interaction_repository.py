@@ -27,7 +27,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
 WidgetInteractionState = Literal["pending", "submitted", "superseded", "stale"]
-WidgetKind = Literal["proposal_cards", "clarify_widget"]
+WidgetKind = Literal["proposal_cards", "clarify_widget", "confirm_action"]
 
 
 @dataclass(frozen=True)

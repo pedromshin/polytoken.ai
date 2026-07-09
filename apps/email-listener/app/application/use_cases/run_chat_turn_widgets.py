@@ -22,12 +22,24 @@ import json
 import uuid
 from typing import Any
 
+from app.application.use_cases.run_chat_turn_confirm_action import EMIT_CONFIRM_ACTION_TOOL_NAME
+
 PROPOSAL_CARDS_TOOL_NAME = "emit_proposal_cards"
 CLARIFY_WIDGET_TOOL_NAME = "emit_clarify_widget"
 
 # Tool names this module knows how to finalize into an interactive_widget part
-# (D-04: at most one pending widget per turn).
-INTERACTIVE_WIDGET_TOOL_NAMES: tuple[str, ...] = (PROPOSAL_CARDS_TOOL_NAME, CLARIFY_WIDGET_TOOL_NAME)
+# (D-04: at most one pending widget per turn). emit_confirm_action (Phase
+# 40-01) is listed here so `_finalize_pending_tool`'s pure/mid-stream call
+# sites treat an UNFINALIZED confirm_action call the same safe way as any
+# other recognized-but-not-yet-handled widget tool name -- the ACTUAL
+# finalization (live edge re-read) happens in RunChatTurn._finalize_confirm_
+# action, which clears pending_tool_* BEFORE this dispatch ever sees it at
+# turn-end (see run_chat_turn.py).
+INTERACTIVE_WIDGET_TOOL_NAMES: tuple[str, ...] = (
+    PROPOSAL_CARDS_TOOL_NAME,
+    CLARIFY_WIDGET_TOOL_NAME,
+    EMIT_CONFIRM_ACTION_TOOL_NAME,
+)
 
 # Field types the clarify-widget tool's input_schema allows (chat_tools.py's
 # _CLARIFY_WIDGET_FIELD_SCHEMA enum) — mirrors packages/genui/src/form/
@@ -210,8 +222,15 @@ def derive_declared_response_schema(widget_kind: str, declaration: dict[str, Any
     becomes number; everything else becomes string. A field's `required: true`
     adds its name to the schema's `required` array. `additionalProperties:
     false` always — a submit for an undeclared field name is rejected (T-24-23).
+
+    confirm_action (Phase 40-01, CONF-01): reuses the proposal_cards branch
+    verbatim — a confirm_action declaration's two server-assigned options
+    (`confirm`/`reject`) naturally produce `{"optionId": {"enum": ["confirm",
+    "reject"]}}`, which IS the frozen `{action: confirm|reject}` contract
+    CONF-01 requires, just keyed as `optionId` to reuse the existing
+    proposal-card wire format end-to-end (zero new web components).
     """
-    if widget_kind == "proposal_cards":
+    if widget_kind in ("proposal_cards", "confirm_action"):
         option_ids = [option["id"] for option in declaration.get("options", [])]
         return {
             "type": "object",

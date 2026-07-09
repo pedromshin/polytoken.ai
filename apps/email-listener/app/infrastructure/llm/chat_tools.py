@@ -37,6 +37,15 @@ its declaration drives the UNMODIFIED Phase-19 form engine client-side. The
 UI-SPEC's MANDATORY posture ("a bare 'Submit' default is never reachable in
 practice") is enforced HERE, in the schema itself: `submitLabel` is `required`
 with `minLength: 1` — not left to prompt guidance.
+
+Phase 40-01 (CONF-01): emit_confirm_action is a FOURTH interactive tool — the
+model supplies ONLY a `suggestionRef {kind, id}` (+ an optional short
+`rationale`), NEVER a tier/node-id/mutation parameter. The server re-reads the
+live suggestion at emission time (run_chat_turn.py's `_finalize_confirm_action`)
+and derives the frozen confirm/reject widget declaration — the model
+structurally cannot supply anything beyond an id to look up, enforced by
+`additionalProperties: false` at both the root and the nested `suggestionRef`
+object plus `suggestionRef.kind`'s single-value enum (T-40-01).
 """
 
 from __future__ import annotations
@@ -48,6 +57,7 @@ from app.infrastructure.llm.genui_artifacts import load_spec_schema
 EMIT_UI_SPEC_TOOL_NAME = "emit_ui_spec"
 EMIT_PROPOSAL_CARDS_TOOL_NAME = "emit_proposal_cards"
 EMIT_CLARIFY_WIDGET_TOOL_NAME = "emit_clarify_widget"
+EMIT_CONFIRM_ACTION_TOOL_NAME = "emit_confirm_action"
 
 _DESCRIPTION = (
     "Emit a declarative UI spec (a SpecRoot JSON document) for the trusted genui renderer "
@@ -218,4 +228,69 @@ def build_emit_clarify_widget_tool() -> dict[str, Any]:
         "name": EMIT_CLARIFY_WIDGET_TOOL_NAME,
         "description": _CLARIFY_WIDGET_DESCRIPTION,
         "input_schema": _CLARIFY_WIDGET_INPUT_SCHEMA,
+    }
+
+
+_CONFIRM_ACTION_DESCRIPTION = (
+    "Ask the user to confirm or reject a specific, already-identified knowledge suggestion "
+    "(e.g. an inferred/ambiguous relationship you found while helping them). Supply ONLY a "
+    "suggestionRef {kind, id} identifying the suggestion — NEVER a tier, node id, or any other "
+    "mutation parameter; the server re-reads the live suggestion and derives the confirm/reject "
+    "options itself. An optional short `rationale` may explain why you're surfacing it. Calling "
+    "this tool ENDS your turn: you will not see the user's choice until they explicitly click "
+    "Confirm or Reject and the conversation resumes with their decision. Only call this when a "
+    "specific, already-identified suggestion exists — never to propose a new, unidentified action."
+)
+
+# Hand-authored, Bedrock-valid input_schema (root type:object, additionalProperties:false, no
+# root $ref) — the exact contract from 40-01-PLAN.md's <interfaces>/<action> blocks. Only
+# "knowledge_edge_tier_promotion" is offered to the model this phase (40-CONTEXT.md's allowlist
+# ordering) — "entity_merge_confirm" stays registered server-side in Plan 40-02's dispatch table
+# but is structurally unreachable via this tool's schema.
+_CONFIRM_ACTION_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["suggestionRef"],
+    "additionalProperties": False,
+    "properties": {
+        "suggestionRef": {
+            "type": "object",
+            "required": ["kind", "id"],
+            "additionalProperties": False,
+            "properties": {
+                "kind": {"enum": ["knowledge_edge_tier_promotion"]},
+                "id": {"type": "string", "minLength": 1, "maxLength": 100},
+            },
+        },
+        "rationale": {"type": "string", "maxLength": 280},
+    },
+}
+
+# Load-time assertion mirroring emit_ui_spec's _assert_bedrock_input_schema guard
+# (genui_artifacts.py) — fail fast if this hand-authored schema ever regresses.
+assert _CONFIRM_ACTION_INPUT_SCHEMA["type"] == "object", (
+    "emit_confirm_action input_schema root must be type:object (Bedrock tool-input contract)"
+)
+assert _CONFIRM_ACTION_INPUT_SCHEMA["additionalProperties"] is False, (
+    "emit_confirm_action input_schema root must forbid additionalProperties (T-40-01)"
+)
+assert _CONFIRM_ACTION_INPUT_SCHEMA["properties"]["suggestionRef"]["additionalProperties"] is False, (
+    "emit_confirm_action suggestionRef must forbid additionalProperties (T-40-01)"
+)
+
+
+def build_emit_confirm_action_tool() -> dict[str, Any]:
+    """Build the emit_confirm_action tool dict (Phase 40-01, CONF-01, T-40-01).
+
+    Offered (never forced) alongside the other interactive tools to
+    genui-capable models. A completed call finalizes into an
+    `interactive_widget` part (widgetKind "confirm_action") ONLY when the
+    server's live re-read of the referenced suggestion succeeds
+    (run_chat_turn.py's `_finalize_confirm_action`); otherwise it fails into
+    a visible text fallback. The model never sees or supplies tier/mutation
+    parameters — only an id to look up.
+    """
+    return {
+        "name": EMIT_CONFIRM_ACTION_TOOL_NAME,
+        "description": _CONFIRM_ACTION_DESCRIPTION,
+        "input_schema": _CONFIRM_ACTION_INPUT_SCHEMA,
     }
