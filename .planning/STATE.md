@@ -2,9 +2,9 @@
 gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
-status: executing
-last_updated: "2026-07-09T16:14:06.554Z"
-last_activity: 2026-07-09 -- 41-02 executed (node shell + mini-graph + add-preview popover); Phase 41 COMPLETE; all v1.6 phases (33-41) now complete
+status: Awaiting next milestone
+last_updated: "2026-07-09T16:54:43.576Z"
+last_activity: 2026-07-09 — Milestone v1.6 completed and archived
 progress:
   total_phases: 9
   completed_phases: 9
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 41 (knowledge-preview-canvas-node) — COMPLETE
-Plan: 2 of 2 (41-01 complete, 41-02 complete)
-Status: All Phase 41 plans executed; v1.6 milestone phases (33-41) all complete
-Last activity: 2026-07-09 -- 41-02 executed (node shell + mini-graph + add-preview popover); Phase 41 COMPLETE
+Phase: Milestone v1.6 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-09 — Milestone v1.6 completed and archived
 
 ## Phase 41 — Knowledge-Preview Canvas Node (COMPLETE 2026-07-09)
 
@@ -774,6 +774,27 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   **Next: 30-02** (TIER-03 promotion endpoint — not yet planned).
 
 ## Deferred Items
+
+### v1.6 (acknowledged and deferred at the v1.6 milestone close, 2026-07-09)
+
+All verification gaps are visual/live-browser checks — no code gaps (Phases 39/41 scored 12/12 and
+10/10 on code-level verification; milestone audit: 19/19 requirements, 9/9 integration seams WIRED,
+status tech_debt with 0 blockers). Acknowledged autonomously per the user's standing directive.
+
+| Category | Item | Status |
+|----------|------|--------|
+| verification_gap | 39-VERIFICATION.md | human_needed — 2 live-stack visual items (activity-row streaming feel, chips in a real tool round); persisted as 39-HUMAN-UAT.md |
+| verification_gap | 41-VERIFICATION.md | human_needed — 5 live-browser items (ellipse quality, tooltip hover, popover feel, viewport placement, remove-reload persistence); persisted as 41-HUMAN-UAT.md |
+| uat_gap | 39-HUMAN-UAT.md | pending — same 2 items as above, runnable via /gsd:verify-work |
+| uat_gap | 41-HUMAN-UAT.md | pending — same 5 items as above, runnable via /gsd:verify-work |
+| todo | 2026-07-07-knowledge-preexisting-ui-debt | pending — carried from v1.5 (/knowledge glassmorphism ban violations + raw glyph) |
+| todo | 2026-07-08-genui-retrieval-provider-py313-asyncio | pending — 10 pre-existing Phase-17-era test failures (asyncio.get_event_loop removed in py3.13) |
+| todo | 2026-07-09-knowledge-cache-invalidation-gap | pending — extend BIND-02 invalidation to chat-driven promotions + expandNode (audit WARNING; self-heals via staleTime) |
+
+Also carried: migrations 0029+0030 applied/live-verified LOCALLY only (staging/prod deploy pending,
+same as 0026–0028); `entity_merge_confirm` dispatch entry registered-but-unsupported pending a
+surrogate-key design (deliberate, schema-unreachable); EVAL scorers are scaffolding (live LLM-judge
+runner = 999.3 family); citation-chip full-UUID tooltip UX rough edge (audit WARNING).
 
 ### v1.5 (acknowledged and deferred at the v1.5 milestone close, 2026-07-07)
 
@@ -2004,5 +2025,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Operator Next Steps
 
-- v1.6 continues: Phase 39 (Tool-Round UI + Citation Chips) and Phase 41 (Knowledge-Preview Canvas
-  Node) remain unplanned/unexecuted. Plan the next phase with /gsd:plan-phase.
+- Start the next milestone with /gsd-new-milestone

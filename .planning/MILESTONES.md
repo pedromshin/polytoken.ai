@@ -1,5 +1,35 @@
 # Milestones
 
+## v1.6 Chat × Knowledge Convergence (Shipped: 2026-07-09)
+
+**Phases completed:** 9 phases (33–41), 20 plans, 45 tasks
+
+**Delivered:** The v1.3 chat agent now reads its own extracted data: a bounded mid-turn tool loop
+(≤4 rounds, one ChatRun per turn) executes three knowledge tools (lookup_entity, search_emails,
+search_knowledge) behind a capability gate, with structural prompt-injection quarantine (typed
+envelopes, EXTRACTED-only free text via a DB view + field omission + a FOUND-6 envelope gate),
+per-round cost ceilings, visible tool-round UI with citation chips, live data-bound genui panels,
+chat-confirmable knowledge promotions over the Phase-24 CAS spine, and a knowledge-preview canvas
+node — the v1.3 "product convergence is a config change" promise, cashed in. 19/19 requirements;
+audit tech_debt (0 blockers, 9/9 integration seams WIRED). Executed fully autonomously
+(`/gsd:autonomous parallelize what possible`) across parallel background-agent waves, surviving 3
+session-limit interruptions with disk-state reconciliation.
+
+Known deferred items at close: 7 (2 human_needed visual verification gaps + 2 UAT files for
+Phases 39/41; 3 pending todos — see STATE.md Deferred Items).
+
+**Key accomplishments:**
+
+- **Bounded mid-turn tool loop (Phase 34):** new `ToolExecutor` domain port + `tool_invocation`/`tool_invocation_result` part types + `max_tool_rounds` capability gate (2 Bedrock Claude models only); fixed 2 latent production bugs research found — UsageDelta overwrite (cost under-reporting) and silent tool-parse-failure drop ("never silent" is now a tested contract), closing the 2026-07-06 truncated-tool-call todo.
+- **3 knowledge tools, tiered and cited (Phases 36–37):** `lookup_entity` + `search_emails` as thin wrappers over existing repos (zero new backend; emails return quarantined fields, never raw body) and `search_knowledge` (search|expand) over an extended Python `KnowledgeGraphRepository` + migration 0029's `knowledge_nodes_extracted_only` view + BlendedRAG RPCs — non-EXTRACTED text structurally unreachable through three belts (SQL view, field omission, envelope gate); every envelope carries server-built `citations[]`.
+- **Adversarially-proven exposure (Phase 38):** `search_knowledge` went user-facing ONLY after a 26-fixture/7-category injection suite passed in the same run (code-gated flag flip), including a real Bedrock Haiku live harness (7/7, zero canary leaks) and the one instructional hardening line the codebase lacked.
+- **Cost + eval scaffolding (Phase 35):** distinct $0.15-default per-round ceiling on the FOUND-3 breaker (mid-round + boundary checks, visible partial text on abort) + retrieval-quality/citation-faithfulness/injection-resistance dimensions registered into the Phase-16 harness with ONE fixture source of truth consumed by both TS and Python runners.
+- **Tool rounds became visible (Phase 39):** non-persisted `server_tool_call`/`server_tool_result` SSE mirror frames → "Searching knowledge…" activity rows + quiet collapsed result rows with citation chips via ONE shared `<ProvenanceLink>` primitive; also fixed a live client bug (persisted tool_call events mis-folding into a stuck widget skeleton).
+- **Chat-confirmable knowledge (Phase 40):** `emit_confirm_action` carries only a `suggestion_ref` (server re-reads the live edge and freezes the schema at emission); submit re-checks edge tier against the declaration snapshot (409 stale on out-of-band promotion, proven by test) before an explicit 2-entry dispatch table reaches v1.5's promote_edge — migration 0030 extends widget_kind.
+- **Live data-bound panels + knowledge preview (Phases 33, 41):** `spec.bindings` resolved via a compile-time switch over the 5 allowlisted procedures with staleTime/invalidation freshness (zero renderer edits — locked files byte-identical all milestone); a 3rd `NODE_TYPE_REGISTRY` entry renders a bounded, non-interactive two-ring ego mini-graph (SVG + real links, tier styles imported 1:1 from /knowledge, cap 25, always-present deep-link footer) — nested React Flow rejected as designed.
+
+---
+
 ## v1.5 Knowledge-Graph Uplift (Shipped: 2026-07-08)
 
 **Phases completed:** 4 phases (29–32), 11 plans, 30 tasks

@@ -13,7 +13,36 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
-## Current Milestone: v1.6 Chat × Knowledge Convergence (opened 2026-07-08)
+## Current State (v1.6 shipped 2026-07-09)
+
+**Shipped:** **v1.6 — Chat × Knowledge Convergence** (Phases 33–41, 20 plans, 45 tasks, 19/19
+requirements, 9/9 integration seams WIRED, audit `tech_debt` with 0 blockers). The chat agent now
+reads its own extracted data: a bounded mid-turn tool loop (≤4 rounds, one ChatRun per turn, 2
+Bedrock Claude models via `max_tool_rounds`) executes `lookup_entity`, `search_emails`, and
+`search_knowledge` (search|expand over an extended Python `KnowledgeGraphRepository`; migration
+0029's `knowledge_nodes_extracted_only` view + BlendedRAG RPCs). Non-EXTRACTED text is structurally
+unreachable through three belts (SQL view, envelope field-omission, FOUND-6 `tool_envelope_gate`);
+`search_knowledge` went user-facing only after a 26-fixture adversarial suite + live Bedrock Haiku
+harness (7/7, zero canary leaks) passed in the same run. Tool rounds are visible in `/chat`
+(`server_tool_call`/`server_tool_result` SSE mirror frames → activity rows + collapsed result rows
+with citation chips via ONE shared `<ProvenanceLink>`); genui panels resolve `spec.bindings` live
+over the 5 allowlisted procedures (zero renderer edits — locked files stayed byte-identical);
+knowledge suggestions are chat-confirmable via `emit_confirm_action` over the Phase-24 CAS spine
+with an edge-tier staleness re-check (409 on out-of-band promotion; migration 0030); and a
+`knowledge-preview` canvas node (3rd registry entry, static two-ring ego mini-graph, cap 25,
+real-link deep-links) closes the loop. Two latent production bugs fixed (UsageDelta overwrite,
+silent tool-parse-failure drop) plus one live client bug (persisted tool_call mis-folding).
+Migrations 0029–0030 applied + live-verified locally. Deferred: 7 items (2 visual verification
+gaps w/ persisted UAT files, 3 todos — STATE.md → Deferred Items). Executed fully autonomously
+(`/gsd:autonomous parallelize what possible`), surviving 3 session-limit interruptions.
+
+**Next:** run `/gsd:new-milestone`. Candidates: **999.11 polytoken.ai vision ladder E2**
+(rebrand/auth/tenancy — `.planning/research/polytoken-vision/VISION.md`), **999.4 Design Engine**,
+**999.13 genui catalog expansion**, **999.3 connected-env verification**, **999.12 Tailwind
+v4/React 19 migration**.
+
+<details>
+<summary>v1.6 original milestone goal (opened 2026-07-08)</summary>
 
 **Goal:** The v1.3 chat agent gains knowledge tools (a bounded mid-turn tool loop reading its own
 extracted data), genui panels gain live product-data bindings, and dual-channel widgets act on
@@ -63,7 +92,9 @@ satisfied) + G4 (v1.6's own tool-loop mechanics). Standing exclusions: OpenRoute
 tool rounds (adapter drops tool blocks); `continue_after_widget` NOT unified with the machine
 loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-identical.
 
-## Current State (v1.5 shipped 2026-07-08)
+</details>
+
+## Prior State (v1.5 shipped 2026-07-08)
 
 **Shipped:** **v1.5 — Knowledge-Graph Uplift** (Phases 29–32, 11 plans, 11/11 requirements,
 6/6 integration seams WIRED, audit `tech_debt` with 0 blockers). The dormant Phase-11 knowledge-graph
@@ -267,20 +298,13 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 - ✓ Conversational GenUI: persistent streamed `/chat` (cost breaker, regenerate-siblings, progressive spec render, multi-provider + WebGPU registry) + 2D infinite canvas of genui panels (React Flow, versioned node registry, shared per-chat state + data edges, exact persistence) + dual-channel widgets (proposal cards + clarify-widgets, server-re-validated + double-submit-locked round-trip, persisted in history+canvas) + anticipatory-prompting SPIKE (ship-with-conditions) — v1.3, Phases 22–25 (24/24 reqs; 6 connected-env verifications deferred)
 - ✓ Chat & Studio design uplift: zero-dep contract fixes (FIX-01..11 — React Flow chrome, app-wide font-medium purge incl. primitive leaks, token discipline, node differentiation, shared JsonPane/EmptyState, hover/dock/scrollbar/role chrome) + narrowly-adopted external picks (ADOPT-01..05 — impeccable bans appendix, FileTree port, GeneratingRing, ux refs, hand-authored reveal transitions after license block) + token upgrades (TOKEN-01..05 — hue-164 neutral split, teal chart/sidebar rebase, elevation scale, radius steps, entrances; WCAG + registration regression gates) + POLISH-01/02 backlog folds — v1.4, Phases 26–28 (23/23 reqs; browser/OS visual checks deferred)
 - ✓ Knowledge-graph uplift: tier ladder (knowledge_trust_tier enum, migrations 0026–0028) + live D-13 synthesis hook (confirm → EXTRACTED edges with OCR token-polygon provenance, supersede-safe) + suggest-only promotion gate (deterministic INFERRED/AMBIGUOUS suggestions, fail-closed promote endpoint, EXTRACTED-only injection read path) + cheap recall win (few-shot rendering seam closed, aliases/identifiers injected) + retrieval-miss-rate instrumentation (the stage-3 go/no-go artifact) + `/knowledge` tiered exploration canvas (tier encoding, cumulative filter, bounded expandNode, promote popover) — v1.5, Phases 29–32 (11/11 reqs; 2 live-env verification gaps deferred)
+- ✓ Chat × knowledge convergence: bounded mid-turn tool loop (ToolExecutor port, tool_invocation parts, capability gate, 2 latent bug fixes) + 3 tiered knowledge tools (lookup_entity/search_emails thin wrappers; search_knowledge over extended Python KnowledgeGraphRepository + extracted_only view, migrations 0029–0030) + structural injection quarantine (typed envelopes, FOUND-6 gate, 26-fixture adversarial suite + live Haiku harness, code-gated exposure flip) + per-round cost ceiling + eval dimensions (retrieval/citation/injection in the Phase-16 harness, one fixture source two runners) + tool-round UI with ProvenanceLink citation chips + live data-bound panels (spec.bindings, zero renderer edits) + chat-confirmable promotions (emit_confirm_action, CAS + edge-tier staleness 409) + knowledge-preview canvas node — v1.6, Phases 33–41 (19/19 reqs; 7 deferred items incl. visual UAT)
 
 ### Active
 
-<!-- v1.6 Chat × Knowledge Convergence. REQ-IDs in .planning/REQUIREMENTS.md. -->
+<!-- No active milestone. Run /gsd:new-milestone to open the next one. Candidates in "Current State → Next". -->
 
-- [ ] Live data-bound genui panels: `spec.bindings` resolved via compile-time allowlist switch + staleTime/invalidation refresh, zero renderer edits (BIND-01/02)
-- [ ] Bounded mid-turn tool loop: ToolExecutor port, new part types, capability-gated, 2 latent bugs fixed, fail-closed round cap (LOOP-01..03)
-- [ ] Per-round cost ceiling + mid-round abort semantics on the FOUND-3 ledger (COST-05)
-- [ ] Knowledge tool surface: `lookup_entity`, `search_emails`, `search_knowledge` + Python `KnowledgeGraphRepository` + `extracted_only` DB view (TOOL-01..04)
-- [ ] Structural prompt-injection quarantine as ToolExecutor contract + adversarial harness (QUAR-01/02)
-- [ ] Retrieval-quality / citation-faithfulness / injection-resistance eval dimensions in the Phase-16 harness (EVAL-06/07)
-- [x] Tool-round UI surface + citation chips via shared `<ProvenanceLink>` (TUI-01/02) — Validated in Phase 39 (2026-07-09)
-- [ ] Confirm-action widgets over the Phase-24 CAS spine + edge-tier staleness re-check (CONF-01/02)
-- [ ] Knowledge-preview canvas node, bounded + non-interactive, deep-linking `/knowledge?focus={id}` (PREV-01)
+_(none — v1.6 shipped; next milestone not yet opened)_
 
 ### Out of Scope
 
@@ -331,6 +355,12 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 | **v1.5**: Knowledge node 1:1 with confirmed region (scope_ref=email_component) | Makes deactivate_edges_for_node(node) supersede exactly that region's edges — no sibling-region collateral, clean deactivate-then-insert, resolves the promote-after-confirm pipeline-ordering hazard | ✓ Good — SYNTH-03 verified with no duplicates/orphans |
 | **v1.5**: Injection gate ships before its consumer (`list_injectable_edges`, zero callers) | The EXTRACTED-only read path exists BEFORE stage-3 BFS can be built, so the consumer can never ship ungated; alias injection reads entity_instances directly and doesn't need it | — Pending — becomes load-bearing only if KGX-01 is ever justified by the miss-rate artifact |
 | **v1.5**: Stage-3 graph-expand gated on a MEASURED retrieval miss (0028 events + miss-rate script) | 999.10's own honest discount: flat RRF is fine for similar documents; graph apparatus only pays off against a demonstrated miss rate — measurement-gated architecture evolution | — Pending — artifact live; needs correction volume to produce a meaningful number |
+| **v1.6**: Server tools via a `ToolExecutor` domain port + bounded in-stream round loop (never recursion, one ChatRun per turn) | Preserves SEAM-04's invariant; additive-default seam mirrors `interactive_widget_tools`; capability gate doubles as the on/off switch (`max_tool_rounds=0`) | ✓ Good — 9/9 seams WIRED at audit; OpenRouter cleanly excluded |
+| **v1.6**: EXTRACTED-only by structural unreachability, three belts (SQL view → field omission → FOUND-6 envelope gate) | A forgotten WHERE clause must not be able to leak non-EXTRACTED text; belts are independent failure domains | ✓ Good — adversarial fixture proved the view holds under crafted search |
+| **v1.6**: Exposure flips are code-gated on the adversarial suite passing in the same run | "Being wrong is expensive" extended to tool exposure — never a speculative toggle | ✓ Good — flag flipped only after 26-fixture suite + live Haiku harness (7/7) green |
+| **v1.6**: `emit_confirm_action` carries only a `suggestion_ref`; server re-reads the live edge and freezes the schema at emission; submit re-checks tier vs declaration snapshot | The LLM never touches mutation params (optionId-not-title precedent); out-of-band promotions surface as 409 stale before any mutation | ✓ Good — 409-stale no-double-mutation proven by test |
+| **v1.6**: New SSE frame names (`server_tool_call`/`server_tool_result`) instead of reusing the persisted event names | The client's `applyRunEvent` already owned `tool_call` for genui streaming — reuse would mis-fold real tool rounds (live bug found + fixed) | ✓ Good — collision guard + regression test shipped |
+| **v1.6**: ONE `<ProvenanceLink>`/`hrefFor` primitive for all provenance links; routes recomputed from kind+id, never trusted from data | Decided once, used twice (chips + preview node); server-supplied route strings are an injection surface | ✓ Good — grep-verified single source of route logic |
 
 ## Evolution
 
@@ -350,4 +380,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-09 after Phase 39 (Tool-Round UI + Citation Chips) completion — TUI-01/TUI-02 validated: non-persisted `server_tool_call`/`server_tool_result` SSE mirror frames, `ToolRoundActivityRow`/`ToolInvocationResultRow` transcript surfaces, shared `<ProvenanceLink>` citation-chip primitive (exported for Phase 41), and the live `applyRunEvent` naming-collision bug fixed + regression-guarded. Remaining v1.6 phases: 40 (Confirm-Action Widgets), 41 (Knowledge-Preview Canvas Node).*
+*Last updated: 2026-07-09 after v1.6 milestone — Chat × Knowledge Convergence shipped (Phases 33–41, 19/19 requirements moved to Validated); Key Decisions updated with 6 v1.6 entries; Active reset pending next milestone*
