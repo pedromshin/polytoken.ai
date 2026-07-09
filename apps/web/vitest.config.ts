@@ -16,5 +16,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
+    env: {
+      // Mirrors packages/api-client/vitest.config.ts's convention: bypasses
+      // src/lib/env.ts's module-level fail-fast so test runs never need
+      // real Supabase/email-listener credentials just to import a module
+      // that reads from it.
+      SKIP_ENV_VALIDATION: "true",
+    },
   },
 });

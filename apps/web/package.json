@@ -22,6 +22,7 @@
     "@polytoken/db": "*",
     "@polytoken/genui": "*",
     "@polytoken/ui": "*",
+    "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2",
     "@tanstack/react-query": "^5.62.0",
     "@trpc/client": "11.8.0",
