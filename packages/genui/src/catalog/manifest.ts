@@ -445,9 +445,23 @@ function GridComponent({
   // single wide child — without this clamp that child lands in a 1/12-wide cell
   // and its text wraps one word per line. Clamping to the child count makes a
   // few-children grid degrade to fewer, full-width columns instead of collapsing.
+  //
+  // Phase 46-02: the clamp is colSpan-aware. When a child declares an explicit
+  // colSpan (rendered by renderPositionalChildren as a wrapper div carrying
+  // style.gridColumn === "span N"), the model is intentionally composing an
+  // asymmetric layout (e.g. an 8/4 main+sidebar split) and the requested track
+  // count must be honored so the spans have room to land — the child-count
+  // clamp only applies to plain, non-spanning galleries (backward-compatible).
   const childCount = React.Children.count(children);
   const requestedCols = Number.isFinite(cols) ? Math.floor(cols) : 2;
-  const effectiveCols = Math.max(1, Math.min(requestedCols, childCount || 1));
+  const hasExplicitSpan = React.Children.toArray(children).some((child) => {
+    if (!React.isValidElement(child)) return false;
+    const style = (child.props as { style?: { gridColumn?: unknown } })?.style;
+    return typeof style?.gridColumn === "string" && style.gridColumn.startsWith("span ");
+  });
+  const effectiveCols = hasExplicitSpan
+    ? Math.max(1, Math.min(12, requestedCols))
+    : Math.max(1, Math.min(requestedCols, childCount || 1));
   return React.createElement(
     "div",
     {
@@ -932,7 +946,7 @@ export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
   grid: {
     type: "grid",
     description:
-      "CSS grid of EQUAL-width columns where EACH child fills exactly ONE cell — there is NO column spanning. Set cols to the number of items per row (2–4 is typical for card galleries). cols larger than the child count automatically collapses to fewer, wider columns. Do NOT use grid as a page wrapper or to hold a single wide region — use stack for overall page structure. Use aria-label when acting as a landmark.",
+      "CSS grid layout. By default renders EQUAL-width columns where each child fills one cell — set cols to the number of items per row (2–4 is typical for card galleries); cols larger than the child count automatically collapses to fewer, wider columns when no child spans. A grid CHILD may set colSpan (integer 1–12) to span multiple columns, enabling asymmetric layouts such as a main+sidebar split (e.g. cols: 12 with an 8-span main child and a 4-span sidebar child). Use aria-label when acting as a landmark.",
     example: {
       cols: 2,
       gap: "md",

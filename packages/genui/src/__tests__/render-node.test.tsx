@@ -939,6 +939,48 @@ describe("Round-trip regression: all 10 catalog types render without NodeErrorFa
     );
     expect(html).toContain("repeat(3,");
   });
+
+  it("grid: cols=12 with colSpan=8 + colSpan=4 children renders a true 12-track asymmetric main+sidebar layout (46-02)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "grid",
+        cols: 12,
+        children: [
+          // @ts-expect-error — colSpan is not in SpecRoot types yet (wire layer, Phase 18)
+          { type: "text", content: "Main", colSpan: 8 },
+          // @ts-expect-error — colSpan is not in SpecRoot types yet (wire layer, Phase 18)
+          { type: "text", content: "Sidebar", colSpan: 4 },
+        ],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).toContain("repeat(12,");
+    expect(html).not.toContain("repeat(2,");
+    expect(html).toContain("span 8");
+    expect(html).toContain("span 4");
+  });
+
+  it("grid: cols=12 with two plain (no-colSpan) children still clamps to repeat(2,) — Phase-17 clamp preserved (46-02)", () => {
+    const spec: SpecRoot = {
+      v: 1,
+      root: {
+        type: "grid",
+        cols: 12,
+        children: [
+          { type: "card", title: "A" },
+          { type: "card", title: "B" },
+        ],
+      },
+    };
+    const html = renderToStaticMarkup(
+      <SpecRenderer spec={spec} registry={COMPONENT_REGISTRY} />,
+    );
+    expect(html).toContain("repeat(2,");
+    expect(html).not.toContain("repeat(12,");
+  });
 });
 
 describe("SpecRenderer page-shell (Phase 17 layout robustness)", () => {
