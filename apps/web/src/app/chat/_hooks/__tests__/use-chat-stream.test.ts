@@ -83,6 +83,25 @@ describe("parseSseChunk", () => {
     expect(events).toHaveLength(1);
     expect(events[0]?.type).toBe("completed");
   });
+
+  // Test G (Phase 39, TUI-01): server_tool_call/server_tool_result are now
+  // recognized event types, not silently dropped as unknown.
+  it("recognizes server_tool_call and server_tool_result frames (Phase 39)", () => {
+    const chunk =
+      frame("server_tool_call", { tool_name: "lookup_entity", id: "tu_1" }) +
+      frame("server_tool_result", {
+        tool_name: "lookup_entity",
+        id: "tu_1",
+        content: "{}",
+        isError: false,
+      });
+    const { events } = parseSseChunk("", chunk);
+    expect(events).toHaveLength(2);
+    expect(events.map((e) => e.type)).toEqual([
+      "server_tool_call",
+      "server_tool_result",
+    ]);
+  });
 });
 
 describe("applyRunEvent", () => {
@@ -310,4 +329,147 @@ describe("applyRunEvent", () => {
       { type: "genui_spec_streaming", toolId: "t1", partialJson: "{}" },
     ]);
   });
+
+  // -------------------------------------------------------------------------
+  // Phase 39 (TUI-01/TUI-02): server_tool_call/server_tool_result mirror
+  // events + the tool_call/tool_result naming-collision fix.
+  // -------------------------------------------------------------------------
+
+  // Test A
+  it("folds a server_tool_call event onto an empty accumulator, appending a trailing tool_invocation_streaming part", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "server_tool_call",
+        seq: 1,
+        data: { tool_name: "lookup_entity", id: "tu_1" },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      { type: "tool_invocation_streaming", toolUseId: "tu_1", toolName: "lookup_entity" },
+    ]);
+    expect(final.state).toBe("streaming");
+  });
+
+  // Test B
+  it("folding a SECOND server_tool_call event while one is already trailing REPLACES it (fires once per round, no concatenation)", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "server_tool_call",
+        seq: 1,
+        data: { tool_name: "lookup_entity", id: "tu_1" },
+      },
+      {
+        type: "server_tool_call",
+        seq: 2,
+        data: { tool_name: "search_emails", id: "tu_2" },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      { type: "tool_invocation_streaming", toolUseId: "tu_2", toolName: "search_emails" },
+    ]);
+  });
+
+  // Test C
+  it("folds a server_tool_result event after a matching trailing tool_invocation_streaming part, REPLACING it with the finalized result", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "server_tool_call",
+        seq: 1,
+        data: { tool_name: "lookup_entity", id: "tu_1" },
+      },
+      {
+        type: "server_tool_result",
+        seq: 2,
+        data: {
+          tool_name: "lookup_entity",
+          id: "tu_1",
+          content: '{"results":[]}',
+          isError: false,
+        },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      {
+        type: "tool_invocation_result",
+        toolUseId: "tu_1",
+        toolName: "lookup_entity",
+        content: '{"results":[]}',
+        isError: false,
+      },
+    ]);
+    expect(final.state).toBe("streaming");
+  });
+
+  // Test D
+  it("folds a server_tool_result event with NO matching trailing tool_invocation_streaming part by APPENDING (defensive orphan case)", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "server_tool_result",
+        seq: 1,
+        data: {
+          tool_name: "lookup_entity",
+          id: "tu_1",
+          content: '{"results":[]}',
+          isError: false,
+        },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([
+      {
+        type: "tool_invocation_result",
+        toolUseId: "tu_1",
+        toolName: "lookup_entity",
+        content: '{"results":[]}',
+        isError: false,
+      },
+    ]);
+  });
+
+  // Test E — the collision-guard regression test (the core bug fix).
+  it("a PERSISTED-shaped tool_call event (no partial_json, carries arguments) leaves parts completely UNCHANGED — the naming-collision fix", () => {
+    const events: ChatRunEvent[] = [
+      {
+        type: "tool_call",
+        seq: 1,
+        data: { tool_name: "lookup_entity", id: "tu_1", arguments: {} },
+      },
+    ];
+
+    const final = events.reduce(applyRunEvent, initial);
+
+    expect(final.parts).toEqual([]);
+    expect(final.state).toBe("streaming");
+  });
+
+  it("a PERSISTED-shaped tool_call event leaves a NON-EMPTY accumulator's parts completely unchanged too", () => {
+    const seeded: ChatStreamAccumulator = {
+      parts: [{ type: "text", text: "hello" }],
+      state: "streaming",
+    };
+    const final = applyRunEvent(seeded, {
+      type: "tool_call",
+      seq: 1,
+      data: { tool_name: "lookup_entity", id: "tu_1", arguments: { q: "x" } },
+    });
+
+    expect(final.parts).toEqual([{ type: "text", text: "hello" }]);
+    expect(final.state).toBe("streaming");
+  });
+
+  // Test F (non-regression) is satisfied by every pre-existing test above in
+  // this describe block still passing unchanged — all of them include
+  // partial_json in their tool_call event data, proving the guard is scoped
+  // exactly to "partial_json absent".
 });

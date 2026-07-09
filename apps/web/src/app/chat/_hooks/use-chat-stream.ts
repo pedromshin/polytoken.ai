@@ -43,7 +43,9 @@ export type ChatRunEventType =
   | "stopped"
   | "failed"
   | "cost_capped"
-  | "interrupted";
+  | "interrupted"
+  | "server_tool_call"
+  | "server_tool_result";
 
 export interface ChatRunEvent {
   readonly type: ChatRunEventType;
@@ -79,7 +81,18 @@ export type StreamState = "idle" | "streaming" | StreamTerminalState;
  * since the corresponding `tool_result` event carries no declaration (only
  * `interactionId`, 24-02) — the real part arrives moments later via
  * chat.getHistory once the turn's terminal event invalidates it (D-01
- * async-resume). */
+ * async-resume).
+ *
+ * Phase 39 (TUI-01/TUI-02): `tool_invocation_streaming` (CLIENT-ONLY,
+ * transient — built from the new non-persisted `server_tool_call` mirror
+ * event), `tool_invocation` (persisted, mirrors
+ * build_tool_invocation_part's shape exactly — never built client-side
+ * this phase, only replayed via chat.getHistory), and
+ * `tool_invocation_result` (built client-side from the new non-persisted
+ * `server_tool_result` mirror event OR persisted/replayed via
+ * chat.getHistory — mirrors build_tool_invocation_result_part's shape
+ * exactly so the two are byte-identical) — see 39-UI-SPEC.md's "SSE / Part
+ * Contract" section. */
 export type MessagePart =
   | { readonly type: "text"; readonly text: string }
   | {
@@ -107,6 +120,24 @@ export type MessagePart =
       readonly type: "interactive_widget_streaming";
       readonly toolId: string;
       readonly partialJson: string;
+    }
+  | {
+      readonly type: "tool_invocation_streaming";
+      readonly toolUseId: string;
+      readonly toolName: string;
+    }
+  | {
+      readonly type: "tool_invocation";
+      readonly toolUseId: string;
+      readonly toolName: string;
+      readonly arguments: Readonly<Record<string, unknown>>;
+    }
+  | {
+      readonly type: "tool_invocation_result";
+      readonly toolUseId: string;
+      readonly toolName: string;
+      readonly content: string;
+      readonly isError: boolean;
     };
 
 export interface ChatStreamAccumulator {
@@ -159,6 +190,8 @@ const CHAT_RUN_EVENT_TYPES: ReadonlySet<string> = new Set<ChatRunEventType>([
   "failed",
   "cost_capped",
   "interrupted",
+  "server_tool_call",
+  "server_tool_result",
 ]);
 
 const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set<StreamTerminalState>(
@@ -259,6 +292,16 @@ export function applyRunEvent(
   }
 
   if (event.type === "tool_call") {
+    // 39-UI-SPEC.md "SSE / Part Contract" naming-collision resolution: a
+    // real server-tool round's PERSISTED tool_call event carries
+    // `arguments`, never `partial_json` — this branch was built for the
+    // emit_ui_spec/interactive-widget streaming case and must ignore that
+    // shape entirely (the new server_tool_call branch below builds the
+    // correct part instead), or it would mis-fold the round into a
+    // permanently-stuck, empty interactive_widget_streaming skeleton.
+    if (typeof event.data.partial_json !== "string") {
+      return { parts: acc.parts, state: "streaming" };
+    }
     const toolId = typeof event.data.id === "string" ? event.data.id : "";
     const chunk =
       typeof event.data.partial_json === "string" ? event.data.partial_json : "";
@@ -320,6 +363,56 @@ export function applyRunEvent(
       lastPart && lastPart.type === "genui_spec_streaming"
         ? [...acc.parts.slice(0, -1), { type: "genui_spec", spec }]
         : [...acc.parts, { type: "genui_spec", spec }];
+    return { parts, state: "streaming" };
+  }
+
+  if (event.type === "server_tool_call") {
+    // Mirrors the persisted "tool_call" event at the same dispatch point
+    // (39-UI-SPEC.md) — fires exactly once per round, so this always
+    // REPLACES a trailing tool_invocation_streaming part rather than
+    // concatenating chunks (unlike the genui_spec_streaming reducer above).
+    const toolUseId = typeof event.data.id === "string" ? event.data.id : "";
+    const toolName =
+      typeof event.data.tool_name === "string" ? event.data.tool_name : "";
+    const lastPart = acc.parts[acc.parts.length - 1];
+    const newPart: MessagePart = {
+      type: "tool_invocation_streaming",
+      toolUseId,
+      toolName,
+    };
+    const parts: MessagePart[] =
+      lastPart && lastPart.type === "tool_invocation_streaming"
+        ? [...acc.parts.slice(0, -1), newPart]
+        : [...acc.parts, newPart];
+    return { parts, state: "streaming" };
+  }
+
+  if (event.type === "server_tool_result") {
+    // Mirrors the persisted "tool_result" event at the same dispatch point
+    // (39-UI-SPEC.md) — replaces the matching trailing
+    // tool_invocation_streaming part with the finalized result, or appends
+    // it defensively if no matching trailing streaming part exists.
+    const toolUseId = typeof event.data.id === "string" ? event.data.id : "";
+    const toolName =
+      typeof event.data.tool_name === "string" ? event.data.tool_name : "";
+    const content =
+      typeof event.data.content === "string" ? event.data.content : "";
+    const isError =
+      typeof event.data.isError === "boolean" ? event.data.isError : false;
+    const lastPart = acc.parts[acc.parts.length - 1];
+    const newPart: MessagePart = {
+      type: "tool_invocation_result",
+      toolUseId,
+      toolName,
+      content,
+      isError,
+    };
+    const parts: MessagePart[] =
+      lastPart &&
+      lastPart.type === "tool_invocation_streaming" &&
+      lastPart.toolUseId === toolUseId
+        ? [...acc.parts.slice(0, -1), newPart]
+        : [...acc.parts, newPart];
     return { parts, state: "streaming" };
   }
 
