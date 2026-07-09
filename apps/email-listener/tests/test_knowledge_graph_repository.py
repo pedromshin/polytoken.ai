@@ -523,3 +523,472 @@ def test_search_nodes_respects_limit_keeping_highest_rrf_scored_rows() -> None:
     assert "t-9" not in ids
     assert "v-0" in ids
     assert "t-0" in ids
+
+
+# ---------------------------------------------------------------------------
+# expand_neighbours (Phase 37-01, Task 3) -- bounded BFS via the extracted_only view
+# ---------------------------------------------------------------------------
+
+
+class _SeedTableDouble:
+    """Mocks .table("knowledge_nodes").select(...).eq("id", node_id).execute()."""
+
+    def __init__(self, rows_by_id: dict[str, dict[str, object]]) -> None:
+        self._rows_by_id = rows_by_id
+        self.call_count = 0
+        self._id: str | None = None
+
+    def select(self, _columns: str) -> _SeedTableDouble:
+        return self
+
+    def eq(self, column: str, value: object) -> _SeedTableDouble:
+        if column == "id":
+            self._id = str(value)
+        return self
+
+    def execute(self) -> MagicMock:
+        self.call_count += 1
+        result = MagicMock()
+        row = self._rows_by_id.get(self._id) if self._id is not None else None
+        result.data = [row] if row is not None else []
+        return result
+
+
+class _EdgesTableDouble:
+    """Mocks .table("knowledge_node_edges").select("*").or_(...).eq("is_active", True).execute()."""
+
+    def __init__(self, edges_by_node: dict[str, list[dict[str, object]]]) -> None:
+        self._edges_by_node = edges_by_node
+        self.call_count = 0
+        self._node_id: str | None = None
+
+    def select(self, _columns: str) -> _EdgesTableDouble:
+        return self
+
+    def or_(self, expr: str) -> _EdgesTableDouble:
+        # expr shape: "source_node_id.eq.<id>,target_ref_id.eq.<id>"
+        prefix = "source_node_id.eq."
+        start = expr.index(prefix) + len(prefix)
+        end = expr.index(",", start)
+        self._node_id = expr[start:end]
+        return self
+
+    def eq(self, _column: str, _value: object) -> _EdgesTableDouble:
+        return self
+
+    def execute(self) -> MagicMock:
+        self.call_count += 1
+        result = MagicMock()
+        result.data = self._edges_by_node.get(self._node_id or "", [])
+        return result
+
+
+class _ViewTableDouble:
+    """Mocks .table("knowledge_nodes_extracted_only").select(...).in_(...).eq("importer_id", ...).execute().
+
+    `db_rows` stores id -> full row dict INCLUDING importer_id (used only for
+    server-side filtering, never returned) plus the columns the real SELECT
+    projects (title/content/scope/scope_ref_id/tier/confidence).
+    """
+
+    def __init__(self, db_rows: dict[str, dict[str, object]]) -> None:
+        self._db_rows = db_rows
+        self.call_count = 0
+        self.calls: list[tuple[list[str], str | None]] = []
+        self._ids: list[str] = []
+        self._importer_id: str | None = None
+
+    def select(self, _columns: str) -> _ViewTableDouble:
+        return self
+
+    def in_(self, _column: str, values: list[object]) -> _ViewTableDouble:
+        self._ids = [str(v) for v in values]
+        return self
+
+    def eq(self, column: str, value: object) -> _ViewTableDouble:
+        if column == "importer_id":
+            self._importer_id = str(value)
+        return self
+
+    def execute(self) -> MagicMock:
+        self.call_count += 1
+        self.calls.append((list(self._ids), self._importer_id))
+        result = MagicMock()
+        matched = []
+        for node_id in self._ids:
+            row = self._db_rows.get(node_id)
+            if row is None or row.get("importer_id") != self._importer_id:
+                continue
+            matched.append(
+                {
+                    "id": node_id,
+                    "title": row.get("title"),
+                    "content": row.get("content"),
+                    "scope": row.get("scope"),
+                    "scope_ref_id": row.get("scope_ref_id"),
+                    "tier": row.get("tier"),
+                    "confidence": row.get("confidence"),
+                }
+            )
+        result.data = matched
+        return result
+
+
+def _make_expand_client(
+    *,
+    seed_rows: dict[str, dict[str, object]],
+    edges_by_node: dict[str, list[dict[str, object]]],
+    view_rows: dict[str, dict[str, object]],
+) -> tuple[MagicMock, _SeedTableDouble, _EdgesTableDouble, _ViewTableDouble]:
+    seed_double = _SeedTableDouble(seed_rows)
+    edges_double = _EdgesTableDouble(edges_by_node)
+    view_double = _ViewTableDouble(view_rows)
+
+    tables: dict[str, object] = {
+        "knowledge_nodes": seed_double,
+        "knowledge_node_edges": edges_double,
+        "knowledge_nodes_extracted_only": view_double,
+    }
+    client = MagicMock()
+    client.table.side_effect = lambda name: tables[name]
+    return client, seed_double, edges_double, view_double
+
+
+def test_expand_neighbours_fails_closed_on_unknown_seed() -> None:
+    client, _seed, edges_double, view_double = _make_expand_client(seed_rows={}, edges_by_node={}, view_rows={})
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-missing", importer_id="imp-abc"))
+
+    assert result == {"nodes": [], "edges": [], "truncated": False}
+    assert edges_double.call_count == 0
+    assert view_double.call_count == 0
+
+
+def test_expand_neighbours_fails_closed_on_inactive_seed() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": False}}
+    client, _seed, edges_double, view_double = _make_expand_client(
+        seed_rows=seed_rows, edges_by_node={}, view_rows={}
+    )
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
+
+    assert result == {"nodes": [], "edges": [], "truncated": False}
+    assert edges_double.call_count == 0
+    assert view_double.call_count == 0
+
+
+def test_expand_neighbours_fails_closed_on_cross_tenant_seed() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-other", "is_active": True}}
+    client, _seed, edges_double, view_double = _make_expand_client(
+        seed_rows=seed_rows, edges_by_node={}, view_rows={}
+    )
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
+
+    assert result == {"nodes": [], "edges": [], "truncated": False}
+    assert edges_double.call_count == 0
+    assert view_double.call_count == 0
+
+
+def test_expand_neighbours_one_hop_happy_path() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": True}}
+    edges_by_node = {
+        "node-1": [
+            {
+                "id": "edge-1",
+                "source_node_id": "node-1",
+                "target_ref_id": "node-2",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            },
+            {
+                "id": "edge-2",
+                "source_node_id": "node-1",
+                "target_ref_id": "node-3",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            },
+        ],
+        "node-2": [],
+        "node-3": [],
+    }
+    view_rows = {
+        "node-1": {
+            "importer_id": "imp-abc",
+            "title": "Node 1",
+            "content": "C1",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+        "node-2": {
+            "importer_id": "imp-abc",
+            "title": "Node 2",
+            "content": "C2",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+        "node-3": {
+            "importer_id": "imp-abc",
+            "title": "Node 3",
+            "content": "C3",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+    }
+    client, *_ = _make_expand_client(seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows)
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
+
+    assert result["truncated"] is False
+    nodes = result["nodes"]
+    node_ids = {node["id"] for node in nodes}
+    assert node_ids == {"node-1", "node-2", "node-3"}
+    edges = result["edges"]
+    edge_ids = {edge["id"] for edge in edges}
+    assert edge_ids == {"edge-1", "edge-2"}
+    for node in nodes:
+        assert {"id", "tier", "confidence", "scope", "scope_ref_id", "title", "content"} <= set(node.keys())
+
+
+def test_expand_neighbours_clamps_depth_to_bounds() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": True}}
+    edges_by_node = {
+        "node-1": [
+            {
+                "id": "e1",
+                "source_node_id": "node-1",
+                "target_ref_id": "node-2",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+        ],
+        "node-2": [
+            {
+                "id": "e2",
+                "source_node_id": "node-2",
+                "target_ref_id": "node-3",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+        ],
+        "node-3": [
+            {
+                "id": "e3",
+                "source_node_id": "node-3",
+                "target_ref_id": "node-4",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+        ],
+        "node-4": [
+            {
+                "id": "e4",
+                "source_node_id": "node-4",
+                "target_ref_id": "node-5",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+        ],
+    }
+    view_rows = {
+        f"node-{i}": {
+            "importer_id": "imp-abc",
+            "title": f"N{i}",
+            "content": f"C{i}",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        }
+        for i in range(1, 6)
+    }
+
+    client, _seed, edges_double, _view = _make_expand_client(
+        seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows
+    )
+    repo = SupabaseKnowledgeGraphRepository(client)
+    asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc", max_depth=99))
+    assert edges_double.call_count == 2, "max_depth=99 must clamp to MAX_EXPAND_DEPTH=2 hops"
+
+    client2, _seed2, edges_double2, _view2 = _make_expand_client(
+        seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows
+    )
+    repo2 = SupabaseKnowledgeGraphRepository(client2)
+    asyncio.run(repo2.expand_neighbours(node_id="node-1", importer_id="imp-abc", max_depth=0))
+    assert edges_double2.call_count == 1, "max_depth=0 must clamp to MIN_EXPAND_DEPTH=1 hop"
+
+
+def test_expand_neighbours_neighbour_title_content_none_for_non_extracted_tier() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": True}}
+    edges_by_node = {
+        "node-1": [
+            {
+                "id": "e1",
+                "source_node_id": "node-1",
+                "target_ref_id": "node-2",
+                "relation_type": "related",
+                "tier": "INFERRED",
+                "confidence": 0.5,
+                "is_active": True,
+            }
+        ],
+        "node-2": [],
+    }
+    view_rows = {
+        "node-1": {
+            "importer_id": "imp-abc",
+            "title": "N1",
+            "content": "C1",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+        # node-2 resolves through the view with tier=INFERRED -- title/content
+        # already NULL, structurally enforced by the view (migration 0029).
+        "node-2": {
+            "importer_id": "imp-abc",
+            "title": None,
+            "content": None,
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "INFERRED",
+            "confidence": 0.5,
+        },
+    }
+    client, *_ = _make_expand_client(seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows)
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
+
+    node2 = next(node for node in result["nodes"] if node["id"] == "node-2")
+    assert node2["title"] is None
+    assert node2["content"] is None
+    assert node2["tier"] == "INFERRED"
+
+
+def test_expand_neighbours_applies_node_budget_cap_once_at_end() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": True}}
+    num_neighbours = 10
+    edges_by_node = {
+        "node-1": [
+            {
+                "id": f"e{i}",
+                "source_node_id": "node-1",
+                "target_ref_id": f"node-{i + 1}",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+            for i in range(1, num_neighbours + 1)
+        ],
+    }
+    view_rows = {
+        "node-1": {
+            "importer_id": "imp-abc",
+            "title": "N1",
+            "content": "C1",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+        **{
+            f"node-{i + 1}": {
+                "importer_id": "imp-abc",
+                "title": f"N{i + 1}",
+                "content": f"C{i + 1}",
+                "scope": "importer_global",
+                "scope_ref_id": None,
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+            }
+            for i in range(1, num_neighbours + 1)
+        },
+    }
+    client, *_ = _make_expand_client(seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows)
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc", max_depth=1, node_budget=5))
+
+    assert result["truncated"] is True
+    assert len(result["nodes"]) == 5
+    kept_ids = {node["id"] for node in result["nodes"]}
+    for edge in result["edges"]:
+        assert edge["source_node_id"] in kept_ids
+        assert edge["target_ref_id"] in kept_ids
+
+
+def test_expand_neighbours_excludes_cross_tenant_neighbour() -> None:
+    seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": True}}
+    edges_by_node = {
+        "node-1": [
+            {
+                "id": "e1",
+                "source_node_id": "node-1",
+                "target_ref_id": "node-foreign",
+                "relation_type": "related",
+                "tier": "EXTRACTED",
+                "confidence": 1.0,
+                "is_active": True,
+            }
+        ],
+        "node-foreign": [],
+    }
+    view_rows = {
+        "node-1": {
+            "importer_id": "imp-abc",
+            "title": "N1",
+            "content": "C1",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+        "node-foreign": {
+            "importer_id": "imp-other",
+            "title": "Foreign",
+            "content": "F",
+            "scope": "importer_global",
+            "scope_ref_id": None,
+            "tier": "EXTRACTED",
+            "confidence": 1.0,
+        },
+    }
+    client, _seed, _edges, view_double = _make_expand_client(
+        seed_rows=seed_rows, edges_by_node=edges_by_node, view_rows=view_rows
+    )
+    repo = SupabaseKnowledgeGraphRepository(client)
+
+    result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
+
+    node_ids = {node["id"] for node in result["nodes"]}
+    assert "node-foreign" not in node_ids
+    edge_ids = {edge["id"] for edge in result["edges"]}
+    assert "e1" not in edge_ids
+    # Prove the exclusion happened via the view query's importer_id filter,
+    # not just a lucky output shape (T-37-03).
+    assert any(importer_id == "imp-abc" for _ids, importer_id in view_double.calls)

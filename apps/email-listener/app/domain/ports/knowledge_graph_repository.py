@@ -13,6 +13,12 @@ from typing import Protocol
 # Fork 5's top-8 default result count for search_nodes (Phase 37 -- TOOL-03/TOOL-04).
 DEFAULT_SEARCH_LIMIT = 8
 
+# expand_neighbours BFS bounds (Phase 37 -- TOOL-03/TOOL-04). Mirrors expand.ts's
+# MIN_DEPTH/MAX_DEPTH/EXPAND_BUDGET_CAP (Phase 32 T-32-01 precedent).
+MIN_EXPAND_DEPTH = 1
+MAX_EXPAND_DEPTH = 2
+DEFAULT_EXPAND_NODE_BUDGET = 50
+
 
 class KnowledgeGraphRepository(Protocol):
     """Port for persisting and retrieving knowledge_nodes / knowledge_node_edges rows."""
@@ -142,5 +148,30 @@ class KnowledgeGraphRepository(Protocol):
         this port alone is not the final defense (defense-in-depth, mirrors
         the existing `list_injectable_edges` / `ToolExecutor.execute`
         docstring convention in this codebase).
+        """
+        ...
+
+    async def expand_neighbours(
+        self,
+        *,
+        node_id: str,
+        importer_id: str,
+        max_depth: int = MAX_EXPAND_DEPTH,
+        node_budget: int = DEFAULT_EXPAND_NODE_BUDGET,
+    ) -> dict[str, object]:
+        """Bounded (<=2-hop, <=node_budget-node) breadth-first walk from `node_id`.
+
+        Tenant-scoped to `importer_id` at EVERY hop (not just the seed) --
+        mirrors T-32-02. Fail-closed (empty result, zero further queries) on
+        an unknown, inactive, or cross-tenant seed -- mirrors T-32-03, never
+        leaks whether a foreign-tenant node id exists.
+
+        Returned shape: `{"nodes": list[dict], "edges": list[dict],
+        "truncated": bool}`. Node dicts are read through
+        `knowledge_nodes_extracted_only` (migration 0029), so `title`/
+        `content` are populated ONLY for EXTRACTED-tier rows -- structural,
+        not a runtime check. Callers MUST still apply their own
+        field-omission belt before these rows ever enter a prompt (same
+        defense-in-depth note as `search_nodes`).
         """
         ...
