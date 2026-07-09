@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.6
 milestone_name: Chat × Knowledge Convergence
 status: executing
-last_updated: "2026-07-09T01:10:00.000Z"
-last_activity: 2026-07-09 -- Phase 37 Plan 02 executed (search_knowledge ToolExecutor + flag-gated wiring) -- PHASE 37 COMPLETE
+last_updated: "2026-07-09T04:15:00.000Z"
+last_activity: 2026-07-09 -- Phase 40 Plan 01 executed (emit_confirm_action tool + live-edge-read finalization + widget_kind migration 0030) -- CONF-01 complete
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 16
-  completed_plans: 12
+  total_plans: 18
+  completed_plans: 13
   percent: 56
 ---
 
@@ -20,14 +20,47 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 37 — knowledge-search-python-read-side
+**Current focus:** Phase 40 — confirm-action-widgets (Plan 01 of 2 executed)
 
 ## Current Position
 
-Phase: 37 (knowledge-search-python-read-side) — COMPLETE
-Plan: 2 of 2 (all executed)
-Status: Phase 37 complete — next: Phase 38 (Quarantine + Adversarial Eval, not yet planned)
-Last activity: 2026-07-09 -- Phase 37 Plan 02 executed (search_knowledge ToolExecutor + flag-gated wiring) -- PHASE 37 COMPLETE
+Phase: 40 (confirm-action-widgets) — Plan 1 of 2 executed
+Plan: 1 of 2 executed (40-02 depends on 40-01, not yet executed)
+Status: 40-01 complete (CONF-01) — next: 40-02 (CONF-02 edge-tier staleness re-check + dispatch table + compact-summary web fix). Phase 38 (Quarantine + Adversarial Eval) and Phase 39 (Tool-Round UI + Citation Chips) remain not-yet-executed, independent of Phase 40's own track (per ROADMAP.md's parallel-track note: {40} needs only G2, can run parallel to 36-39).
+Last activity: 2026-07-09 -- Phase 40 Plan 01 executed (emit_confirm_action tool + live-edge-read finalization + widget_kind migration 0030) -- CONF-01 complete
+
+## Phase 40 — Confirm-Action Widgets (executing 2026-07-09)
+
+- **40-01 EXECUTED:** CONF-01. Adds the `emit_confirm_action` terminal widget tool — the model
+  supplies ONLY `suggestionRef {kind, id}` (+ optional short rationale), never a tier/node-id/
+  mutation parameter. Migration `0030_confirm_action_widget_kind.sql` extends
+  `chat_widget_interactions_widget_kind_check` with `'confirm_action'` (idempotent DROP+ADD,
+  journal entry idx=30 added per the Phase-37-01 lesson that drizzle silently skips
+  journal-less hand-written migrations); applied + live-verified locally
+  (`verify-0030-live.ts` — constraint definition confirmed containing all three widget_kind
+  values). New `run_chat_turn_confirm_action.py` (pure helpers: `parse_confirm_action_call`,
+  `build_confirm_action_declaration`, the frozen confirm/reject option contract) +
+  `chat_tools.py`'s `build_emit_confirm_action_tool()` (schema-restricted to
+  `suggestionRef.kind: "knowledge_edge_tier_promotion"` only — `entity_merge_confirm` stays
+  registered server-side for Plan 40-02's dispatch table but is structurally unreachable via
+  this tool's own schema). `RunChatTurn` gained a `knowledge_graph` collaborator (additive
+  default) + `_finalize_confirm_action` — an async, `self`-bound live re-read of the referenced
+  `knowledge_node_edges` row at emission time; not-found/cross-importer/inactive/wrong-tier all
+  collapse into the SAME generic "no longer available" text (T-40-02, no tenant-probing
+  oracle); a malformed call never reaches the DB lookup at all and fails into
+  `PARSE_FAILURE_TEXT` (T-40-04, never silent). `container.py` reuses the SAME
+  `SupabaseKnowledgeGraphRepository` instance Phase 37-02 already built for
+  `search_knowledge_executor` — no duplicate instantiation. 102/102 targeted tests pass (18 new
+  pure-helper + 10 new RunChatTurn-level + 74 regression across every chat-turn/container/
+  chat-tools test file, 0 failures), mypy/ruff/lint-imports clean (same 12 pre-existing errors
+  in 4 unrelated infrastructure files Phase 36-02/37-02 already documented), zero `apps/web/`
+  changes (this plan is Python + migration only). **Deviations (2, both non-architectural):**
+  reused the existing `knowledge_repo` instance in `container.py` instead of a second one
+  (Phase 37-02 already added it); removed an unused `noqa: BLE001` comment (ruff's RUF100 —
+  BLE001 isn't enabled in this project's config). See 40-01-SUMMARY.md. **Next: 40-02**
+  (CONF-02 — edge-tier staleness re-check at submit time + the explicit 2-entry dispatch table
+  + the reserved `compact-interaction-entry.tsx` web fix — already planned, `40-02-PLAN.md`
+  exists, depends_on 40-01).
 
 ## Phase 37 — Knowledge Search + Python Read-Side (COMPLETE 2026-07-09)
 

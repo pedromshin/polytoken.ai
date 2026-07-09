@@ -325,7 +325,7 @@ migration merges first (sequence by actual merge order, not by phase number)
      `entity_merge_confirm`), idempotent by id — never "run use case by name from client input"
 **Plans**: 2 plans (coarse; Wave 1 = 40-01, Wave 2 = 40-02)
 Plans:
-- [ ] 40-01-PLAN.md — emit_confirm_action tool + live edge-read finalization + widget_kind migration [CONF-01]
+- [x] 40-01-PLAN.md — emit_confirm_action tool + live edge-read finalization + widget_kind migration [CONF-01]
 - [ ] 40-02-PLAN.md — CONF-02 edge-tier staleness re-check + 2-entry dispatch table + compact-summary web fix [CONF-02]
 **UI hint**: yes
 
@@ -365,7 +365,7 @@ execute last.
 | 37. Knowledge Search + Python Read-Side | 2/2 | Complete   | 2026-07-09 |
 | 38. Quarantine + Adversarial Eval | 0/2 | Not started | - |
 | 39. Tool-Round UI + Citation Chips | 0/? | Not started | - |
-| 40. Confirm-Action Widgets | 0/2 | Not started | - |
+| 40. Confirm-Action Widgets | 1/2 | In Progress|  |
 | 41. Knowledge-Preview Canvas Node | 0/? | Not started | - |
 
 ## Next

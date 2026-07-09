@@ -79,7 +79,7 @@ decides.
 Retrofit v1.5's promotion confirm as a Phase-24 chat-widget confirm-action — the CAS +
 schema-revalidation + staleness spine already exists; the LLM never supplies tier/node-ids/params.
 
-- [ ] **CONF-01**: Agent can end a turn with a confirm-action widget via `emit_confirm_action` carrying only a `suggestion_ref` (kind + id, never raw mutation params); the server derives the frozen `{action: confirm|reject}` response schema by re-reading the live edge row at emission; `widget_kind` CHECK constraint extended by migration (authored 0029+, after v1.5's edge migrations)
+- [x] **CONF-01**: Agent can end a turn with a confirm-action widget via `emit_confirm_action` carrying only a `suggestion_ref` (kind + id, never raw mutation params); the server derives the frozen `{action: confirm|reject}` response schema by re-reading the live edge row at emission; `widget_kind` CHECK constraint extended by migration (authored 0029+, after v1.5's edge migrations)
 - [ ] **CONF-02**: Submitting a confirm-action re-checks the referenced `knowledge_node_edges` row's tier against the declaration snapshot (409 `stale` if promoted/rejected out-of-band) before dispatching through an explicit 2-entry use-case table (`knowledge_edge_tier_promotion`, `entity_merge_confirm`), idempotent by id
 
 ### Knowledge Preview (PREV)
@@ -164,7 +164,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-07 | Phase 35 | Complete |
 | TUI-01 | Phase 39 | Pending |
 | TUI-02 | Phase 39 | Pending |
-| CONF-01 | Phase 40 | Pending |
+| CONF-01 | Phase 40 | Complete |
 | CONF-02 | Phase 40 | Pending |
 | PREV-01 | Phase 41 | Pending |
 
