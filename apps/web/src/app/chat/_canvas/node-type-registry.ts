@@ -12,7 +12,11 @@
 
 import type { z } from "zod";
 
-import { ChatNodeDataSchema, GenuiPanelNodeDataSchema } from "./node-data-schemas";
+import {
+  ChatNodeDataSchema,
+  GenuiPanelNodeDataSchema,
+  KnowledgePreviewNodeDataSchema,
+} from "./node-data-schemas";
 
 export interface NodeTypeRegistryEntry {
   readonly id: string;
@@ -38,6 +42,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: GenuiPanelNodeDataSchema,
     description:
       "Genui-panel node — renders a genui_spec message part by provenance ref.",
+  },
+  "knowledge-preview": {
+    id: "knowledge-preview",
+    dataSchema: KnowledgePreviewNodeDataSchema,
+    description:
+      "Knowledge-preview node — renders a bounded, non-interactive knowledge-graph subgraph anchored on a focus node id.",
   },
 };
 

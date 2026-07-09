@@ -64,3 +64,17 @@ export const ChatNodeDataSchema = z
   .strict();
 
 export type ChatNodeData = z.infer<typeof ChatNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// KnowledgePreviewNodeDataSchema — knowledge-preview node.data (focus node
+// ref + optional label only, PREV-01)
+// ---------------------------------------------------------------------------
+
+export const KnowledgePreviewNodeDataSchema = z
+  .object({
+    focusNodeId: z.string().uuid(),
+    label: z.string().max(80).optional(),
+  })
+  .strict();
+
+export type KnowledgePreviewNodeData = z.infer<typeof KnowledgePreviewNodeDataSchema>;

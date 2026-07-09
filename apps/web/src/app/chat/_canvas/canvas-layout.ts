@@ -27,6 +27,7 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
 > = {
   chat: { width: 400, height: 320 },
   "genui-panel": { width: 320, height: 240 },
+  "knowledge-preview": { width: 320, height: 240 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

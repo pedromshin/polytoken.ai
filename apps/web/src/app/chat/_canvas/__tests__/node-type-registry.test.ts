@@ -10,7 +10,10 @@ import {
   computeNodeRegistryHash,
   NODE_REGISTRY_VERSION,
 } from "../node-registry-version";
-import { GenuiPanelNodeDataSchema } from "../node-data-schemas";
+import {
+  GenuiPanelNodeDataSchema,
+  KnowledgePreviewNodeDataSchema,
+} from "../node-data-schemas";
 import {
   NODE_TYPE_REGISTRY,
   resolveNodeType,
@@ -28,6 +31,7 @@ describe("computeNodeRegistryHash", () => {
 
   it("is insensitive to registration order (sorted keys)", () => {
     const reordered: Record<string, NodeTypeRegistryEntry> = {
+      "knowledge-preview": NODE_TYPE_REGISTRY["knowledge-preview"]!,
       "genui-panel": NODE_TYPE_REGISTRY["genui-panel"]!,
       chat: NODE_TYPE_REGISTRY.chat!,
     };
@@ -108,6 +112,14 @@ describe("resolveNodeType", () => {
       expect(resolved.nodeType).toBe("agent");
     }
   });
+
+  it("resolves 'knowledge-preview' to its registered entry", () => {
+    const resolved = resolveNodeType("knowledge-preview");
+    expect(resolved.kind).toBe("registered");
+    if (resolved.kind === "registered") {
+      expect(resolved.entry.id).toBe("knowledge-preview");
+    }
+  });
 });
 
 describe("GenuiPanelNodeDataSchema", () => {
@@ -157,6 +169,46 @@ describe("GenuiPanelNodeDataSchema", () => {
         runId: null,
       },
       turnIndex: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("KnowledgePreviewNodeDataSchema", () => {
+  it("accepts a valid focusNodeId with no label", () => {
+    const result = KnowledgePreviewNodeDataSchema.safeParse({
+      focusNodeId: "550e8400-e29b-41d4-a716-446655440000",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts a valid focusNodeId with a label", () => {
+    const result = KnowledgePreviewNodeDataSchema.safeParse({
+      focusNodeId: "550e8400-e29b-41d4-a716-446655440000",
+      label: "My preview",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a non-uuid focusNodeId", () => {
+    const result = KnowledgePreviewNodeDataSchema.safeParse({
+      focusNodeId: "not-a-uuid",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a label longer than 80 characters", () => {
+    const result = KnowledgePreviewNodeDataSchema.safeParse({
+      focusNodeId: "550e8400-e29b-41d4-a716-446655440000",
+      label: "a".repeat(81),
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unrecognized extra top-level key (.strict())", () => {
+    const result = KnowledgePreviewNodeDataSchema.safeParse({
+      focusNodeId: "550e8400-e29b-41d4-a716-446655440000",
+      extra: true,
     });
     expect(result.success).toBe(false);
   });
