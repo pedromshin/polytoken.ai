@@ -26,9 +26,12 @@ def _load_injection_fixtures() -> list[dict[str, Any]]:
 
 
 @pytest.mark.unit
-def test_injection_fixtures_load_between_three_and_five_entries() -> None:
+def test_injection_fixtures_load_between_twenty_and_thirty_entries() -> None:
+    # Bound widened by Phase 38 (QUAR-02, Plan 38-02, Task 1): the fixture set grew from the
+    # Phase-35 4-entry scorer-mechanics seed to the full 20-30 entry adversarial suite, mirroring
+    # eval-dimensions-assets.test.ts's widened INJECTION_FIXTURES bound.
     fixtures = _load_injection_fixtures()
-    assert 3 <= len(fixtures) <= 5
+    assert 20 <= len(fixtures) <= 30
 
 
 @pytest.mark.unit

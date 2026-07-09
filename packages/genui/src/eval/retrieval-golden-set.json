@@ -49,5 +49,54 @@
     "query": "What entities are linked to the customs clearance delay incident?",
     "expected_ids": [{ "kind": "entity", "id": "entity-customs-broker" }],
     "notes": "Single-entity lookup, seed fixture-shaped (TOOL-01 lands Phase 36, not yet resolvable against live data)."
+  },
+  {
+    "id": 8,
+    "query": "What do we know about Contship Container Lines?",
+    "expected_ids": [{ "kind": "entity", "id": "0893b208-bef7-446b-976f-75c0a09637e3" }],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: a real entity_instances row seeded under DEFAULT_IMPORTER_ID (00000000-0000-0000-0000-000000000001) in the local dev DB -- this id IS resolvable against the local dev DB, not a synthetic placeholder."
+  },
+  {
+    "id": 9,
+    "query": "Find the Bill of Lading MD002 entity record",
+    "expected_ids": [{ "kind": "entity", "id": "deed4641-caa6-47ec-8900-ba9ed34c65f6" }],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: a real entity_instances row seeded under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
+  },
+  {
+    "id": 10,
+    "query": "Find the email about Bill of Lading MD002 and Contship Container Lines",
+    "expected_ids": [{ "kind": "email", "id": "a9cb4760-1aee-4c0d-b795-3fef35375cdf" }],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: a real emails row already present under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
+  },
+  {
+    "id": 11,
+    "query": "Find emails about the Multi-Forming Machine BF-80 packing list",
+    "expected_ids": [
+      { "kind": "email", "id": "94ba6b69-1500-4ef0-912d-8c9360e080ff" },
+      { "kind": "email", "id": "df6f39d6-c992-4f67-9c8e-c22052517cc2" },
+      { "kind": "email", "id": "ac756e13-8763-4d35-9726-c1bb12990ed6" }
+    ],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: 3 real emails rows (multi-result, non-trivial recall/precision) already present under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
+  },
+  {
+    "id": 12,
+    "query": "What confirmed knowledge exists about Contship Container Lines' shipping route?",
+    "expected_ids": [{ "kind": "knowledge", "id": "8e1a4af6-b825-4114-9fe5-4fbb92599850" }],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: a real EXTRACTED-tier knowledge_nodes row seeded under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
+  },
+  {
+    "id": 13,
+    "query": "Who is the shipping line on Bill of Lading MD002, and which email references it?",
+    "expected_ids": [
+      { "kind": "entity", "id": "0893b208-bef7-446b-976f-75c0a09637e3" },
+      { "kind": "email", "id": "a9cb4760-1aee-4c0d-b795-3fef35375cdf" }
+    ],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: cross-kind result set (entity + email), both real rows under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
+  },
+  {
+    "id": 14,
+    "query": "Find the email about training materials",
+    "expected_ids": [{ "kind": "email", "id": "4802726b-9052-4156-96ee-f57510037ecd" }],
+    "notes": "Phase 38 QUAR-02/EVAL-06 real-data entry: a real emails row already present under DEFAULT_IMPORTER_ID in the local dev DB -- resolvable against the local dev DB."
   }
 ]
