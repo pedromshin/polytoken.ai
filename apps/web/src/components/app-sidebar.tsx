@@ -28,6 +28,8 @@ import {
   SidebarMenuItem,
 } from "@polytoken/ui/sidebar";
 
+import { SignOutButton } from "~/components/sign-out-button";
+
 /** A navigable destination rendered as a next/link in the rail. */
 interface LiveNavItem {
   readonly href: string;
@@ -183,6 +185,7 @@ export function AppSidebar(): React.ReactElement {
 
       <SidebarFooter>
         <ThemeToggle />
+        <SignOutButton />
       </SidebarFooter>
     </Sidebar>
   );
