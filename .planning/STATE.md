@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-09T21:45:25.468Z"
-last_activity: "2026-07-09 -- Plan 42-01 executed (bulk rename + skill-dir rename + workspace regeneration); next: Plan 42-02 (external-rename runbook)"
+last_updated: "2026-07-09T21:51:43.000Z"
+last_activity: "2026-07-09 -- Plan 42-02 executed (external-rename runbook, RENM-02); Phase 42 (atomic-rename-nauta-polytoken) COMPLETE; next: Phase 43"
 progress:
   total_phases: 5
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 20
 ---
 
 # State
@@ -24,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 42 (atomic-rename-nauta-polytoken) — EXECUTING
-Plan: 2 of 2
-Status: Executing Phase 42
-Last activity: 2026-07-09 -- Plan 42-01 executed (bulk rename + skill-dir rename + workspace regeneration); next: Plan 42-02 (external-rename runbook)
+Phase: 42 (atomic-rename-nauta-polytoken) — COMPLETE
+Plan: 2 of 2 (COMPLETE)
+Status: Phase 42 complete (RENM-01 + RENM-02 both satisfied); next Phase 43
+Last activity: 2026-07-09 -- Plan 42-02 executed (external-rename runbook, RENM-02); Phase 42 (atomic-rename-nauta-polytoken) COMPLETE — both RENM-01 (internal rename) and RENM-02 (external-rename runbook) satisfied. Next: Phase 43.
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 
@@ -72,6 +72,29 @@ Last activity: 2026-07-09 -- Plan 42-01 executed (bulk rename + skill-dir rename
   `.planning/phases/42-atomic-rename-nauta-polytoken/deferred-items.md`. See 42-01-SUMMARY.md.
   **Next: 42-02** (external-rename runbook, RENM-02 — GitHub repo/AWS/Vercel/domain, documented
   not executed).
+
+- **42-02 EXECUTED — PHASE 42 COMPLETE:** RENM-02 (external-rename runbook, autonomous,
+  documentation-only). Task 1 (`afbcdc0`): new
+  `.planning/phases/42-atomic-rename-nauta-polytoken/EXTERNAL-RENAME-RUNBOOK.md` (259 lines),
+  a user-executed, four-section ordered runbook — (1) GitHub repo rename (`git remote
+  set-url` after the GitHub dashboard rename, redirect-aware), (2) AWS/Terraform (the
+  load-bearing section — every live resource name tabulated with exact file:line: `var.project`
+  default `"nauta-services"` `variables.tf:16`, `tg_prefix` local `"nauta-el"` `locals.tf:4`,
+  both `deploy-email-listener{,-staging}.yml:13-15` env blocks, the commented S3 backend
+  `main.tf:13`, local-only `terraform.tfstate`, `README.md:56-57` table, `SES_S3_BUCKET`
+  `settings.py:97` — plus the three hazards documented verbatim: two-unsynced-sources-of-truth
+  with an explicit same-PR reconciliation checklist, ECR `force_delete=false` destroy+recreate
+  risk with explicit warnings against flipping `force_delete=true` or an unverified
+  `terraform state mv`, and local-only-tfstate with a never-hand-edit warning), (3) Vercel
+  project rename (dashboard/CLI, `.vercel/project.json` noted as gitignored/self-regenerating),
+  (4) domain purchase/DNS (user-only, sequenced last, verify-before-retire discipline).
+  `terraform plan` named as the mandatory read-only proof step (`npm run infra:tf -- plan`);
+  `terraform apply` explicitly marked out of scope for phase 42. Verified zero live
+  resource-name strings changed (`git status --porcelain infrastructure/ .github/workflows/
+  README.md` shows only the pre-existing, out-of-scope `ecs.tf` modification). See
+  42-02-SUMMARY.md. **All Phase 42 requirements (RENM-01 + RENM-02) now complete — Phase 42
+  (Atomic Rename nauta → polytoken) is DONE. Next: Phase 43** (Auth — Google OAuth + server
+  sessions, per v1.7 roadmap).
 
 ## Phase 41 — Knowledge-Preview Canvas Node (COMPLETE 2026-07-09)
 

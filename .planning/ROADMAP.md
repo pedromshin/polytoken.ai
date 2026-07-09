@@ -109,7 +109,7 @@ Full phase details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · 
 Phase 46 is independent/parallelizable. Research base:
 [research/v1.7-polytoken-foundation/SUMMARY.md](research/v1.7-polytoken-foundation/SUMMARY.md).
 
-- [ ] **Phase 42: Atomic Rename nauta → polytoken**
+- [x] **Phase 42: Atomic Rename nauta → polytoken** (completed 2026-07-09)
 - [ ] **Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)**
 - [ ] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation**
 - [ ] **Phase 45: Email Threads + Forwarding Seam**
@@ -123,11 +123,11 @@ Phase 46 is independent/parallelizable. Research base:
 1. Zero `@nauta/` references remain in code/config (package names, workspace `-w` selectors, vercel.json, CI YAML); user-visible chrome says polytoken
 2. Workspace symlinks regenerated (`npm install`); typecheck + web tests + Python tests green post-rename
 3. External-rename runbook exists (GitHub repo, AWS/Terraform incl. ECR `force_delete`/tfstate warnings, Vercel, domain); `terraform plan` proves live AWS resource names untouched
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [x] 42-01-PLAN.md — Atomic internal rename (`@nauta/*` → `@polytoken/*`, UI chrome, `nauta-teal`, skill dir) + workspace regeneration + full verification matrix
-- [ ] 42-02-PLAN.md — External-rename runbook (GitHub repo, AWS/Terraform, Vercel, domain) — documented, not executed
+- [x] 42-02-PLAN.md — External-rename runbook (GitHub repo, AWS/Terraform, Vercel, domain) — documented, not executed
 
 ### Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)
 
