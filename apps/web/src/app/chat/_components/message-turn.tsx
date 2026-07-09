@@ -14,6 +14,8 @@ import {
   type WidgetDisplayState,
 } from "./interactive-widget-boundary";
 import { MarkdownRenderer } from "./markdown-renderer";
+import { ToolInvocationResultRow } from "./tool-invocation-result-row";
+import { ToolRoundActivityRow } from "./tool-round-activity-row";
 import { TurnActionRow } from "./turn-action-row";
 import { TurnStatusBadge } from "./turn-status-badge";
 
@@ -199,6 +201,30 @@ export function MessageTurn({
                       isStreaming={true}
                     />
                   </GeneratingRing>
+                );
+              }
+
+              // Phase 39 (TUI-01/TUI-02) server-tool round parts. Deliberately
+              // NOT wrapped in <GeneratingRing> — a bare status line, not
+              // bounded panel content (39-UI-SPEC.md Component 1 rationale).
+              if (part.type === "tool_invocation_streaming") {
+                return <ToolRoundActivityRow key={index} toolName={part.toolName} />;
+              }
+
+              if (part.type === "tool_invocation") {
+                // No visible row — the paired tool_invocation_result row
+                // already narrates the round (39-UI-SPEC.md DO-NOT 7).
+                return null;
+              }
+
+              if (part.type === "tool_invocation_result") {
+                return (
+                  <ToolInvocationResultRow
+                    key={index}
+                    toolName={part.toolName}
+                    content={part.content}
+                    isError={part.isError}
+                  />
                 );
               }
 
