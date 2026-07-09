@@ -68,12 +68,26 @@ class PromoteEdgeUseCase:
     def __init__(self, *, knowledge: KnowledgeGraphRepository) -> None:
         self._knowledge = knowledge
 
-    async def execute(self, *, edge_id: str, importer_id: str) -> dict[str, object]:
+    async def execute(
+        self,
+        *,
+        edge_id: str,
+        importer_id: str,
+        mechanism: str = _MECHANISM_HUMAN_PROMOTE,
+        extra: dict[str, object] | None = None,
+    ) -> dict[str, object]:
         """Promote one ACTIVE INFERRED/AMBIGUOUS edge owned by `importer_id` to EXTRACTED.
 
         Raises EdgeNotFound / EdgeNotPromotable for every rejection path
         BEFORE `promote_edge` (the write) is called. Returns
         {edge_id, tier: 'EXTRACTED'} on success.
+
+        `mechanism`/`extra` (Phase 40-02, CONF-02) are additive keyword-only
+        params for non-REST promotion provenance — e.g. a chat confirm_action
+        dispatch passes `mechanism="chat_confirm_action"` and
+        `extra={"widget_interaction_id": ...}` so the promotion record is
+        distinguishable from a plain REST `human_promote`. Callers that omit
+        both get the exact same `promotion` dict as before this change.
         """
         edge = await self._knowledge.find_edge_by_id(edge_id)
         if edge is None:
@@ -92,7 +106,8 @@ class PromoteEdgeUseCase:
         promotion: dict[str, object] = {
             "promoted_at": datetime.now(UTC).isoformat(),
             "from_tier": from_tier,
-            "mechanism": _MECHANISM_HUMAN_PROMOTE,
+            "mechanism": mechanism,
+            **(extra or {}),
         }
         updated = await self._knowledge.promote_edge(edge_id=edge_id, promotion=promotion)
         if not updated:

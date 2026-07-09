@@ -126,6 +126,41 @@ def test_reject_cas_conflict_when_repo_reports_no_row_updated() -> None:
     repo.promote_edge.assert_awaited_once()
 
 
+def test_execute_with_no_new_kwargs_is_byte_identical_to_default_behavior() -> None:
+    """Phase 40-02 (CONF-02): mechanism/extra are additive — omitting both
+    produces the EXACT same promotion dict as before this change."""
+    use_case, repo = _use_case(_edge(tier="INFERRED"))
+
+    result = asyncio.run(use_case.execute(edge_id=_EDGE_ID, importer_id=_IMPORTER))
+
+    assert result == {"edge_id": _EDGE_ID, "tier": "EXTRACTED"}
+    promotion = repo.promote_edge.await_args.kwargs["promotion"]
+    assert promotion["mechanism"] == "human_promote"
+    assert set(promotion.keys()) == {"promoted_at", "from_tier", "mechanism"}
+
+
+def test_execute_with_mechanism_and_extra_records_chat_confirm_provenance() -> None:
+    """Phase 40-02 (CONF-02): a chat confirm_action dispatch records distinct
+    provenance (mechanism + widget_interaction_id) alongside the existing keys."""
+    use_case, repo = _use_case(_edge(tier="INFERRED"))
+
+    result = asyncio.run(
+        use_case.execute(
+            edge_id=_EDGE_ID,
+            importer_id=_IMPORTER,
+            mechanism="chat_confirm_action",
+            extra={"widget_interaction_id": "wi-1"},
+        )
+    )
+
+    assert result == {"edge_id": _EDGE_ID, "tier": "EXTRACTED"}
+    promotion = repo.promote_edge.await_args.kwargs["promotion"]
+    assert promotion["mechanism"] == "chat_confirm_action"
+    assert promotion["widget_interaction_id"] == "wi-1"
+    assert "promoted_at" in promotion
+    assert promotion["from_tier"] == "INFERRED"
+
+
 def test_load_precedes_write_call_ordering() -> None:
     """find_edge_by_id is awaited before promote_edge on the success path."""
     calls: list[str] = []
