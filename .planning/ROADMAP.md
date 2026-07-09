@@ -196,12 +196,12 @@ Plans:
 2. pytest event-loop cleanup + grid `colSpan` support landed with tests (999.2)
 3. Brand-identity options document is decision-ready; design-pattern dossier maps Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system
 
-**Plans:** 3/3 plans (all wave 1, disjoint files — parallelizable)
+**Plans:** 1/3 plans executed
 
 Plans:
 
 - [ ] 46-01-PLAN.md — HYGN-01: connected-env evidence (eval harness vs baseline on v1.2 corpus via live Bedrock; code-island isolation disposition) recorded honestly in 46-EVIDENCE.md
-- [ ] 46-02-PLAN.md — HYGN-02: debt folds (Python-3.13 asyncio test migration + resolve todo; colSpan-aware grid clamp + corrected generator guidance) with targeted tests
+- [x] 46-02-PLAN.md — HYGN-02: debt folds (Python-3.13 asyncio test migration + resolve todo; colSpan-aware grid clamp + corrected generator guidance) with targeted tests
 - [ ] 46-03-PLAN.md — DSSR-01/02: v1.8 dossier (brand-identity options + design-pattern dossier mapping Claude/ChatGPT/Perplexity flows onto the v1.4 token system)
 
 ## Backlog

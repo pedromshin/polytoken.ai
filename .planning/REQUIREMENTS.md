@@ -38,7 +38,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 ### Hygiene
 
 - [ ] **HYGN-01**: The locally-feasible 999.3 connected-env verifications are executed with recorded evidence (eval harness vs baseline on the v1.2 corpus; Playwright code-island isolation spec) — the substrate is validated before v1.8 re-skins it
-- [ ] **HYGN-02**: 999.2 folds land — pytest event-loop cleanup and spreadsheet-grid colSpan
+- [x] **HYGN-02**: 999.2 folds land — pytest event-loop cleanup and spreadsheet-grid colSpan
 
 ### Dossier
 
@@ -91,7 +91,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THRD-03 | Phase 45 | Pending |
 | THRD-04 | Phase 45 | Pending |
 | HYGN-01 | Phase 46 | Pending |
-| HYGN-02 | Phase 46 | Pending |
+| HYGN-02 | Phase 46 | Complete |
 | DSSR-01 | Phase 46 | Pending |
 | DSSR-02 | Phase 46 | Pending |
 

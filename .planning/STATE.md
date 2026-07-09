@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-09T22:52:26.600Z"
-last_activity: 2026-07-09 -- Phase 46 execution started
+last_updated: "2026-07-09T23:02:44.107Z"
+last_activity: 2026-07-09 -- Phase 43 execution started
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 2
+  completed_plans: 3
   percent: 20
 ---
 
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 46 — kickoff-hygiene-v1-8-brand-design-dossier
+**Current focus:** Phase 43 — Auth — Google OAuth + Sessions (Supabase Auth)
 
 ## Current Position
 
-Phase: 46 (kickoff-hygiene-v1-8-brand-design-dossier) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 46
-Last activity: 2026-07-09 -- Phase 46 execution started
+Phase: 43 (Auth — Google OAuth + Sessions (Supabase Auth)) — EXECUTING
+Plan: 1 of 5
+Status: Executing Phase 43
+Last activity: 2026-07-09 -- Phase 43 execution started
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 
@@ -95,6 +95,35 @@ Last activity: 2026-07-09 -- Phase 46 execution started
   42-02-SUMMARY.md. **All Phase 42 requirements (RENM-01 + RENM-02) now complete — Phase 42
   (Atomic Rename nauta → polytoken) is DONE. Next: Phase 43** (Auth — Google OAuth + server
   sessions, per v1.7 roadmap).
+
+## Phase 46 — Kickoff Hygiene / v1.8 Brand & Design Dossier — Plan 02 History
+
+- **46-02 EXECUTED:** HYGN-02 (999.2 debt folds, autonomous). Task 1 (`e73f1dd`): all 11
+  `asyncio.get_event_loop().run_until_complete(` call sites (10 tests, one with two calls) in
+  `apps/email-listener/tests/test_genui_retrieval_provider.py` swapped to `asyncio.run(` via a
+  single byte-identical `replace_all` substitution — targeted suite 24/24 green, prior
+  `DeprecationWarning: There is no current event loop` gone; production
+  `LexicalRetrievalProvider` confirmed clean of the deprecated call and left untouched; the
+  pending todo (`.planning/todos/pending/2026-07-08-genui-retrieval-provider-py313-asyncio.md`)
+  moved to `.planning/todos/done/` with an appended `## Resolution` section. Task 2 (`aaf2517`):
+  `GridComponent` (`packages/genui/src/catalog/manifest.ts`) clamp made colSpan-aware — a new
+  `hasExplicitSpan` detector walks `React.Children.toArray(children)` (guarded by
+  `React.isValidElement`) testing each child's `props.style.gridColumn` for a `"span "`-prefixed
+  string (the wrapper divs `renderPositionalChildren` already emits, Phase 18); when present,
+  `effectiveCols` honors the requested `cols` (clamped 1-12) instead of collapsing to child
+  count, so a `cols:12` grid with `colSpan:8`+`colSpan:4` children now renders true 12-track
+  main+sidebar asymmetry; the Phase-17 child-count clamp is preserved byte-exact when no child
+  spans (backward-compatible — existing "clamps to child count" / "keeps requested cols" tests
+  stayed green unmodified). Grid manifest `description` corrected: removed the false "there is
+  NO column spanning" claim and its contradicted "do NOT use grid for a single wide region"
+  clause, documented `colSpan` (1-12) with an explicit 8/4 main+sidebar example; `propsSchema`
+  and `example` object left untouched. 2 new `render-node.test.tsx` cases added (asymmetric
+  8/4 layout, preserved no-colSpan clamp) — targeted vitest 66/66 green;
+  `packages/genui` `typecheck` clean. See 46-02-SUMMARY.md. **Note:** this plan ran concurrently
+  with the Phase 43 track in the same checkout (per this milestone's parallelization config);
+  STATE.md's singleton "Current Position"/"Resume file" fields are owned by whichever phase's
+  executor last wrote them (currently Phase 43) — Phase 46's own position is tracked in this
+  dedicated section instead of contesting that singleton.
 
 ## Phase 41 — Knowledge-Preview Canvas Node (COMPLETE 2026-07-09)
 
@@ -1998,6 +2027,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-09 (38-02): live-harness Bedrock-reachability check uses boto3's own default credential-chain resolver (Session().get_credentials() is not None), not an AWS_ACCESS_KEY_ID env-var sniff — this environment authenticates via IAM/SSO, so test_corpus_pipeline.py's literal _HAS_TEXTRACT pattern doesn't apply; runtime try/except around the actual network call is the second, defense-in-depth skip layer
 - 2026-07-09 (38-02): SEARCH_KNOWLEDGE_TOOL_ENABLED flipped True — gated strictly on the deterministic tests/evals/ sweep (excl. the live-harness module) passing in the SAME execution run, verified twice (69/69); the live harness's own pass/fail is explicitly NOT part of that gate (it passed anyway, live, for real)
 - 2026-07-09 (38-02): test_genui_retrieval_provider.py's asyncio.get_event_loop() failures are the SAME pre-existing test-isolation issue 29-02 already logged on 2026-07-07 (10 failures this run vs 24 then, likely test-order-dependent) — confirmed unrelated to this plan (zero diff, last touched Phase 17), re-logged to this phase's own deferred-items.md rather than fixed
+- 2026-07-09 (46-02): asyncio.get_event_loop().run_until_complete( was byte-identical at all 11 call sites in test_genui_retrieval_provider.py — single replace_all swap to asyncio.run( resolved the Phase-36/38-logged 999.2 debt; production LexicalRetrievalProvider confirmed clean and untouched; todo moved to done/ with a Resolution note
+- 2026-07-09 (46-02): GridComponent clamp made colSpan-aware — detects wrapper-div style.gridColumn starting "span " via React.Children.toArray + React.isValidElement; when present, honors requested cols (clamped 1-12) instead of the Phase-17 child-count clamp, unlocking true cols:12 8/4 main+sidebar layouts while preserving the exact Phase-17 clamp for plain (no-colSpan) galleries; grid manifest description corrected to document colSpan instead of falsely claiming no column spanning
 
 ## Performance Metrics
 
@@ -2090,6 +2121,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 41 P01 | 35min | 2 tasks | 6 files |
 | Phase 41 P41-02 | 50min | 3 tasks | 8 files |
 | Phase 42 P01 | 55min | 3 tasks | 250 files |
+| Phase 46 P02 | ~15min | 2 tasks | 4 files |
 
 ## Operator Next Steps
 
