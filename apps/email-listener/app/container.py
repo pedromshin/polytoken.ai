@@ -100,6 +100,7 @@ from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.chat_tools import (
     build_emit_clarify_widget_tool,
+    build_emit_confirm_action_tool,
     build_emit_proposal_cards_tool,
     build_emit_ui_spec_tool,
 )
@@ -677,6 +678,14 @@ def _provide_run_chat_turn(
     Phase 38 flips the default after the adversarial fixture suite passes.
     SupabaseKnowledgeGraphRepository is instantiated directly (concrete
     infrastructure class, mirrors _provide_promote_edge_use_case's pattern).
+
+    Phase 40-01 (CONF-01): emit_confirm_action is threaded in as a fourth
+    interactive_widget_tools entry, ALWAYS offered (unlike search_knowledge,
+    it has no exposure flag — Phase 24-style widget tools are terminal/
+    human-confirm by construction, not a mid-turn data-read risk). The SAME
+    `knowledge_repo` instance built above for search_knowledge is reused as
+    RunChatTurn's `knowledge_graph` collaborator — `_finalize_confirm_action`'s
+    live edge re-read at emission time.
     """
     settings = get_settings()
     resolution_repo = SupabaseEntityResolutionRepository(client=client)
@@ -706,7 +715,12 @@ def _provide_run_chat_turn(
         default_importer_id=settings.DEFAULT_IMPORTER_ID,
         max_output_tokens=settings.CHAT_MAX_OUTPUT_TOKENS,
         widget_interactions=widget_interactions,
-        interactive_widget_tools=(build_emit_proposal_cards_tool(), build_emit_clarify_widget_tool()),
+        interactive_widget_tools=(
+            build_emit_proposal_cards_tool(),
+            build_emit_clarify_widget_tool(),
+            build_emit_confirm_action_tool(),
+        ),
+        knowledge_graph=knowledge_repo,
         tool_executors={
             LOOKUP_ENTITY_TOOL_NAME: lookup_entity_executor,
             SEARCH_EMAILS_TOOL_NAME: search_emails_executor,

@@ -41,6 +41,17 @@ immediately after inserting the new user text message -- typing durably
 supersedes any pending widget (D-02), server-side, so the state survives
 reload. `regenerate()`/`continue_after_widget()` never call it.
 
+Phase 40-01 (CONF-01): `emit_confirm_action` extends the same
+interactive_widget_tools seam (widgetKind "confirm_action"), but unlike the
+other three widget tools its finalization is NOT purely parse-driven —
+`_finalize_confirm_action` (async, `self`-bound) re-reads the live
+`knowledge_node_edges` row the model's `suggestionRef.id` names before
+building the frozen confirm/reject declaration, failing into visible text
+when the suggestion is gone/inactive/cross-tenant/wrong-tier or the call
+itself is malformed (never silent). The optional `knowledge_graph` collaborator
+is additive-default (None) — a caller that doesn't wire it always gets the
+unavailable-text fallback.
+
 Built as an async generator with NO HTTP dependency — the SSE transport (22-07)
 is a thin wrapper over `run()`/`regenerate()`.
 
@@ -62,6 +73,12 @@ from typing import TYPE_CHECKING, Any, Literal, cast
 
 import structlog
 
+from app.application.use_cases.run_chat_turn_confirm_action import (
+    CONFIRM_ACTION_UNAVAILABLE_TEXT,
+    EMIT_CONFIRM_ACTION_TOOL_NAME,
+    build_confirm_action_declaration,
+    parse_confirm_action_call,
+)
 from app.application.use_cases.run_chat_turn_tool_loop import (
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
@@ -91,6 +108,7 @@ from app.domain.ports.chat_repositories import (
 )
 from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository, UsageEvent
+from app.domain.ports.knowledge_graph_repository import KnowledgeGraphRepository
 from app.domain.ports.tool_executor import ToolExecutionResult
 from app.domain.services.chat_model_registry import ChatModel, get_model
 from app.domain.services.chat_provider_router import ChatModelNotFoundError, ChatProviderRouter
@@ -224,6 +242,7 @@ class RunChatTurn:
         max_output_tokens: int = 4096,
         widget_interactions: ChatWidgetInteractionRepository | None = None,
         interactive_widget_tools: tuple[dict[str, Any], ...] = (),
+        knowledge_graph: KnowledgeGraphRepository | None = None,
         tool_executors: Mapping[str, ToolExecutor] = MappingProxyType({}),
         server_tool_defs: Mapping[str, dict[str, Any]] = MappingProxyType({}),
     ) -> None:
@@ -238,6 +257,13 @@ class RunChatTurn:
         self._max_output_tokens = max_output_tokens
         self._widget_interactions = widget_interactions
         self._interactive_widget_tools = interactive_widget_tools
+        # Phase 40-01 (CONF-01): the live-edge-read collaborator
+        # `_finalize_confirm_action` uses to re-fetch the suggestion at
+        # emission time. Additive default (mirrors widget_interactions
+        # above) -- None in any caller that doesn't pass it, in which case
+        # emit_confirm_action always finalizes into the unavailable-text
+        # fallback (fail-closed, never a crash).
+        self._knowledge_graph = knowledge_graph
         # Phase 34-03 (LOOP-01): the bounded mid-turn server-tool round loop's
         # seam. Additive default (mirrors interactive_widget_tools above) —
         # empty in production until Phase 36 (container.py wires {} today).
@@ -658,7 +684,16 @@ class RunChatTurn:
         no tool_result streamed, leaving the client's live view stuck on
         "streaming"). A server-round parse failure/exhaustion already cleared
         pending_tool_id before reaching this path, so this is a no-op there.
+
+        Phase 40-01 (CONF-01): `_finalize_confirm_action` runs FIRST — it is
+        the only site with both `self` (repository access, for the live edge
+        re-read) and `importer_id`. It EAGERLY clears pending_tool_* on every
+        branch, so the subsequent `_finalize_pending_tool(state)` call below
+        is provably a no-op for an emit_confirm_action call either way.
         """
+        state, confirm_action_event = await self._finalize_confirm_action(state, importer_id=importer_id)
+        if confirm_action_event is not None:
+            yield await self._emit(run.id, confirm_action_event[0], confirm_action_event[1])
         state, tool_result_event = _finalize_pending_tool(state)
         if tool_result_event is not None:
             yield await self._emit(run.id, tool_result_event[0], tool_result_event[1])
@@ -679,6 +714,83 @@ class RunChatTurn:
 
         title = _title_snippet(user_text) if is_first_turn else None
         await self._conversations.touch(conversation_id=conversation_id, model_id=model_id, title=title)
+
+    async def _finalize_confirm_action(
+        self, state: _TurnState, *, importer_id: str
+    ) -> tuple[_TurnState, tuple[ChatRunEventType, dict[str, Any]] | None]:
+        """Finalize a still-pending emit_confirm_action call via a LIVE edge re-read (CONF-01).
+
+        No-op (`state, None`) unless the pending tool is emit_confirm_action —
+        every other pending tool name falls through unchanged to the caller's
+        subsequent `_finalize_pending_tool(state)` call.
+
+        Clears pending_tool_* EAGERLY on every branch below (parse-fail,
+        edge-unavailable, success) — this is what makes it safe to run this
+        live-I/O check from `_finalize_turn_completed` (the only async site
+        with `self`) while `_finalize_pending_tool` itself stays pure: by the
+        time that pure function runs next, pending_tool_id is already None,
+        so it is provably a no-op for this tool.
+
+        A malformed call (T-40-04) never reaches the knowledge_graph lookup at
+        all — `self._knowledge_graph.find_edge_by_id` is only ever called for
+        a structurally-valid parsed call. Edge-not-found, cross-importer,
+        inactive, and wrong-tier all collapse into the SAME
+        CONFIRM_ACTION_UNAVAILABLE_TEXT (T-40-02) — a probing model/user
+        cannot distinguish "wrong tenant" from "already resolved" from
+        "doesn't exist". A DB error during the lookup is caught and treated
+        identically to edge-unavailable (fail-closed, never crashes the turn).
+        """
+        if state.pending_tool_name != EMIT_CONFIRM_ACTION_TOOL_NAME or state.pending_tool_id is None:
+            return state, None
+
+        tool_id = state.pending_tool_id
+        raw_json = state.pending_tool_json
+        cleared = replace(state, pending_tool_name=None, pending_tool_id=None, pending_tool_json="")
+
+        parsed = parse_confirm_action_call(raw_json)
+        if parsed is None:
+            logger.warning("confirm_action_tool_call_parse_failed", tool_id=tool_id)
+            return replace(cleared, parts=(*cleared.parts, {"type": "text", "text": PARSE_FAILURE_TEXT})), None
+
+        edge: dict[str, object] | None = None
+        if self._knowledge_graph is not None:
+            try:
+                edge = await self._knowledge_graph.find_edge_by_id(parsed["id"])
+            except Exception:  # fail-closed, never crash the turn on a DB hiccup
+                logger.warning("confirm_action_edge_lookup_failed", tool_id=tool_id, suggestion_id=parsed["id"])
+                edge = None
+
+        edge_valid = (
+            edge is not None
+            and edge.get("importer_id") == importer_id
+            and bool(edge.get("is_active"))
+            and edge.get("tier") in ("INFERRED", "AMBIGUOUS")
+        )
+        if not edge_valid:
+            logger.warning("confirm_action_edge_unavailable", tool_id=tool_id, suggestion_id=parsed["id"])
+            return (
+                replace(cleared, parts=(*cleared.parts, {"type": "text", "text": CONFIRM_ACTION_UNAVAILABLE_TEXT})),
+                None,
+            )
+
+        assert edge is not None  # narrows for mypy -- edge_valid already proved this
+        declaration = build_confirm_action_declaration(
+            kind=parsed["kind"],
+            suggestion_id=parsed["id"],
+            edge=edge,
+            rationale=parsed["rationale"],
+        )
+        widget_part = {
+            "type": "interactive_widget",
+            "interactionId": str(uuid.uuid4()),
+            "widgetKind": "confirm_action",
+            "declaration": declaration,
+        }
+        finalized = replace(cleared, parts=(*cleared.parts, widget_part))
+        return finalized, (
+            "tool_result",
+            {"tool_name": EMIT_CONFIRM_ACTION_TOOL_NAME, "id": tool_id, "interactionId": widget_part["interactionId"]},
+        )
 
     def _terminal_status_for(
         self,
