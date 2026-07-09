@@ -10,6 +10,8 @@ Registers:
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 import boto3
 import httpx
 from anthropic import AsyncAnthropicBedrock
@@ -20,6 +22,11 @@ from app.application.use_cases.autofill import AutofillUseCase
 from app.application.use_cases.autofill_fields import AutofillFieldsUseCase
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
 from app.application.use_cases.classify_document import ClassifyDocumentUseCase
+from app.application.use_cases.confirm_action_dispatch import (
+    ConfirmActionHandler,
+    KnowledgeEdgeTierPromotionHandler,
+    UnsupportedConfirmActionHandler,
+)
 from app.application.use_cases.confirm_region import ConfirmRegionUseCase
 from app.application.use_cases.curate_entity_merge import (
     ConfirmMergeUseCase,
@@ -55,6 +62,10 @@ from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailU
 from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
 from app.application.use_cases.resolve_entity_candidates import ResolveEntityCandidatesUseCase
 from app.application.use_cases.run_chat_turn import RunChatTurn
+from app.application.use_cases.run_chat_turn_confirm_action import (
+    SUGGESTION_KIND_EDGE_TIER_PROMOTION,
+    SUGGESTION_KIND_ENTITY_MERGE_CONFIRM,
+)
 from app.application.use_cases.set_component_relationship import (
     SetComponentEntityTypeUseCase,
     SetComponentFieldRelationshipUseCase,
@@ -746,6 +757,8 @@ def _provide_submit_widget_interaction(
     widget_interactions: ChatWidgetInteractionRepository,
     messages: ChatMessageRepository,
     continuation_runner: RunChatTurn,
+    client: Client,
+    promote_edge_use_case: PromoteEdgeUseCase,
 ) -> SubmitWidgetInteraction:
     """Factory for SubmitWidgetInteraction — the DCUI-03 submit use case (Phase 24-02).
 
@@ -754,11 +767,30 @@ def _provide_submit_widget_interaction(
     narrow local ContinuationRunner Protocol (continue_after_widget) — RunChatTurn
     satisfies it structurally, mirroring how BedrockChatAdapter/OpenRouterChatAdapter
     both satisfy ChatProvider without an explicit inheritance link.
+
+    Phase 40-02 (CONF-02): SupabaseKnowledgeGraphRepository is instantiated
+    directly here (concrete infrastructure class, not a port — dishka cannot
+    bind it via provide(class) for the same reason as
+    _provide_promote_edge_use_case/_provide_run_chat_turn; no shared DI
+    singleton exists for KnowledgeGraphRepository, every factory that needs
+    one builds its own). promote_edge_use_case is already DI-registered
+    (_provide_promote_edge_use_case) and reused here via injection, not
+    rebuilt. The explicit finite 2-entry confirm_action_dispatch table is
+    built entirely server-side (T-40-06) — knowledge_edge_tier_promotion is
+    real; entity_merge_confirm is the registered-but-unsupported stub
+    (40-CONTEXT.md's pair-keyed blocker, see confirm_action_dispatch.py).
     """
+    knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
+    confirm_action_dispatch: Mapping[str, ConfirmActionHandler] = {
+        SUGGESTION_KIND_EDGE_TIER_PROMOTION: KnowledgeEdgeTierPromotionHandler(promote_edge=promote_edge_use_case),
+        SUGGESTION_KIND_ENTITY_MERGE_CONFIRM: UnsupportedConfirmActionHandler(),
+    }
     return SubmitWidgetInteraction(
         widget_interactions=widget_interactions,
         messages=messages,
         continuation_runner=continuation_runner,
+        knowledge_graph=knowledge_repo,
+        confirm_action_dispatch=confirm_action_dispatch,
     )
 
 

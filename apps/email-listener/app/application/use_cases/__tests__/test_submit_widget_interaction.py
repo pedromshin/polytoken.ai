@@ -36,6 +36,26 @@ _SCHEMA: dict[str, Any] = {
     "properties": {"optionId": {"enum": ["opt-0", "opt-1"]}},
 }
 
+# Phase 40-02 (CONF-02): a confirm_action declaration/schema pair, shaped exactly
+# like Plan 40-01's build_confirm_action_declaration output.
+_EDGE_ID = "edge-1"
+_IMPORTER_ID = "imp-1"
+_CONFIRM_ACTION_DECLARATION: dict[str, Any] = {
+    "prompt": 'Promote this suggested "works_at" relationship to confirmed?',
+    "options": [
+        {"id": "confirm", "title": "Confirm", "description": "Confidence 0.8, currently INFERRED."},
+        {"id": "reject", "title": "Reject"},
+    ],
+    "suggestionRef": {"kind": "knowledge_edge_tier_promotion", "id": _EDGE_ID},
+    "tierSnapshot": "INFERRED",
+}
+_CONFIRM_ACTION_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["optionId"],
+    "additionalProperties": False,
+    "properties": {"optionId": {"enum": ["confirm", "reject"]}},
+}
+
 
 def _interaction(**overrides: Any) -> WidgetInteraction:
     base: dict[str, Any] = {
@@ -53,6 +73,30 @@ def _interaction(**overrides: Any) -> WidgetInteraction:
     }
     base.update(overrides)
     return WidgetInteraction(**base)
+
+
+def _confirm_action_interaction(**overrides: Any) -> WidgetInteraction:
+    base: dict[str, Any] = {
+        "id": "int-confirm-1",
+        "conversation_id": "conv-1",
+        "message_id": "msg-1",
+        "part_index": 0,
+        "turn_index": 2,
+        "widget_kind": "confirm_action",
+        "declaration": _CONFIRM_ACTION_DECLARATION,
+        "declared_response_schema": _CONFIRM_ACTION_SCHEMA,
+        "state": "pending",
+        "sibling_group_id": None,
+        "submitted_value": None,
+    }
+    base.update(overrides)
+    return WidgetInteraction(**base)
+
+
+def _live_edge(**overrides: Any) -> dict[str, Any]:
+    base: dict[str, Any] = {"id": _EDGE_ID, "importer_id": _IMPORTER_ID, "tier": "INFERRED", "is_active": True}
+    base.update(overrides)
+    return base
 
 
 def _seed_message(turn_index: int = 2) -> ChatMessage:
@@ -161,18 +205,70 @@ class FakeContinuationRunner:
             yield event
 
 
+class FakeKnowledgeGraphRepository:
+    """In-memory KnowledgeGraphRepository test double — only find_edge_by_id needed (CONF-02).
+
+    `raises=True` simulates a DB hiccup during the live read (fail-closed -> stale).
+    """
+
+    def __init__(self, *, edge: dict[str, Any] | None = None, raises: bool = False) -> None:
+        self._edge = edge
+        self._raises = raises
+        self.find_edge_by_id_calls: list[str] = []
+
+    async def find_edge_by_id(self, edge_id: str) -> dict[str, Any] | None:
+        self.find_edge_by_id_calls.append(edge_id)
+        if self._raises:
+            raise RuntimeError("simulated DB hiccup")
+        return self._edge
+
+
+class FakeConfirmActionHandler:
+    """Records execute() calls; returns a pre-configured result (or raises, best-effort test)."""
+
+    def __init__(self, *, result: dict[str, Any] | None = None, raises: bool = False) -> None:
+        self._result = result if result is not None else {"status": "ok"}
+        self._raises = raises
+        self.execute_calls: list[dict[str, Any]] = []
+
+    async def execute(
+        self,
+        *,
+        action: str,
+        suggestion_id: str,
+        importer_id: str,
+        widget_interaction_id: str,
+    ) -> dict[str, Any]:
+        self.execute_calls.append(
+            {
+                "action": action,
+                "suggestion_id": suggestion_id,
+                "importer_id": importer_id,
+                "widget_interaction_id": widget_interaction_id,
+            }
+        )
+        if self._raises:
+            raise RuntimeError("simulated dispatch failure")
+        return self._result
+
+
 def _make_use_case(
     *,
     widget_interactions: FakeChatWidgetInteractionRepository,
     messages: FakeChatMessageRepository | None = None,
     runner: FakeContinuationRunner | None = None,
+    knowledge_graph: FakeKnowledgeGraphRepository | None = None,
+    confirm_action_dispatch: dict[str, FakeConfirmActionHandler] | None = None,
 ) -> tuple[SubmitWidgetInteraction, FakeChatMessageRepository, FakeContinuationRunner]:
     messages = messages or FakeChatMessageRepository(existing=[_seed_message()])
     runner = runner or FakeContinuationRunner([])
+    knowledge_graph = knowledge_graph or FakeKnowledgeGraphRepository()
     use_case = SubmitWidgetInteraction(
         widget_interactions=widget_interactions,
         messages=messages,
         continuation_runner=runner,
+        knowledge_graph=knowledge_graph,  # type: ignore[arg-type]
+        confirm_action_dispatch=confirm_action_dispatch or {},  # type: ignore[arg-type]
     )
     return use_case, messages, runner
 
@@ -411,4 +507,243 @@ async def test_ordering_is_stale_check_before_cas_lock() -> None:
             pass
 
     assert widget_interactions.is_stale_calls == ["int-1"]
+    assert widget_interactions.try_submit_calls == []
+
+
+# ---------------------------------------------------------------------------
+# Phase 40-02 (CONF-02): confirm_action edge-tier staleness re-check + dispatch
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_stale_when_edge_tier_promoted_out_of_band() -> None:
+    """THE MUST-TEST (CONF-02's headline safety property): emit a confirm_action widget,
+    promote the SAME edge out-of-band via v1.5's existing REST promote_edge path (simulated
+    by the fake KnowledgeGraphRepository returning a changed tier), submit the widget ->
+    WidgetSubmitRejected(reason="stale") -- and prove ZERO interaction-row mutation
+    (try_submit never called) AND ZERO edge double-mutation (dispatch handler's execute
+    never called)."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge(tier="EXTRACTED"))
+    dispatch_handler = FakeConfirmActionHandler()
+    messages = FakeChatMessageRepository(existing=[])
+    runner = FakeContinuationRunner([])
+    use_case, messages, runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        messages=messages,
+        runner=runner,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": dispatch_handler},
+    )
+
+    with pytest.raises(WidgetSubmitRejected) as exc_info:
+        async for _ in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        ):
+            pass
+
+    assert exc_info.value.reason == "stale"
+    assert knowledge_graph.find_edge_by_id_calls == [_EDGE_ID]
+    assert not widget_interactions.try_submit_calls, "no interaction-row mutation on a stale confirm-action"
+    assert not dispatch_handler.execute_calls, "no dispatch call at all -- no edge double-mutation"
+    assert not messages.inserted
+    assert not runner.calls
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_stale_when_edge_deactivated_out_of_band() -> None:
+    """Same MUST-test shape as the tier-changed variant, for is_active=False (the edge was
+    deactivated/superseded out-of-band) -- also rejects stale before any mutation."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge(is_active=False))
+    dispatch_handler = FakeConfirmActionHandler()
+    use_case, messages, runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": dispatch_handler},
+    )
+
+    with pytest.raises(WidgetSubmitRejected) as exc_info:
+        async for _ in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        ):
+            pass
+
+    assert exc_info.value.reason == "stale"
+    assert not widget_interactions.try_submit_calls
+    assert not dispatch_handler.execute_calls
+    assert not messages.inserted
+    assert not runner.calls
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_stale_when_edge_lookup_raises() -> None:
+    """Fail-closed: a DB error during the live re-read is treated identically to stale,
+    never leaked as a raw exception."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(raises=True)
+    use_case, _messages, _runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": FakeConfirmActionHandler()},
+    )
+
+    with pytest.raises(WidgetSubmitRejected) as exc_info:
+        async for _ in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        ):
+            pass
+
+    assert exc_info.value.reason == "stale"
+    assert not widget_interactions.try_submit_calls
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_non_stale_confirm_dispatches_and_yields_continuation() -> None:
+    """Non-stale confirm: edge tier still matches the snapshot -> submit succeeds, try_submit
+    called once, the dispatch handler's execute(action="confirm", ...) called exactly once,
+    _resolve_summary returns {chosenTitle: "Confirm"}, continuation events are yielded."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge())
+    dispatch_handler = FakeConfirmActionHandler(result={"status": "promoted", "edge_id": _EDGE_ID, "tier": "EXTRACTED"})
+    events = [ChatRunEvent(type="started", data={}), ChatRunEvent(type="completed", data={})]
+    runner = FakeContinuationRunner(events)
+    messages = FakeChatMessageRepository(existing=[_seed_message(turn_index=2)])
+    use_case, messages, runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        messages=messages,
+        runner=runner,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": dispatch_handler},
+    )
+
+    yielded = [
+        event
+        async for event in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        )
+    ]
+
+    assert [e.type for e in yielded] == ["started", "completed"]
+    assert widget_interactions.try_submit_calls == [("int-confirm-1", {"optionId": "confirm"})]
+    assert len(dispatch_handler.execute_calls) == 1
+    call = dispatch_handler.execute_calls[0]
+    assert call["action"] == "confirm"
+    assert call["suggestion_id"] == _EDGE_ID
+    assert call["importer_id"] == _IMPORTER_ID
+    assert call["widget_interaction_id"] == "int-confirm-1"
+    assert messages.inserted[0].parts[0]["summary"] == {"chosenTitle": "Confirm"}
+    assert runner.calls == [{"conversation_id": "conv-1", "model_id": "m1"}]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_non_stale_reject_dispatches_and_never_mutates_edge() -> None:
+    """Non-stale reject: submit succeeds, dispatch handler's execute(action="reject", ...)
+    called once, summary {chosenTitle: "Reject"} -- reject never mutates the edge (the
+    dispatch handler itself is responsible for that; this test proves the CALL shape)."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge())
+    dispatch_handler = FakeConfirmActionHandler(result={"status": "rejected"})
+    messages = FakeChatMessageRepository(existing=[_seed_message(turn_index=2)])
+    use_case, messages, _runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        messages=messages,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": dispatch_handler},
+    )
+
+    async for _ in use_case.submit(
+        conversation_id="conv-1",
+        interaction_id="int-confirm-1",
+        result={"optionId": "reject"},
+        model_id="m1",
+    ):
+        pass
+
+    assert widget_interactions.try_submit_calls == [("int-confirm-1", {"optionId": "reject"})]
+    assert len(dispatch_handler.execute_calls) == 1
+    assert dispatch_handler.execute_calls[0]["action"] == "reject"
+    assert messages.inserted[0].parts[0]["summary"] == {"chosenTitle": "Reject"}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_unregistered_suggestion_kind_never_crashes() -> None:
+    """Defensive: an unknown/unregistered suggestionRef.kind (should never occur given
+    40-01's tool schema) must not crash the submit path -- the staleness re-check and the
+    dispatch lookup both skip cleanly, schema/CAS already gate what can reach here."""
+    interaction = _confirm_action_interaction(
+        declaration={**_CONFIRM_ACTION_DECLARATION, "suggestionRef": {"kind": "some_future_kind", "id": _EDGE_ID}},
+    )
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge())
+    dispatch_handler = FakeConfirmActionHandler()
+    use_case, _messages, _runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": dispatch_handler},
+    )
+
+    yielded = [
+        event
+        async for event in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        )
+    ]
+
+    assert yielded == []
+    assert widget_interactions.try_submit_calls == [("int-confirm-1", {"optionId": "confirm"})]
+    assert not knowledge_graph.find_edge_by_id_calls, "unregistered kind skips the live edge staleness re-check"
+    assert not dispatch_handler.execute_calls, "unregistered kind resolves to a safe no-op dispatch"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_confirm_action_ordering_edge_staleness_check_before_cas_lock() -> None:
+    """Source-ordering proof: the edge-tier staleness re-check runs BEFORE try_submit --
+    a stale confirm-action must never flip a pending row (mirrors D-12's staleness placement)."""
+    interaction = _confirm_action_interaction()
+    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False)
+    knowledge_graph = FakeKnowledgeGraphRepository(edge=_live_edge(tier="AMBIGUOUS"))
+    use_case, _messages, _runner = _make_use_case(
+        widget_interactions=widget_interactions,
+        knowledge_graph=knowledge_graph,
+        confirm_action_dispatch={"knowledge_edge_tier_promotion": FakeConfirmActionHandler()},
+    )
+
+    with pytest.raises(WidgetSubmitRejected):
+        async for _ in use_case.submit(
+            conversation_id="conv-1",
+            interaction_id="int-confirm-1",
+            result={"optionId": "confirm"},
+            model_id="m1",
+        ):
+            pass
+
+    assert knowledge_graph.find_edge_by_id_calls == [_EDGE_ID]
     assert widget_interactions.try_submit_calls == []

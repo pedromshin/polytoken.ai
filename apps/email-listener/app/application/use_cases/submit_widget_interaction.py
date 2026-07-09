@@ -33,24 +33,50 @@ ChatMessageRepository domain ports; ContinuationRunner a narrow local Protocol
 over RunChatTurn.continue_after_widget) -- zero app.infrastructure import
 (mirrors generate_ui_spec.py's "Application does not import infrastructure"
 posture).
+
+Phase 40-02 (CONF-02): a `confirm_action` interaction additionally re-checks
+the referenced `knowledge_node_edges` row's LIVE tier against the
+`tierSnapshot` recorded in the declaration at emission time. This runs
+immediately after step 2 (staleness) and BEFORE step 3 (schema re-validation)
+-- so an out-of-band promotion/deactivation (another chat, the /knowledge
+canvas, a plain REST promote) is caught BEFORE any interaction-row mutation,
+mirroring D-12's existing turn-staleness placement. This check is a no-op for
+every other widget_kind (proposal_cards/clarify_widget). After the CAS
+succeeds, a best-effort dispatch call resolves the confirm/reject use case
+from the STORED declaration's `suggestionRef.kind` via an explicit 2-entry
+table (confirm_action_dispatch.py, T-40-06) -- a dispatch failure is logged
+and swallowed, never re-raised, since the interaction row is already durably
+submitted by that point.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
 
+import structlog
+
+from app.application.use_cases.run_chat_turn_confirm_action import (
+    SUGGESTION_KIND_EDGE_TIER_PROMOTION,
+)
 from app.domain.services.widget_result_validator import validate_result_against_schema
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Mapping
 
+    from app.application.use_cases.confirm_action_dispatch import ConfirmActionHandler, ConfirmActionKind
     from app.domain.ports.chat_repositories import ChatMessageRepository, ChatRunEvent
     from app.domain.ports.chat_widget_interaction_repository import (
         ChatWidgetInteractionRepository,
         WidgetInteraction,
     )
+    from app.domain.ports.knowledge_graph_repository import KnowledgeGraphRepository
+
+logger = structlog.get_logger(__name__)
 
 WidgetSubmitRejectionReason = Literal["not_found", "stale", "invalid", "conflict"]
+
+_WIDGET_KIND_CONFIRM_ACTION = "confirm_action"
 
 
 class WidgetSubmitRejected(Exception):  # noqa: N818 - plan-fixed name (24-CONTEXT.md/24-04-PLAN.md reference it verbatim)
@@ -82,10 +108,18 @@ class SubmitWidgetInteraction:
         widget_interactions: ChatWidgetInteractionRepository,
         messages: ChatMessageRepository,
         continuation_runner: ContinuationRunner,
+        knowledge_graph: KnowledgeGraphRepository,
+        confirm_action_dispatch: Mapping[str, ConfirmActionHandler] = MappingProxyType({}),
     ) -> None:
         self._widget_interactions = widget_interactions
         self._messages = messages
         self._continuation_runner = continuation_runner
+        # Phase 40-02 (CONF-02): the live edge-tier re-read collaborator +
+        # the explicit finite dispatch table (T-40-06) -- confirm_action_dispatch
+        # defaults to an empty mapping so a caller that never registers a kind
+        # gets a safe no-op dispatch rather than a crash.
+        self._knowledge_graph = knowledge_graph
+        self._confirm_action_dispatch = confirm_action_dispatch
 
     async def prepare(
         self,
@@ -109,6 +143,8 @@ class SubmitWidgetInteraction:
         if await self._widget_interactions.is_stale(interaction):
             raise WidgetSubmitRejected("stale", "this widget is no longer active")
 
+        edge = await self._reject_if_confirm_action_edge_stale(interaction)
+
         outcome = validate_result_against_schema(result, interaction.declared_response_schema)
         if not outcome.ok:
             raise WidgetSubmitRejected("invalid", outcome.reason)
@@ -116,6 +152,8 @@ class SubmitWidgetInteraction:
         submitted = await self._widget_interactions.try_submit(interaction_id, result)
         if not submitted:
             raise WidgetSubmitRejected("conflict", "this widget has already been answered")
+
+        await self._dispatch_confirm_action(interaction, result, edge)
 
         summary = _resolve_summary(interaction, result)
         turn_index = await self._next_turn_index(conversation_id)
@@ -165,6 +203,90 @@ class SubmitWidgetInteraction:
         history = await self._messages.list_active_context(conversation_id)
         return max((m.turn_index for m in history), default=-1) + 1
 
+    async def _reject_if_confirm_action_edge_stale(
+        self, interaction: WidgetInteraction
+    ) -> dict[str, object] | None:
+        """CONF-02: re-check the referenced edge's LIVE tier before any mutation.
+
+        No-op (returns None) unless `widget_kind == "confirm_action"` AND the
+        stored `suggestionRef.kind` is the one kind this check knows how to
+        verify (`knowledge_edge_tier_promotion`) -- an unregistered/unknown
+        kind is defensively skipped (schema/CAS already gate what can reach
+        here). MUST run before `try_submit` -- no interaction-row mutation
+        may happen on a stale confirm-action (mirrors D-12's existing
+        turn-staleness placement).
+
+        Fail-closed: a DB error during the live read is treated identically
+        to a tier/is_active mismatch (raises `stale`), never leaked. Returns
+        the already-fetched edge dict on success so `_dispatch_confirm_action`
+        can reuse it without a second DB read.
+        """
+        if interaction.widget_kind != _WIDGET_KIND_CONFIRM_ACTION:
+            return None
+
+        suggestion_ref = interaction.declaration.get("suggestionRef", {})
+        kind = suggestion_ref.get("kind")
+        if kind != SUGGESTION_KIND_EDGE_TIER_PROMOTION:
+            return None
+
+        suggestion_id = suggestion_ref.get("id")
+        tier_snapshot = interaction.declaration.get("tierSnapshot")
+
+        try:
+            edge = await self._knowledge_graph.find_edge_by_id(suggestion_id)
+        except Exception:  # fail-closed -- a DB hiccup is treated identically to stale
+            logger.warning("confirm_action_staleness_check_failed", suggestion_id=suggestion_id)
+            edge = None
+
+        if edge is None or not edge.get("is_active") or edge.get("tier") != tier_snapshot:
+            raise WidgetSubmitRejected("stale", "this suggestion is no longer available")
+
+        return edge
+
+    async def _dispatch_confirm_action(
+        self,
+        interaction: WidgetInteraction,
+        result: dict[str, Any],
+        edge: dict[str, object] | None,
+    ) -> None:
+        """CONF-02 best-effort post-CAS dispatch (T-40-06).
+
+        Resolves the confirm/reject use case from the STORED declaration's
+        `suggestionRef.kind` via the explicit finite dispatch table -- never
+        from client-supplied data. Runs strictly AFTER `try_submit` has
+        already succeeded, so the interaction row is durably submitted
+        regardless of this call's outcome: any failure here is logged and
+        swallowed, NEVER re-raised past this point.
+
+        `importer_id` is derived from the ALREADY-FETCHED `edge` dict (the
+        staleness check above), never a new caller-supplied parameter on
+        `prepare()` itself (D-21-style).
+        """
+        if interaction.widget_kind != _WIDGET_KIND_CONFIRM_ACTION:
+            return
+
+        suggestion_ref = interaction.declaration.get("suggestionRef", {})
+        kind = suggestion_ref.get("kind")
+        handler = self._confirm_action_dispatch.get(kind)
+        if handler is None:
+            return
+
+        suggestion_id = suggestion_ref.get("id")
+        # Already schema-validated to be "confirm"/"reject" by this point
+        # (validate_result_against_schema, above) -- safe to narrow.
+        action = cast("ConfirmActionKind", result.get("optionId"))
+        importer_id = cast("str", edge.get("importer_id", "")) if edge is not None else ""
+
+        try:
+            await handler.execute(
+                action=action,
+                suggestion_id=suggestion_id,
+                importer_id=importer_id,
+                widget_interaction_id=interaction.id,
+            )
+        except Exception:  # best-effort -- the interaction row is already durably submitted
+            logger.warning("confirm_action_dispatch_failed", suggestion_id=suggestion_id, kind=kind)
+
 
 def _resolve_summary(interaction: WidgetInteraction, result: dict[str, Any]) -> dict[str, Any]:
     """Resolve the compact interaction_result summary server-side from the STORED declaration.
@@ -176,7 +298,10 @@ def _resolve_summary(interaction: WidgetInteraction, result: dict[str, Any]) -> 
     upstream in validate_result_against_schema — this function only ever sees
     a schema-conforming `result`.
     """
-    if interaction.widget_kind == "proposal_cards":
+    if interaction.widget_kind in ("proposal_cards", _WIDGET_KIND_CONFIRM_ACTION):
+        # confirm_action's declaration.options are shaped identically to
+        # proposal_cards' (Phase 40-01) -- {chosenTitle: "Confirm" | "Reject"}
+        # reuses this branch verbatim (Phase 40-02, CONF-02).
         option_id = result.get("optionId")
         options = interaction.declaration.get("options", [])
         match = next((option for option in options if option.get("id") == option_id), None)
