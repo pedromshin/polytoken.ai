@@ -2,6 +2,7 @@
 created: 2026-07-08
 title: Fix 10 pre-existing failures in test_genui_retrieval_provider.py (Python 3.13 asyncio.get_event_loop removal)
 area: email-listener/tests (genui retrieval provider)
+resolves_phase: 46
 files:
   - apps/email-listener/tests/test_genui_retrieval_provider.py
 ---
