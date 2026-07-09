@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: planning
-last_updated: "2026-07-09T20:44:37.362Z"
-last_activity: "2026-07-09 — Milestone v1.7 opened autonomously: research (4 docs + summary), 19 requirements, 5-phase roadmap (42–46)"
+status: executing
+last_updated: "2026-07-09T21:45:25.468Z"
+last_activity: "2026-07-09 -- Plan 42-01 executed (bulk rename + skill-dir rename + workspace regeneration); next: Plan 42-02 (external-rename runbook)"
 progress:
   total_phases: 5
   completed_phases: 0
   total_plans: 2
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,14 +20,58 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** v1.7 (polytoken.ai Foundation — Rename, Auth & Tenancy), Phases 42–46
+**Current focus:** Phase 42 — atomic-rename-nauta-polytoken
 
 ## Current Position
 
-Phase: 42 — Atomic Rename nauta → polytoken (not started)
-Plan: —
-Status: Roadmap approved — ready to plan Phase 42
-Last activity: 2026-07-09 — Milestone v1.7 opened autonomously: research (4 docs + summary), 19 requirements, 5-phase roadmap (42–46)
+Phase: 42 (atomic-rename-nauta-polytoken) — EXECUTING
+Plan: 2 of 2
+Status: Executing Phase 42
+Last activity: 2026-07-09 -- Plan 42-01 executed (bulk rename + skill-dir rename + workspace regeneration); next: Plan 42-02 (external-rename runbook)
+
+## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
+
+- **42-01 EXECUTED:** RENM-01 (internal rename, autonomous). Task 1 (`82d3c8b`): a single
+  committed, reviewable Node script (`.planning/phases/42-atomic-rename-nauta-polytoken/
+  rename-nauta-to-polytoken.mjs`, explicit allow/deny-list data block, pure `(content) =>
+  content` transforms) rewrote 242 files — all 6 workspace `package.json` name fields +
+  root `package.json` (`polytoken-services`) + 11 `-w @nauta/*` selectors + 197+ TS/TSX
+  import specifiers + `vercel.json` + both `tailwind.config.ts` files + 9 UI chrome
+  `<title>`/sidebar-brand sites (incl. the sidebar's "N" avatar-initial glyph → "P", a
+  completeness fix beyond the plan's literal 1-site count) + `nauta-teal` → `polytoken-teal`
+  across 22 TS+Python files (DECISION 1) + Python `APP_NAME`/`pyproject.toml`/
+  `supabase/config.toml`/`.env.example` comment labels/README prose/exemplar copy + several
+  straggler `@nauta/` sites the plan's own `<files>` list hadn't enumerated
+  (`next.config.mjs` `transpilePackages`, 3 `tsconfig.json` path-alias files,
+  `vitest.config.ts`, `components.json`, an e2e spec import, `genui-prompt.json`, a Python
+  npm-script error message) — all needed for Task 3's completeness grep to pass. KEEP
+  surfaces (`nauta_id`/`nautaId`/`nauta_sync`, live AWS/Terraform/CI resource names, the
+  pre-existing dirty-file exclusion list) untouched by construction — grep-proven identical
+  counts before/after (65 in `packages/db`, 39 in `apps/email-listener`). Task 2 (`32a5226`):
+  `.claude/skills/nauta-design-system/` → `polytoken-design-system/` as its own isolated
+  commit (DECISION 2) — filesystem move + explicit-path staging preserved the pre-existing
+  uncommitted `SKILL.md` edit and the still-untracked `build-design-data.mjs`. Task 3
+  (`c6b8ce5`): full workspace regeneration (`rm -rf node_modules && npm install`) +
+  verification matrix — `npm ci` green, all 5 TS typechecks green, all 3 TS test suites
+  green (501+211+275=987 tests), `terraform plan` reports "No changes". 3 stragglers
+  surfaced by the matrix and fixed in place per the plan's own instruction: an explicit
+  `drizzle-orm` dependency added to `apps/web/package.json` (a route handler imported it
+  directly but relied on npm hoisting, which changed on this fresh install — a latent
+  undeclared-dependency bug this reinstall exposed), `apps/web/src/app/dev/design/`
+  excluded from `apps/web/tsconfig.json`'s typecheck scope (not content-edited — it still
+  imports the old package scope by design, the documented pre-existing untracked
+  exclusion), and `packages/genui/artifacts/genui-prompt.json` regenerated via its own
+  `gen:artifacts` script (its `registryVersion` hash is derived from now-renamed catalog
+  description strings, so the committed artifact went stale after Task 1). **Known gap
+  (documented, not fixed):** `npm run check` (Python aggregate gate) surfaces 281 pre-existing
+  `ruff check` errors, 75 `ruff format` diffs, 22 `mypy` errors, and a byte-identical repeat
+  of the Phase-38-02-documented 10 `asyncio.get_event_loop()` pytest failures — all confirmed
+  via `git diff --name-only` to span files never touched by any Phase 42 commit (likely `ruff`
+  version drift: floor-pinned `>=0.8.0`, resolved `0.15.16` this session); `lint-imports`
+  (architecture) is clean, 3/0. Full evidence in
+  `.planning/phases/42-atomic-rename-nauta-polytoken/deferred-items.md`. See 42-01-SUMMARY.md.
+  **Next: 42-02** (external-rename runbook, RENM-02 — GitHub repo/AWS/Vercel/domain, documented
+  not executed).
 
 ## Phase 41 — Knowledge-Preview Canvas Node (COMPLETE 2026-07-09)
 
@@ -1131,7 +1175,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-None
+.planning/phases/42-atomic-rename-nauta-polytoken/42-02-PLAN.md
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -2022,6 +2066,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 39 P02 | 50min | 3 tasks | 8 files |
 | Phase 41 P01 | 35min | 2 tasks | 6 files |
 | Phase 41 P41-02 | 50min | 3 tasks | 8 files |
+| Phase 42 P01 | 55min | 3 tasks | 250 files |
 
 ## Operator Next Steps
 

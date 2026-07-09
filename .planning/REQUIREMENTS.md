@@ -10,7 +10,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Rename
 
-- [ ] **RENM-01**: Internal rename nauta → polytoken is atomic and complete — `@nauta/*` → `@polytoken/*` package scopes, workspace script selectors, vercel.json, CI YAML references, docs, and UI strings — with typecheck + test suites green and workspace symlinks regenerated (no hybrid states)
+- [x] **RENM-01**: Internal rename nauta → polytoken is atomic and complete — `@nauta/*` → `@polytoken/*` package scopes, workspace script selectors, vercel.json, CI YAML references, docs, and UI strings — with typecheck + test suites green and workspace symlinks regenerated (no hybrid states)
 - [ ] **RENM-02**: External renames (GitHub repo, AWS/Terraform resources, Vercel project, domain purchase/DNS) are delivered as a user runbook — documented, NOT executed; live AWS resource name strings stay untouched (ECR `force_delete=false` / local tfstate hazard)
 
 ### Auth
@@ -75,7 +75,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| RENM-01 | Phase 42 | Pending |
+| RENM-01 | Phase 42 | Complete |
 | RENM-02 | Phase 42 | Pending |
 | AUTH-01 | Phase 43 | Pending |
 | AUTH-02 | Phase 43 | Pending |
