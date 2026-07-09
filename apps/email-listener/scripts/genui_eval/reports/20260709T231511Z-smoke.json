@@ -1,0 +1,38 @@
+{
+  "label": "smoke",
+  "run_at": "2026-07-09T23:15:11.433303+00:00",
+  "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "total_prompts": 1,
+  "completed_prompts": 1,
+  "failed_prompts": 0,
+  "mean_overall": 1.0,
+  "mean_valid_spec": 1.0,
+  "mean_composed": 1.0,
+  "mean_on_intent": null,
+  "mean_a11y": 1.0,
+  "mean_brand_score": null,
+  "mean_distinctiveness": null,
+  "mean_retrieval_overlap": 0.625,
+  "prompt_reports": [
+    {
+      "prompt_id": "1",
+      "prompt": "A simple React landing page with a hero section, a call-to-action button, and a features section.",
+      "category": "Landing / Marketing",
+      "complexity": "simple",
+      "tier": "A",
+      "outcome": "ok",
+      "overall_score": 1.0,
+      "valid_spec_score": 1.0,
+      "composed_score": 1.0,
+      "on_intent_score": null,
+      "a11y_score": 1.0,
+      "judge_rationale": "",
+      "error": null,
+      "style_pack_id": null,
+      "a11y_contrast_passed": true,
+      "brand_score": null,
+      "distinctiveness": null,
+      "retrieval_overlap": 0.625
+    }
+  ]
+}
