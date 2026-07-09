@@ -343,7 +343,10 @@ satisfied — needs the ≤2-hop expand endpoint). Most-gated phase; plan and ex
      endpoint — no second React Flow instance is ever mounted
   3. Clicking the preview deep-links to `/knowledge?focus={id}`, using the same `<ProvenanceLink>`
      primitive Phase 39 built
-**Plans**: TBD
+**Plans**: 2 plans (coarse; Wave 1 = 41-01, Wave 2 = 41-02)
+Plans:
+- [ ] 41-01-PLAN.md — KnowledgePreviewNodeDataSchema + 3rd NODE_TYPE_REGISTRY entry + pure knowledge-preview-layout.ts (hop distance/cap-trim/two-ring layout)
+- [ ] 41-02-PLAN.md — KnowledgePreviewMiniGraph + KnowledgePreviewNode + AddKnowledgePreviewPopover + chat-canvas.tsx wiring
 **UI hint**: yes
 
 ## Progress
@@ -366,7 +369,7 @@ execute last.
 | 38. Quarantine + Adversarial Eval | 2/2 | Complete   | 2026-07-09 |
 | 39. Tool-Round UI + Citation Chips | 2/2 | Complete    | 2026-07-09 |
 | 40. Confirm-Action Widgets | 2/2 | Complete   | 2026-07-09 |
-| 41. Knowledge-Preview Canvas Node | 0/? | Not started | - |
+| 41. Knowledge-Preview Canvas Node | 0/2 | Not started | - |
 
 ## Next
 
