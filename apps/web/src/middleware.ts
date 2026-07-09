@@ -1,11 +1,19 @@
 /**
- * apps/web/middleware.ts — session refresh + route guard (Phase 43 Plan 02,
- * AUTH-02). Runs on every non-excluded request: refreshes the Supabase
- * session cookies via `updateSession` (Plan 01), then decides whether to
- * redirect a signed-out visitor to `/login` via the pure
+ * apps/web/src/middleware.ts — session refresh + route guard (Phase 43
+ * Plan 02, AUTH-02). Runs on every non-excluded request: refreshes the
+ * Supabase session cookies via `updateSession` (Plan 01), then decides
+ * whether to redirect a signed-out visitor to `/login` via the pure
  * `resolveAuthRedirect` (T-43-P2-04). Authorization always derives from
  * `updateSession`'s server-verified `getUser()` result — the unverified
  * cookie-only session read is never used here (T-43-P2-03).
+ *
+ * Placement note (deviation from the plan's stated `apps/web/middleware.ts`):
+ * this app uses a `src/` directory (`src/app`), and Next.js resolves the
+ * middleware file relative to `path.join(pagesDir || appDir, '..')` — i.e.
+ * `src/`, not the package root. A file at the package root is silently never
+ * loaded. Verified directly against `next/dist/build/index.js` and
+ * `next/dist/server/lib/router-utils/setup-dev-bundler.js` in this repo's
+ * installed Next 15.3.3.
  */
 
 import { NextResponse, type NextRequest } from "next/server";
