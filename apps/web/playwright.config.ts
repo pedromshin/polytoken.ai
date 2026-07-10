@@ -18,6 +18,10 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   testMatch: /.*\.spec\.ts/,
+  // screenshot-review.spec.ts (D-47-05) is a capture harness, not an assertion spec — it has its
+  // own dedicated config (playwright.screenshot.config.ts) and must never ride along on
+  // `test:e2e`, nor should `screenshot:review` run the two assertion specs above.
+  testIgnore: /screenshot-review\.spec\.ts$/,
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
