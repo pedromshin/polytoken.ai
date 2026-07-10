@@ -16,6 +16,13 @@
  *            boundary; an unknown or inactive seed returns an EMPTY
  *            GraphResponse (fail-closed — never throws in a way that leaks
  *            existence of another tenant's node).
+ *   T-44-06-03 (Phase 44, TENA-03): protectedProcedure + the SEED node's
+ *            importer is asserted owned by ctx.user BEFORE any expansion —
+ *            previously any authenticated caller could expand any node id
+ *            and walk another tenant's subgraph. A foreign seed surfaces as
+ *            TRPCError NOT_FOUND (OwnershipError mapped via
+ *            assertOwnedOrNotFound). The seed-derived neighbour scoping
+ *            (T-32-02) is unchanged.
  *
  * D-09: read-only — zero writes, mirrors graph.ts's posture.
  *
@@ -29,8 +36,10 @@ import { and, eq, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 
 import { KnowledgeNodeEdges, KnowledgeNodes } from "@polytoken/db/schema";
+import { assertImporterOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 import {
   shapeExplicitEdgeRow,
   type ExplicitEdgeRow,
@@ -182,10 +191,12 @@ export const knowledgeExpandProcedures = {
    * expandNode — bounded (<=2-hop) neighbour walk from a seed knowledge node.
    *
    * Read-only (D-09). Fail-closed on an unknown/inactive seed (T-32-03).
-   * Tenant-scoped to the seed's importer for every traversed edge and every
-   * returned node (T-32-02). Depth-clamped and budget-capped (T-32-01).
+   * The seed's importer must be OWNED by ctx.user before any expansion
+   * (T-44-06-03 — foreign seed -> NOT_FOUND). Tenant-scoped to the seed's
+   * importer for every traversed edge and every returned node (T-32-02).
+   * Depth-clamped and budget-capped (T-32-01).
    */
-  expandNode: publicProcedure
+  expandNode: protectedProcedure
     .input(expandInputSchema)
     .query(async ({ ctx, input }): Promise<ExpandResponse> => {
       const depth = clampDepth(input.depth);
@@ -205,6 +216,12 @@ export const knowledgeExpandProcedures = {
         // Fail-closed (T-32-03) — never leaks whether nodeId exists.
         return { nodes: [], edges: [], truncated: false };
       }
+
+      // T-44-06-03: the caller must OWN the seed node's importer before any
+      // expansion — closes the "expand any node id" gap.
+      await assertOwnedOrNotFound(() =>
+        assertImporterOwnership(ctx.db, seed.importerId, ctx.user.id),
+      );
 
       const importerId = seed.importerId;
 

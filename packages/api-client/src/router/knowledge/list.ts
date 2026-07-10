@@ -5,16 +5,22 @@
  * Uses limit+1 pagination (D-06 / entities/gallery.ts analog).
  *
  * D-09: Read-only — zero writes to knowledge_node_edges or any table.
- * D-12: importerId is an OPTIONAL data filter applied via eq() — never a
- *        trusted caller claim.
+ *
+ * Tenancy (Phase 44, TENA-03 / T-44-06-01): protectedProcedure; the feed is
+ * scoped to the caller's owned importers via `userOwnedImporterIds` +
+ * `resolveListScope` — a client-supplied `importerId` is only honored when
+ * it is in the owned set, never trusted on its own (supersedes the old D-12
+ * "optional data filter" posture).
  */
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 import { KnowledgeNodes } from "@polytoken/db/schema";
+import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { resolveListScope } from "../_scope";
 
 // ---------------------------------------------------------------------------
 // Input schema — exported for DB-free testing
@@ -39,16 +45,29 @@ export const knowledgeListProcedures = {
    * Returns { items, hasMore, nextOffset } with limit+1 detection.
    * Ordered by createdAt desc (most-recently-added first).
    *
-   * D-12: importerId is an optional data filter — never a session/header claim.
+   * TENA-03: scope derives from ctx.user's owned importers; a non-owned
+   * importerId filter (or an owner-less caller) yields an empty page — no
+   * query is built from an unverified id.
    */
-  list: publicProcedure
+  list: protectedProcedure
     .input(listKnowledgeInputSchema)
     .query(async ({ ctx, input }) => {
-      const whereClauses = [eq(KnowledgeNodes.isActive, true)];
+      const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
+      const scope = resolveListScope(owned, input.importerId);
 
-      if (input.importerId !== undefined) {
-        whereClauses.push(eq(KnowledgeNodes.importerId, input.importerId));
+      if (!scope.ok) {
+        return {
+          items: [],
+          hasMore: false,
+          nextOffset: input.offset,
+        };
       }
+
+      const whereClauses = [
+        eq(KnowledgeNodes.isActive, true),
+        // TENA-03: owned-importer scope (never the raw client-supplied id).
+        inArray(KnowledgeNodes.importerId, scope.importerIds),
+      ];
 
       // limit+1 pattern to detect hasMore
       const rawRows = await ctx.db

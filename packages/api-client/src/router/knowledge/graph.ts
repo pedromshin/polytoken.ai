@@ -10,12 +10,15 @@
  * D-11: Edge-provider seam — knowledge_node_edges rows are UNIONED into the
  *        same GraphEdge shape as derived edges (empty table → 0 extra edges today,
  *        proving the seam without a UI change when 4e populates it).
- * D-12: importerId is an OPTIONAL data filter applied via eq() — never read
- *        from a trusted caller claim or header as the sole tenant identifier.
  *
  * Security:
- *   T-11-01: importerId data filter (D-12) — cross-importer IDOR is prevented
- *            by scoping every query to the provided importerId.
+ *   T-44-06-01 (supersedes T-11-01/D-12's client-importerId trust): the
+ *            graph is protectedProcedure and every sub-query is bounded to
+ *            the caller's OWNED importers (derived from ctx.user via
+ *            userOwnedImporterIds) OR NULL-importer system defaults (the
+ *            seeded entity-type taxonomy stays visible — D-02 never-blank).
+ *            A client-supplied importerId is only honored when owned; a
+ *            foreign one fails closed to an empty graph.
  *   T-11-02: all inputs validated by Zod (uuid, enum allow-lists, bool).
  *   T-11-03: instances/components/emails are off by default; capped at 100 in list.
  *
@@ -25,7 +28,7 @@
  *   NOT a direct FK on EmailComponents (UI-SPEC Note #3 is incorrect).
  */
 
-import { and, count, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -39,8 +42,9 @@ import {
   KnowledgeNodeEdges,
   KnowledgeNodes,
 } from "@polytoken/db/schema";
+import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
 
 // ---------------------------------------------------------------------------
 // Node type allow-list (6 types — T-11-02)
@@ -199,12 +203,31 @@ export const knowledgeGraphProcedures = {
    * The D-11 provider seam unions KnowledgeNodeEdges rows into the same GraphEdge
    * shape as derived-FK edges. Today the table is empty → 0 extra edges.
    *
-   * D-12: importerId is applied as an eq() data filter only, never as an auth claim.
+   * TENA-03 (T-44-06-01): the effective importer scope derives from
+   * ctx.user's owned importers — a client-supplied importerId only narrows
+   * WITHIN the owned set; a foreign one fails closed to an empty graph.
+   * NULL-importer system-default entity types/fields stay visible (the
+   * seeded taxonomy, D-02 never-blank) even for an owner-less caller.
    * D-09: zero writes to any table.
    */
-  graph: publicProcedure
+  graph: protectedProcedure
     .input(graphInputSchema)
     .query(async ({ ctx, input }) => {
+      // ---------------------------------------------------------------------
+      // TENA-03: derive the owned-importer scope from the session user.
+      // ---------------------------------------------------------------------
+      const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
+
+      if (input.importerId !== undefined && !owned.includes(input.importerId)) {
+        // Fail-closed: a non-owned importer filter yields an empty graph —
+        // never a query built from an unverified id, and no system-default
+        // taxonomy either (an attacker probing a foreign id learns nothing).
+        return shapeGraphResponse([], []);
+      }
+
+      const scope: ReadonlyArray<string> =
+        input.importerId !== undefined ? [input.importerId] : owned;
+
       const nodes: GraphNode[] = [];
       const edges: GraphEdge[] = [];
 
@@ -225,16 +248,17 @@ export const knowledgeGraphProcedures = {
       // -----------------------------------------------------------------------
 
       // System defaults are stored with importer_id IS NULL; importer-specific
-      // overrides carry a uuid. A bare `eq(importerId, <uuid>)` evaluates to NULL
-      // (not TRUE) for every default row in SQL, so it would silently drop the
-      // entire seeded taxonomy whenever importerId is passed — breaking the D-02
-      // "never blank" guarantee. Always union system defaults with the tenant's rows.
-      const entityTypeWhere = input.importerId !== undefined
-        ? or(
-            isNull(EntityTypes.importerId),
-            eq(EntityTypes.importerId, input.importerId),
-          )
-        : undefined;
+      // overrides carry a uuid. A bare importer filter would silently drop the
+      // entire seeded taxonomy — breaking the D-02 "never blank" guarantee.
+      // Always union system defaults with the caller's OWNED rows (TENA-03:
+      // the scope is owned-derived, never the raw client importerId).
+      const entityTypeWhere =
+        scope.length > 0
+          ? or(
+              isNull(EntityTypes.importerId),
+              inArray(EntityTypes.importerId, scope),
+            )
+          : isNull(EntityTypes.importerId);
 
       const entityTypeRows = await ctx.db
         .select({
@@ -250,12 +274,13 @@ export const knowledgeGraphProcedures = {
       );
 
       // entity_type_field nodes — same system-default inclusion as entity types.
-      const entityTypeFieldWhere = input.importerId !== undefined
-        ? or(
-            isNull(EntityTypeFields.importerId),
-            eq(EntityTypeFields.importerId, input.importerId),
-          )
-        : undefined;
+      const entityTypeFieldWhere =
+        scope.length > 0
+          ? or(
+              isNull(EntityTypeFields.importerId),
+              inArray(EntityTypeFields.importerId, scope),
+            )
+          : isNull(EntityTypeFields.importerId);
 
       const fieldRows = await ctx.db
         .select({
@@ -281,23 +306,27 @@ export const knowledgeGraphProcedures = {
         fieldsByType.set(row.entityTypeId, list);
       }
 
-      // Instance counts per type — always computed (powers the detail pane's
-      // "View N instances →" even when instance nodes are not rendered).
-      const instanceCountRows = await ctx.db
-        .select({
-          entityTypeId: EntityInstances.entityTypeId,
-          count: count(),
-        })
-        .from(EntityInstances)
-        .where(
-          input.importerId !== undefined
-            ? and(
-                eq(EntityInstances.importerId, input.importerId),
-                eq(EntityInstances.isActive, true),
+      // Instance counts per type — computed whenever the caller owns any
+      // importers (powers the detail pane's "View N instances →" even when
+      // instance nodes are not rendered). entity_instances.importer_id is
+      // NOT NULL, so an owner-less caller can have no instances at all —
+      // skip the query entirely (TENA-03).
+      const instanceCountRows =
+        scope.length > 0
+          ? await ctx.db
+              .select({
+                entityTypeId: EntityInstances.entityTypeId,
+                count: count(),
+              })
+              .from(EntityInstances)
+              .where(
+                and(
+                  inArray(EntityInstances.importerId, scope),
+                  eq(EntityInstances.isActive, true),
+                ),
               )
-            : eq(EntityInstances.isActive, true),
-        )
-        .groupBy(EntityInstances.entityTypeId);
+              .groupBy(EntityInstances.entityTypeId)
+          : [];
       const instanceCountByType = new Map<string, number>(
         instanceCountRows.map((r) => [r.entityTypeId, Number(r.count)]),
       );
@@ -343,13 +372,11 @@ export const knowledgeGraphProcedures = {
       //     on email_components — see Schema Discrepancy in 11-PATTERNS.md)
       // -----------------------------------------------------------------------
 
-      if (input.includeInstances) {
-        const instanceWhere = input.importerId !== undefined
-          ? and(
-              eq(EntityInstances.importerId, input.importerId),
-              eq(EntityInstances.isActive, true),
-            )
-          : eq(EntityInstances.isActive, true);
+      if (input.includeInstances && scope.length > 0) {
+        const instanceWhere = and(
+          inArray(EntityInstances.importerId, scope),
+          eq(EntityInstances.isActive, true),
+        );
 
         const instanceRows = await ctx.db
           .select({
@@ -379,15 +406,12 @@ export const knowledgeGraphProcedures = {
 
         // Component↔entity_instance edges via the JOIN TABLE (D-04 item 3)
         // NEVER a direct FK on email_components
-        const candidateLinkWhere = input.importerId !== undefined
-          ? and(
-              eq(ComponentEntityCandidateLinks.wasSelected, true),
-              eq(
-                EntityInstances.importerId,
-                input.importerId,
-              ),
-            )
-          : eq(ComponentEntityCandidateLinks.wasSelected, true);
+        const candidateLinkWhere = and(
+          eq(ComponentEntityCandidateLinks.wasSelected, true),
+          // TENA-03: bound to the caller's owned importers via the joined
+          // entity instance.
+          inArray(EntityInstances.importerId, scope),
+        );
 
         const candidateLinkRows = await ctx.db
           .select({
@@ -432,10 +456,9 @@ export const knowledgeGraphProcedures = {
       //     D-04 items 5, 6
       // -----------------------------------------------------------------------
 
-      if (input.includeEmails) {
-        const componentWhere = input.importerId !== undefined
-          ? eq(Emails.importerId, input.importerId)
-          : undefined;
+      if (input.includeEmails && scope.length > 0) {
+        // TENA-03: bound to the caller's owned importers via the joined email.
+        const componentWhere = inArray(Emails.importerId, scope);
 
         const componentRows = await ctx.db
           .select({
@@ -502,25 +525,28 @@ export const knowledgeGraphProcedures = {
       //     D-04 items 7, 8
       // -----------------------------------------------------------------------
 
-      const knowledgeNodeWhere = and(
-        eq(KnowledgeNodes.isActive, true),
-        ...(input.importerId !== undefined
-          ? [eq(KnowledgeNodes.importerId, input.importerId)]
-          : []),
-      );
-
-      const knowledgeNodeRows = await ctx.db
-        .select({
-          id: KnowledgeNodes.id,
-          title: KnowledgeNodes.title,
-          scope: KnowledgeNodes.scope,
-          scopeRefId: KnowledgeNodes.scopeRefId,
-          scopeRefType: KnowledgeNodes.scopeRefType,
-          source: KnowledgeNodes.source,
-          confidence: KnowledgeNodes.confidence,
-        })
-        .from(KnowledgeNodes)
-        .where(knowledgeNodeWhere);
+      // knowledge_nodes.importer_id is NOT NULL — an owner-less caller can
+      // have no knowledge nodes; skip the query entirely (TENA-03).
+      const knowledgeNodeRows =
+        scope.length > 0
+          ? await ctx.db
+              .select({
+                id: KnowledgeNodes.id,
+                title: KnowledgeNodes.title,
+                scope: KnowledgeNodes.scope,
+                scopeRefId: KnowledgeNodes.scopeRefId,
+                scopeRefType: KnowledgeNodes.scopeRefType,
+                source: KnowledgeNodes.source,
+                confidence: KnowledgeNodes.confidence,
+              })
+              .from(KnowledgeNodes)
+              .where(
+                and(
+                  eq(KnowledgeNodes.isActive, true),
+                  inArray(KnowledgeNodes.importerId, scope),
+                ),
+              )
+          : [];
 
       if (knowledgeNodeRows.length > 0) {
         for (const row of knowledgeNodeRows) {
@@ -545,12 +571,11 @@ export const knowledgeGraphProcedures = {
         }
 
         // Component↔knowledge_node edges (D-04 item 7)
-        const knComponentLinkWhere = input.importerId !== undefined
-          ? and(
-              eq(KnowledgeNodes.importerId, input.importerId),
-              eq(KnowledgeNodes.isActive, true),
-            )
-          : eq(KnowledgeNodes.isActive, true);
+        // TENA-03: bound via the joined knowledge node's importer.
+        const knComponentLinkWhere = and(
+          inArray(KnowledgeNodes.importerId, scope),
+          eq(KnowledgeNodes.isActive, true),
+        );
 
         const knLinkRows = await ctx.db
           .select({
@@ -584,25 +609,38 @@ export const knowledgeGraphProcedures = {
       // Suggestion tiers (INFERRED/AMBIGUOUS) are visibly distinguished via `tier`
       // (ROADMAP SC1); inactive (dismissed/superseded) edges are excluded from the
       // payload entirely — never surfaced, even as a distinguished suggestion.
-      const explicitEdgeWhere = and(
-        isNotNull(KnowledgeNodeEdges.id),
-        eq(KnowledgeNodeEdges.isActive, true),
-      );
-
-      const explicitEdgeRows = await ctx.db
-        .select({
-          id: KnowledgeNodeEdges.id,
-          sourceNodeId: KnowledgeNodeEdges.sourceNodeId,
-          targetRefId: KnowledgeNodeEdges.targetRefId,
-          relationType: KnowledgeNodeEdges.relationType,
-          tier: KnowledgeNodeEdges.tier,
-          isActive: KnowledgeNodeEdges.isActive,
-          confidence: KnowledgeNodeEdges.confidence,
-          provenance: KnowledgeNodeEdges.provenance,
-          source: KnowledgeNodeEdges.source,
-        })
-        .from(KnowledgeNodeEdges)
-        .where(explicitEdgeWhere);
+      //
+      // TENA-03: the union is bounded to the caller's owned importers via an
+      // innerJoin on the edge's SOURCE knowledge node (the same anchor
+      // expand.ts's T-32-02 scoping uses) — previously this SELECT was
+      // completely unscoped, unioning every tenant's explicit edges into the
+      // payload. Skipped entirely for an owner-less caller.
+      const explicitEdgeRows =
+        scope.length > 0
+          ? await ctx.db
+              .select({
+                id: KnowledgeNodeEdges.id,
+                sourceNodeId: KnowledgeNodeEdges.sourceNodeId,
+                targetRefId: KnowledgeNodeEdges.targetRefId,
+                relationType: KnowledgeNodeEdges.relationType,
+                tier: KnowledgeNodeEdges.tier,
+                isActive: KnowledgeNodeEdges.isActive,
+                confidence: KnowledgeNodeEdges.confidence,
+                provenance: KnowledgeNodeEdges.provenance,
+                source: KnowledgeNodeEdges.source,
+              })
+              .from(KnowledgeNodeEdges)
+              .innerJoin(
+                KnowledgeNodes,
+                eq(KnowledgeNodes.id, KnowledgeNodeEdges.sourceNodeId),
+              )
+              .where(
+                and(
+                  eq(KnowledgeNodeEdges.isActive, true),
+                  inArray(KnowledgeNodes.importerId, scope),
+                ),
+              )
+          : [];
 
       for (const row of explicitEdgeRows) {
         const shaped = shapeExplicitEdgeRow(row);

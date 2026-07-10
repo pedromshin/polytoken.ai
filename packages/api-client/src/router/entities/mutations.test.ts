@@ -11,10 +11,29 @@
  *   Test 7: unmerge fetches the correct endpoint path (contains /unmerge).
  *   Test 8: all three mutations set the X-API-Key header from getListenerConfig.
  *   Test 9: confirmMerge throws with parseErrorDetail message on non-ok response.
+ *
+ * Since Phase 44 (44-06, TENA-03) these mutations are protectedProcedure and
+ * assert ownership of every referenced entity's importer before the proxy
+ * fetch, so `@polytoken/db/ownership` is mocked (resolving by default) and
+ * each raw-resolver invocation carries a ctx with a fake db (serving the
+ * entity importer-load) + a valid session user. Cross-tenant rejection
+ * itself is covered by entities-user-scoping.test.ts.
  */
 
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { z } from "zod";
+
+vi.mock("@polytoken/db/ownership", async () => {
+  const actual = await vi.importActual<typeof import("@polytoken/db/ownership")>(
+    "@polytoken/db/ownership",
+  );
+  return {
+    ...actual,
+    assertImporterOwnership: vi.fn(),
+  };
+});
+
+import { assertImporterOwnership } from "@polytoken/db/ownership";
 
 // ---------------------------------------------------------------------------
 // Input schema validation tests — pure Zod, no fetch involved
@@ -82,8 +101,32 @@ describe("entityMutationProcedures fetch proxy", () => {
   // Store captured fetch calls for assertions
   const fetchCalls: Array<{ url: string; init: RequestInit }> = [];
 
+  // Fake ctx for raw-resolver invocation (Phase 44 tenancy gate): the fake
+  // db serves assertEntityInstanceOwned's importer-load with a non-null
+  // importer; the mocked assertImporterOwnership resolves by default.
+  function createFakeCtx() {
+    const chain = {
+      from: () => chain,
+      where: () => chain,
+      limit: () => chain,
+      then: (
+        onFulfilled: (rows: Array<Record<string, unknown>>) => unknown,
+        onRejected?: (reason: unknown) => unknown,
+      ) =>
+        Promise.resolve([
+          { importerId: "30000000-0000-0000-0000-000000000a01" },
+        ]).then(onFulfilled, onRejected),
+    };
+    return {
+      db: { select: () => chain },
+      headers: new Headers(),
+      user: { id: "10000000-0000-0000-0000-00000000000a" },
+    };
+  }
+
   beforeEach(() => {
     fetchCalls.length = 0;
+    vi.mocked(assertImporterOwnership).mockResolvedValue(undefined);
 
     // Mock process.env so getListenerConfig() returns known values
     process.env["EMAIL_LISTENER_URL"] = MOCK_URL;
@@ -99,6 +142,7 @@ describe("entityMutationProcedures fetch proxy", () => {
   afterEach(() => {
     delete process.env["EMAIL_LISTENER_URL"];
     delete process.env["EMAIL_LISTENER_API_KEY"];
+    vi.mocked(assertImporterOwnership).mockReset();
     vi.restoreAllMocks();
   });
 
@@ -108,10 +152,13 @@ describe("entityMutationProcedures fetch proxy", () => {
     // Access the handler function directly via tRPC procedure introspection
     // The procedure's resolver is stored as ._def.resolver
     const proc = entityMutationProcedures.confirmMerge as unknown as {
-      _def: { resolver: (opts: { input: unknown }) => Promise<unknown> };
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
     };
     await proc._def.resolver({
       input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+      ctx: createFakeCtx(),
     });
 
     expect(fetchCalls).toHaveLength(1);
@@ -124,10 +171,13 @@ describe("entityMutationProcedures fetch proxy", () => {
     const { entityMutationProcedures } = await import("./mutations");
 
     const proc = entityMutationProcedures.rejectMerge as unknown as {
-      _def: { resolver: (opts: { input: unknown }) => Promise<unknown> };
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
     };
     await proc._def.resolver({
       input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+      ctx: createFakeCtx(),
     });
 
     expect(fetchCalls).toHaveLength(1);
@@ -140,10 +190,13 @@ describe("entityMutationProcedures fetch proxy", () => {
     const { entityMutationProcedures } = await import("./mutations");
 
     const proc = entityMutationProcedures.unmerge as unknown as {
-      _def: { resolver: (opts: { input: unknown }) => Promise<unknown> };
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
     };
     await proc._def.resolver({
       input: { entityInstanceId: ENTITY_ID },
+      ctx: createFakeCtx(),
     });
 
     expect(fetchCalls).toHaveLength(1);
@@ -159,15 +212,24 @@ describe("entityMutationProcedures fetch proxy", () => {
       fetchCalls.length = 0;
       const resolver = (
         proc as unknown as {
-          _def: { resolver: (opts: { input: unknown }) => Promise<unknown> };
+          _def: {
+            resolver: (opts: {
+              input: unknown;
+              ctx: unknown;
+            }) => Promise<unknown>;
+          };
         }
       )._def.resolver;
 
       if (name === "unmerge") {
-        await resolver({ input: { entityInstanceId: ENTITY_ID } });
+        await resolver({
+          input: { entityInstanceId: ENTITY_ID },
+          ctx: createFakeCtx(),
+        });
       } else {
         await resolver({
           input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+          ctx: createFakeCtx(),
         });
       }
 
@@ -190,12 +252,15 @@ describe("entityMutationProcedures fetch proxy", () => {
     const { entityMutationProcedures } = await import("./mutations");
 
     const proc = entityMutationProcedures.confirmMerge as unknown as {
-      _def: { resolver: (opts: { input: unknown }) => Promise<unknown> };
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
     };
 
     await expect(
       proc._def.resolver({
         input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+        ctx: createFakeCtx(),
       }),
     ).rejects.toThrow("merge conflict");
   });
