@@ -7,9 +7,12 @@ raises trust in the knowledge graph — nothing else may promote (suggest-only
 hard constraint).
 
 Auth: X-API-Key (require_api_key) — the whole router is protected (T-30-04).
-Tenancy (D-12): importer_id is supplied via the request body Pydantic model,
-validated at the boundary — NEVER trusted as an auth claim/header. The use
-case's guard rejects a cross-tenant mismatch before any write.
+Tenancy (D-12, extended Phase 44-03 T-44-03-03): importer_id is supplied via
+the request body Pydantic model, validated at the boundary — NEVER trusted
+alone as an auth claim/header. The endpoint ALSO requires X-User-Id
+(require_user_id, 401 without it); the use case's guard rejects a promotion
+whose edge importer is not owned by that user, in addition to the existing
+cross-tenant body-importer_id mismatch check, both before any write.
 Errors: EdgeNotFound -> 404, EdgeNotPromotable -> 409 with a generic detail;
 full rejection context (reason) is logged server-side via structlog.
 
@@ -31,6 +34,7 @@ from app.application.use_cases.promote_edge import (
 )
 from app.presentation.api.response import ApiResponse
 from app.presentation.middleware.auth import require_api_key
+from app.presentation.middleware.user_context import require_user_id
 
 router = APIRouter(
     prefix="/v1/knowledge/edges",
@@ -61,16 +65,18 @@ async def promote_edge(
     edge_id: UUID,
     body: PromoteEdgeRequest,
     use_case: FromDishka[PromoteEdgeUseCase],
+    user_id: str = Depends(require_user_id),
 ) -> ApiResponse[PromoteEdgeView]:
     """Promote one ACTIVE INFERRED/AMBIGUOUS edge to EXTRACTED (TIER-03, SC3/SC4).
 
-    Fail-closed ordering (enforced inside the use case): load -> tenant guard
-    -> active guard -> tier guard -> CAS write. EdgeNotFound maps to 404;
-    EdgeNotPromotable (inactive / already-EXTRACTED / cross-tenant /
-    CAS-conflict) maps to 409 -- BOTH are raised before any write.
+    Fail-closed ordering (enforced inside the use case): load -> USER-ownership
+    guard (Phase 44-03) -> tenant guard -> active guard -> tier guard -> CAS
+    write. EdgeNotFound maps to 404; EdgeNotPromotable (inactive /
+    already-EXTRACTED / cross-tenant / cross-user / CAS-conflict) maps to 409
+    -- ALL are raised before any write.
     """
     try:
-        result = await use_case.execute(edge_id=str(edge_id), importer_id=body.importer_id)
+        result = await use_case.execute(edge_id=str(edge_id), importer_id=body.importer_id, user_id=user_id)
     except EdgeNotFound as exc:
         raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
     except EdgeNotPromotable as exc:

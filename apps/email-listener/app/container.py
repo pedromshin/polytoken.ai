@@ -409,16 +409,19 @@ def _provide_confirm_region_use_case(
     )
 
 
-def _provide_promote_edge_use_case(client: Client) -> PromoteEdgeUseCase:
-    """Factory for PromoteEdgeUseCase (Phase 30-02, TIER-03).
+def _provide_promote_edge_use_case(client: Client, importer_resolver: ImporterResolver) -> PromoteEdgeUseCase:
+    """Factory for PromoteEdgeUseCase (Phase 30-02, TIER-03; extended Phase 44-03, TENA-03).
 
     SupabaseKnowledgeGraphRepository is a concrete infrastructure class (not a
     port) — dishka cannot bind it via provide(class) because Protocol-typed
     params require explicit provides=. Mirrors _provide_confirm_region_use_case:
-    instantiates the adapter directly and injects it as the sole collaborator.
+    instantiates the adapter directly and injects it as a collaborator.
+    importer_resolver is the already-bound ImporterResolver port (Phase 44-03's
+    owned-importer resolver) — passed through so the use case can enforce the
+    user-ownership guard whenever a caller supplies user_id.
     """
     knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
-    return PromoteEdgeUseCase(knowledge=knowledge_repo)
+    return PromoteEdgeUseCase(knowledge=knowledge_repo, importers=importer_resolver)
 
 
 def _provide_resolve_candidates_use_case(

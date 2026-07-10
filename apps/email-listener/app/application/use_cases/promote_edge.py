@@ -9,15 +9,23 @@ raised as a typed exception BEFORE `promote_edge` (the write) is ever called.
 Ordering is fixed and never reordered:
   1. load the edge (+ its owning importer_id via the repo join) -- EdgeNotFound
      if missing (404)
-  2. tenant-ownership guard (edge's source node importer_id == caller's
-     importer_id) -- checked BEFORE the tier/active checks so cross-tenant
-     probing can't distinguish "wrong tenant" from "already extracted"
-     (T-30-07, information-disclosure disposition)
-  3. active guard -- inactive (deactivated/superseded) edges are never
+  2. USER-ownership guard (Phase 44-03, T-44-03-03): when `user_id` is
+     supplied, the edge's importer_id must be in the set the caller OWNS
+     (resolved via the injected `importers` port) -- a client-supplied body
+     importer_id is never sufficient on its own. `user_id` is optional
+     (defaults to None) so pre-Phase-44 callers that don't yet carry a
+     per-request user id (e.g. the chat confirm_action dispatch path,
+     confirm_action_dispatch.py) are unaffected -- this guard is a no-op
+     unless `user_id` is provided.
+  3. tenant-ownership guard (edge's source node importer_id == caller-
+     supplied importer_id) -- checked BEFORE the tier/active checks so
+     cross-tenant probing can't distinguish "wrong tenant" from "already
+     extracted" (T-30-07, information-disclosure disposition)
+  4. active guard -- inactive (deactivated/superseded) edges are never
      promotable
-  4. tier guard -- only INFERRED/AMBIGUOUS (suggestion-tier) edges are
+  5. tier guard -- only INFERRED/AMBIGUOUS (suggestion-tier) edges are
      promotable; already-EXTRACTED is rejected
-  5. CAS write via `promote_edge` (repo-level defense-in-depth, T-30-06) --
+  6. CAS write via `promote_edge` (repo-level defense-in-depth, T-30-06) --
      a False return means a concurrent promote/dismiss beat this call, and is
      ALSO rejected (no partial/duplicate promotion)
 
@@ -25,8 +33,8 @@ On success, promotion={promoted_at (UTC ISO8601), from_tier, mechanism:
 'human_promote'} is written to the promotion column -- distinct from the
 synthesis provenance column, which this use case never touches (T-30-08).
 
-Domain-pure: the only collaborator is KnowledgeGraphRepository (a domain
-port) -- zero app.infrastructure import (lint-imports enforced).
+Domain-pure: collaborators are KnowledgeGraphRepository + ImporterResolver
+(both domain ports) -- zero app.infrastructure import (lint-imports enforced).
 """
 
 from __future__ import annotations
@@ -35,6 +43,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from app.domain.ports.importer_resolver import ImporterResolver
     from app.domain.ports.knowledge_graph_repository import KnowledgeGraphRepository
 
 _SUGGESTION_TIERS = ("INFERRED", "AMBIGUOUS")
@@ -65,14 +74,19 @@ class EdgeNotPromotable(Exception):  # noqa: N818 - mirrors WidgetSubmitRejected
 class PromoteEdgeUseCase:
     """Guarded, audit-recording promotion of exactly one suggestion-tier edge to EXTRACTED."""
 
-    def __init__(self, *, knowledge: KnowledgeGraphRepository) -> None:
+    def __init__(self, *, knowledge: KnowledgeGraphRepository, importers: ImporterResolver | None = None) -> None:
         self._knowledge = knowledge
+        # Optional (Phase 44-03): only required when a caller passes user_id
+        # to execute(). Pre-Phase-44 callers/tests that never pass user_id
+        # never touch this collaborator.
+        self._importers = importers
 
     async def execute(
         self,
         *,
         edge_id: str,
         importer_id: str,
+        user_id: str | None = None,
         mechanism: str = _MECHANISM_HUMAN_PROMOTE,
         extra: dict[str, object] | None = None,
     ) -> dict[str, object]:
@@ -81,6 +95,15 @@ class PromoteEdgeUseCase:
         Raises EdgeNotFound / EdgeNotPromotable for every rejection path
         BEFORE `promote_edge` (the write) is called. Returns
         {edge_id, tier: 'EXTRACTED'} on success.
+
+        `user_id` (Phase 44-03, T-44-03-03) is optional keyword-only: when
+        supplied (the REST promote endpoint always supplies it, resolved from
+        the enforced X-User-Id header), the edge's importer_id must be one
+        this user OWNS -- resolved via the injected `importers` port --
+        BEFORE the existing body-importer_id equality check runs. Omitting
+        `user_id` preserves the exact pre-44-03 behavior (only the body
+        importer_id is checked), which is what non-REST callers still do
+        (e.g. the chat confirm_action dispatch path).
 
         `mechanism`/`extra` (Phase 40-02, CONF-02) are additive keyword-only
         params for non-REST promotion provenance — e.g. a chat confirm_action
@@ -93,7 +116,16 @@ class PromoteEdgeUseCase:
         if edge is None:
             raise EdgeNotFound(f"edge {edge_id} not found")
 
-        if edge.get("importer_id") != importer_id:
+        edge_importer_id = edge.get("importer_id")
+
+        if user_id is not None:
+            if self._importers is None:
+                raise RuntimeError("PromoteEdgeUseCase requires an importers collaborator when user_id is provided")
+            owned_importer_ids = await self._importers.list_importer_ids_for_user(user_id)
+            if edge_importer_id not in owned_importer_ids:
+                raise EdgeNotPromotable("tenant_mismatch", "edge does not belong to this user")
+
+        if edge_importer_id != importer_id:
             raise EdgeNotPromotable("tenant_mismatch", "edge does not belong to this importer")
 
         if not edge.get("is_active"):

@@ -1,8 +1,11 @@
-"""Tests for POST /v1/knowledge/edges/{edge_id}/promote (Phase 30-02 Task 3, T-30-04/05/07).
+"""Tests for POST /v1/knowledge/edges/{edge_id}/promote (Phase 30-02 Task 3, T-30-04/05/07;
+extended Phase 44-03 Task 3, T-44-03-03).
 
 TestClient + dishka HTTP-seam idiom (mirrors test_confirm_region.py): a
 minimal Provider swaps in a mock/real PromoteEdgeUseCase so the endpoint's
 auth gate, error mapping, and response shape are exercised without a live DB.
+Every request below sends X-User-Id by default (Phase 44-03: require_user_id
+401s without it) via the TestClient's default headers.
 """
 
 from __future__ import annotations
@@ -20,10 +23,12 @@ from app.application.use_cases.promote_edge import (
 )
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.main import create_app
+from app.presentation.middleware.user_context import USER_ID_HEADER
 from app.settings import get_settings
 
 _EDGE_ID = "00000000-0000-0000-0000-0000000000e1"
 _IMPORTER = "imp-abc"
+_USER_ID = "user-owner-1"
 
 
 def _make_client(mock_use_case: PromoteEdgeUseCase) -> TestClient:
@@ -37,7 +42,7 @@ def _make_client(mock_use_case: PromoteEdgeUseCase) -> TestClient:
 
     app = create_app()
     app.state.dishka_container = make_async_container(provider)
-    return TestClient(app, raise_server_exceptions=False)
+    return TestClient(app, raise_server_exceptions=False, headers={USER_ID_HEADER: _USER_ID})
 
 
 def test_promote_edge_returns_200_with_extracted_tier() -> None:
@@ -54,7 +59,7 @@ def test_promote_edge_returns_200_with_extracted_tier() -> None:
     body = resp.json()
     assert body["success"] is True
     assert body["data"]["tier"] == "EXTRACTED"
-    mock_use_case.execute.assert_awaited_once_with(edge_id=_EDGE_ID, importer_id=_IMPORTER)
+    mock_use_case.execute.assert_awaited_once_with(edge_id=_EDGE_ID, importer_id=_IMPORTER, user_id=_USER_ID)
 
 
 def test_promote_edge_not_found_maps_to_404() -> None:
@@ -152,13 +157,16 @@ def test_container_builds_with_promote_edge_use_case() -> None:
 
 
 def test_promote_edge_use_case_factory_instantiates_repo_directly() -> None:
-    """_provide_promote_edge_use_case wires SupabaseKnowledgeGraphRepository (concrete, not a port)."""
+    """_provide_promote_edge_use_case wires SupabaseKnowledgeGraphRepository (concrete, not a port)
+    and threads through the ImporterResolver collaborator (Phase 44-03)."""
     from unittest.mock import MagicMock
 
     from app.container import _provide_promote_edge_use_case
 
     client = MagicMock()
-    use_case = _provide_promote_edge_use_case(client)
+    importer_resolver = MagicMock()
+    use_case = _provide_promote_edge_use_case(client, importer_resolver)
 
     assert isinstance(use_case, PromoteEdgeUseCase)
     assert isinstance(use_case._knowledge, SupabaseKnowledgeGraphRepository)
+    assert use_case._importers is importer_resolver
