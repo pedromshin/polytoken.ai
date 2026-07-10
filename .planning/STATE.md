@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: verifying
-last_updated: "2026-07-10T06:05:46.079Z"
+status: ready_to_plan
+last_updated: 2026-07-10T06:16:02.674Z
 last_activity: "2026-07-10 -- Phase 44 Plan 09 (gap closure: chat SSE per-user authorization, TENA-03 gap CLOSED) executed"
 progress:
   total_phases: 5
@@ -11,6 +11,7 @@ progress:
   total_plans: 19
   completed_plans: 18
   percent: 60
+stopped_at: Phase 44 complete (9/9) — ready to discuss Phase 45
 ---
 
 # State
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 44 — Tenancy — user_id Scoping + Enforced Isolation
+**Current focus:** Phase 45 — email threads forwarding seam
 
 ## Current Position
 
-Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — COMPLETE (9/9 plans, incl. Plan 09 gap closure)
-Plan: 9 of 9 (gap closure -- chat SSE per-user authorization)
-Status: Phase 44 fully complete (no open gaps), ready for Phase 45 (email threads) / verify-work
-Last activity: 2026-07-10 -- Phase 44 Plan 09 (gap closure: chat SSE per-user authorization, TENA-03 gap CLOSED) executed
+Phase: 45
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-10
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 09 History
 
