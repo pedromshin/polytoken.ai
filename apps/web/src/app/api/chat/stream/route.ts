@@ -22,6 +22,8 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 
+import { createClient } from "~/lib/supabase/server";
+
 const CHAT_STREAM_REQUEST_SCHEMA = z.object({
   conversation_id: z.string().uuid(),
   user_text: z.string().min(1).max(8_000),
@@ -73,12 +75,24 @@ export async function POST(req: NextRequest): Promise<Response> {
     return jsonError("Invalid request body", 400);
   }
 
+  // AUTH-04 — the acting user's identity is resolved server-side via the
+  // server-verified getUser() (NEVER getSession(), NEVER an inbound header)
+  // and forwarded to FastAPI as X-User-Id, alongside the unchanged X-API-Key.
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return jsonError("Unauthorized", 401);
+  }
+
   let upstream: Response;
   try {
     upstream = await fetch(`${listenerConfig.url}/v1/chat/stream`, {
       method: "POST",
       headers: {
         "X-API-Key": listenerConfig.apiKey,
+        "X-User-Id": user.id,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(parsed.data),
