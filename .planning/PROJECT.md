@@ -13,7 +13,23 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
-## Current State (v1.7 shipped 2026-07-10)
+## Current State (v1.7 shipped 2026-07-10; v1.8 in progress — Phase 48 complete 2026-07-10)
+
+**v1.8 progress:** Phase 47 (brand foundation + screenshot harness) and Phase 48 (token-system
+extensions) are complete. Phase 48 extended the v1.4 DTCG token system additively (35 aliases, zero
+renames/removals, git-diff-proven): `radius.pill` / `color.success(+Foreground)` /
+`typography.code.family` utility aliases, the novel `color.tier.*` INFERRED/EXTRACTED ladder and
+closed `color.graph.*` node-type palette (all 6 packs, computational WCAG-AA gate + per-alias
+CSS-var registration gate in `packs.test.ts`), consumed at the citation chip, chat markdown/studio
+JSON code surfaces, confirmed-good visuals, and the `/knowledge` canvas (node chrome, filter rail,
+detail badges, tier edges/legend/filter — zero raw hex). Conventions recorded:
+`docs/design/hover-active-convention.md` + `docs/design/breakpoint-decision.md` (+ `.touch-target`
+mechanism, md-breakpoint convention) — the breakpoint decision Phase 50 builds on. Verification
+passed 13/14 with one recorded override (no pill-shaped tab exists to convert; studio tabs
+underline-by-design — see 48-VERIFICATION.md). Live-browser confirmation of the re-tokened surfaces
+is parked in 48-HUMAN-UAT.md behind the user-gated OAuth runbook; off-token chip/badge stragglers
+(entity-chips, entity-detail StatusBadge) parked as backlog 999.16 for Phase 49. Next: Phase 49 —
+Total UI Re-skin.
 
 **Shipped:** **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46, 25 plans,
 61 tasks, 19/19 requirements, 9/9 integration seams WIRED, 3/3 E2E flows, audit `tech_debt` with
@@ -514,4 +530,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-10 after v1.8 milestone open*
+*Last updated: 2026-07-10 after Phase 48 (token-system extensions) completion*
