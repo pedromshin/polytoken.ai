@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
-status: planning
-last_updated: "2026-07-10T17:20:00.000Z"
-last_activity: 2026-07-10
+status: executing
+last_updated: "2026-07-10T17:36:47.133Z"
+last_activity: 2026-07-10 -- Phase 47 Plan 01 (brand mark + login/sidebar wiring) executed
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 5
+  completed_plans: 1
   percent: 0
 ---
 
@@ -20,7 +20,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-10 after v1.7)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** v1.7 SHIPPED — v1.8 kickoff awaits USER decisions (brand direction from
+**Current focus:** Phase 47 — Brand Foundation + Verification Tooling
 BRAND-IDENTITY-OPTIONS.md incl. the polytoken naming-collision call; UI re-skin taste input).
 Also user-gated: GOOGLE-OAUTH-RUNBOOK.md (unblocks 11 UAT scenarios), staging/prod migrations
 0031–0035, external renames, SES forwarding rule, local supabase nauta→polytoken project-id
@@ -28,10 +28,10 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 
 ## Current Position
 
-Phase: Not started (roadmap created — Phase 47 next)
-Plan: —
-Status: Roadmap created (5 phases, 47–51), ready for /gsd:plan-phase 47
-Last activity: 2026-07-10 — v1.8 ROADMAP.md created, 23/23 requirements mapped to phases
+Phase: 47 (Brand Foundation + Verification Tooling) — EXECUTING
+Plan: 2 of 5
+Status: Executing Phase 47
+Last activity: 2026-07-10 -- Phase 47 Plan 01 (brand mark + login/sidebar wiring) executed
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
 
@@ -2364,6 +2364,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-10 (47-01): Brand mark geometry: two rotated high-radius rounded-rect "lobes" (brain reading) plus one small bridging circle "node" (node-cluster reading) — satisfies D-47-02's node/brain hybrid without sharp graph lines, an infra-diagram look, or a hand-drawn doodle (ban #11); zero raw color literals — all shapes fill with currentColor, the one D-47-02-allowed secondary accent expressed as a Tailwind opacity-55 utility
+- 2026-07-10 (47-01): tone="mono" on BrandMark drops the secondary lobe's opacity split (flat single currentColor) so the mark stays legible at small/favicon sizes instead of a muddy semi-transparent overlap
 - 2026-07-10 (45-04): listThreads scans scoped emails newest-first (capped at MAX_SCAN_ROWS=5000) and aggregates in a pure JS helper (groupEmailsIntoThreads) rather than SQL-side windowed aggregation — mirrors the codebase's established aggregateEntitySummary idiom, right tradeoff at this phase's local/personal-use scale; SQL-side aggregation flagged as a future follow-up if mailbox scale ever demands it
 - 2026-07-10 (45-04): resolveListScope extracted from emails/index.ts into a new list-scope.ts to avoid a circular import with the new list-threads.ts — re-exported from index.ts so existing test imports keep working unchanged
 - 2026-07-10 (45-04): THRD-03 marked Complete despite 4 pending visual-verification items in 45-HUMAN-UAT.md — the requirement text is code-genuinely satisfied and the remaining gap is blocked on Phase 43's live Google OAuth setup (a different phase's pending user action), mirroring the exact precedent Phase 43 itself set (shipped Complete with deferred live-OAuth UAT)
@@ -2673,6 +2675,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 44 P05 | 35 min | 2 tasks | 8 files |
 | Phase 44 P07 | 60min | 3 tasks | 16 files |
 | Phase 44 P08 | ~95min | 3 tasks | 8 files — adversarial acceptance gate (26+2+16 tests, all green) + sweep inventory + 4 xfail regressions locking a discovered chat-SSE gap; TENA-03 complete |
+| Phase 47 P01 | 25 min | 3 tasks | 4 files |
 
 ## Operator Next Steps
 
