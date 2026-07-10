@@ -58,7 +58,7 @@ async def receive_inbound_sns(request: Request) -> Response:
             use_case: IngestInboundEmailUseCase = await request.app.state.dishka_container.get(
                 IngestInboundEmailUseCase
             )
-            await use_case.execute(meta["message_id"])
+            await use_case.execute(meta["message_id"], recipients=meta["recipients"])
         except Exception:
             logger.exception("email_ingest_error", message_id=meta["message_id"])
         return Response(status_code=status.HTTP_200_OK)

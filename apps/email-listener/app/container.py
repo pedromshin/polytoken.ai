@@ -93,6 +93,7 @@ from app.domain.ports.entity_instance_repository import EntityInstanceRepository
 from app.domain.ports.entity_type_classifier_protocol import EntityTypeClassifierProtocol
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
+from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
 from app.domain.ports.generation_audit_repository import GenerationAuditRepository
 from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.knowledge_synthesizer import KnowledgeSynthesizer
@@ -141,6 +142,7 @@ from app.infrastructure.supabase.entity_instance_repository import SupabaseEntit
 from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
 from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTypeRepository
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
+from app.infrastructure.supabase.forwarding_address_repository import SupabaseForwardingAddressRepository
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.infrastructure.supabase.retrieval_repository import SupabaseRetrievalRepository
@@ -231,6 +233,16 @@ def _provide_thread_resolver(client: Client) -> ThreadResolver:
     _provide_importer_resolver's shape and the ImporterResolver DI pattern.
     """
     return SupabaseThreadRepository(client=client)
+
+
+def _provide_forwarding_address_resolver(client: Client) -> ForwardingAddressResolver:
+    """SupabaseForwardingAddressRepository bound to the ForwardingAddressResolver port.
+
+    Phase 45, THRD-04. Resolved before importer_resolver inside execute() —
+    its output anchors newly-created importers to the forwarding token's
+    owning user_id. Mirrors _provide_importer_resolver/_provide_thread_resolver.
+    """
+    return SupabaseForwardingAddressRepository(client=client)
 
 
 def _provide_autofiller(client: AsyncAnthropicBedrock) -> AutofillProtocol:
@@ -478,6 +490,7 @@ def _provide_ingest_use_case(
     propose_regions: ProposeRegionsUseCase,
     importer_resolver: ImporterResolver,
     thread_resolver: ThreadResolver,
+    forwarding_resolver: ForwardingAddressResolver,
     suggest_entity_types: SuggestEntityTypesUseCase,
 ) -> IngestInboundEmailUseCase:
     """Factory for IngestInboundEmailUseCase.
@@ -497,6 +510,10 @@ def _provide_ingest_use_case(
     thread_resolver (Phase 45, THRD-01) is resolved right after importer_id
     inside execute() and is best-effort (T-45-03-02): a resolution failure
     never fails ingestion.
+
+    forwarding_resolver (Phase 45, THRD-04) is resolved BEFORE importer_id
+    inside execute() and is also best-effort (T-45-05-03): its output anchors
+    a newly-created importer to the forwarding token's owning user_id.
     """
     raw_registry = _provide_parser_registry()
     # _provide_parser_registry returns ``object`` to satisfy dishka; cast back
@@ -513,6 +530,7 @@ def _provide_ingest_use_case(
         propose_regions=propose_regions,
         importer_resolver=importer_resolver,
         thread_resolver=thread_resolver,
+        forwarding_resolver=forwarding_resolver,
         suggest_entity_types=suggest_entity_types,
     )
 
@@ -937,6 +955,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # Thread resolution at ingest time (Phase 45, THRD-01) — mirrors the
     # importer resolver binding above.
     provider.provide(_provide_thread_resolver, provides=ThreadResolver)
+    # Forwarding-token resolution at ingest time (Phase 45, THRD-04) — resolved
+    # before importer_resolver inside execute() to anchor new importers.
+    provider.provide(_provide_forwarding_address_resolver, provides=ForwardingAddressResolver)
 
     # ── LLM adapters (Bedrock) ────────────────────────────────────────────────
     provider.provide(_provide_segmenter, provides=SegmenterProtocol)

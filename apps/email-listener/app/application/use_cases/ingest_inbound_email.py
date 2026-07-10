@@ -18,6 +18,7 @@ Post-persist dispatch (D-10):
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
@@ -31,6 +32,7 @@ from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.email_repository import EmailRepository
+from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
 from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import RawEmailStore
@@ -79,6 +81,7 @@ class IngestInboundEmailUseCase:
         propose_regions: ProposeRegionsUseCase,
         importer_resolver: ImporterResolver,
         thread_resolver: ThreadResolver,
+        forwarding_resolver: ForwardingAddressResolver,
         suggest_entity_types: SuggestEntityTypesUseCase | None = None,
     ) -> None:
         self._raw_store = raw_store
@@ -91,17 +94,24 @@ class IngestInboundEmailUseCase:
         self._propose_regions = propose_regions
         self._importer_resolver = importer_resolver
         self._thread_resolver = thread_resolver
+        self._forwarding_resolver = forwarding_resolver
         self._suggest_entity_types = suggest_entity_types
 
-    async def execute(self, ses_message_id: str) -> Email:
+    async def execute(self, ses_message_id: str, recipients: Sequence[str] = ()) -> Email:
         """Ingest the email identified by the SES message id; returns the persisted Email."""
         raw = await self._raw_store.fetch(ses_message_id)
         parsed = parse_mime(raw)
 
+        # Resolve the forwarding-token owner BEFORE importer resolution (Phase 45,
+        # THRD-04): best-effort/non-fatal (T-45-05-03) — a resolver exception
+        # degrades to None, and the legacy no-token (agent@ catch-all) path is
+        # entirely unaffected.
+        forwarding_user_id = await self._resolve_forwarding_user(recipients)
+
         # Resolve the importer_id from the forwarding sender address (D-05).
         # IngestionConfig.default_importer_id is used only by the resolver as its
         # malformed-sender fallback — this use case no longer reads it directly.
-        importer_id = await self._importer_resolver.resolve(parsed.sender_address)
+        importer_id = await self._importer_resolver.resolve(parsed.sender_address, user_id=forwarding_user_id)
         message_id = parsed.message_id or ses_message_id
         existing = await self._email_repo.find_by_message_id(importer_id, message_id)
         now = datetime.now(UTC)
@@ -176,6 +186,24 @@ class IngestInboundEmailUseCase:
             redelivery=existing is not None,
         )
         return saved
+
+    async def _resolve_forwarding_user(self, recipients: Sequence[str]) -> str | None:
+        """Best-effort forwarding-token resolution (T-45-05-03): never fails ingestion.
+
+        A ForwardingAddressResolver exception degrades to None with a logged
+        warning — mirrors the _resolve_thread isolation below. The legacy
+        no-token path (recipients with no "u-" prefix, or an empty/omitted
+        recipients list) also degrades to None via the port's own fail-closed
+        contract, without raising.
+        """
+        try:
+            return await self._forwarding_resolver.resolve_recipients(recipients)
+        except Exception:
+            logger.warning(
+                "forwarding_resolution_failed",
+                exc_info=True,
+            )
+            return None
 
     async def _resolve_thread(
         self,

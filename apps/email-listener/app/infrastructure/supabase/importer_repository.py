@@ -54,15 +54,19 @@ class SupabaseImporterRepository:
         self._client = client
         self._default_importer_id = default_importer_id
 
-    async def resolve(self, sender_address: str) -> str:
+    async def resolve(self, sender_address: str, *, user_id: str | None = None) -> str:
         """Resolve sender_address to an importer_id.
 
         - Computes the slug from the sender domain.
         - If slug is None (malformed sender): logs + returns default_importer_id,
           NO DB row created.
         - If a row exists for the slug: returns its id.
-        - Otherwise: upserts a new row (on_conflict="slug" — idempotent under
-          concurrent redelivery) then re-selects to return the persisted id.
+        - If no row exists and user_id is None: logs + returns default_importer_id,
+          NO DB row created (importers.user_id is NOT NULL since Phase 44 —
+          T-45-05-02; there is no forwarding-resolved owner to anchor a new row to).
+        - Otherwise: upserts a new row anchored to user_id (on_conflict="slug" —
+          idempotent under concurrent redelivery) then re-selects to return the
+          persisted id.
         """
         slug = slug_for_sender(sender_address)
         if slug is None:
@@ -79,10 +83,21 @@ class SupabaseImporterRepository:
             row = cast("dict[str, Any]", result.data[0])
             return str(row["id"])
 
-        # Slug not found — upsert (idempotent under concurrent SNS redelivery)
+        if user_id is None:
+            # A genuinely new domain with no forwarding-resolved owner: fall back
+            # rather than inserting a user_id-less row (T-45-05-02).
+            logger.warning(
+                "importer_resolver_new_domain_no_owner",
+                slug=slug,
+                fallback_importer_id=self._default_importer_id,
+            )
+            return self._default_importer_id
+
+        # Slug not found — upsert anchored to the resolved owner (on_conflict="slug"
+        # — idempotent under concurrent SNS redelivery)
         domain = slug.replace("-", ".")
         self._client.table("importers").upsert(
-            {"slug": slug, "name": domain},
+            {"slug": slug, "name": domain, "user_id": user_id},
             on_conflict="slug",
         ).execute()
 
@@ -94,6 +109,7 @@ class SupabaseImporterRepository:
             "importer_created",
             slug=slug,
             importer_id=importer_id,
+            user_id=user_id,
         )
         return importer_id
 
