@@ -35,7 +35,7 @@ foundation + Playwright/screenshot verification tooling (Phase 47), token-system
 (Phase 48) — 12/12 remaining v1 requirements complete. The other 11 requirements (RSKN-01..05,
 MOBL-01..02, PANL-01..04) move to v1.9 with their phase specs intact (the full Phase 49/50/51
 goal/criteria text is preserved in `milestones/v1.8-ROADMAP.md` for reuse at v1.9 planning;
-the ex-Phase-49 discuss context also survives at `.planning/phases/49-total-ui-re-skin/49-CONTEXT.md`).
+the ex-Phase-49 discuss context also survives at `.planning/phases/51-total-ui-re-skin/51-CONTEXT.md`).
 
 ## 2. Epoch A — v1.9 "Cloud Workspace" (live loop + re-skin + email-cluster workflow)
 

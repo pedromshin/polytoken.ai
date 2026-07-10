@@ -6,6 +6,7 @@ files:
   - apps/web/src/app/chat/_hooks/use-conversation-controller.ts
   - apps/web/src/app/knowledge/_components/knowledge-graph.tsx
   - apps/web/src/app/chat/_canvas/knowledge-preview-node.tsx
+resolves_phase: 51
 ---
 
 ## Problem

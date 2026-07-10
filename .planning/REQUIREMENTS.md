@@ -88,13 +88,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (filled by roadmap) | | |
+| LIVE-01 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-02 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-03 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-04 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-07 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-05 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Pending |
+| LIVE-06 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Pending |
+| RSKN-01 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-02 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-03 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-04 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-05 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-06 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-07 | Phase 51 — Total UI Re-skin | Pending |
+| PANL-01 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
+| PANL-02 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
+| PANL-03 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
+| PANL-04 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
+| MOBL-01 | Phase 53 — Mobile-Responsive Answer | Pending |
+| MOBL-02 | Phase 53 — Mobile-Responsive Answer | Pending |
+| CLUS-01 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-02 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-03 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-04 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-05 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-06 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-07 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total (LIVE 7 + RSKN 7 + MOBL 2 + PANL 4 + CLUS 7)
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 27 ⚠️
+- Mapped to phases: 27/27 ✓
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-07-10*
-*Last updated: 2026-07-10 at v1.9 milestone open (seeded by ENDGAME-PLAN.md §2)*
+*Last updated: 2026-07-10 — v1.9 ROADMAP.md created (Phases 49–54); 100% coverage, no orphans*

@@ -175,7 +175,7 @@ ships depth-first as ONE fully-working scenario on the user's real inbox. Plan o
 **Key context:** Opened under the two-epoch endgame restructure (all remaining vision =
 v1.9 + v2.0; E7 parked). STANDING RULE: deploy/OAuth/live-UAT gates are first-class phase
 work, never deferrable-by-default. Ex-Phase-49/50/51 seed specs: milestones/v1.8-ROADMAP.md;
-ex-49 discuss context: .planning/phases/49-total-ui-re-skin/49-CONTEXT.md. Band 2 ∥ Band 3
+ex-49 discuss context: .planning/phases/51-total-ui-re-skin/51-CONTEXT.md. Band 2 ∥ Band 3
 interleaving allowed after Band 1; mobile last. Phase numbering continues at 49.
 
 ## v1.8 Milestone Detail (SHIPPED 2026-07-10, scope cut at Phase 48 — archived: milestones/v1.8-ROADMAP.md)

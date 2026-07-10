@@ -7,7 +7,7 @@ files:
   - apps/web/src/app/knowledge/_components/filter-rail.tsx
   - apps/web/src/app/knowledge/_components/node-detail-pane.tsx
   - apps/web/src/app/knowledge/_components/taxonomy-banner.tsx
-resolves_phase: 49
+resolves_phase: 51
 ---
 
 ## Problem

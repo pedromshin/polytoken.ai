@@ -17,21 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-10 after v1.7)
+See: .planning/PROJECT.md (updated 2026-07-10 after v1.8 milestone close)
 
-**Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 49 — total ui re skin
-BRAND-IDENTITY-OPTIONS.md incl. the polytoken naming-collision call; UI re-skin taste input).
-Also user-gated: GOOGLE-OAUTH-RUNBOOK.md (unblocks 11 UAT scenarios), staging/prod migrations
-0031–0035, external renames, SES forwarding rule, local supabase nauta→polytoken project-id
-decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approval).
+**Core value:** Reliably receive every inbound email and make it observable — now as a product
+the user actually lives in.
+**Current focus:** v1.9 Cloud Workspace — Phase 49 (Live-Loop Gate: deploy, OAuth, real email).
+Plan of record: research/two-epoch-endgame/ENDGAME-PLAN.md. STANDING RULE: deploy/OAuth/live-UAT
+gates are first-class phase work, never deferrable-by-default; user-executed steps (Google
+console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in Phase 49.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-10 — Milestone v1.9 started
+Phase: 49 — Live-Loop Gate: Deploy, OAuth & Real Email
+Plan: — (not yet planned; run /gsd:plan-phase 49)
+Status: Roadmap created — ready for phase planning
+Last activity: 2026-07-10 — v1.9 ROADMAP.md created (6 phases, 49–54; 27/27 requirements mapped, 0 orphans)
 
 ## Phase 48 — Token System Extensions — Plan 04 History
 

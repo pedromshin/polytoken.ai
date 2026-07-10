@@ -11,6 +11,7 @@
 - ✅ **v1.6 — Chat × Knowledge Convergence** (Phases 33–41) — SHIPPED 2026-07-09. The chat agent reads its own extracted data: bounded mid-turn tool loop + 3 tiered knowledge tools with structural injection quarantine, per-round cost ceilings, visible tool rounds with citation chips, live data-bound panels, chat-confirmable promotions, and a knowledge-preview canvas node. Archived: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · Audit: [milestones/v1.6-MILESTONE-AUDIT.md](milestones/v1.6-MILESTONE-AUDIT.md).
 - ✅ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — SHIPPED 2026-07-10. Atomic internal rename nauta → polytoken, Google OAuth + sessions (Supabase Auth), enforced per-user tenancy (app-boundary primary + RLS defense-in-depth, adversarially gated), email threads at ingest + personal-forwarding seam, hygiene folds + decision-ready v1.8 dossier. Archived: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) · Audit: [milestones/v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md).
 - ✅ **v1.8 — Polytoken Re-skin — Brand & Design-System Foundation** (Phases 47–48; scope cut) — SHIPPED 2026-07-10. Polytoken brand identity (voice, logo, guide; naming USER-LOCKED to polytoken/polytoken.ai) + Playwright/screenshot verification toolchain, and token-system extensions on the EXTENDED v1.4 token system (pill radius, success color, code typography, tier-ladder + graph node/edge-type tokens, hover/active convention, breakpoint decision). Opened as Phases 47–51; user-directed scope cut ended it at Phase 48 with 12/12 in-scope requirements — RSKN/MOBL/PANL (11 requirements) moved to v1.9 per [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md). Archived: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) · Audit: [milestones/v1.8-MILESTONE-AUDIT.md](milestones/v1.8-MILESTONE-AUDIT.md).
+- ◆ **v1.9 — Cloud Workspace** (Phases 49–54) — OPENED 2026-07-10. Band 1 Live-Loop Gate (local stack green end-to-end, staging/prod migrations 0026–0035, OAuth + SES forwarding runbooks → the user's real email flowing, deferred-UAT burn-down) gates Band 2 (total UI re-skin + backlog 999.16, editable genui panels, mobile-responsive answer) and Band 3 (E3 email-cluster workflow, depth-first, proven live on the user's real inbox). Plan of record: [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md) §2 (Epoch A).
 
 ## Phases
 
@@ -20,8 +21,10 @@
   informal Phase 21 quality-verification effort is recorded in STATE.md history but was never a
   numbered roadmap phase). v1.3 ran Phases 22–25. v1.4 ran Phases 26–28. v1.5 ran Phases 29–32.
   v1.6 ran Phases 33–41. v1.7 ran Phases 42–46. v1.8 ran Phases 47–48 (scope cut; opened as
-  47–51). **v1.9 starts at Phase 49** — the ex-49/50/51 seed specs carry forward but numbering is
-  reassigned at v1.9 roadmap creation.
+  47–51). **v1.9 runs Phases 49–54** — the ex-49/50/51 seed specs (goal/success-criteria text)
+  carried forward onto the new Phases 51–53; the actual numbers were reassigned so the Band 1
+  Live-Loop Gate could take 49–50 (ENDGAME-PLAN.md §2's hard ordering constraint: Band 1 gates
+  every Band 2/3 phase).
 
 - Decimal phases (e.g. 49.1): urgent insertions via `/gsd:phase insert`, executed between the
   surrounding integers.
@@ -141,6 +144,136 @@ Full detail: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) · Audit: 
 
 </details>
 
+## v1.9 — Cloud Workspace (Phases 49–54) — CURRENT
+
+**Goal:** polytoken becomes a *used* product — the live loop closes on the user's real email FIRST,
+then the total re-skin/mobile/editable-panels land, then the E3 email-cluster workflow ships
+depth-first as ONE fully-working scenario on the user's real inbox. Plan of record:
+[research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md) §2 (Epoch A).
+
+**Ordering (hard constraint, ENDGAME-PLAN.md §2):** Band 1 (Phases 49–50) gates everything — no
+Band 2/3 phase starts before it is green. Within Band 2, RSKN (Phase 51) precedes MOBL (Phase 53);
+PANL (Phase 52) depends only on Phase 48's token/pack machinery and is parallelizable with RSKN;
+mobile runs last. Band 3 (CLUS, Phase 54) needs only Band 1 complete and its backend work may
+interleave in execution with Band 2, but is sequenced as the final phase — CLUS-07's live
+end-to-end scenario on the user's real inbox is the milestone's acceptance bar. Ex-Phase-49/50/51
+seed specs (goal/success-criteria text) reused from
+[milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) §49–51; ex-49 discuss context:
+[phases/51-total-ui-re-skin/51-CONTEXT.md](phases/51-total-ui-re-skin/51-CONTEXT.md).
+
+- [ ] Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
+- [ ] Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage
+- [ ] Phase 51: Total UI Re-skin
+- [ ] Phase 52: Editable Genui Panels / Studio-on-Canvas
+- [ ] Phase 53: Mobile-Responsive Answer
+- [ ] Phase 54: Email-Cluster Workflow (E3)
+
+### Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
+
+**Goal:** The live loop is technically operational — the app runs green locally, is deployed on
+migrated infrastructure, the user can sign in with their real Google account, and their real email
+flows into polytoken.
+**Depends on:** Nothing (first phase of v1.9; picks up where v1.8 Phase 48 left off)
+**Requirements:** LIVE-01, LIVE-02, LIVE-03, LIVE-04, LIVE-07
+**Success criteria:**
+
+1. The local stack runs green end-to-end (login → inbox → thread → email detail → chat with tool rounds → genui panel → /knowledge) via a documented, reproducible start procedure — no zombie-process ambiguity, verified against the DB not the terminal
+2. Migrations 0026–0035 are applied to staging AND production and live-verified; ECS + Vercel deploys are green on the renamed codebase
+3. GOOGLE-OAUTH-RUNBOOK.md is executed (user console steps as in-phase checkpoint tasks); the user signs in to the deployed app with their real Google account, the session persists across reload, and sign-out works
+4. FORWARDING-RUNBOOK.md + the SES rule are wired; a real forwarded message lands in polytoken, threads group correctly, and attachments are stored
+5. External-identity leftovers are decided, not parked: EXTERNAL-RENAME-RUNBOOK.md items are executed or explicitly re-parked by the user, and the local Supabase nauta→polytoken project-id decision is recorded
+
+**Plans:** TBD
+
+### Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage
+
+**Goal:** Every capability shipped since v1.2 is confirmed working live, not just code-verified, and
+the screenshot-verification harness covers the surface it was missing.
+**Depends on:** Phase 49 (auth-gated UAT scenarios need a live OAuth session to execute)
+**Requirements:** LIVE-05, LIVE-06
+**Success criteria:**
+
+1. Every open scenario in 39/41/43/45/47/48-HUMAN-UAT.md is executed via `/gsd:verify-work` and closed or converted to a tracked fix — none remain silently parked
+2. Auth-gated scenarios among them execute for real now that Phase 49 produced a live OAuth session
+3. The screenshot-review harness (47-05) covers `/emails/[id]` (closing todo W-1) and captures authenticated surfaces using a seeded session instead of falling back to textual before/after artifacts
+
+**Plans:** TBD
+
+### Phase 51: Total UI Re-skin
+
+**Goal:** Every major product surface — chat, inbox, knowledge canvas, studio, settings, login —
+speaks the polytoken register on the extended token system, with token discipline holding
+throughout, including the off-token stragglers the Phase-48 audit found.
+**Depends on:** Phase 48 (v1.8 — consumes tier-ladder + graph-palette + pill/success/code tokens);
+Phase 50 (Band 1 gate — nothing in Band 2/3 starts before the live loop is green)
+**Requirements:** RSKN-01, RSKN-02, RSKN-03, RSKN-04, RSKN-05, RSKN-06, RSKN-07
+**Success criteria:**
+
+1. `/chat` (composer, message stream, tool-round activity rows, citation chips) is re-skinned in the polytoken register on extended tokens
+2. The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
+3. `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on the TOKN-05 palette — and the pre-existing UI debt (glassmorphism-ban violations, raw ⊞ glyph) is cleared
+4. `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
+5. Zero raw hex outside token sources holds across the re-skin; the WCAG-AA contrast + token-family registration regression gates stay green and extend to the new aliases
+6. The inbox entity chips consume `color.graph.entity` + `radius.pill`, and `/entities/[id]`'s StatusBadge consumes the `color.tier.*` ladder — closing backlog 999.16
+7. Knowledge-canvas cache invalidation extends to chat-driven promotions and expandNode results, not just staleTime self-healing
+
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 52: Editable Genui Panels / Studio-on-Canvas
+
+**Goal:** Canvas genui panels become live editing surfaces instead of read-only renders — a user can
+re-theme, tweak, and regenerate a panel in place.
+**Depends on:** Phase 48 (v1.8 — style-pack/token machinery); Phase 50 (Band 1 gate); functionally
+independent of Phase 51 — parallelizable
+**Requirements:** PANL-01, PANL-02, PANL-03, PANL-04
+**Success criteria:**
+
+1. User can switch a genui panel's `style_pack_id` in place from per-panel controls; the choice persists across reloads
+2. User can tweak a panel's spec parameters in place through a bounded editing surface, schema-validated via the same untrusted-input gate as FOUND-6
+3. User can regenerate a panel variant in place, with provenance retained and the prior version reachable
+4. User can issue a natural-language re-theme instruction on a panel that resolves to pack/token choices (DSGN-03's cheap generation-side slice; no visual-compare repair loop)
+
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 53: Mobile-Responsive Answer
+
+**Goal:** The product is usable on a mobile viewport — canvas surfaces gracefully degrade to an
+inline-first list/feed rather than an unusable shrunk canvas, per the market-validated pattern
+(ChatGPT removed Canvas 2026-05-28 over cross-surface inconsistency; Claude Artifacts render inline
+on mobile).
+**Depends on:** Phase 51 (re-skinned surfaces to make responsive); Phase 48 (v1.8 — TOKN-07
+breakpoint decision); Phase 50 (Band 1 gate, inherited via Phase 51)
+**Requirements:** MOBL-01, MOBL-02
+**Success criteria:**
+
+1. On small screens, canvas surfaces (chat canvas, `/knowledge`) collapse to a list/feed presentation; desktop keeps the 2D canvas
+2. Core flows (login → inbox → thread → email detail → chat) show no horizontal overflow on a mobile viewport
+3. Touch targets stay ≥44px on a mobile viewport even under denser style packs
+
+**Plans:** TBD
+**UI hint**: yes
+
+### Phase 54: Email-Cluster Workflow (E3)
+
+**Goal:** The killer feature — email-thread clusters with attached chats, mid-turn web research, and
+promotable knowledge — works end-to-end, proven live by the user on their real inbox.
+**Depends on:** Phase 50 (Band 1 complete — real email flowing is the substrate); backend work
+(CLUS-01..06) may interleave in execution with Phases 51–53, but this phase is sequenced last as
+the milestone's final acceptance gate
+**Requirements:** CLUS-01, CLUS-02, CLUS-03, CLUS-04, CLUS-05, CLUS-06, CLUS-07
+**Success criteria:**
+
+1. User can place an email-thread card on the `/chat` canvas as a first-class node type (versioned registry entry), showing the thread's real subject/participants/summary
+2. User can attach a chat to an email thread — the conversation is linked to the thread and the agent's answers draw on that thread's content
+3. The agent can search the web mid-turn via a `web_search` ToolExecutor behind the same port, allowlist, envelope-quarantine, and adversarial-fixture discipline as the v1.6 tools
+4. Tool results (URLs/pages) can be captured as INFERRED knowledge nodes attached to the thread/chat cluster — suggest-only, provenance retained
+5. Cluster knowledge is promotable to the global graph through the existing suggest-only promotion gate
+6. Cluster context accumulates — artifacts from earlier chats in the cluster (genui panels, captured sources) are available as context to subsequent chats attached to the same thread
+7. The end-to-end scenario is proven live by the user on their real inbox: real thread → attached chat → web research with thread in context → sources captured → promotion confirmed → a follow-up chat sees the cluster context — the milestone's acceptance bar
+
+**Plans:** TBD
 
 ## Next Two Epochs — the endgame map (LOCKED 2026-07-10)
 
@@ -173,14 +306,14 @@ deferrable-by-default** — a milestone isn't done until the user has touched th
 - **999.4 — Design Engine (deferred):** DSGN-01..04 (unify-vs-hybrid design-engine lock, rendered-visual-compare repair step, promptable design system, screenshot/URL→design-token extraction). See REQUIREMENTS.md → Future Requirements.
 - **999.5 — Orchestration Visualizer (deferred):** ORCH-01 (live orchestration run-tree visualization on the canvas). Seams left open by v1.3 (SEAM-03/04, CANVAS-03). See REQUIREMENTS.md → Future Requirements.
 - **999.6 — Chat & Studio Design Uplift — PROMOTED to v1.4 (2026-07-06), SHIPPED 2026-07-07.** UPLIFT-01..03 — see milestones/v1.4-ROADMAP.md for full detail (finer FIX/ADOPT/TOKEN requirement IDs superseded the coarse UPLIFT-01..03 IDs).
-- **999.7 — Editable genui panels / studio-on-canvas (raised 2026-07-06, user):** each canvas genui-panel becomes a live editing surface — per-panel controls to change UI tokens / `style_pack_id`, tweak spec parameters, and run studio-related tools (re-theme, regenerate variant, inspect) in place, instead of the current read-only render. Foundations already deliberately open: the versioned node-type registry (CANVAS-03) admits a richer "editable/studio panel" node type; `style_pack_id` is already threaded through chat + canvas (v1.3 locked decision); the Phase-17 DTCG style-pack engine + `/studio` token machinery already exist; the per-chat shared-state store can hold live params. Overlaps **999.4 Design Engine** — a promptable design system is the generation-side of the same tokens. NOT yet a requirement/phase.
+- **999.7 — Editable genui panels / studio-on-canvas (raised 2026-07-06, user):** each canvas genui-panel becomes a live editing surface — per-panel controls to change UI tokens / `style_pack_id`, tweak spec parameters, and run studio-related tools (re-theme, regenerate variant, inspect) in place, instead of the current read-only render. Foundations already deliberately open: the versioned node-type registry (CANVAS-03) admits a richer "editable/studio panel" node type; `style_pack_id` is already threaded through chat + canvas (v1.3 locked decision); the Phase-17 DTCG style-pack engine + `/studio` token machinery already exist; the per-chat shared-state store can hold live params. Overlaps **999.4 Design Engine** — a promptable design system is the generation-side of the same tokens. **ABSORBED into v1.9 Phase 52 (Editable Genui Panels / Studio-on-Canvas), opened 2026-07-10.**
 - **999.8 — Declarative display-binding gap (found live 2026-07-06):** the declarative renderer binds values via a `dataRef` dotted-path field (`resolveDataRef`, SPEC-05) — it does NOT interpolate `{{mustache}}` inside a text node's `content`. Two candidate fixes: (a) generator-prompt fix (cheap, high-value), and/or (b) a small renderer affordance to resolve declared-state into text (bigger, touches the locked renderer). **Option (a) shipped as v1.4 POLISH-01 (Phase 26), 2026-07-06. Option (b) remains backlogged** — it touches the locked `SpecRenderer`.
 - **999.9 — Canvas auto-layout stacking (cosmetic) — folded into v1.4 as POLISH-02 (Phase 26), SHIPPED 2026-07-06.**
 - **999.10 — Knowledge-graph uplift — PROMOTED to v1.5 (2026-07-07), SHIPPED 2026-07-08.** Adopt graphify's *algorithms* (tier ladder, bounded neighbour-expand, tier-pruned detail) onto the live Postgres store, per its own staged cost/benefit ordering — see full analysis in `.planning/phases/999.10-knowledge-graph-uplift-graphify-adoption/NOTE.md`. Executed as Phases 29–32 (see milestones/v1.5-ROADMAP.md). Stage-3 BFS-into-prompts, budget-aware tier-pruning, and snapshot/diff remain explicitly deferred (tracked as KGX-01..03 in REQUIREMENTS.md → Future Requirements) until RECALL-02 measures a real retrieval-miss rate.
-- **999.11 — polytoken.ai product vision (raised 2026-07-07, user):** total rebrand (nauta → polytoken.ai) + UI refactor + branding/design/marketing research + auth/gauth/tenancy/RLS; email-thread cards on canvas with attached chats + web-research → knowledge nodes → promote-to-global (the "AI-powered ontology driven by user chats"); desktop app + daemon (remote filesystem, watched folders, directory panels with Claude-Code-class attached chats, embedded editor panels); browser-control canvas panel; user-controlled tool/skill registry + agent self-repository of reusable functions; distributed inference/compute-credit pooling (explicitly last/gated). Full dependency-ordered epoch ladder (E0–E7), backlog absorption map, and irreversibility guardrails: `.planning/research/polytoken-vision/VISION.md`. Draws from after v1.6; does NOT alter v1.6 sequencing.
-- **999.12 — Tailwind v4 + React 19 migration (raised 2026-07-07, UI-ecosystem research):** migrate `apps/web` + `packages/ui` off Tailwind 3.4/React 18 to unlock direct shadcn registry installs (`shadcn add @kibo-ui/…`) in place of the vendor+adapt workflow documented in `.claude/skills/nauta-design-system/SKILL.md`. Ecosystem registries (`@magicui`, `@kibo-ui`, `@coss` ex-Origin UI) all emit Tailwind v4/oklch payloads now. Scope: port the HSL tokens in `apps/web/src/app/globals.css` to `@theme`/oklch, revalidate every vendored `packages/ui` component, and decide the Radix-vs-Base UI stance (upstream shadcn switched default primitives to Base UI, 2026-07). Registry wiring already in place: `packages/ui/components.json` (2026-07-07).
-- **999.13 — genui catalog expansion: register vendored components as spec types (raised 2026-07-08, user):** the declarative genui catalog (`packages/genui/src/catalog/manifest.ts`, 17 frozen `SpecNodeType`s, `RegisteredTypeSchema` allowlist) cannot emit the 20 vendored Magic UI/Kibo UI components shipped in `59dbf3b` — they render `UnknownComponentPlaceholder`. Register the high-payoff simple-prop ones first (`number-ticker`, `spinner`, `avatar-stack`, `animated-list`, `marquee`): per component = SpecNodeType literal + ManifestEntry (LLM description, CI-gated example, `.strict()` Zod propsSchema, component ref) + catalog tests (CTLG-04). Touches the locked generation surface (Bedrock structured-output grammar D-22/COST-02, catalog prompts D-23) — run as a small phase, not a drive-by. Code-island channel is out of scope by design (AST allowlist blocks imports). Components already browser-verified via `/dev/components` showcase.
-- **999.14 — untracked dev/design scratch pages break `@polytoken/web` typecheck (found by Phase 42 verification, 2026-07-09):** the untracked `apps/web/src/app/dev/design/` showcase still imports `@nauta/ui/*` (20 specifiers in `previews-vendored.tsx`); after the Phase-42 rename removed `node_modules/@nauta`, Next's regenerated `.next/types/validator.ts` transitively imports the page and `npm run typecheck -w @polytoken/web` fails with 22 `TS2307` errors — the Task-3 tsconfig `exclude` cannot stop transitive imports reached via `.next/types`, so local `next build` (`ignoreBuildErrors: false`) would fail identically. Git-based CI/Vercel builds are unaffected (the dir is untracked). Fix options: find/replace `@nauta/ui` → `@polytoken/ui` inside the user-owned scratch dir (hard-excluded from Phase 42 by decision), or commit/delete the scratch content. Evidence: `.planning/phases/42-atomic-rename-nauta-polytoken/42-VERIFICATION.md` (status gaps_found, 7/8; gap parked here — ship not blocked).
-- **999.15 — Chat-path Bedrock prompt caching (raised 2026-07-09, cost hygiene):** the chat/tool-loop path re-sends its static prefix — the chat system prompt + the `emit_ui_spec` SpecRoot JSON schema injected as `input_schema` (`apps/email-listener/app/.../chat_tools.py:74-84`, the largest single block) — at full input rate on **every turn AND every tool round** (loop runs ≤4 rounds/turn, `run_chat_turn_tool_loop.py`). No `cache_control` anywhere on this path (`bedrock_chat_adapter.py:70-82` passes `system` through unchanged). The genui path already proves the fix: `cache_control:{type:ephemeral}` / `cachePoint` on the static block (COST-01, D-21, `genui_generator_adapter.py:171-188`). Scope: add cache points on the chat system block + the tools schema (Bedrock `cachePoint` may be set in `system`/`tools`; 5-min or 1-hr TTL — `research/CURRENCY-2026.md:58-66`); fully lossless (cache-read ≈ 0.1× input), self-contained, no schema/renderer changes. **Context:** app Bedrock spend is ~$10/mo behind ~$30/mo fixed infra — this is hygiene, not a headline cut; sequence behind higher-value product work. Two sibling cost items surfaced the same day but NOT filed: Batches API for the eval judge (`scripts/genui_eval/judge_adapter.py`, −50%, non-latency-sensitive), and the dormant `halfvec(1536)` vs Titan-Embeddings-V2-max-1024 dim mismatch (`research/CURRENCY-2026.md:272`, only bites on a V1→V2 move).
-- **999.16 — Remaining raw-palette chip/badge surfaces off-token (found by Phase 48 adversarial audit, 2026-07-10):** two surfaces implement the exact semantics Phase 48's purpose-built tokens exist for, but with raw Tailwind palette hardcodes: (a) `apps/web/src/app/_components/entity-chips.tsx` — the inbox's entity chips (rendered by `inbox-row.tsx`, `inbox-thread-group.tsx`, `inbox-three-pane.tsx`) use raw `violet-100/200/500/800/950` classes + shared `Badge` (`rounded-md`, not pill) for the entity-type semantic that `color.graph.entity` was built for; missed because 48-03's chip search was grep-scoped to `/chat` only. (b) `apps/web/src/app/entities/[id]/_components/entity-detail.tsx` `StatusBadge` (lines ~66-85) — confirmed-vs-provisional confidence-tier concept via `bg-primary/10` + raw `amber-*` classes instead of the `color.tier.*` ladder. Natural home: the v1.9 re-skin band (ex-Phase 49, moved 2026-07-10 — see ENDGAME-PLAN.md §2 Band 2) — but note the RSKN success criteria list chat/inbox/knowledge/studio/settings/login and do NOT explicitly name `/entities/[id]`; extend RSKN scope or fold (b) in deliberately at v1.9 planning. Evidence: 48-VERIFICATION.md resolution note.
-- **v1.6 deferred items (from this milestone's own research, tracked for a future pass):** entity-merge confirm-action's surrogate-key decision (Fork 2 allowlist #2 — `component_entity_candidate_links` is keyed by pair, not an addressable id); region-confirm confirm-action (Fork 2 allowlist #3 — has its own dedicated non-chat UI already); cheap-model sanitize pass for read-then-write tool chains (Fork 3 — staged until a write-capable tool exists); inline-interactive knowledge preview (Fork 1 — hand-rolled mini pan/zoom, gated on Phase 41's non-interactive preview proving insufficient); demote/undo path for promoted edges (Fork 2 — plain REST, supersede-never-mutate, lower urgency); `web_search` ToolExecutor + source-capture as INFERRED nodes (VISION.md E1 addition — not load-bearing for v1.6).
+- **999.11 — polytoken.ai product vision (raised 2026-07-07, user):** total rebrand (nauta → polytoken.ai) + UI refactor + branding/design/marketing research + auth/gauth/tenancy/RLS; email-thread cards on canvas with attached chats + web-research → knowledge nodes → promote-to-global (the "AI-powered ontology driven by user chats"); desktop app + daemon (remote filesystem, watched folders, directory panels with Claude-Code-class attached chats, embedded editor panels); browser-control canvas panel; user-controlled tool/skill registry + agent self-repository of reusable functions; distributed inference/compute-credit pooling (explicitly last/gated). Full dependency-ordered epoch ladder (E0–E7), backlog absorption map, and irreversibility guardrails: `.planning/research/polytoken-vision/VISION.md`. Draws from after v1.6; does NOT alter v1.6 sequencing. **Superseded 2026-07-10 by the two-epoch endgame restructure (ENDGAME-PLAN.md) — E3 now v1.9 Band 3, E4+E5+E6 merged into v2.0, E7 stays parked.**
+- **999.12 — Tailwind v4 + React 19 migration (raised 2026-07-07, UI-ecosystem research):** migrate `apps/web` + `packages/ui` off Tailwind 3.4/React 18 to unlock direct shadcn registry installs (`shadcn add @kibo-ui/…`) in place of the vendor+adapt workflow documented in `.claude/skills/nauta-design-system/SKILL.md`. Ecosystem registries (`@magicui`, `@kibo-ui`, `@coss` ex-Origin UI) all emit Tailwind v4/oklch payloads now. Scope: port the HSL tokens in `apps/web/src/app/globals.css` to `@theme`/oklch, revalidate every vendored `packages/ui` component, and decide the Radix-vs-Base UI stance (upstream shadcn switched default primitives to Base UI, 2026-07). Registry wiring already in place: `packages/ui/components.json` (2026-07-07). **Stays parked — orthogonal platform risk, both v1.9 and v2.0 stay on the stable stack (ENDGAME-PLAN.md §6).**
+- **999.13 — genui catalog expansion: register vendored components as spec types (raised 2026-07-08, user):** the declarative genui catalog (`packages/genui/src/catalog/manifest.ts`, 17 frozen `SpecNodeType`s, `RegisteredTypeSchema` allowlist) cannot emit the 20 vendored Magic UI/Kibo UI components shipped in `59dbf3b` — they render `UnknownComponentPlaceholder`. Register the high-payoff simple-prop ones first (`number-ticker`, `spinner`, `avatar-stack`, `animated-list`, `marquee`): per component = SpecNodeType literal + ManifestEntry (LLM description, CI-gated example, `.strict()` Zod propsSchema, component ref) + catalog tests (CTLG-04). Touches the locked generation surface (Bedrock structured-output grammar D-22/COST-02, catalog prompts D-23) — run as a small phase, not a drive-by. Code-island channel is out of scope by design (AST allowlist blocks imports). Components already browser-verified via `/dev/components` showcase. Candidate for a small v1.9 phase per ENDGAME-PLAN.md §6 — not scoped into a v1.9 phase at this roadmap's creation; re-evaluate at a future milestone if not picked up.
+- **999.14 — untracked dev/design scratch pages break `@polytoken/web` typecheck (found by Phase 42 verification, 2026-07-09):** the untracked `apps/web/src/app/dev/design/` showcase still imports `@nauta/ui/*` (20 specifiers in `previews-vendored.tsx`); after the Phase-42 rename removed `node_modules/@nauta`, Next's regenerated `.next/types/validator.ts` transitively imports the page and `npm run typecheck -w @polytoken/web` fails with 22 `TS2307` errors — the Task-3 tsconfig `exclude` cannot stop transitive imports reached via `.next/types`, so local `next build` (`ignoreBuildErrors: false`) would fail identically. Git-based CI/Vercel builds are unaffected (the dir is untracked). Fix options: find/replace `@nauta/ui` → `@polytoken/ui` inside the user-owned scratch dir (hard-excluded from Phase 42 by decision), or commit/delete the scratch content. Evidence: `.planning/phases/42-atomic-rename-nauta-polytoken/42-VERIFICATION.md` (status gaps_found, 7/8; gap parked here — ship not blocked). Opportunistic fix candidate during v1.9 Phase 51 (re-skin band) per ENDGAME-PLAN.md §6.
+- **999.15 — Chat-path Bedrock prompt caching (raised 2026-07-09, cost hygiene):** the chat/tool-loop path re-sends its static prefix — the chat system prompt + the `emit_ui_spec` SpecRoot JSON schema injected as `input_schema` (`apps/email-listener/app/.../chat_tools.py:74-84`, the largest single block) — at full input rate on **every turn AND every tool round** (loop runs ≤4 rounds/turn, `run_chat_turn_tool_loop.py`). No `cache_control` anywhere on this path (`bedrock_chat_adapter.py:70-82` passes `system` through unchanged). The genui path already proves the fix: `cache_control:{type:ephemeral}` / `cachePoint` on the static block (COST-01, D-21, `genui_generator_adapter.py:171-188`). Scope: add cache points on the chat system block + the tools schema (Bedrock `cachePoint` may be set in `system`/`tools`; 5-min or 1-hr TTL — `research/CURRENCY-2026.md:58-66`); fully lossless (cache-read ≈ 0.1× input), self-contained, no schema/renderer changes. **Context:** app Bedrock spend is ~$10/mo behind ~$30/mo fixed infra — this is hygiene, not a headline cut; sequence behind higher-value product work. Two sibling cost items surfaced the same day but NOT filed: Batches API for the eval judge (`scripts/genui_eval/judge_adapter.py`, −50%, non-latency-sensitive), and the dormant `halfvec(1536)` vs Titan-Embeddings-V2-max-1024 dim mismatch (`research/CURRENCY-2026.md:272`, only bites on a V1→V2 move). Not scoped into a v1.9 phase at this roadmap's creation (hygiene, sequenced behind value work per ENDGAME-PLAN.md §6) — candidate for in-phase opportunistic pickup if cheap.
+- **999.16 — Remaining raw-palette chip/badge surfaces off-token (found by Phase 48 adversarial audit, 2026-07-10):** two surfaces implement the exact semantics Phase 48's purpose-built tokens exist for, but with raw Tailwind palette hardcodes: (a) `apps/web/src/app/_components/entity-chips.tsx` — the inbox's entity chips (rendered by `inbox-row.tsx`, `inbox-thread-group.tsx`, `inbox-three-pane.tsx`) use raw `violet-100/200/500/800/950` classes + shared `Badge` (`rounded-md`, not pill) for the entity-type semantic that `color.graph.entity` was built for; missed because 48-03's chip search was grep-scoped to `/chat` only. (b) `apps/web/src/app/entities/[id]/_components/entity-detail.tsx` `StatusBadge` (lines ~66-85) — confirmed-vs-provisional confidence-tier concept via `bg-primary/10` + raw `amber-*` classes instead of the `color.tier.*` ladder. **RESOLVED-SCOPE 2026-07-10: absorbed as RSKN-06 into v1.9 Phase 51 (Total UI Re-skin), which explicitly extends scope to `/entities/[id]`.** Evidence: 48-VERIFICATION.md resolution note.
+- **v1.6 deferred items (from this milestone's own research, tracked for a future pass):** entity-merge confirm-action's surrogate-key decision (Fork 2 allowlist #2 — `component_entity_candidate_links` is keyed by pair, not an addressable id); region-confirm confirm-action (Fork 2 allowlist #3 — has its own dedicated non-chat UI already); cheap-model sanitize pass for read-then-write tool chains (Fork 3 — staged until a write-capable tool exists); inline-interactive knowledge preview (Fork 1 — hand-rolled mini pan/zoom, gated on Phase 41's non-interactive preview proving insufficient); demote/undo path for promoted edges (Fork 2 — plain REST, supersede-never-mutate, lower urgency); `web_search` ToolExecutor + source-capture as INFERRED nodes (VISION.md E1 addition — absorbed into v1.9 Phase 54, CLUS-03/04).
