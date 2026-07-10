@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T08:57:05.910Z"
-last_activity: 2026-07-10 -- Phase 45 Plan 05 complete (ForwardingAddressResolver port + Supabase adapter, ingest anchoring, THRD-04 Complete)
+last_updated: "2026-07-10T09:26:56.442Z"
+last_activity: 2026-07-10 -- Phase 45 Plan 04 complete (emails.listThreads tRPC projection + expandable InboxThreadGroup inbox UI; THRD-03 Complete; Phase 45 fully executed 6/6 plans)
 progress:
   total_phases: 5
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 25
   completed_plans: 24
-  percent: 64
+  percent: 80
 ---
 
 # State
@@ -24,10 +24,40 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 45 (Email Threads + Forwarding Seam) — EXECUTING
-Plan: 05 executed (wave 3, depends on 45-01/45-03) — 45-04 still pending
-Status: Executing Phase 45 (5/6 plans complete: 01, 02, 03, 05, 06)
-Last activity: 2026-07-10 -- Phase 45 Plan 05 complete (ForwardingAddressResolver port + Supabase adapter; importer creation anchored to forwarding user; Gmail verification mail test-proven not dropped; THRD-04 Complete)
+Phase: 45 (Email Threads + Forwarding Seam) — COMPLETE (6/6 plans)
+Plan: 04 executed (wave 3, depends on 45-01/45-03) — final plan of Phase 45
+Status: Phase 45 fully executed (01, 02, 03, 04, 05, 06 all complete). Next: Phase 46 (2/3 plans remaining) or milestone verification.
+Last activity: 2026-07-10 -- Phase 45 Plan 04 complete (emails.listThreads tenant-scoped thread-grouped tRPC projection + expandable InboxThreadGroup web inbox UI, governed by 45-UI-SPEC.md; emails/[id] detail view untouched; THRD-03 Complete; 4 visual-verification items recorded pending in 45-HUMAN-UAT.md, blocked on Phase 43's live Google OAuth setup)
+
+## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
+
+- **45-04 EXECUTED** (`535abec` feat, `731ca5e` feat, `d34f63e` docs):
+  `emails.listThreads` tRPC projection reuses `userOwnedImporterIds` +
+  `resolveListScope` verbatim (extracted to `list-scope.ts` to avoid a
+  circular import with the new `list-threads.ts`); pure `groupEmailsIntoThreads`
+  helper collapses scoped emails by `thread_id` (COALESCEd to a per-email
+  singleton key when null), capped at `MEMBER_EMAIL_ID_CAP=50` members and
+  `MAX_SCAN_ROWS=5000` scanned emails (Rule 2 DoS addition beyond the plan's
+  own threat model). 8 new tests (collapse/singleton/ordering/member-cap +
+  session-gate/cross-tenant-isolation), full api-client suite 342/342 green.
+  Web: `page.tsx` seeds from `listThreads`; new `InboxThreadGroup` component
+  renders count-1 threads as flat unmodified `InboxRow`s and count>1 threads
+  as an expandable summary (subject + count Badge + latest snippet/date) that
+  discloses member `InboxRow`s via local `useState` (zero new deps); a bounded
+  supplemental `emails.list` fetch (cap 100) hydrates full sender/subject/date
+  rows for member/reading-preview rendering. `apps/web/src/app/emails/[id]`
+  confirmed byte-identical via `git diff --stat`. `npx tsc --noEmit` clean in
+  both packages (dist/ rebuilt for api-client so apps/web's type resolution
+  picked up the new procedure); apps/web full vitest suite 294/294 green.
+  `npm run lint` in apps/web fails on a pre-existing (never-configured, whole
+  repo history) ESLint setup prompt — unrelated to this plan, not fixed
+  (scope boundary). THRD-03 marked Complete in REQUIREMENTS.md (code-genuine;
+  mirrors the Phase 43 precedent of shipping Complete with a deferred,
+  cross-phase-blocked live-verification UAT item). Checkpoint Task 3
+  (human-verify) auto-approved per the autonomous run mandate; 4 pending
+  visual items recorded in `45-HUMAN-UAT.md`, blocked on Phase 43's still-
+  pending live Google OAuth sign-in (43-HUMAN-UAT.md Test 1) — not this
+  plan's own scope. Phase 45 is now fully executed (6/6 plans).
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 05 History
 
@@ -2287,6 +2317,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-10 (45-04): listThreads scans scoped emails newest-first (capped at MAX_SCAN_ROWS=5000) and aggregates in a pure JS helper (groupEmailsIntoThreads) rather than SQL-side windowed aggregation — mirrors the codebase's established aggregateEntitySummary idiom, right tradeoff at this phase's local/personal-use scale; SQL-side aggregation flagged as a future follow-up if mailbox scale ever demands it
+- 2026-07-10 (45-04): resolveListScope extracted from emails/index.ts into a new list-scope.ts to avoid a circular import with the new list-threads.ts — re-exported from index.ts so existing test imports keep working unchanged
+- 2026-07-10 (45-04): THRD-03 marked Complete despite 4 pending visual-verification items in 45-HUMAN-UAT.md — the requirement text is code-genuinely satisfied and the remaining gap is blocked on Phase 43's live Google OAuth setup (a different phase's pending user action), mirroring the exact precedent Phase 43 itself set (shipped Complete with deferred live-OAuth UAT)
 - 2026-07-10 (45-03): SupabaseThreadRepository.resolve() issues 3 separate importer_id-scoped queries (forward message_id match, backward in_reply_to, backward references_ids .contains()) instead of one raw .or_() filter string — Message-IDs contain `<`, `>`, `@` and can contain commas/parens that would corrupt a raw PostgREST OR filter
 - 2026-07-10 (45-03): thread_grouping._DEFAULT_TIER2_WINDOW renamed to public DEFAULT_TIER2_WINDOW so the ThreadResolver adapter and the backfill script reuse the SAME Tier-2 fallback window as the 45-02 pure grouping service, instead of duplicating the timedelta(days=14) literal
 - 2026-07-10 (45-03): New threads.subject stores the RAW subject (not normalize_subject()'s lowercased/prefix-stripped form) — normalize_subject is for matching only; a future inbox needs the original casing/Re:-Fwd: prefix intact (Claude's Discretion per 45-CONTEXT.md)
