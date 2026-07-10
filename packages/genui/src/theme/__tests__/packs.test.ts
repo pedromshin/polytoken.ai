@@ -189,6 +189,22 @@ const SEMANTIC_STATUS_PAIRS: ReadonlyArray<{
     background: "color.tier.inferred",
     foreground: "color.tier.inferredForeground",
   },
+  // 48-02: closed graph node-type palette pairs (D-48-05)
+  {
+    label: "graph-entity",
+    background: "color.graph.entity",
+    foreground: "color.graph.entityForeground",
+  },
+  {
+    label: "graph-emailComponent",
+    background: "color.graph.emailComponent",
+    foreground: "color.graph.emailComponentForeground",
+  },
+  {
+    label: "graph-email",
+    background: "color.graph.email",
+    foreground: "color.graph.emailForeground",
+  },
 ];
 
 describe("WCAG-AA contrast — semantic status pairs (D-48-02)", () => {

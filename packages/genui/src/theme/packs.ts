@@ -73,6 +73,13 @@ function resolveVars(
   vars["tier-inferred-foreground"] = tokens["color.tier.inferredForeground"];
   vars["tier-extracted"] = tokens["color.tier.extracted"];
   vars["tier-extracted-foreground"] = tokens["color.tier.extractedForeground"];
+  vars["graph-entity"] = tokens["color.graph.entity"];
+  vars["graph-entity-foreground"] = tokens["color.graph.entityForeground"];
+  vars["graph-email-component"] = tokens["color.graph.emailComponent"];
+  vars["graph-email-component-foreground"] =
+    tokens["color.graph.emailComponentForeground"];
+  vars["graph-email"] = tokens["color.graph.email"];
+  vars["graph-email-foreground"] = tokens["color.graph.emailForeground"];
   return Object.freeze(vars);
 }
 
@@ -122,6 +129,17 @@ const NAUTA_TEAL_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 9.07:1
   "color.tier.inferred": "230 40% 90%",
   "color.tier.inferredForeground": "230 45% 28%",
+  // D-48-05: graph node-type palette (CLOSED) — violet/amber/slate
+  // equivalents replacing graph-nodes.tsx's hardcoded Tailwind colors.
+  // Verified WCAG-AA: entityForeground on entity passes 5.67:1
+  "color.graph.entity": "262 83% 58%",
+  "color.graph.entityForeground": "0 0% 100%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 8.21:1
+  "color.graph.emailComponent": "38 92% 50%",
+  "color.graph.emailComponentForeground": "20 14% 10%",
+  // Verified WCAG-AA: emailForeground on email passes 6.03:1
+  "color.graph.email": "215 20% 65%",
+  "color.graph.emailForeground": "215 25% 15%",
 });
 
 // ===========================================================================
@@ -171,6 +189,17 @@ const LINEAR_CLEAN_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 8.49:1
   "color.tier.inferred": "260 45% 92%",
   "color.tier.inferredForeground": "260 40% 32%",
+  // D-48-05: graph node-type palette (CLOSED) — violet/amber/slate
+  // equivalents, tuned to linear-clean's monochrome-slate register.
+  // Verified WCAG-AA: entityForeground on entity passes 5.49:1
+  "color.graph.entity": "262 60% 55%",
+  "color.graph.entityForeground": "210 20% 98%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 7.28:1
+  "color.graph.emailComponent": "38 85% 48%",
+  "color.graph.emailComponentForeground": "220 14% 10%",
+  // Verified WCAG-AA: emailForeground on email passes 4.95:1
+  "color.graph.email": "220 14% 45%",
+  "color.graph.emailForeground": "210 20% 98%",
 });
 
 // ===========================================================================
@@ -219,6 +248,17 @@ const WARM_EDITORIAL_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 8.86:1
   "color.tier.inferred": "250 30% 90%",
   "color.tier.inferredForeground": "250 30% 28%",
+  // D-48-05: graph node-type palette (CLOSED) — violet/amber/slate
+  // equivalents, warmed to fit this pack's editorial register.
+  // Verified WCAG-AA: entityForeground on entity passes 5.89:1
+  "color.graph.entity": "265 55% 52%",
+  "color.graph.entityForeground": "0 0% 98%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 8.74:1
+  "color.graph.emailComponent": "40 90% 48%",
+  "color.graph.emailComponentForeground": "20 14% 5%",
+  // Verified WCAG-AA: emailForeground on email passes 5.01:1
+  "color.graph.email": "30 15% 41%",
+  "color.graph.emailForeground": "36 33% 97%",
 });
 
 // ===========================================================================
@@ -272,6 +312,17 @@ const BRUTALIST_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 14.63:1
   "color.tier.inferred": "210 30% 85%",
   "color.tier.inferredForeground": "0 0% 0%",
+  // D-48-05: graph node-type palette (CLOSED) — stark high-saturation
+  // violet/amber/slate equivalents fitting brutalist's bold register.
+  // Verified WCAG-AA: entityForeground on entity passes 6.26:1
+  "color.graph.entity": "270 100% 50%",
+  "color.graph.entityForeground": "0 0% 100%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 12.73:1
+  "color.graph.emailComponent": "45 100% 50%",
+  "color.graph.emailComponentForeground": "0 0% 0%",
+  // Verified WCAG-AA: emailForeground on email passes 5.74:1
+  "color.graph.email": "0 0% 40%",
+  "color.graph.emailForeground": "0 0% 100%",
 });
 
 // ===========================================================================
@@ -320,6 +371,17 @@ const CORPORATE_SAAS_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 9.34:1
   "color.tier.inferred": "260 40% 93%",
   "color.tier.inferredForeground": "260 40% 30%",
+  // D-48-05: graph node-type palette (CLOSED) — violet/amber/slate
+  // equivalents, tuned to this pack's conservative enterprise register.
+  // Verified WCAG-AA: entityForeground on entity passes 6.06:1
+  "color.graph.entity": "262 70% 55%",
+  "color.graph.entityForeground": "0 0% 100%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 7.61:1
+  "color.graph.emailComponent": "38 90% 48%",
+  "color.graph.emailComponentForeground": "222 47% 11%",
+  // Verified WCAG-AA: emailForeground on email passes 4.70:1
+  "color.graph.email": "215 25% 48%",
+  "color.graph.emailForeground": "0 0% 100%",
 });
 
 // ===========================================================================
@@ -372,6 +434,19 @@ const PLAYFUL_ROUNDED_TOKENS: PackTokenMap = makeTokens({
   // Verified WCAG-AA: inferredForeground on inferred passes 9.41:1
   "color.tier.inferred": "45 85% 88%",
   "color.tier.inferredForeground": "30 40% 22%",
+  // D-48-05: graph node-type palette (CLOSED) — violet/amber/slate
+  // equivalents. entity is a distinct violet shade from this pack's own
+  // violet primary (270 vs 262 hue) so the two aliases stay visually
+  // distinguishable despite sharing a family.
+  // Verified WCAG-AA: entityForeground on entity passes 4.63:1
+  "color.graph.entity": "270 75% 60%",
+  "color.graph.entityForeground": "0 0% 100%",
+  // Verified WCAG-AA: emailComponentForeground on emailComponent passes 8.71:1
+  "color.graph.emailComponent": "35 95% 55%",
+  "color.graph.emailComponentForeground": "262 30% 10%",
+  // Verified WCAG-AA: emailForeground on email passes 4.69:1
+  "color.graph.email": "262 15% 55%",
+  "color.graph.emailForeground": "262 30% 10%",
 });
 
 // ===========================================================================

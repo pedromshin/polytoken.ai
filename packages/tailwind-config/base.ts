@@ -36,6 +36,18 @@ export default {
           extracted: "hsl(var(--tier-extracted))",
           "extracted-foreground": "hsl(var(--tier-extracted-foreground))",
         },
+        // D-48-05: closed graph node-type palette — mirrors the `primary`
+        // idiom (hsl(var(--x))) so bg-graph-entity/10, border-graph-entity/40,
+        // text-graph-entity opacity modifiers resolve exactly like bg-primary/10.
+        graph: {
+          entity: "hsl(var(--graph-entity))",
+          "entity-foreground": "hsl(var(--graph-entity-foreground))",
+          "email-component": "hsl(var(--graph-email-component))",
+          "email-component-foreground":
+            "hsl(var(--graph-email-component-foreground))",
+          email: "hsl(var(--graph-email))",
+          "email-foreground": "hsl(var(--graph-email-foreground))",
+        },
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",

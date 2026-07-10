@@ -53,6 +53,15 @@
     --tier-extracted-foreground: 0 0% 98%;
     --tier-inferred: 230 40% 90%;
     --tier-inferred-foreground: 230 45% 28%;
+    /* D-48-05: closed graph node-type palette — matches polytoken-teal
+       pack's graph values (Task 2). CLOSED set — a new node type requires a
+       new alias, never a repurposed one. */
+    --graph-entity: 262 83% 58%;
+    --graph-entity-foreground: 0 0% 100%;
+    --graph-email-component: 38 92% 50%;
+    --graph-email-component-foreground: 20 14% 10%;
+    --graph-email: 215 20% 65%;
+    --graph-email-foreground: 215 25% 15%;
     --sidebar-background: var(--background);
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);
@@ -105,6 +114,17 @@
     --tier-extracted-foreground: 0 0% 98%;
     --tier-inferred: 230 25% 18%;
     --tier-inferred-foreground: 230 40% 88%;
+    /* D-48-05: graph node-type palette — entity/email-component stay
+       identical to :root (vivid solid badges read fine on dark, mirrors
+       --primary staying unchanged between themes); email darkens since its
+       light-mode value is a pale neutral (mirrors --muted's light->dark
+       inversion). */
+    --graph-entity: 262 83% 58%;
+    --graph-entity-foreground: 0 0% 100%;
+    --graph-email-component: 38 92% 50%;
+    --graph-email-component-foreground: 20 14% 10%;
+    --graph-email: 215 20% 30%;
+    --graph-email-foreground: 215 15% 92%;
     --sidebar-background: var(--background);
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);

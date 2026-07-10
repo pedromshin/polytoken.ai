@@ -80,6 +80,18 @@ export const TOKEN_ALIASES = [
   "color.tier.inferredForeground",
   "color.tier.extracted",
   "color.tier.extractedForeground",
+  // Graph node-type palette (CLOSED — D-48-05). This set covers only the
+  // xyflow knowledge-canvas categories that today reach for a non-token
+  // color (entity_instance/email_component/email — see graph-nodes.tsx).
+  // The palette is CLOSED: adding a new node type later REQUIRES adding a
+  // new alias here — never repurpose an existing graph alias or reach for a
+  // raw hex/Tailwind color at the call site (anti-drift rule).
+  "color.graph.entity",
+  "color.graph.entityForeground",
+  "color.graph.emailComponent",
+  "color.graph.emailComponentForeground",
+  "color.graph.email",
+  "color.graph.emailForeground",
 ] as const;
 
 /** Union of all token alias literal strings. */
@@ -180,4 +192,10 @@ export const TOKEN_ALIAS_TO_CSS_VAR: Readonly<Record<TokenAlias, string>> =
     "color.tier.inferredForeground": "tier-inferred-foreground",
     "color.tier.extracted": "tier-extracted",
     "color.tier.extractedForeground": "tier-extracted-foreground",
+    "color.graph.entity": "graph-entity",
+    "color.graph.entityForeground": "graph-entity-foreground",
+    "color.graph.emailComponent": "graph-email-component",
+    "color.graph.emailComponentForeground": "graph-email-component-foreground",
+    "color.graph.email": "graph-email",
+    "color.graph.emailForeground": "graph-email-foreground",
   } satisfies Record<TokenAlias, string>);
