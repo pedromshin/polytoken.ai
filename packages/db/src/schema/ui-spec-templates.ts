@@ -17,6 +17,10 @@
  *   which bypasses RLS; anon/authenticated are denied.
  * - Deferred (v1.2): embedding halfvec, binding_slots, confirm_count, regenerate_count,
  *   feedback_score, promotion_score — see 14-CONTEXT.md <deferred>.
+ *
+ * Phase 44 (tenancy): this table is deliberately unscoped by `user_id` —
+ * exact-match cache reuse is shared cross-tenant by design (D-05/Phase-44 PROJECT.md
+ * Key Decisions). Do not "fix" this by adding a user_id column.
  */
 
 import {

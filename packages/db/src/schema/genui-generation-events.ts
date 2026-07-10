@@ -9,6 +9,10 @@
  * - outcome CHECK constraint restricts to ok|fallback|escalated (T-13-11 tamper guard).
  * - best-effort audit: the adapter swallows insert failures (T-13-10).
  * - This row is the Phase-14 CACHE-02 seam: cache hit → zero new generation entry.
+ *
+ * Phase 44 (tenancy): this table is deliberately unscoped by `user_id` —
+ * exact-match cache/audit reuse is shared cross-tenant by design (D-05/Phase-44
+ * PROJECT.md Key Decisions). Do not "fix" this by adding a user_id column.
  */
 
 import {
