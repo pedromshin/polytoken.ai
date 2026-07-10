@@ -5,7 +5,7 @@
  * through this module — never via ad-hoc per-call-site SQL. Two ownership
  * anchors (Phase 44 Plan 01 schema):
  *   - importer-anchored tables (importers, emails, email_components,
- *     email_attachments, entity_instances) — resolved via a join to
+ *     email_attachments, entity_instances, threads) — resolved via a join to
  *     importers.user_id
  *   - direct-user_id tables (chat_conversations, chat_cost_ledger) —
  *     resolved directly, no join. assertConversationOwnership is the single
@@ -37,6 +37,7 @@ import { ChatConversations } from "./schema/chat-conversations";
 import { EmailComponents } from "./schema/components";
 import { Emails } from "./schema/emails";
 import { Importers } from "./schema/importers";
+import { Threads } from "./schema/threads";
 
 /** The Drizzle handle every ownership function accepts as its first parameter. */
 export type OwnershipDb = PostgresJsDatabase<typeof schema>;
@@ -140,6 +141,28 @@ export async function assertComponentOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("component", componentId);
+  }
+}
+
+/**
+ * assertThreadOwnership — resolves when threads.importer_id ->
+ * importers.user_id = userId. Throws OwnershipError otherwise/missing.
+ */
+export async function assertThreadOwnership(
+  db: OwnershipDb,
+  threadId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: Importers.userId })
+    .from(Threads)
+    .innerJoin(Importers, eq(Importers.id, Threads.importerId))
+    .where(eq(Threads.id, threadId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("thread", threadId);
   }
 }
 

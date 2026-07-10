@@ -12,6 +12,7 @@ export * from "./_halfvec";
 export * from "./_auth";
 export * from "./enums";
 export * from "./importers";
+export * from "./threads";
 export * from "./emails";
 export * from "./attachments";
 export * from "./components";

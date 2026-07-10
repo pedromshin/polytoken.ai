@@ -25,6 +25,7 @@ import {
   assertConversationOwnership,
   assertEmailOwnership,
   assertImporterOwnership,
+  assertThreadOwnership,
   OwnershipError,
   userOwnedImporterIds,
   type OwnershipDb,
@@ -187,6 +188,36 @@ describe("assertComponentOwnership", () => {
 
     await expect(
       assertComponentOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertThreadOwnership
+// ---------------------------------------------------------------------------
+
+describe("assertThreadOwnership", () => {
+  it("resolves when threads.importer_id -> importers.user_id = userId", async () => {
+    const db = createFakeDb([{ userId: OWNER_ID }]);
+
+    await expect(
+      assertThreadOwnership(db, TARGET_ID, OWNER_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws OwnershipError when the thread's importer belongs to another user", async () => {
+    const db = createFakeDb([{ userId: OTHER_USER_ID }]);
+
+    await expect(
+      assertThreadOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+
+  it("throws OwnershipError when the thread does not exist", async () => {
+    const db = createFakeDb([]);
+
+    await expect(
+      assertThreadOwnership(db, TARGET_ID, OWNER_ID),
     ).rejects.toThrow(OwnershipError);
   });
 });
