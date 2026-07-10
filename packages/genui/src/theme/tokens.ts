@@ -56,15 +56,22 @@ export const TOKEN_ALIASES = [
   "color.accentForeground",
   "color.destructive",
   "color.destructiveForeground",
+  // Semantic status pair (D-48-02) — success/positive-state color
+  "color.success",
+  "color.successForeground",
   "color.border",
   "color.ring",
   // Structural tokens
   "radius.base",
+  // Fully-rounded utility radius (D-48-01) — pill-shaped chips/badges/buttons
+  "radius.pill",
   "spacing.density",
   "shadow.base",
   // Typography tokens (D-07 — font family pairings per pack)
   "typography.display.family",
   "typography.body.family",
+  // Monospace code family (D-48-03) — code blocks / inline code
+  "typography.code.family",
 ] as const;
 
 /** Union of all token alias literal strings. */
@@ -150,11 +157,15 @@ export const TOKEN_ALIAS_TO_CSS_VAR: Readonly<Record<TokenAlias, string>> =
     "color.accentForeground": "accent-foreground",
     "color.destructive": "destructive",
     "color.destructiveForeground": "destructive-foreground",
+    "color.success": "success",
+    "color.successForeground": "success-foreground",
     "color.border": "border",
     "color.ring": "ring",
     "radius.base": "radius",
+    "radius.pill": "radius-pill",
     "spacing.density": "spacing-density",
     "shadow.base": "shadow-base",
     "typography.display.family": "font-display",
     "typography.body.family": "font-body",
+    "typography.code.family": "font-code",
   } satisfies Record<TokenAlias, string>);

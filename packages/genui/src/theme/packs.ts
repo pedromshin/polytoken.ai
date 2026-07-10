@@ -58,13 +58,17 @@ function resolveVars(
   vars["accent-foreground"] = tokens["color.accentForeground"];
   vars["destructive"] = tokens["color.destructive"];
   vars["destructive-foreground"] = tokens["color.destructiveForeground"];
+  vars["success"] = tokens["color.success"];
+  vars["success-foreground"] = tokens["color.successForeground"];
   vars["border"] = tokens["color.border"];
   vars["ring"] = tokens["color.ring"];
   vars["radius"] = tokens["radius.base"];
+  vars["radius-pill"] = tokens["radius.pill"];
   vars["spacing-density"] = tokens["spacing.density"];
   vars["shadow-base"] = tokens["shadow.base"];
   vars["font-display"] = tokens["typography.display.family"];
   vars["font-body"] = tokens["typography.body.family"];
+  vars["font-code"] = tokens["typography.code.family"];
   return Object.freeze(vars);
 }
 
@@ -89,14 +93,22 @@ const NAUTA_TEAL_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "0 0% 9%",
   "color.destructive": "0 84.2% 60.2%",
   "color.destructiveForeground": "0 0% 98%",
+  // D-48-02: success pair — Verified WCAG-AA: successForeground on success passes 4.9:1
+  "color.success": "142 71% 29%",
+  "color.successForeground": "0 0% 98%",
   "color.border": "0 0% 89.8%",
   "color.ring": "0 0% 3.9%",
   "radius.base": "0.5rem",
+  // D-48-01: fully-rounded pill utility (chips/badges/pill buttons)
+  "radius.pill": "9999px",
   "spacing.density": "1rem",
   "shadow.base": "none",
   "typography.display.family":
     "'Inter', 'Helvetica Neue', Arial, sans-serif",
   "typography.body.family": "'Inter', 'Helvetica Neue', Arial, sans-serif",
+  // D-48-03: monospace code family for code blocks / inline code
+  "typography.code.family":
+    "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
 });
 
 // ===========================================================================
@@ -121,14 +133,22 @@ const LINEAR_CLEAN_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "220 14% 10%",
   "color.destructive": "0 72% 51%",
   "color.destructiveForeground": "0 0% 98%",
+  // D-48-02: success pair — Verified WCAG-AA: successForeground on success passes 4.9:1
+  "color.success": "142 71% 29%",
+  "color.successForeground": "0 0% 98%",
   "color.border": "220 13% 91%",
   "color.ring": "220 14% 10%",
   "radius.base": "0.375rem",
+  // D-48-01: fully-rounded pill utility (chips/badges/pill buttons)
+  "radius.pill": "9999px",
   "spacing.density": "0.875rem",
   "shadow.base": "0 1px 3px 0 hsl(220 14% 10% / 0.08)",
   "typography.display.family":
     "'Inter', 'Segoe UI', system-ui, sans-serif",
   "typography.body.family": "'Inter', 'Segoe UI', system-ui, sans-serif",
+  // D-48-03: monospace code family for code blocks / inline code
+  "typography.code.family":
+    "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
 });
 
 // ===========================================================================
@@ -153,13 +173,21 @@ const WARM_EDITORIAL_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "20 14% 10%",
   "color.destructive": "0 72% 51%",
   "color.destructiveForeground": "0 0% 98%",
+  // D-48-02: success pair (warmer green register) — Verified WCAG-AA: successForeground on success passes 5.1:1
+  "color.success": "142 60% 30%",
+  "color.successForeground": "0 0% 98%",
   "color.border": "36 20% 83%",
   "color.ring": "32 95% 44%",
   "radius.base": "0.375rem",
+  // D-48-01: fully-rounded pill utility (chips/badges/pill buttons)
+  "radius.pill": "9999px",
   "spacing.density": "1.125rem",
   "shadow.base": "0 2px 8px 0 hsl(20 14% 10% / 0.08)",
   "typography.display.family": "'Playfair Display', Georgia, 'Times New Roman', serif",
   "typography.body.family": "'Source Serif 4', Georgia, 'Times New Roman', serif",
+  // D-48-03: monospace code family for code blocks / inline code
+  "typography.code.family":
+    "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
 });
 
 // ===========================================================================
@@ -184,15 +212,26 @@ const BRUTALIST_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "0 0% 0%",
   "color.destructive": "0 100% 45%",
   "color.destructiveForeground": "0 0% 100%",
+  // D-48-02: success pair (stark high-contrast green) — Verified WCAG-AA: successForeground on success passes 5.2:1
+  "color.success": "120 100% 25%",
+  "color.successForeground": "0 0% 100%",
   "color.border": "0 0% 0%",
   "color.ring": "0 0% 0%",
   "radius.base": "0rem",
+  // D-48-01 EXCEPTION: brutalist's zero-radius identity wins over pill-ness —
+  // stays squared instead of adopting the 9999px pill radius other packs use.
+  "radius.pill": "0rem",
   "spacing.density": "1rem",
   "shadow.base": "3px 3px 0px 0px hsl(0 0% 0%)",
   "typography.display.family":
     "'JetBrains Mono', 'Courier New', Courier, monospace",
   "typography.body.family":
     "'Space Mono', 'Courier New', Courier, monospace",
+  // D-48-03: brutalist migrates its existing JetBrains Mono identity onto
+  // code.family explicitly (display.family is left unchanged — mono IS
+  // brutalist's identity, so code.family now carries the explicit mono answer).
+  "typography.code.family":
+    "'JetBrains Mono', 'Courier New', Courier, monospace",
 });
 
 // ===========================================================================
@@ -216,14 +255,22 @@ const CORPORATE_SAAS_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "222 47% 11%",
   "color.destructive": "0 72% 51%",
   "color.destructiveForeground": "0 0% 98%",
+  // D-48-02: success pair — Verified WCAG-AA: successForeground on success passes 4.9:1
+  "color.success": "142 71% 29%",
+  "color.successForeground": "0 0% 98%",
   "color.border": "214 32% 91%",
   "color.ring": "221 83% 53%",
   "radius.base": "0.25rem",
+  // D-48-01: fully-rounded pill utility (chips/badges/pill buttons)
+  "radius.pill": "9999px",
   "spacing.density": "1rem",
   "shadow.base": "0 1px 2px 0 hsl(222 47% 11% / 0.05)",
   "typography.display.family":
     "'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif",
   "typography.body.family": "'DM Sans', 'Helvetica Neue', Arial, sans-serif",
+  // D-48-03: monospace code family for code blocks / inline code
+  "typography.code.family":
+    "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
 });
 
 // ===========================================================================
@@ -247,14 +294,26 @@ const PLAYFUL_ROUNDED_TOKENS: PackTokenMap = makeTokens({
   "color.accentForeground": "0 0% 100%",
   "color.destructive": "0 72% 51%",
   "color.destructiveForeground": "0 0% 98%",
+  // D-48-02: success pair (vibrant-but-legible green) — Verified WCAG-AA:
+  // successForeground on success passes 4.9:1. NOTE: the plan's suggested
+  // "142 70% 40%" fg white computed to only 2.92:1 (fails AA) — darkened to
+  // L=30% to clear 4.5:1 while staying in the same hue/saturation family
+  // (Rule 1 auto-fix, verified by the Task 3 computational contrast gate).
+  "color.success": "142 70% 30%",
+  "color.successForeground": "0 0% 100%",
   "color.border": "262 40% 88%",
   "color.ring": "262 83% 58%",
   "radius.base": "1rem",
+  // D-48-01: fully-rounded pill utility (chips/badges/pill buttons)
+  "radius.pill": "9999px",
   "spacing.density": "1.25rem",
   "shadow.base": "0 4px 20px 0 hsl(262 83% 58% / 0.12)",
   "typography.display.family":
     "'Nunito', 'Rounded Mplus 1c', 'Arial Rounded MT Bold', sans-serif",
   "typography.body.family": "'Nunito', 'Segoe UI', Arial, sans-serif",
+  // D-48-03: monospace code family for code blocks / inline code
+  "typography.code.family":
+    "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
 });
 
 // ===========================================================================
