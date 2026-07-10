@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T08:05:57.004Z"
-last_activity: 2026-07-10 -- Phase 45 Plan 03 complete (ThreadResolver port + Supabase adapter + ingest wiring + idempotent backfill, live-verified locally)
+last_updated: "2026-07-10T08:24:14.000Z"
+last_activity: 2026-07-10 -- Phase 45 Plan 06 complete (forwarding tRPC router + minimal web surface + FORWARDING-RUNBOOK.md; THRD-04 stays Pending until 45-05 lands)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 25
-  completed_plans: 21
-  percent: 84
+  completed_plans: 22
+  percent: 88
 ---
 
 # State
@@ -25,9 +25,35 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 45 (Email Threads + Forwarding Seam) — EXECUTING
-Plan: 4 of 6
-Status: Executing Phase 45
-Last activity: 2026-07-10 -- Phase 45 Plan 03 complete (ThreadResolver port + Supabase adapter + ingest wiring + idempotent backfill, live-verified locally)
+Plan: 06 executed out of sequence (wave 2, depends only on 45-01) — 45-04 and 45-05 still pending
+Status: Executing Phase 45 (4/6 plans complete: 01, 02, 03, 06)
+Last activity: 2026-07-10 -- Phase 45 Plan 06 complete (forwarding tRPC router + minimal web surface + FORWARDING-RUNBOOK.md; THRD-04 stays Pending until 45-05 lands)
+
+## Phase 45 — Email Threads + Forwarding Seam — Plan 06 History
+
+- **45-06 EXECUTED** (`1758078` feat, `165fbc5` feat, `7709c69` docs, `ded2706`
+  docs): `forwardingRouter.getOrCreateMyAddress` (protectedProcedure, no
+  `.input()` at all) — CSPRNG token (`node:crypto` `randomBytes(32)`
+  base64url) get-or-create, idempotent under concurrency via
+  `onConflictDoNothing` + re-select; `getForwardingDomain()` reads
+  `FORWARDING_EMAIL_DOMAIN` at call time, fails fast when absent. Registered
+  in `root.ts`. Minimal `/settings/forwarding` web surface
+  (`forwarding-address-card.tsx` + page) with copy-to-clipboard,
+  loading/error states, never logs the address; `inbox-three-pane.tsx`
+  (45-04) untouched. `FORWARDING-RUNBOOK.md` (user-gated, not executed): SES
+  domain-level catch-all receipt rule drafted (NOT applied — today's
+  `ses.tf` only has 3 exact-recipient rules), address retrieval, Gmail
+  forwarding setup, verification-code retrieval from the ingested inbox,
+  end-to-end check flagged as manual UAT. `45-USER-SETUP.md` generated
+  (`FORWARDING_EMAIL_DOMAIN` + gated terraform apply). 7 new tests, full
+  api-client suite 334/334 green. THRD-04 deliberately left `Pending` in
+  REQUIREMENTS.md — the seam isn't real until 45-05 (FastAPI token
+  resolution) also lands (same discipline as 44-02/45-01's
+  premature-completion-avoidance precedent). 1 deviation: Rule 3, rebuilt
+  the stale gitignored `packages/api-client/dist/` artifact (recurs from
+  43-03's Deviation 2). Issue (not fixed, out of scope): `npm run lint` in
+  apps/web cannot run — no ESLint config exists anywhere in the repo
+  (pre-existing, repo-wide gap).
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 03 History
 
