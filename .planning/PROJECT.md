@@ -13,9 +13,25 @@ Reliably receive every inbound email destined for agent@magnitudetech.com.br and
 observable — nothing lost, everything logged — as the foundation for later parsing,
 persistence, and the agentic pipeline.
 
-## Current State (v1.7 shipped 2026-07-10; v1.8 in progress — Phase 48 complete 2026-07-10)
+## Current State (v1.8 shipped 2026-07-10 — scope cut at Phase 48; next: v1.9 Cloud Workspace)
 
-**v1.8 progress:** Phase 47 (brand foundation + screenshot harness) and Phase 48 (token-system
+**Shipped: v1.8 — Polytoken Re-skin: Brand & Design-System Foundation** (Phases 47–48, 10 plans,
+25 tasks, 12/12 in-scope requirements, 8/8 integration seams WIRED, 127/127 regression tests
+re-run live at audit, audit `tech_debt` with 0 blockers). Opened as Phases 47–51 under the "DO
+EVERYTHING" mandate; the user cut scope the same day after the honest verdict that three
+milestones of foundation/paint had out-sequenced felt value — RSKN/MOBL/PANL (11 requirements)
+moved to v1.9, and ALL remaining vision was compressed into two epochs (v1.9 Cloud Workspace +
+v2.0 Local Agent Platform; E7 parked). Plan of record:
+`.planning/research/two-epoch-endgame/ENDGAME-PLAN.md`. **Standing rule from this close onward:
+deploy/OAuth/live-UAT gates are first-class phase work, never deferrable-by-default.**
+
+**Next milestone goals (v1.9 Cloud Workspace):** Band 1 Live-Loop Gate FIRST (local stack green,
+staging/prod migrations 0026–0035, OAuth + SES forwarding runbooks → the user's real email
+flowing, ~20 deferred UAT scenarios burned down) → Band 2 re-skin/mobile/editable-panels (seed
+specs preserved in milestones/v1.8-ROADMAP.md §49–51, +999.16) → Band 3 E3 Email-Cluster
+Workflow depth-first around ONE fully-working scenario on the user's real inbox.
+
+**v1.8 delivery detail:** Phase 47 (brand foundation + screenshot harness) and Phase 48 (token-system
 extensions) are complete. Phase 48 extended the v1.4 DTCG token system additively (35 aliases, zero
 renames/removals, git-diff-proven): `radius.pill` / `color.success(+Foreground)` /
 `typography.code.family` utility aliases, the novel `color.tier.*` INFERRED/EXTRACTED ladder and
@@ -27,9 +43,9 @@ detail badges, tier edges/legend/filter — zero raw hex). Conventions recorded:
 mechanism, md-breakpoint convention) — the breakpoint decision Phase 50 builds on. Verification
 passed 13/14 with one recorded override (no pill-shaped tab exists to convert; studio tabs
 underline-by-design — see 48-VERIFICATION.md). Live-browser confirmation of the re-tokened surfaces
-is parked in 48-HUMAN-UAT.md behind the user-gated OAuth runbook; off-token chip/badge stragglers
-(entity-chips, entity-detail StatusBadge) parked as backlog 999.16 for Phase 49. Next: Phase 49 —
-Total UI Re-skin.
+is parked in 48-HUMAN-UAT.md pending the OAuth runbook (now a v1.9 Band-1 checkpoint task, not an
+open-ended deferral); off-token chip/badge stragglers (entity-chips, entity-detail StatusBadge)
+parked as backlog 999.16 for the v1.9 re-skin band.
 
 **Shipped:** **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46, 25 plans,
 61 tasks, 19/19 requirements, 9/9 integration seams WIRED, 3/3 E2E flows, audit `tech_debt` with
@@ -135,7 +151,7 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
-## Current Milestone: v1.8 Polytoken Re-skin — Brand & Design-System Foundation (SCOPE CUT 2026-07-10 — ends at Phase 48, ready to close)
+## v1.8 Milestone Detail (SHIPPED 2026-07-10, scope cut at Phase 48 — archived: milestones/v1.8-ROADMAP.md)
 
 **Scope cut (user-directed, 2026-07-10):** v1.8 ends at Phase 48 with brand foundation +
 verification tooling + token-system extensions shipped (12/12 in-scope requirements). The
@@ -446,22 +462,25 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 - ✓ Knowledge-graph uplift: tier ladder (knowledge_trust_tier enum, migrations 0026–0028) + live D-13 synthesis hook (confirm → EXTRACTED edges with OCR token-polygon provenance, supersede-safe) + suggest-only promotion gate (deterministic INFERRED/AMBIGUOUS suggestions, fail-closed promote endpoint, EXTRACTED-only injection read path) + cheap recall win (few-shot rendering seam closed, aliases/identifiers injected) + retrieval-miss-rate instrumentation (the stage-3 go/no-go artifact) + `/knowledge` tiered exploration canvas (tier encoding, cumulative filter, bounded expandNode, promote popover) — v1.5, Phases 29–32 (11/11 reqs; 2 live-env verification gaps deferred)
 - ✓ Chat × knowledge convergence: bounded mid-turn tool loop (ToolExecutor port, tool_invocation parts, capability gate, 2 latent bug fixes) + 3 tiered knowledge tools (lookup_entity/search_emails thin wrappers; search_knowledge over extended Python KnowledgeGraphRepository + extracted_only view, migrations 0029–0030) + structural injection quarantine (typed envelopes, FOUND-6 gate, 26-fixture adversarial suite + live Haiku harness, code-gated exposure flip) + per-round cost ceiling + eval dimensions (retrieval/citation/injection in the Phase-16 harness, one fixture source two runners) + tool-round UI with ProvenanceLink citation chips + live data-bound panels (spec.bindings, zero renderer edits) + chat-confirmable promotions (emit_confirm_action, CAS + edge-tier staleness 409) + knowledge-preview canvas node — v1.6, Phases 33–41 (19/19 reqs; 7 deferred items incl. visual UAT)
 
+- ✓ polytoken.ai foundation: atomic internal rename (242 files) + Google OAuth/sessions (@supabase/ssr, protectedProcedure, server-derived X-User-Id) + enforced per-user tenancy (migrations 0031–0034, ownership chokepoint, RLS on 13 tables, adversarially gated incl. same-run 44-09 chat-SSE closure) + email threads at ingest + personal-forwarding seam + kickoff hygiene/dossier — v1.7, Phases 42–46 (19/19 reqs; runbooks + deploys deferred)
+- ✓ Polytoken brand & design-system foundation: brand identity (voice/logo/guide, USER-LOCKED naming) + Playwright toolchain + screenshot harness + token-system extensions (pill/success/code + tier-ladder + graph palette + hover-active/breakpoint conventions, WCAG + registration gates) — v1.8, Phases 47–48 (12/12 in-scope reqs; scope cut, RSKN/MOBL/PANL → v1.9)
+
 ### Active
 
-<!-- v1.7 polytoken.ai Foundation — see Current Milestone section. -->
+<!-- v1.9 Cloud Workspace — scoped by .planning/research/two-epoch-endgame/ENDGAME-PLAN.md §2;
+requirements formalized at /gsd:new-milestone. -->
 
-- [ ] Atomic internal rename nauta → polytoken (code/packages/imports/docs/UI) + external-rename runbook
-- [ ] Google OAuth sign-in + server sessions (env-configured; live client creation user-runbook'd)
-- [ ] Per-user tenancy: user_id scoping + enforced Supabase RLS (999.1 absorbed as per-user)
-- [ ] Email thread model + own-email forwarding seam
-- [ ] Kickoff hygiene: 999.3 locally-feasible connected-env verifications + 999.2 folds
-- [ ] v1.8 Brand & Design research dossier
+- [ ] Band 1 — Live-Loop Gate: local stack green e2e; staging/prod migrations 0026–0035; OAuth + SES forwarding runbooks executed (user checkpoint tasks in-phase); deferred-UAT burn-down (~20 scenarios); W-1 screenshot-surface fix
+- [ ] Band 2 — Total UI re-skin on extended tokens (RSKN-01..05 + 999.16), mobile-responsive answer (MOBL-01..02), editable genui panels (PANL-01..04)
+- [ ] Band 3 — E3 Email-Cluster Workflow depth-first: thread cards on canvas, thread-bound chats, web_search executor, source-capture → INFERRED nodes, promote-to-global, cluster context — ONE fully-working scenario on the user's real inbox
 
 ### Out of Scope
 
 - Per-importer entity-type overrides (system-default types only, Phase 9)
 - Server-side deny-restore endpoint (optimistic-only undo today — Phase 9 follow-up)
-- Real auth boundary (X-API-Key is installation-wide; importer_id is data partitioning, not auth)
+- E7 distributed inference/compute pooling — parked venture decision (ENDGAME-PLAN.md §4); sole obligation: keep the v2.0 daemon protocol job-shaped
+- DSGN-02 visual-compare repair loop + DSGN-04 screenshot→token extraction (not "cheap"; v2+)
+- Native mobile apps (web-first, mobile-responsive only) · Tailwind v4/React 19 migration (999.12, orthogonal platform risk) · marketing site (post-launch)
 
 ## Context
 
@@ -539,4 +558,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-10 after Phase 48 (token-system extensions) completion*
+*Last updated: 2026-07-10 after v1.8 milestone (scope cut at Phase 48; two-epoch endgame locked — next: v1.9 Cloud Workspace)*

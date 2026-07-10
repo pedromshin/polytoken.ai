@@ -1,5 +1,31 @@
 # Milestones
 
+## v1.8 Polytoken Re-skin — Brand & Design-System Foundation (Shipped: 2026-07-10)
+
+**Phases completed:** 2 phases (47–48), 10 plans, 25 tasks
+**Scope cut (user-directed, 2026-07-10):** originally Phases 47–51 / 23 requirements; ends at
+Phase 48 with 12/12 in-scope requirements complete. RSKN/MOBL/PANL (11 requirements) moved to
+v1.9 per the two-epoch endgame restructure (`.planning/research/two-epoch-endgame/ENDGAME-PLAN.md`)
+— all remaining vision compresses into v1.9 Cloud Workspace + v2.0 Local Agent Platform.
+**Audit:** tech_debt, 0 blockers (12/12 reqs, 8/8 integration seams, 127/127 regression tests
+re-run live). Known deferred items at close: 6 (see STATE.md Deferred Items — every one has a
+designated v1.9 landing spot; deploy/OAuth/live-UAT gates are first-class phase work from v1.9 on).
+
+**Key accomplishments:**
+
+- Committed polytoken node/brain-hybrid SVG mark (BrandMark component + icon.svg favicon) replacing the "P" letter placeholder in the sidebar and login card, plus a warm first-person login-copy rewrite — all token-driven via currentColor with zero raw hex in the touched TSX.
+- Register-shifted every page `<title>`, the chat/canvas/inbox empty states, and the email-detail toast copy into the warm first-person polytoken voice — string-level only, zero layout/logic/prop changes, all toast variants and non-copy args (Undo, durations) preserved.
+- Authored `docs/design/brand-guide.md` (USER-LOCKED naming record with verbatim quote, warm-voice do/don't table, real mark-asset usage rules, accepted CLI-tool-collision note, NOT-done/user-gated list) and appended the corresponding Key Decisions row to PROJECT.md — closing BRND-03.
+- Installed the Playwright toolchain (chromium+firefox, pinned 1.61.1) and ran both long-parked e2e specs for the first time against real browsers — 10/12 assertions pass; the 1 failing code-island assertion is a pre-existing spec-authoring bug (unhandled `SecurityError` on opaque-origin `document.cookie` read), not an isolation weakness or a config gap.
+- Committed Playwright capture harness (`screenshot-review.spec.ts` + dedicated `playwright.screenshot.config.ts` + `npm run screenshot:review`) that shoots 6 surfaces x 2 viewports into a timestamped PNG set + index.md, and its first real run captured the freshly-branded polytoken login page live.
+- Four load-bearing token aliases (radius.pill, color.success/successForeground, typography.code.family) wired through both the genui pack registry and the app CSS/Tailwind layer, backed by a computational WCAG-AA contrast gate and a per-alias CSS-var registration gate.
+- Two purpose-built token systems (knowledge tier-ladder INFERRED/EXTRACTED + a closed graph node-type palette) landed across all 6 style packs, every fg/bg pair computationally WCAG-AA verified, ready for the knowledge-canvas consumer plan (48-04).
+- Citation chip + canvas edge label converted to true `rounded-pill`, chat/studio code onto `font-code`, and three confirmed-good affordances migrated off hardcoded green/emerald onto `color.success` — with deny/stop controls provably untouched.
+- Knowledge-canvas consumption of the new token systems: tier-ladder tokens on edge encoding/legend/filter (EXTRACTED tier given an explicit stroke instead of staying `{}`) and the closed graph palette on node chrome, filter-rail dots, and detail-pane badges — zero raw hex remaining (48-04).
+- Two design-convention docs recorded in `docs/design/`: the one hover/active-state derivation rule (D-48-06) with worked examples from this phase's own chips, and the breakpoint-awareness decision (D-48-07) that scopes Phase 50's mobile-responsive answer — both cited from the brand guide.
+
+---
+
 ## v1.7 polytoken.ai Foundation — Rename, Auth & Tenancy (Shipped: 2026-07-10)
 
 **Phases completed:** 5 phases, 25 plans, 61 tasks

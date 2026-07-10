@@ -33,8 +33,9 @@ new capability live is a failed sequencing, whatever the audit says.
 v1.8 **closed early at Phase 48** (scope cut 2026-07-10, user-directed). Shipped: brand
 foundation + Playwright/screenshot verification tooling (Phase 47), token-system extensions
 (Phase 48) — 12/12 remaining v1 requirements complete. The other 11 requirements (RSKN-01..05,
-MOBL-01..02, PANL-01..04) move to v1.9 with their phase specs intact (ROADMAP.md v1.8 section
-retains the full Phase 49/50/51 goal/criteria text for reuse at v1.9 planning).
+MOBL-01..02, PANL-01..04) move to v1.9 with their phase specs intact (the full Phase 49/50/51
+goal/criteria text is preserved in `milestones/v1.8-ROADMAP.md` for reuse at v1.9 planning;
+the ex-Phase-49 discuss context also survives at `.planning/phases/49-total-ui-re-skin/49-CONTEXT.md`).
 
 ## 2. Epoch A — v1.9 "Cloud Workspace" (live loop + re-skin + email-cluster workflow)
 
@@ -51,7 +52,7 @@ real email. Three bands, dependency-ordered:
   /gsd:verify-work.
 - User-executed items are IN the phase as checkpoint tasks, not parked as "user-gated" deferrals.
 
-### Band 2 — Folded v1.8 remainder (specs already written, see ROADMAP v1.8 §49–51)
+### Band 2 — Folded v1.8 remainder (specs already written — see milestones/v1.8-ROADMAP.md §49–51)
 - **Re-skin** (ex-Phase 49, RSKN-01..05) + backlog 999.16 (entity-chips + StatusBadge off-token
   surfaces — extend RSKN scope to /entities/[id] deliberately).
 - **Mobile answer** (ex-Phase 50, MOBL-01..02) — depends on re-skin.

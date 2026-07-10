@@ -268,6 +268,60 @@ decision-ready v1.8 brand/design dossier.
 - Notable: sequential executors (worktrees disabled) were the whole-run bottleneck; wave parallelism
   was declared but unused. ~15 subagents, ~3.5M subagent tokens.
 
+## Milestone: v1.8 — Polytoken Re-skin: Brand & Design-System Foundation (SCOPE CUT)
+
+**Shipped:** 2026-07-10 (opened and closed the same day)
+**Phases:** 2 (47–48; opened as 47–51) | **Plans:** 10
+
+### What Was Built
+- Polytoken brand foundation: node/brain BrandMark (currentColor, zero raw hex) in sidebar/login/
+  favicon, warm first-person copy register across every surface, brand guide + USER-LOCKED naming
+  record (collision with the polytoken CLI explicitly accepted).
+- Verification tooling the milestone's own re-skin never got to use: pinned Playwright
+  (chromium+firefox), both long-parked e2e specs finally executed green, screenshot harness with
+  real 12-PNG artifacts.
+- Token-system extensions: 14 new aliases across all 6 packs (pill radius, success pair, code
+  family, novel tier-ladder + closed graph palette), computational WCAG-AA + registration gates,
+  consumed at chips/code/confirm/knowledge-canvas surfaces; hover-active + breakpoint conventions.
+
+### What Worked
+- Additive-only token extension (zero renames, git-diff-proven) made 5 plans land in one day with
+  103/103 theme tests green throughout.
+- The verifier + independent adversarial audit caught real overclaims (tab-pill wording, dossier
+  boilerplate node list) and produced a recorded override instead of silent drift; the integration
+  checker re-ran 127 tests live rather than trusting SUMMARYs.
+- Honest user feedback mid-milestone ("the project is still literally what it was before") was
+  converted same-day into a recorded structural decision rather than another deferral row.
+
+### What Was Inefficient
+- The milestone was opened as paint (Phases 49–51 re-skin/mobile) before the product had ever been
+  used live — the scope cut is the correction, not the failure.
+- 999.16 (entity-chips/StatusBadge off-token) existed because 48-03's chip search was grep-scoped
+  to /chat only; repo-wide sweeps for a semantic should be the default.
+- The screenshot harness shipped without /emails/[id] in SURFACES (W-1) — the surface list was
+  written before the success-token consumers landed and never revisited.
+
+### Patterns Established
+- **Two-epoch endgame** (ENDGAME-PLAN.md): all remaining vision compresses into v1.9 Cloud
+  Workspace + v2.0 Local Agent Platform; E7 parked as a venture decision.
+- **Standing rule:** deploy/OAuth/live-UAT gates are first-class phase work, never
+  deferrable-by-default. A milestone isn't done until the user touches the capability live.
+  Deferred items now carry designated landing spots, not open-ended rows.
+- Scope cuts are recorded as first-class decisions (REQUIREMENTS "Moved" section + traceability
+  "Moved" status + audit scope_note) so audits stay honest against the cut bar.
+
+### Key Lessons
+- Six consecutive tech_debt closes with deferred live gates compound into a product the user has
+  never felt — the per-milestone pattern was individually honest and cumulatively wrong.
+- Foundation/paint sequencing must be interleaved with felt value; the killer feature being
+  "one epoch away" for three milestones is the smell.
+
+### Cost Observations
+- Model mix: Fable orchestrating (incl. audit + close), sonnet executors/verifiers/checkers.
+- Sessions: 2 (phase execution in a parallel session; audit/close in this one).
+- Notable: integration checker ~150k subagent tokens with 62 tool calls — live re-running of
+  suites is affordable and should stay the norm.
+
 ## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Shipped | Audit | Deferred (connected-env) |
@@ -278,5 +332,7 @@ decision-ready v1.8 brand/design dossier.
 | v1.4 | 26–28 | 15 | 2026-07-07 | tech_debt | 4 |
 | v1.5 | 29–32 | 11 | 2026-07-08 | tech_debt | 4 |
 | v1.6 | 33–41 | 20 | 2026-07-09 | tech_debt | 7 |
+| v1.7 | 42–46 | 25 | 2026-07-10 | tech_debt | 8 |
+| v1.8 | 47–48 | 10 | 2026-07-10 | tech_debt | 6 |
 
-**Recurring theme:** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass — a stable, honest pattern, not slippage. The locked-renderer + reusable-registry discipline (FOUND-2) has held across six milestones, and the deferred count stays small (15 → 6 → 4 → 4 → 7; v1.6's 7 includes 3 todos, not just env checks) as committed regression gates and live-DB migration verify scripts replace one-off checks. v1.5 added measurement-gated architecture evolution; v1.6 added suite-gated exposure flips and proved fully-autonomous parallel execution across session boundaries.
+**Recurring theme:** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass. Through v1.6 this read as a stable, honest pattern; at the v1.8 close the user called its cumulative effect — a product never experienced live — and the pattern was retired as a default: from v1.9 on, live gates (deploy, OAuth, real email, UAT) are first-class phase work (ENDGAME-PLAN.md standing rule), and every v1.8 deferral carries a designated v1.9 landing spot. The locked-renderer + reusable-registry discipline (FOUND-2) has held across eight milestones; committed regression gates and live re-run verification (127/127 at the v1.8 audit) continue to replace one-off checks. v1.5 added measurement-gated architecture evolution; v1.6 added suite-gated exposure flips and fully-autonomous parallel execution; v1.7 added adversarial acceptance gates that found and same-run-closed a real security hole; v1.8 added recorded overrides against overclaiming success criteria and the scope-cut-as-decision mechanism.

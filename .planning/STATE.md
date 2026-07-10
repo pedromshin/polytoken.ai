@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
-status: ready_to_plan
-last_updated: 2026-07-10T21:57:22.638Z
-last_activity: 2026-07-10 -- 48-04 complete (parallel wave-2 plan: graph-nodes.tsx/filter-rail.tsx/node-detail-pane.tsx consume the closed color.graph.* palette identically across node chrome, filter dots, and detail badges; tier-edge-style.ts/tier-filter-control.tsx consume the color.tier.* ladder instead of overloading --muted-foreground, EXTRACTED gaining an explicit tier-extracted stroke; textual before/after artifact recorded per the 48-03 precedent). All 5 plans of Phase 48 now have SUMMARY.md — phase ready for verification.
+status: Awaiting next milestone
+last_updated: "2026-07-10T22:41:58.878Z"
+last_activity: 2026-07-10 — Milestone v1.8 completed and archived
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 10
   completed_plans: 10
   percent: 40
-stopped_at: Phase 48 complete (5/5) — ready to discuss Phase 49
 ---
 
 # State
@@ -29,10 +28,10 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 
 ## Current Position
 
-Phase: 49
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-10
+Phase: Milestone v1.8 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-10 — Milestone v1.8 completed and archived
 
 ## Phase 48 — Token System Extensions — Plan 04 History
 
@@ -1470,6 +1469,28 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   **Next: 30-02** (TIER-03 promotion endpoint — not yet planned).
 
 ## Deferred Items
+
+### v1.8 (acknowledged and deferred at the v1.8 milestone close, 2026-07-10)
+
+Acknowledged autonomously per the user's standing directive (v1.6/v1.7 precedent). Audit status
+tech_debt, 0 blockers — full detail in `milestones/v1.8-MILESTONE-AUDIT.md`. **NOTE — the
+deferral-by-default era ends here:** per the two-epoch endgame decision
+(`.planning/research/two-epoch-endgame/ENDGAME-PLAN.md`), every item below has a designated
+landing spot in v1.9 Band 1 (Live-Loop Gate) or the v1.9 re-skin band; these are scheduled
+work, not open-ended deferrals.
+
+| Category | Item | Status |
+|----------|------|--------|
+| uat_gap | 47-HUMAN-UAT.md — 1 scenario (brand-mark aesthetic/brand-fit judgment) | partial — subjective visual call; v1.9 Band 1 |
+| uat_gap | 48-HUMAN-UAT.md — 2 scenarios (live-browser pill-chip/success tokens on /chat + /emails/[id]; graph palette + tier ladder on /knowledge) | partial — OAuth-gated; v1.9 Band 1 |
+| verification_gap | 47-VERIFICATION.md | human_needed — same brand-fit item as the UAT scenario above |
+| todo | 2026-07-07-knowledge-preexisting-ui-debt | pending — carried from v1.5; lands in v1.9 re-skin band |
+| todo | 2026-07-09-knowledge-cache-invalidation-gap | pending — carried from v1.6; lands in v1.9 re-skin/knowledge band |
+| integration_warning | W-1: screenshot-review SURFACES omits /emails/[id] (48-03 success-token consumers uncaptured by harness) | new at audit; extend SURFACES in v1.9 Band 1 once OAuth unblocks a seeded session |
+
+Also carried (unchanged from v1.7 close, still user-gated → become v1.9 Band 1 checkpoint
+tasks): OAuth/forwarding/external-rename runbooks, staging/prod migrations 0026–0035, local
+Supabase project-id decision, domain purchase.
 
 ### v1.7 (acknowledged and deferred at the v1.7 milestone close, 2026-07-10)
 
