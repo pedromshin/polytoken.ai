@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-05 | Phase 43 | Complete |
 | TENA-01 | Phase 44 | Complete |
 | TENA-02 | Phase 44 | Complete |
-| TENA-03 | Phase 44 | Complete (spanned Plans 02/03/05/06/07/08; adversarial acceptance gate green — one open gap explicitly tracked, see 44-SWEEP-INVENTORY.md "Known Gap") |
+| TENA-03 | Phase 44 | Complete (spanned Plans 02/03/05/06/07/08/09; adversarial acceptance gate green — the chat-SSE gap found at Plan 08's sweep is CLOSED by Plan 09, see 44-SWEEP-INVENTORY.md "Known Gap — CLOSED by Plan 44-09") |
 | TENA-04 | Phase 44 | Complete |
 | THRD-01 | Phase 45 | Pending |
 | THRD-02 | Phase 45 | Pending |
