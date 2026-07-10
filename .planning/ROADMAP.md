@@ -175,7 +175,7 @@ Plans:
 4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
 5. genui exact-match cache tables deliberately unscoped, documented
 
-**Plans:** 8/8 plans complete
+**Plans:** 8/8 plans complete + 1 gap-closure plan (44-09)
 
 Plans:
 
@@ -198,6 +198,10 @@ Plans:
 **Wave 4** *(blocked on Wave 3 completion)*
 
 - [x] 44-08-PLAN.md — Adversarial cross-tenant acceptance gate (vitest + pytest) + sweep inventory
+
+**Gap closure** *(closes 44-VERIFICATION.md SC2 / TENA-03 chat-SSE gap)*
+
+- [ ] 44-09-PLAN.md — Chat SSE per-user authorization: require_user_id + conversation-ownership assert on /v1/chat/stream, /regenerate, /widget/submit + thread user_id into PromoteEdgeUseCase
 
 ### Phase 45: Email Threads + Forwarding Seam
 
