@@ -28,8 +28,8 @@ export function ChatHomeEmptyState({
   return (
     <EmptyState
       icon={MessageSquarePlus}
-      heading="Start a new conversation"
-      body="Ask the agent anything — responses stream in and can include interactive widgets."
+      heading="Ask me anything"
+      body="I'll stream the answer back — sometimes with interactive widgets built right in."
       layout="centered"
       tone="muted"
       size="spacious"

@@ -337,8 +337,8 @@ export function InboxThreePane({
             {data && visibleItems.length === 0 && !showLoading && (
               <div className="p-12 text-center text-sm text-muted-foreground">
                 {filter === "with-entities"
-                  ? "No emails with extracted entities yet."
-                  : "No emails yet."}
+                  ? "Nothing extracted yet — entities will show up as mail arrives."
+                  : "Your inbox is clear — forwarded mail will land here."}
               </div>
             )}
 

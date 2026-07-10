@@ -22,8 +22,8 @@ export function CanvasEmptyState(): React.ReactElement {
   return (
     <EmptyState
       icon={LayoutGrid}
-      heading="No panels yet"
-      body="Genui responses from this chat will appear here as panels. Switch to Chat view to start a conversation."
+      heading="Panels will appear here"
+      body="Switch to Chat view and ask something — any interactive results will land here as panels."
       layout="centered"
       tone="muted"
       size="compact"
