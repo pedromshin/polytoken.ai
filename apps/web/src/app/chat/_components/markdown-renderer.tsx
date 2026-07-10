@@ -87,7 +87,7 @@ function Pre({
 }: ComponentPropsWithoutRef<"pre">): JSX.Element {
   return (
     <ScrollArea className="my-2 rounded-lg bg-muted">
-      <pre className="p-3 text-xs" {...props}>
+      <pre className="p-3 font-code text-xs" {...props}>
         {children}
       </pre>
       <ScrollBar orientation="horizontal" />
@@ -111,7 +111,7 @@ function Code({
   }
   return (
     <code
-      className="rounded bg-muted px-1 py-0.5 font-mono text-xs"
+      className="rounded bg-muted px-1 py-0.5 font-code text-xs"
       {...props}
     >
       {children}

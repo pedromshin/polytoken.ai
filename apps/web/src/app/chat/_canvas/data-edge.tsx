@@ -116,7 +116,7 @@ export function DataEdge({
         <button
           type="button"
           onClick={handleClick}
-          className="nodrag nopan absolute rounded-full border border-border/60 bg-background/80 px-2 py-0.5 text-xs text-muted-foreground shadow-sm"
+          className="nodrag nopan absolute rounded-pill border border-border/60 bg-background/80 px-2 py-0.5 text-xs text-muted-foreground shadow-sm"
           style={{
             transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
             pointerEvents: "all",

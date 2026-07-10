@@ -72,7 +72,7 @@ export function JsonPane({
         </Button>
       </div>
       <ScrollArea className="flex-1">
-        <pre className="p-4 font-mono text-xs text-foreground">{formatted}</pre>
+        <pre className="p-4 font-code text-xs text-foreground">{formatted}</pre>
       </ScrollArea>
     </>
   );

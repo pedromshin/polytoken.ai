@@ -33,7 +33,7 @@ const ICON_BY_KIND: Readonly<Record<ProvenanceKind, typeof Mail>> = {
 };
 
 const CHIP_CLASS_NAME =
-  "inline-flex max-w-[160px] items-center gap-1 rounded-md border border-transparent bg-muted px-2 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1";
+  "inline-flex max-w-[160px] items-center gap-1 rounded-pill border border-transparent bg-muted px-2 py-1 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1";
 
 /**
  * hrefFor — the fixed kind+id -> path switch, encodeURIComponent-wrapped.
