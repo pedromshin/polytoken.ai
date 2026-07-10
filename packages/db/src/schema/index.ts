@@ -33,3 +33,4 @@ export * from "./chat-cost-ledger";
 export * from "./chat-canvas-layouts";
 export * from "./chat-widget-interactions";
 export * from "./autofill-retrieval-events";
+export * from "./forwarding-addresses";

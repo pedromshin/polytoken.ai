@@ -24,6 +24,7 @@ import {
   assertComponentOwnership,
   assertConversationOwnership,
   assertEmailOwnership,
+  assertForwardingAddressOwnership,
   assertImporterOwnership,
   assertThreadOwnership,
   OwnershipError,
@@ -248,6 +249,36 @@ describe("assertConversationOwnership", () => {
 
     await expect(
       assertConversationOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertForwardingAddressOwnership
+// ---------------------------------------------------------------------------
+
+describe("assertForwardingAddressOwnership", () => {
+  it("resolves when forwarding_addresses.user_id = userId", async () => {
+    const db = createFakeDb([{ userId: OWNER_ID }]);
+
+    await expect(
+      assertForwardingAddressOwnership(db, TARGET_ID, OWNER_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws OwnershipError when the address belongs to another user", async () => {
+    const db = createFakeDb([{ userId: OTHER_USER_ID }]);
+
+    await expect(
+      assertForwardingAddressOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+
+  it("throws OwnershipError when the address does not exist", async () => {
+    const db = createFakeDb([]);
+
+    await expect(
+      assertForwardingAddressOwnership(db, TARGET_ID, OWNER_ID),
     ).rejects.toThrow(OwnershipError);
   });
 });

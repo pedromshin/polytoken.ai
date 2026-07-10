@@ -36,6 +36,7 @@ import * as schema from "./schema";
 import { ChatConversations } from "./schema/chat-conversations";
 import { EmailComponents } from "./schema/components";
 import { Emails } from "./schema/emails";
+import { ForwardingAddresses } from "./schema/forwarding-addresses";
 import { Importers } from "./schema/importers";
 import { Threads } from "./schema/threads";
 
@@ -184,5 +185,27 @@ export async function assertConversationOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("conversation", conversationId);
+  }
+}
+
+/**
+ * assertForwardingAddressOwnership — resolves when
+ * forwarding_addresses.user_id = userId. Direct user_id, no join (mirrors
+ * assertConversationOwnership). Throws OwnershipError otherwise/missing.
+ */
+export async function assertForwardingAddressOwnership(
+  db: OwnershipDb,
+  addressId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: ForwardingAddresses.userId })
+    .from(ForwardingAddresses)
+    .where(eq(ForwardingAddresses.id, addressId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("forwarding_address", addressId);
   }
 }
