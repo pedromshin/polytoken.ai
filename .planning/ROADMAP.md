@@ -218,12 +218,20 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 45-01-PLAN.md — THRD-01/04 schema: threads (importer-anchored) + emails.thread_id + forwarding_addresses tables, migration 0035 + RLS
 - [ ] 45-02-PLAN.md — THRD-01/02 pure thread-grouping domain service (Union-Find + Tier1 embedded-id + Tier2 subject/window) with real Gmail-forward .eml fixtures
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 45-03-PLAN.md — THRD-01 ThreadResolver port + Supabase adapter + ingest wiring + Email.thread_id + idempotent backfill
+- [ ] 45-06-PLAN.md — THRD-04 forwarding seam (web): getOrCreateMyAddress tRPC (CSPRNG token) + minimal surface + FORWARDING-RUNBOOK.md
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 45-04-PLAN.md — THRD-03 thread-grouped inbox (tenant-scoped tRPC projection + expandable UI + 45-UI-SPEC contract + human verify)
 - [ ] 45-05-PLAN.md — THRD-04 forwarding seam (FastAPI): recipient-token resolver + user-anchored importer creation + Gmail-verification mail ingested
-- [ ] 45-06-PLAN.md — THRD-04 forwarding seam (web): getOrCreateMyAddress tRPC (CSPRNG token) + minimal surface + FORWARDING-RUNBOOK.md
 
 ### Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier
 
