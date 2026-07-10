@@ -179,13 +179,24 @@ Plans:
 
 Plans:
 
+**Wave 1**
+
 - [ ] 44-01-PLAN.md — Schema anchoring + expand→backfill→contract migrations + enforcement-architecture decision + genui-unscoped docs
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 44-02-PLAN.md — Central ownership helper (@polytoken/db/ownership) with allow/deny matrix tests
 - [ ] 44-03-PLAN.md — FastAPI app-boundary enforcement (require X-User-Id + owned-importer scoping on emails + promote)
 - [ ] 44-04-PLAN.md — RLS defense-in-depth policies (auth.uid()) on user-owned tables
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 44-05-PLAN.md — tRPC sweep: emails router (reads + component mutations) → protectedProcedure + ownership
 - [ ] 44-06-PLAN.md — tRPC sweep: entities + entity-types + knowledge routers → protectedProcedure + ownership
 - [ ] 44-07-PLAN.md — tRPC sweep: chat + genui routers + attachments download route (closes 999.1 + IDOR)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 44-08-PLAN.md — Adversarial cross-tenant acceptance gate (vitest + pytest) + sweep inventory
 
 ### Phase 45: Email Threads + Forwarding Seam
