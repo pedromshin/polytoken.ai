@@ -48,11 +48,13 @@ test.describe("code-island runtime isolation", () => {
   });
 
   test("cannot read cookies / localStorage", async ({ page }) => {
-    const probe = `document.body.dataset.cookie = String(document.cookie);
+    // Opaque-origin frames THROW SecurityError synchronously on document.cookie
+    // (stronger isolation than a silent "" read) — both outcomes prove the jail.
+    const probe = `try { document.body.dataset.cookie = String(document.cookie); } catch (e) { document.body.dataset.cookie = e.name; }
       try { localStorage.length; document.body.dataset.ls = 'OK'; } catch (e) { document.body.dataset.ls = e.name; }`;
     await page.setContent(HOST_PAGE(buildIslandSrcdoc({ code: probe, nonce: "t" })));
     const body = page.frameLocator("#island").locator("body");
-    await expect(body).toHaveAttribute("data-cookie", "");
+    await expect(body).toHaveAttribute("data-cookie", /^(|SecurityError)$/);
     await expect(body).toHaveAttribute("data-ls", "SecurityError");
   });
 
