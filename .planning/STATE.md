@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-09T23:47:03.980Z"
-last_activity: 2026-07-09 -- Phase 43 Plan 02 complete (Google OAuth sign-in, middleware, sign-out)
+last_updated: "2026-07-10T00:04:47.237Z"
+last_activity: 2026-07-09 -- Phase 43 Plan 03 complete (tRPC ctx.user + protectedProcedure identity boundary)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
+  completed_plans: 7
   percent: 20
 ---
 
@@ -25,9 +25,9 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 43 (Auth — Google OAuth + Sessions (Supabase Auth)) — EXECUTING
-Plan: 43-02 EXECUTED, next up 43-03 of 5
+Plan: 43-03 EXECUTED, next up 43-04 of 5
 Status: Executing Phase 43
-Last activity: 2026-07-09 -- Phase 43 Plan 02 complete (Google OAuth sign-in, middleware, sign-out)
+Last activity: 2026-07-09 -- Phase 43 Plan 03 complete (tRPC ctx.user + protectedProcedure identity boundary)
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 
@@ -124,6 +124,32 @@ Last activity: 2026-07-09 -- Phase 43 Plan 02 complete (Google OAuth sign-in, mi
   Google OAuth round-trip is `human_needed` UAT (43-05 runbook, no real credentials in this
   autonomous run). See 43-02-SUMMARY.md. **Next: 43-03** (tRPC `createContext`/
   `protectedProcedure` identity plumbing).
+
+- **43-03 EXECUTED:** AUTH-03. Full RED→GREEN TDD cycle on `packages/api-client/src/trpc.ts`.
+  Task 1 — RED (`82c9d12`): failing `trpc.test.ts` for `ctx.user` + `protectedProcedure`
+  (identity-injection acceptance gate). GREEN (`aa4ebdd`): `createTRPCContext` now accepts
+  `{ headers, user: SessionUser | null }` (local dependency-free `SessionUser` type — no
+  `@supabase/supabase-js` import) and exposes `ctx.user`; new `protectedProcedure =
+  t.procedure.use(...)` throws `TRPCError({ code: "UNAUTHORIZED" })` when `ctx.user` is null,
+  otherwise narrows it non-null downstream; `publicProcedure`/superjson/errorFormatter
+  untouched. 5/5 new tests green, incl. the gate proving a resolver returns `ctx.user.id` even
+  when a client-supplied `input.userId` differs. **Deviation (Rule 1, bundled into `aa4ebdd`):**
+  6 pre-existing test files construct `appRouter.createCaller({ db, headers })` directly
+  (bypassing `createTRPCContext`) — the now-required `user` field broke their types; added
+  `user: null` to each (all exercise `publicProcedure` only, zero behavior change). Task 2
+  (`19f7fb4`): `apps/web/src/app/api/trpc/[trpc]/route.ts`'s `createContext` is now async —
+  awaits `~/lib/supabase/server`'s `createClient()`, calls `supabase.auth.getUser()`
+  (server-verified; grep-confirmed zero `getSession(` calls), passes `{ id, email }` or `null`
+  into `createTRPCContext`; `onError`/`GET`/`POST` preserved. **Deviation (Rule 3, not
+  committed — gitignored artifact):** `apps/web`'s `tsc` was shadowing Task 1's live
+  `trpc.ts` signature via `packages/api-client`'s stale `dist/index.d.ts` (a pre-`@nauta`→
+  `@polytoken`-rename build artifact, gitignored per `.gitignore:47`) — rebuilt via
+  `npm run build -w @polytoken/api-client`, `git status` confirmed no trackable change.
+  Full `packages/api-client` suite (22 files/216 tests) green; `apps/web tsc --noEmit` zero
+  new errors outside the `src/app/dev/design` baseline; grep-confirmed api-client stays
+  framework-agnostic (no `next/headers`/`@supabase/ssr` imports/deps). No existing router
+  yet consumes `protectedProcedure` — migrating individual procedures is left to the
+  tenancy/RLS work. See 43-03-SUMMARY.md. **Next: 43-04** (FastAPI identity forwarding).
 
 ## Phase 46 — Kickoff Hygiene / v1.8 Brand & Design Dossier — Plan History
 
@@ -2084,6 +2110,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 - 2026-07-09 (43-01): @supabase/ssr pinned at ^0.12.0 per STACK.md (not the plan's stale Task-0 "^0.5-^0.7" text) — verified 0.12.0 resolved, matches the researched pin exactly
 - 2026-07-09 (43-01): apps/web/vitest.config.ts gained SKIP_ENV_VALIDATION test env (deviation, not in the plan's files_modified) so importing env.ts during any test run never throws before assertions run — mirrors packages/api-client/vitest.config.ts's existing convention
 - 2026-07-09 (43-01): middleware.ts's updateSession() returns { response, user } with zero redirect/route-guard logic by design — that decision is explicitly Plan 02's responsibility, keeping "refresh the session" and "guard the route" as separate concerns
+- 2026-07-09 (43-03): SessionUser is a local minimal type ({ id, email? }) in trpc.ts, not imported from @supabase/supabase-js — keeps @polytoken/api-client dependency-free of Supabase (T-43-P3-04)
+- 2026-07-09 (43-03): protectedProcedure implemented as t.procedure.use() middleware (not a wrapper function) so TypeScript's own narrowing enforces non-null ctx.user for every consumer at compile time
 
 ## Performance Metrics
 
@@ -2179,6 +2207,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 46 P02 | ~15min | 2 tasks | 4 files |
 | Phase 43 P01 | 15min | 2 tasks | 8 files |
 | Phase 43 P02 | 12min | 3 tasks | 9 files |
+| Phase 43 P03 | ~10min | 2 tasks | 8 files |
 
 ## Operator Next Steps
 

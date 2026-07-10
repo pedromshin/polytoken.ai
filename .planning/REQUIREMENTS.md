@@ -17,7 +17,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **AUTH-01**: User can sign in with Google (Supabase Auth PKCE via `@supabase/ssr`) and the session persists across browser refresh
 - [x] **AUTH-02**: User can sign out; app surfaces require a session (signed-out visitors land on sign-in)
-- [ ] **AUTH-03**: tRPC procedures resolve the acting user server-side from the session context (the documented "no-auth" seam in `packages/api-client/src/trpc.ts`) — identity is never accepted from client input
+- [x] **AUTH-03**: tRPC procedures resolve the acting user server-side from the session context (the documented "no-auth" seam in `packages/api-client/src/trpc.ts`) — identity is never accepted from client input
 - [ ] **AUTH-04**: Server-side proxy routes to FastAPI forward the user's identity alongside `X-API-Key` (which remains the unchanged service-to-service boundary)
 - [x] **AUTH-05**: Google Cloud OAuth client creation + env configuration is user-runbook'd; missing auth env vars surface at startup
 
@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RENM-02 | Phase 42 | Complete |
 | AUTH-01 | Phase 43 | Complete |
 | AUTH-02 | Phase 43 | Complete |
-| AUTH-03 | Phase 43 | Pending |
+| AUTH-03 | Phase 43 | Complete |
 | AUTH-04 | Phase 43 | Pending |
 | AUTH-05 | Phase 43 | Complete |
 | TENA-01 | Phase 44 | Pending |

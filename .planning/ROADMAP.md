@@ -146,7 +146,7 @@ Plans:
 4. Server-side FastAPI proxy routes forward the user's identity; `X-API-Key` service boundary unchanged (existing service tests green)
 5. Missing auth env vars fail startup with a clear message; Google Cloud OAuth client runbook exists
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 
 Plans:
 **Wave 1**
@@ -156,7 +156,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 43-02-PLAN.md — Sign-in/out UX + route protection: middleware guard, /login + Continue-with-Google, /auth/callback, sidebar sign-out
-- [ ] 43-03-PLAN.md — tRPC session context + protectedProcedure + identity-injection test
+- [x] 43-03-PLAN.md — tRPC session context + protectedProcedure + identity-injection test
 - [ ] 43-04-PLAN.md — Identity forwarding: server-derived X-User-Id on BFF proxy routes + non-enforcing FastAPI reader
 
 **Wave 3** *(blocked on Wave 2 completion)*
