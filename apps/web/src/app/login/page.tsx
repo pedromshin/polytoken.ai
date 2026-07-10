@@ -9,6 +9,8 @@ import {
   CardTitle,
 } from "@polytoken/ui/card";
 
+import { BrandMark } from "~/components/brand-mark";
+
 import { GoogleSigninButton } from "./_components/google-signin-button";
 
 export const metadata: Metadata = {
@@ -28,15 +30,14 @@ export default function LoginPage(): React.ReactElement {
     <div className="flex min-h-[70vh] items-center justify-center p-6">
       <Card className="w-full max-w-sm">
         <CardHeader className="items-center text-center">
-          <span
-            aria-hidden
-            className="mb-2 flex size-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground"
-          >
-            P
-          </span>
-          <CardTitle>Sign in to Polytoken</CardTitle>
+          <BrandMark
+            variant="glyph"
+            size="size-8"
+            className="mb-2 text-primary"
+          />
+          <CardTitle>Welcome back to your workspace</CardTitle>
           <CardDescription>
-            Use your Google account to continue.
+            Pick up right where you left off — sign in with Google.
           </CardDescription>
         </CardHeader>
         <CardContent>
