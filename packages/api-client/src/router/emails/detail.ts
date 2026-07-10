@@ -4,8 +4,11 @@
  * Returns the full EmailView shape required by the Phase 5 review UI (05-UI-SPEC §9.1):
  *   { email, attachments, components }
  *
- * D-18 compliance: no DEFAULT_IMPORTER_ID / importerId filter — reads resolve
- * by email id only (tenancy boundary is not enforced until real auth lands).
+ * Tenancy (Phase 44, TENA-03): protectedProcedure requires a session; the
+ * target email's ownership is asserted via `assertEmailOwnership`
+ * (@polytoken/db/ownership) BEFORE any read — a missing email and one owned
+ * by another user both surface as NOT_FOUND (fail-closed, no existence
+ * oracle).
  *
  * T-05-01: input id validated as UUID via z.string().uuid() before any SQL.
  * T-05-03: all filters use Drizzle eq() parameterized builders — no string interpolation.
@@ -21,8 +24,10 @@ import {
   EntityTypes,
   ExtractionRecords,
 } from "@polytoken/db/schema";
+import { assertEmailOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 
 /**
  * emailDetailProcedures — a plain object of procedures, spread-merged into
@@ -35,12 +40,15 @@ export const emailDetailProcedures = {
   /**
    * detail — fetch a single email with its attachments and components.
    *
-   * Returns null if the email is not found (matches byId pattern).
-   * Never throws on a missing id.
+   * Throws NOT_FOUND when the email is missing or owned by another user.
    */
-  detail: publicProcedure
+  detail: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertEmailOwnership(ctx.db, input.id, ctx.user.id),
+      );
+
       // 1. Fetch the email row
       const emailRows = await ctx.db
         .select({

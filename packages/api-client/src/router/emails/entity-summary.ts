@@ -13,6 +13,14 @@
  *
  * T-05-01: input ids validated as UUIDs via z.string().uuid() before any SQL.
  * T-05-03: all filters use Drizzle parameterized builders — no interpolation.
+ *
+ * Tenancy (Phase 44, TENA-03): protectedProcedure requires a session. This
+ * procedure is importerId-keyed (email_components carries importer_id
+ * directly, per assertComponentOwnership's join pattern in
+ * @polytoken/db/ownership) — the query additionally filters to the caller's
+ * owned importer set via `userOwnedImporterIds`, so a foreign emailId slipped
+ * into the batch simply yields an empty entities[] entry rather than leaking
+ * another user's entity rollup.
  */
 
 import { and, eq, inArray, ne } from "drizzle-orm";
@@ -24,8 +32,9 @@ import {
   EntityInstances,
   EntityTypes,
 } from "@polytoken/db/schema";
+import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -160,7 +169,7 @@ export const emailEntitySummaryProcedures = {
    * page of email ids. Returns one entry per requested id (empty entities for
    * emails with no typed entity regions).
    */
-  entitySummary: publicProcedure
+  entitySummary: protectedProcedure
     .input(
       z.object({
         emailIds: z.array(z.string().uuid()).max(100),
@@ -171,12 +180,20 @@ export const emailEntitySummaryProcedures = {
         return [] as ReadonlyArray<EmailEntitySummary>;
       }
 
+      const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
+      if (owned.length === 0) {
+        return input.emailIds.map((emailId) => ({ emailId, entities: [] }));
+      }
+
       // Direct path (D-23): components flagged role='entity' with an
       // entity_type_id, joined to entity_types for labels. Rejected/superseded
       // regions are excluded so denied/redrawn boxes never produce chips.
       // D-24: leftJoin ComponentEntityCandidateLinks (wasSelected=true) and
       // EntityInstances (source='email_extracted') to surface entityInstanceId
       // for deep-link navigation to /entities/[id].
+      // T-44-05-01: importerId scoped to the caller's owned set — a foreign
+      // emailId slipped into the batch matches no owned-importer component and
+      // therefore contributes nothing to the aggregation.
       const rows = await ctx.db
         .select({
           emailId: EmailComponents.emailId,
@@ -206,6 +223,7 @@ export const emailEntitySummaryProcedures = {
         .where(
           and(
             inArray(EmailComponents.emailId, input.emailIds),
+            inArray(EmailComponents.importerId, owned),
             eq(EmailComponents.role, "entity"),
             ne(EmailComponents.extractionStatus, "rejected"),
             ne(EmailComponents.extractionStatus, "superseded"),
