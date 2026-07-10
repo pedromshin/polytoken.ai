@@ -120,6 +120,21 @@ guard scoped to those two paths — see `47-03-PLAN.md`'s acceptance criteria fo
 Historical research files under `.planning/research/` are intentionally exempt and retained as a
 record of the superseded directions.
 
+## 8. Design conventions
+
+Two design-convention docs sit alongside this guide and govern interactive-state styling and
+responsive layout across the re-skin:
+
+- [`hover-active-convention.md`](./hover-active-convention.md) — the ONE hover/active-state
+  derivation rule (D-48-06): neutral/ghost elements move to the accent surface pair on hover,
+  filled semantic elements self-intensify (`/90` then `/80`), with worked examples from this
+  phase's chips/badges.
+- [`breakpoint-decision.md`](./breakpoint-decision.md) — the breakpoint-awareness decision
+  (D-48-07): pack tokens stay breakpoint-static, the Tailwind `md` breakpoint (768px) is the
+  canvas → feed switch line, and a `.touch-target` (44px) guard protects interactive elements
+  regardless of pack density. Scopes what Phase 50's mobile-responsive answer may and may not
+  add.
+
 ---
 
 *Phase: 47-brand-foundation-verification-tooling*
