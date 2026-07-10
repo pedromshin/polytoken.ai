@@ -9,9 +9,21 @@
  * importer_id is a plain uuid with NO FK — mirrors the genui_generation_events
  * / ui_spec_templates idiom for optional tenant-scope columns (no coupling to
  * the importers lifecycle for this v1.3 spine).
+ *
+ * Phase 44 (tenancy): chat_conversations is NOT an importer-descendant (its
+ * importer_id has no FK), so it gets a DIRECT user_id referencing
+ * auth.users(id) rather than being scoped transitively through importers.
  */
 
-import { index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core";
+
+import { AuthUsers } from "./_auth";
 
 // ---------------------------------------------------------------------------
 // chat_conversations
@@ -23,6 +35,12 @@ export const ChatConversations = pgTable(
 
     // Tenant scope — nullable, no FK (mirrors genui_generation_events.importer_id).
     importerId: uuid("importer_id"),
+
+    // Phase 44 (tenancy): direct ownership anchor. Nullable during the expand
+    // migration step; contracted to NOT NULL once backfill completes.
+    userId: uuid("user_id").references(() => AuthUsers.id, {
+      onDelete: "cascade",
+    }),
 
     // D-12: first-user-message snippet, deterministic truncation, no LLM call.
     // Inline manual rename (CHAT-02) overwrites this value directly.
@@ -44,6 +62,11 @@ export const ChatConversations = pgTable(
     chatConversationsImporterUpdatedIdx: index(
       "idx_chat_conversations_importer_updated_at",
     ).on(t.importerId, t.updatedAt),
+
+    // Phase 44 (tenancy): ownership lookups by user.
+    chatConversationsUserIdIdx: index(
+      "idx_chat_conversations_user_id",
+    ).on(t.userId),
   }),
 );
 

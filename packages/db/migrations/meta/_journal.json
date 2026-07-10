@@ -218,6 +218,13 @@
       "when": 1783708800000,
       "tag": "0030_confirm_action_widget_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783795200000,
+      "tag": "0031_add_user_id_columns",
+      "breakpoints": true
     }
   ]
 }

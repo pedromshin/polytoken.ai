@@ -17,6 +17,10 @@
  * references (avoids coupling ledger retention to the runs/importers
  * lifecycle, since run rows themselves cascade-delete with their conversation
  * while the ledger row for that run must persist).
+ *
+ * Phase 44 (tenancy): chat_cost_ledger is NOT an importer-descendant (its
+ * importer_id has no FK), so it gets a DIRECT user_id referencing
+ * auth.users(id) rather than being scoped transitively through importers.
  */
 
 import {
@@ -29,6 +33,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 
+import { AuthUsers } from "./_auth";
 import { ChatConversations } from "./chat-conversations";
 
 // ---------------------------------------------------------------------------
@@ -50,6 +55,12 @@ export const ChatCostLedger = pgTable(
     runId: uuid("run_id"),
 
     importerId: uuid("importer_id").notNull(),
+
+    // Phase 44 (tenancy): direct ownership anchor. Nullable during the expand
+    // migration step; contracted to NOT NULL once backfill completes.
+    userId: uuid("user_id").references(() => AuthUsers.id, {
+      onDelete: "cascade",
+    }),
 
     modelId: text("model_id").notNull(),
 
@@ -78,6 +89,10 @@ export const ChatCostLedger = pgTable(
     chatCostLedgerConversationIdx: index(
       "idx_chat_cost_ledger_conversation_id",
     ).on(t.conversationId),
+    // Phase 44 (tenancy): ownership lookups by user.
+    chatCostLedgerUserIdIdx: index(
+      "idx_chat_cost_ledger_user_id",
+    ).on(t.userId),
   }),
 );
 
