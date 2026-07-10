@@ -124,8 +124,11 @@ message-oriented pipeline, and the v1.8 brand/design dossier prepared in paralle
 **Milestone progress:** Phase 42 (atomic rename) complete 2026-07-09; Phase 43 (Auth — Google
 OAuth + sessions via Supabase Auth, AUTH-01..05) complete 2026-07-10 — code-verified 5/5
 must-haves, 4 live-OAuth UAT items deferred to `43-HUMAN-UAT.md` pending user's
-`GOOGLE-OAUTH-RUNBOOK.md` setup. Phases 44 (tenancy), 45 (threads), 46 (hygiene/dossier — 1/3
-plans done) remain.
+`GOOGLE-OAUTH-RUNBOOK.md` setup. Phase 44 (Tenancy, TENA-01..04) complete 2026-07-10 —
+verification PASSED 5/5 after a same-run gap-closure cycle (44-09 closed the chat-SSE
+cross-tenant hole the adversarial gate discovered); migrations 0031-0034 applied locally
+(user_id anchoring + backfill + RLS on 13 tables); backlog 999.1 absorbed; attachments IDOR
+closed. Phases 45 (threads), 46 (hygiene/dossier — 1/3 plans done) remain.
 
 **Key context:** Opened autonomously (`/gsd:new-milestone /gsd:autonomous /strategic-compact
 /gsd:graphify`): E2 selected because VISION.md (freshest user-captured intent, 2026-07-07) names
