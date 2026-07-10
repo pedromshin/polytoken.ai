@@ -96,3 +96,12 @@ class SupabaseImporterRepository:
             importer_id=importer_id,
         )
         return importer_id
+
+    async def list_importer_ids_for_user(self, user_id: str) -> list[str]:
+        """Return the importer ids owned by user_id (Phase 44, TENA-03).
+
+        Empty list when the user owns no importers (fail-closed — callers
+        must never fall back to "all importers" on an empty result).
+        """
+        result = self._client.table("importers").select("id").eq("user_id", user_id).execute()
+        return [str(cast("dict[str, Any]", row)["id"]) for row in result.data]

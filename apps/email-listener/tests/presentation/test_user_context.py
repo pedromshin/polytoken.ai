@@ -1,8 +1,10 @@
-"""Tests for the additive, non-enforcing X-User-Id extractor (Phase 43-04, T-43-P4).
+"""Tests for X-User-Id extraction: non-enforcing (Phase 43-04) + enforcing (Phase 44-03, T-43-P4).
 
 Verifies:
 - extract_user_id returns the id when X-User-Id is present
 - extract_user_id returns None (never raises) when the header is absent
+- require_user_id returns the id when X-User-Id is present
+- require_user_id raises HTTPException(401) when the header is absent/empty
 - require_api_key's behavior is unchanged: a valid X-API-Key request still
   passes, and a missing/invalid key still 401s, exactly as before
 """
@@ -14,7 +16,7 @@ from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 from app.presentation.middleware.auth import require_api_key
-from app.presentation.middleware.user_context import USER_ID_HEADER, extract_user_id
+from app.presentation.middleware.user_context import USER_ID_HEADER, extract_user_id, require_user_id
 
 
 def _make_app() -> FastAPI:
@@ -22,6 +24,10 @@ def _make_app() -> FastAPI:
 
     @app.get("/user-context-probe")
     async def user_context_probe(user_id: str | None = Depends(extract_user_id)) -> dict[str, str | None]:
+        return {"user_id": user_id}
+
+    @app.get("/user-context-required-probe")
+    async def user_context_required_probe(user_id: str = Depends(require_user_id)) -> dict[str, str]:
         return {"user_id": user_id}
 
     @app.get("/api-key-probe", dependencies=[Depends(require_api_key)])
@@ -54,6 +60,30 @@ def test_extract_user_id_returns_none_when_header_absent(client: TestClient) -> 
     resp = client.get("/user-context-probe")
     assert resp.status_code == 200
     assert resp.json() == {"user_id": None}
+
+
+# ---------------------------------------------------------------------------
+# require_user_id — enforcing (Phase 44-03, Task 1 acceptance criteria)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_require_user_id_returns_id_when_header_present(client: TestClient) -> None:
+    resp = client.get("/user-context-required-probe", headers={USER_ID_HEADER: "user-123"})
+    assert resp.status_code == 200
+    assert resp.json() == {"user_id": "user-123"}
+
+
+@pytest.mark.unit
+def test_require_user_id_raises_401_when_header_absent(client: TestClient) -> None:
+    resp = client.get("/user-context-required-probe")
+    assert resp.status_code == 401
+
+
+@pytest.mark.unit
+def test_require_user_id_raises_401_when_header_empty(client: TestClient) -> None:
+    resp = client.get("/user-context-required-probe", headers={USER_ID_HEADER: ""})
+    assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------

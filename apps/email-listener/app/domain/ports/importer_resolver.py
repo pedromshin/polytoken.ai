@@ -25,3 +25,13 @@ class ImporterResolver(Protocol):
             Returns the configured default_importer_id for malformed senders.
         """
         ...
+
+    async def list_importer_ids_for_user(self, user_id: str) -> list[str]:
+        """Return the importer ids owned by user_id (Phase 44, TENA-03).
+
+        Returns an empty list when the user owns no importers — callers MUST
+        treat an empty list as "no accessible rows", never as "all importers"
+        (fail-closed; this is the owned-importer scoping primitive every
+        user-scoped FastAPI endpoint resolves ownership through).
+        """
+        ...
