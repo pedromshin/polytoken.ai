@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
 status: executing
-last_updated: "2026-07-10T20:31:42.000Z"
-last_activity: 2026-07-10 -- 48-03 complete (citation chip + chat canvas edge label -> rounded-pill; chat markdown + studio JSON pane code -> font-code; layers-tree-row/extraction-summary-panel/confirm-deny-controls confirmed-good visuals -> color.success, deny/stop untouched; textual before/after artifact recorded, live-browser capture OAuth-gated); 48-04 next
+last_updated: "2026-07-10T20:53:37.466Z"
+last_activity: 2026-07-10 -- 48-05 complete (docs/design/hover-active-convention.md records D-48-06, the ONE hover/active-state derivation rule with worked examples from ProvenanceLink/ConfirmDenyControls/TierFilterControl; docs/design/breakpoint-decision.md records D-48-07, answering all three required questions and scoping Phase 50's MAY/MAY NOT; brand-guide.md section 8 cites both); 48-04 still pending (parallel wave-2 plan, executed separately)
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 8
-  percent: 80
+  completed_plans: 9
+  percent: 20
 ---
 
 # State
@@ -29,9 +29,34 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 ## Current Position
 
 Phase: 48 (token-system-extensions) — EXECUTING
-Plan: 4 of 5
+Plan: 5 of 5
 Status: Executing Phase 48
-Last activity: 2026-07-10 -- 48-03 complete (citation chip + chat canvas edge label -> rounded-pill; chat markdown + studio JSON pane code -> font-code; layers-tree-row/extraction-summary-panel/confirm-deny-controls confirmed-good visuals -> color.success, deny/stop untouched; textual before/after artifact recorded, live-browser capture OAuth-gated); 48-04 next
+Last activity: 2026-07-10 -- 48-05 complete (docs/design/hover-active-convention.md records D-48-06, the ONE hover/active-state derivation rule with worked examples from ProvenanceLink/ConfirmDenyControls/TierFilterControl; docs/design/breakpoint-decision.md records D-48-07, answering all three required questions and scoping Phase 50's MAY/MAY NOT; brand-guide.md section 8 cites both); 48-04 still pending (parallel wave-2 plan, executed separately)
+
+## Phase 48 — Token System Extensions — Plan 05 History
+
+- **48-05 EXECUTED** (`b81e506` docs, `b59e0ed` docs, `948b12b` docs):
+  Recorded the two design CONVENTIONS the phase's must-haves required
+  (D-48-06/D-48-07) — docs-only, no code changes. `hover-active-convention.md`
+  fixes ONE hover/active derivation recipe (neutral/ghost elements move to the
+  accent surface pair on hover; filled semantic elements self-intensify via
+  `/90` then `/80`) with worked examples from this phase's own shipped chips:
+  `ProvenanceLink`'s citation chip, `ConfirmDenyControls`'s success confirm
+  affordance, and `TierFilterControl`'s tier filter (documented as the one
+  pinned-state exception: a selected/active segment suppresses the transient
+  hover step). `breakpoint-decision.md` records the D-48-07 decision already
+  referenced by 48-01's shipped mechanism: pack tokens stay
+  breakpoint-static, the Tailwind `md` breakpoint (768px) is the canvas->feed
+  switch line, `spacing.density` stays a single per-pack scalar with the
+  `.touch-target` (44px) guard protecting interactive elements regardless of
+  density, and a per-breakpoint token dimension is explicitly rejected this
+  milestone — Phase 50 MAY collapse the canvas to an inline feed below `md`
+  (and add a narrowly-scoped density mechanism only if genuinely needed) but
+  MAY NOT reopen the token-dimension question. Cites market evidence (ChatGPT
+  Canvas removed from mobile 2026-05-28; Claude Artifacts render inline on
+  mobile). `brand-guide.md` gained a new §8 citing both docs. Both grep-gated
+  verify blocks passed first try; no deviations. TOKN-06/TOKN-07 marked
+  Complete in REQUIREMENTS.md.
 
 ## Phase 48 — Token System Extensions — Plan 03 History
 
@@ -1799,7 +1824,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-48-03
+None
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -2741,6 +2766,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 47 P05 | 35 min | 2 tasks | 4 files |
 | Phase 48 P01 | 20min | 3 tasks | 9 files |
 | Phase 48 P02 | 40min | 2 tasks | 5 files |
+| Phase 48 P05 | 10min | 2 tasks | 3 files |
 
 ## Operator Next Steps
 

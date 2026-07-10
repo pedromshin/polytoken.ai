@@ -22,7 +22,7 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 - [x] **TOKN-03**: `typography.code.family` alias exists in all packs; `brutalist`'s display-family JetBrains Mono workaround is migrated onto it
 - [x] **TOKN-04**: Purpose-built tier-ladder tokens (e.g. `color.tier.inferred` / `color.tier.extracted`) exist and the knowledge tier badges consume them (no overloading of `color.accent`/`color.muted`)
 - [x] **TOKN-05**: A closed palette of graph node/edge-type tokens exists and the xyflow canvas consumes it for node-type differentiation (email/chat/knowledge/artifact) — zero raw hex (D-03/STYLE-03 holds)
-- [ ] **TOKN-06**: A hover/active interactive-state convention is defined once (documented derivation rule) and applied consistently across re-skinned surfaces
+- [x] **TOKN-06**: A hover/active interactive-state convention is defined once (documented derivation rule) and applied consistently across re-skinned surfaces
 - [x] **TOKN-07**: The breakpoint-awareness question (density/layout behavior across breakpoints) is resolved as a recorded design decision with a minimal working mechanism that MOBL builds on — scoped as a design conversation, not a single alias
 
 ### Total UI Re-skin (RSKN)
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | TOKN-03 | Phase 48 | Complete |
 | TOKN-04 | Phase 48 | Complete |
 | TOKN-05 | Phase 48 | Complete |
-| TOKN-06 | Phase 48 | Pending |
+| TOKN-06 | Phase 48 | Complete |
 | TOKN-07 | Phase 48 | Complete |
 | RSKN-01 | Phase 49 | Pending |
 | RSKN-02 | Phase 49 | Pending |
