@@ -8,6 +8,8 @@ import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
 import { emailDetailProcedures } from "./detail";
 import { emailEntitySummaryProcedures } from "./entity-summary";
+import { resolveListScope } from "./list-scope";
+import { emailThreadListProcedures } from "./list-threads";
 import { componentMutationProcedures } from "./mutations";
 
 /**
@@ -18,37 +20,13 @@ import { componentMutationProcedures } from "./mutations";
 const INBOX_SNIPPET_CHARS = 2000;
 
 /**
- * resolveListScope — decides which importer ids `emails.list` is allowed to
- * query, given the caller's server-verified owned set and an optional
- * client-supplied `importerId` filter (TENA-03 / T-44-05-01).
- *
- * - No requested importerId: scope to the caller's FULL owned set.
- * - Requested importerId is IN the owned set: narrow to just that one id (an
- *   explicit filter the caller asked for, validated against ownership first).
- * - Requested importerId is NOT in the owned set (or the caller owns
- *   nothing): `{ ok: false }` — the caller must get an empty result, never a
- *   query built from an unverified id.
- *
- * Exported for DB-free unit testing (same idiom as `shapeGalleryItem` /
- * `aggregateEntitySummary` elsewhere in this router).
+ * resolveListScope — decides which importer ids a list-style emails read
+ * (`list`, `listThreads`) is allowed to query. Defined in list-scope.ts (Phase
+ * 45 Plan 04, extracted to avoid a circular import with list-threads.ts) and
+ * re-exported here so existing `import { resolveListScope } from "../index"`
+ * call sites (e.g. emails-user-scoping.test.ts) keep working unchanged.
  */
-export function resolveListScope(
-  owned: ReadonlyArray<string>,
-  requestedImporterId: string | undefined,
-):
-  | { readonly ok: true; readonly importerIds: ReadonlyArray<string> }
-  | { readonly ok: false } {
-  if (owned.length === 0) {
-    return { ok: false };
-  }
-  if (requestedImporterId === undefined) {
-    return { ok: true, importerIds: owned };
-  }
-  if (!owned.includes(requestedImporterId)) {
-    return { ok: false };
-  }
-  return { ok: true, importerIds: [requestedImporterId] };
-}
+export { resolveListScope };
 
 /**
  * emailsRouter — access to the append-only `emails` table.
@@ -61,6 +39,7 @@ export function resolveListScope(
 export const emailsRouter = createTRPCRouter({
   ...emailDetailProcedures,
   ...emailEntitySummaryProcedures,
+  ...emailThreadListProcedures,
   ...componentMutationProcedures,
   /**
    * List emails, newest first, scoped to the caller's owned importers.
