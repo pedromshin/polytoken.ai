@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: executing
-last_updated: "2026-07-10T05:10:00.000Z"
-last_activity: 2026-07-10 -- Phase 44 Plan 08 (adversarial cross-tenant acceptance gate, TENA-03 complete) executed -- Phase 44 fully executed 8/8 plans
+status: verifying
+last_updated: "2026-07-10T06:05:46.079Z"
+last_activity: "2026-07-10 -- Phase 44 Plan 09 (gap closure: chat SSE per-user authorization, TENA-03 gap CLOSED) executed"
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 18
+  total_plans: 19
   completed_plans: 18
-  percent: 64
+  percent: 60
 ---
 
 # State
@@ -24,10 +24,33 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — COMPLETE (8/8 plans)
-Plan: 8 of 8 (final -- adversarial acceptance gate)
-Status: Phase 44 complete, ready for Phase 45 (email threads) / verify-work
-Last activity: 2026-07-10 -- Phase 44 Plan 08 (adversarial cross-tenant acceptance gate, TENA-03 complete) executed
+Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — COMPLETE (9/9 plans, incl. Plan 09 gap closure)
+Plan: 9 of 9 (gap closure -- chat SSE per-user authorization)
+Status: Phase 44 fully complete (no open gaps), ready for Phase 45 (email threads) / verify-work
+Last activity: 2026-07-10 -- Phase 44 Plan 09 (gap closure: chat SSE per-user authorization, TENA-03 gap CLOSED) executed
+
+## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 09 History
+
+- **44-09 EXECUTED** (`a4bd0d7` feat, `3733512` feat, `cc5fb60` docs): gap
+  closure plan -- closes the chat SSE tenancy gap discovered + locked at
+  Plan 08 (`POST /v1/chat/stream`, `/regenerate`, `/widget/submit` had ZERO
+  `require_user_id` enforcement). `ChatConversationRepository` gained
+  `owner_user_id` (Protocol + Supabase impl); all three endpoints now run
+  `require_user_id` + a pre-stream `assert_conversation_owned` (404
+  fail-closed, mirrors `emails.py`'s `_assert_importer_owned`) BEFORE any
+  `StreamingResponse` is constructed (required -- `run()`/`.regenerate()`/
+  `prepare()` are lazy async generators). The chat confirm_action dispatch
+  path now threads the caller's `user_id` through
+  `SubmitWidgetInteraction.prepare()` -> `_dispatch_confirm_action` ->
+  `ConfirmActionHandler.execute()` -> `KnowledgeEdgeTierPromotionHandler.execute()`
+  -> `PromoteEdgeUseCase.execute(user_id=...)`, finally activating the 44-03
+  `tenant_mismatch` guard on that path. All 4 former `xfail(strict=True)`
+  regressions in the renamed `test_chat_sse_user_scoping.py` now pass as
+  enforced-contract tests (10 tests total, zero xfail). `44-SWEEP-INVENTORY.md`'s
+  "Known Gap" section marked CLOSED (exploit path retained for provenance).
+  Full FastAPI suite: 1258 passed/9 skipped/zero xfailed (was 1248/9/4xfail
+  at 44-08) -- xfail count reduced by exactly 4 as required. Zero deviations
+  -- plan executed exactly as written. Full detail: `44-09-SUMMARY.md`.
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 08 History
 
