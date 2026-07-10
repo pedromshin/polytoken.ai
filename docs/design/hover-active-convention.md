@@ -78,16 +78,20 @@ generalizes across semantic fills without a new per-color table.
 radiogroup:
 
 ```
-active:  border-primary bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground
+active:  border-tier-extracted bg-tier-extracted font-semibold text-tier-extracted-foreground hover:bg-tier-extracted hover:text-tier-extracted-foreground
 inactive: border-border bg-background text-muted-foreground
 ```
+
+*(Updated 2026-07-10: 48-04 migrated this control's active segment from the generic `primary`
+pair onto the purpose-built `tier-extracted` pair — the recipe below is unchanged, only the
+alias moved.)*
 
 The **inactive** segments are the neutral/ghost case (unselected `Button variant="outline"`
 picks up the component's own accent-pair hover by default — no override needed here). The
 **active** (currently-selected) segment is the documented exception this rule allows: once a
 segment is pinned to its selected/persistent-active state, hover is intentionally a no-op
-(`hover:bg-primary hover:text-primary-foreground` reasserts the same values rather than
-intensifying further). Selected state already represents the "engaged" tier for a toggle/radio
+(`hover:bg-tier-extracted hover:text-tier-extracted-foreground` reasserts the same values rather
+than intensifying further). Selected state already represents the "engaged" tier for a toggle/radio
 control; further intensifying it on hover would read as a second, competing state change and
 risk being mistaken for a transient hover on an otherwise-static selection. **This is the one
 allowed deviation from the two-row table above** — persistent selected/active state suppresses

@@ -17,11 +17,11 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 
 ### Token-System Extensions (TOKN)
 
-- [x] **TOKN-01**: `radius.pill` alias exists in `TOKEN_ALIASES` and all 6 style packs, and chips/tabs/pills (citation chips, follow-up chips, tab pills) consume it
+- [x] **TOKN-01**: `radius.pill` alias exists in `TOKEN_ALIASES` and all 6 style packs, and the existing chip surfaces consume it (citation chip `ProvenanceLink` + chat-canvas edge label; no follow-up-chip or pill-shaped-tab component exists in the app — studio tabs are underline-by-design, deliberately excluded per D-48-01 discretion; pill-tab treatment, if wanted, belongs to Phase 49's studio re-skin) *(wording amended 2026-07-10 per 48-VERIFICATION override)*
 - [x] **TOKN-02**: `color.success` / `color.successForeground` exist in all packs (WCAG-AA verified via the existing per-pack contrast gate) pairing the existing destructive side
 - [x] **TOKN-03**: `typography.code.family` alias exists in all packs; `brutalist`'s display-family JetBrains Mono workaround is migrated onto it
 - [x] **TOKN-04**: Purpose-built tier-ladder tokens (e.g. `color.tier.inferred` / `color.tier.extracted`) exist and the knowledge tier badges consume them (no overloading of `color.accent`/`color.muted`)
-- [x] **TOKN-05**: A closed palette of graph node/edge-type tokens exists and the xyflow canvas consumes it for node-type differentiation (email/chat/knowledge/artifact) — zero raw hex (D-03/STYLE-03 holds)
+- [x] **TOKN-05**: A closed palette of graph node/edge-type tokens exists and the `/knowledge` xyflow canvas consumes it for node-type differentiation (entity / email-component / email — the canvas's actual categories; the `/chat` canvas's node types were already token-driven) — zero raw hex (D-03/STYLE-03 holds) *(wording amended 2026-07-10: original "(email/chat/knowledge/artifact)" was the design dossier's generic illustration, never this codebase's node set)*
 - [x] **TOKN-06**: A hover/active interactive-state convention is defined once (documented derivation rule) and applied consistently across re-skinned surfaces
 - [x] **TOKN-07**: The breakpoint-awareness question (density/layout behavior across breakpoints) is resolved as a recorded design decision with a minimal working mechanism that MOBL builds on — scoped as a design conversation, not a single alias
 
