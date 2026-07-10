@@ -225,6 +225,20 @@
       "when": 1783795200000,
       "tag": "0031_add_user_id_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783881600000,
+      "tag": "0032_backfill_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783968000000,
+      "tag": "0033_user_id_not_null",
+      "breakpoints": true
     }
   ]
 }

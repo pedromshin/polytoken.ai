@@ -56,11 +56,11 @@ export const ChatCostLedger = pgTable(
 
     importerId: uuid("importer_id").notNull(),
 
-    // Phase 44 (tenancy): direct ownership anchor. Nullable during the expand
-    // migration step; contracted to NOT NULL once backfill completes.
-    userId: uuid("user_id").references(() => AuthUsers.id, {
-      onDelete: "cascade",
-    }),
+    // Phase 44 (tenancy): direct ownership anchor. Contracted to NOT NULL
+    // after the expand→backfill migration sequence.
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => AuthUsers.id, { onDelete: "cascade" }),
 
     modelId: text("model_id").notNull(),
 

@@ -36,11 +36,11 @@ export const ChatConversations = pgTable(
     // Tenant scope — nullable, no FK (mirrors genui_generation_events.importer_id).
     importerId: uuid("importer_id"),
 
-    // Phase 44 (tenancy): direct ownership anchor. Nullable during the expand
-    // migration step; contracted to NOT NULL once backfill completes.
-    userId: uuid("user_id").references(() => AuthUsers.id, {
-      onDelete: "cascade",
-    }),
+    // Phase 44 (tenancy): direct ownership anchor. Contracted to NOT NULL
+    // after the expand→backfill migration sequence.
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => AuthUsers.id, { onDelete: "cascade" }),
 
     // D-12: first-user-message snippet, deterministic truncation, no LLM call.
     // Inline manual rename (CHAT-02) overwrites this value directly.

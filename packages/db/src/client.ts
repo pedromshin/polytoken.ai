@@ -9,6 +9,10 @@ export const env = createEnv({
   server: {
     POSTGRES_URL: z.string().url(),
     POSTGRES_URL_NON_POOLING: z.string().url(),
+    // Phase 44 (tenancy): override for the 0032 backfill migration when the
+    // local auth.users table has 0 or >1 rows (fail-loud otherwise). Never
+    // required for normal operation — migrate.ts only reads it.
+    BACKFILL_USER_ID: z.string().uuid().optional(),
   },
   // eslint-disable-next-line no-restricted-properties
   runtimeEnv: process.env,

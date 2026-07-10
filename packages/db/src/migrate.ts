@@ -18,30 +18,41 @@ const runMigrate = async (): Promise<void> => {
   const pool = new Pool({ connectionString });
 
   try {
-    // Ensure required extensions exist before running migrations
+    // A single dedicated connection for the whole run: extension setup, the
+    // optional BACKFILL_USER_ID session GUC, and the migration transaction
+    // itself must all share one Postgres session so the 0032 backfill
+    // migration's `current_setting('app.backfill_user_id', true)` can see
+    // whatever was SET here (Phase 44, D-05). Using the pool directly for
+    // `drizzle()` would let the migration transaction run on a different
+    // connection than the one the GUC was set on.
     const client = await pool.connect();
+
     try {
       await client.query("CREATE EXTENSION IF NOT EXISTS vector");
       await client.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
       await client.query("CREATE EXTENSION IF NOT EXISTS pg_trgm");
       console.log("✅ Extensions verified (vector, uuid-ossp, pg_trgm)");
-    } finally {
-      client.release();
-    }
 
-    const db = drizzle(pool);
+      if (env.BACKFILL_USER_ID) {
+        await client.query("SET app.backfill_user_id = $1", [
+          env.BACKFILL_USER_ID,
+        ]);
+        console.log(
+          `⚠️  BACKFILL_USER_ID override active: ${env.BACKFILL_USER_ID}`,
+        );
+      }
 
-    console.log("⏳ Running migrations...");
-    const start = Date.now();
+      const db = drizzle(client);
 
-    await migrate(db, { migrationsFolder: "migrations" });
+      console.log("⏳ Running migrations...");
+      const start = Date.now();
 
-    const end = Date.now();
+      await migrate(db, { migrationsFolder: "migrations" });
 
-    // Verify tables were created
-    const countClient = await pool.connect();
-    try {
-      const result = await countClient.query(
+      const end = Date.now();
+
+      // Verify tables were created
+      const result = await client.query(
         "SELECT count(*) FROM pg_tables WHERE schemaname = 'public'",
       );
       const tableCount =
@@ -50,7 +61,7 @@ const runMigrate = async (): Promise<void> => {
         `✅ Migrations completed in ${end - start}ms (${tableCount} tables)`,
       );
     } finally {
-      countClient.release();
+      client.release();
     }
   } catch (error) {
     console.error("❌ Migration failed");
