@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.7
-milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: Awaiting next milestone
-last_updated: "2026-07-10T10:37:43.642Z"
-last_activity: 2026-07-10 — Milestone v1.7 completed and archived
+milestone: v1.8
+milestone_name: Cortex Re-skin — Brand, Design System & Responsive Canvas
+status: planning
+last_updated: "2026-07-10T16:40:43.742Z"
+last_activity: 2026-07-10
 progress:
-  total_phases: 5
-  completed_phases: 5
-  total_plans: 25
-  completed_plans: 25
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State
@@ -28,10 +28,10 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 
 ## Current Position
 
-Phase: Milestone v1.7 complete (tag v1.7 LOCAL — push deferred: main push triggers ECS deploy)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting v1.8 kickoff (user decisions) — start with /gsd:new-milestone
-Last activity: 2026-07-10 — Milestone v1.7 completed, archived, tagged (autonomous run)
+Status: Defining requirements
+Last activity: 2026-07-10 — Milestone v1.8 started
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
 

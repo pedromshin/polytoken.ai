@@ -119,6 +119,47 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
+## Current Milestone: v1.8 Cortex Re-skin — Brand, Design System & Responsive Canvas
+
+**Goal:** The product looks and feels like Cortex — the warm second-brain companion — everywhere:
+brand identity applied, total UI re-skin executed on an EXTENDED (never discarded) v1.4 token
+system, a market-validated mobile answer for the canvas, and genui panels upgraded from read-only
+renders to live editing surfaces.
+
+**Target features:**
+- **Brand application (Cortex, DSSR-01 Direction B):** voice/copy register (warm, companion,
+  first-person), logo mark (rounded node/brain hybrid; existing teal `color.primary` kept),
+  login/marketing-facing chrome, favicon/titles; naming-collision mitigation documented
+  (SEO differentiation vs the existing `polytoken` CLI dev tool — no purchases/registrations)
+- **Token-system extensions (DSSR-02 punch list):** `radius.pill`; `color.success`/
+  `color.successForeground`; `typography.code.family`; purpose-built tier-ladder tokens
+  (INFERRED/EXTRACTED — novel, no competitor precedent); closed graph node/edge-type palette for
+  the xyflow canvas; hover/active-state convention; breakpoint-awareness scoped as its own design
+  conversation before the mobile answer implements
+- **Total UI re-skin on extended tokens:** chat, thread inbox, knowledge canvas, studio,
+  settings/login — Cortex register throughout, zero raw hex (D-03/STYLE-03), token-driven
+- **Mobile-responsive answer:** list/feed view on small screens, canvas on desktop; inline-first
+  posture market-validated (ChatGPT removed Canvas 2026-05-28 over cross-surface inconsistency;
+  Claude Artifacts render inline on mobile)
+- **Editable genui panels / studio-on-canvas (absorbs backlog 999.7):** per-panel controls to
+  switch `style_pack_id`, tweak spec parameters, and regenerate variants in place — the versioned
+  node-type registry (CANVAS-03), threaded style_pack_id, and DTCG pack engine were left open for
+  exactly this
+- **Design Engine cheap slice (from backlog 999.4):** promptable design system as the
+  generation-side of panel re-theming (DSGN-03 flavor); DSGN-02 visual-compare repair and DSGN-04
+  screenshot/URL→token extraction stay deferred — not "cheap"
+- **Visual verification unblocked:** the v1.7 one-new-dependency freeze lifts — install
+  `@playwright/test` (+ firefox), execute the parked code-island isolation + auth-redirect specs,
+  and use screenshot-driven review for the re-skin
+
+**Key context:** Opened autonomously under the user's explicit "DO EVERYTHING" mandate
+(2026-07-10). Brand direction = the dossier's own recommendation (Cortex), adopted as a documented,
+reversible default — it is a voice/visual register, NOT a code rename; domain posture stays
+polytoken.ai. Both dossier docs at `.planning/research/v1.8-design/` are the milestone's research
+base (fresh, web-researched 2026-07-10). User-gated leftovers from v1.7 remain open in STATE.md
+Deferred Items (OAuth runbook, deploys, external renames) — auth-gated visual UAT items become
+naturally verifiable once the user completes the OAuth runbook. Phase numbering continues from 46.
+
 ## v1.7 Milestone Detail (SHIPPED 2026-07-10 — archived: milestones/v1.7-ROADMAP.md)
 
 **Goal:** Turn the validated substrate into a product foundation — VISION.md E2's
@@ -471,4 +512,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-10 after v1.7 milestone*
+*Last updated: 2026-07-10 after v1.8 milestone open*
