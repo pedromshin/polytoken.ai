@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-05 | Phase 43 | Complete |
 | TENA-01 | Phase 44 | Complete |
 | TENA-02 | Phase 44 | Complete |
-| TENA-03 | Phase 44 | Pending |
+| TENA-03 | Phase 44 | Pending (spans Plans 02/03/05/06/07/08 — Plan 02 delivered the ownership helper; the requirement completes at Plan 08's adversarial gate) |
 | TENA-04 | Phase 44 | Complete |
 | THRD-01 | Phase 45 | Pending |
 | THRD-02 | Phase 45 | Pending |

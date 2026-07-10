@@ -91,7 +91,20 @@ Each task was committed atomically (Task 1 as its own RED→GREEN pair):
 
 ## Deviations from Plan
 
-None — plan executed exactly as written. (The chain-stub fixture note above is a correction to an inaccurate premise in the plan's `<interfaces>` context, not a deviation in the Rule 1-4 sense: no bug was fixed, no missing-critical functionality was added, no blocker was resolved, and no architectural change was made. The task's own literal instruction — "mirror the DB-free stub style" with a fallback of building one if absent — was followed as written.)
+### Auto-fixed Issues
+
+**1. [Rule 1 - Bug] Reverted premature TENA-03 "Complete" mark in REQUIREMENTS.md**
+- **Found during:** State-update step (`requirements.mark-complete TENA-03`, run per this plan's own frontmatter `requirements: [TENA-03]`)
+- **Issue:** `TENA-03` is listed in the frontmatter of SIX plans in this phase (02, 03, 05, 06, 07, 08 — grep-verified), not just this one. Its own REQUIREMENTS.md text explicitly requires "every web route and tRPC procedure derives tenant scope... proven by an adversarial cross-tenant test that is a phase acceptance gate" — a condition only Plan 44-08 (the adversarial-suite plan) actually proves. The mechanical `requirements.mark-complete` command flipped the checkbox to `[x]`/"Complete" after this plan (which only ships the ownership *helper*, not the sweep), which would misrepresent phase status to any reader of REQUIREMENTS.md.
+- **Fix:** Reverted the checkbox to `[ ]` and the traceability table row to `Pending (spans Plans 02/03/05/06/07/08 — Plan 02 delivered the ownership helper; the requirement completes at Plan 08's adversarial gate)`.
+- **Files modified:** `.planning/REQUIREMENTS.md`
+- **Verification:** Manual re-read of REQUIREMENTS.md confirms `TENA-03` now correctly shows as outstanding until Plan 08.
+- **Committed in:** this plan's metadata commit
+
+---
+
+**Total deviations:** 1 auto-fixed (Rule 1 — documentation-correctness bug in requirement-completion tracking)
+**Impact on plan:** No code impact — this is purely a `.planning/REQUIREMENTS.md` bookkeeping correction so the phase's true completion state isn't overstated. The chain-stub fixture note below documents a correction to an inaccurate premise in the plan's `<interfaces>` context, not a Rule 1-4 deviation itself: no bug was fixed, no missing-critical functionality was added, no blocker was resolved, and no architectural change was made — the task's own literal instruction ("mirror the DB-free stub style" with an implicit fallback of building one if absent) was followed as written.
 
 ## Issues Encountered
 

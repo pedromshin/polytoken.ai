@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T02:00:29.370Z"
-last_activity: 2026-07-10 -- Phase 44 execution started
+last_updated: "2026-07-10T02:19:16.818Z"
+last_activity: 2026-07-10 -- Phase 44 Plan 02 (central ownership helper) executed
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 18
-  completed_plans: 10
+  completed_plans: 11
   percent: 40
 ---
 
@@ -25,9 +25,24 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Executing Phase 44
-Last activity: 2026-07-10 -- Phase 44 execution started
+Last activity: 2026-07-10 -- Phase 44 Plan 02 (central ownership helper) executed
+
+## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 02 History
+
+- **44-02 EXECUTED** (`eb221e5` test, `a76095f` feat, `c2e028f` feat): central ownership
+  helper. `packages/db/src/ownership.ts` exports `userOwnedImporterIds` +
+  `assertImporterOwnership`/`assertEmailOwnership`/`assertComponentOwnership`/
+  `assertConversationOwnership` + `OwnershipError`, every function taking the Drizzle
+  handle as its first parameter (never importing the `db` singleton). Fail-closed:
+  missing row and other-user row both throw the identical `OwnershipError`. Full TDD
+  RED→GREEN cycle (15/15 tests) using a from-scratch fake-Drizzle-chain fixture — no
+  prior ctx.db-mocking precedent existed in this repo. Exported via a new
+  `@polytoken/db/ownership` subpath + root barrel re-export; `packages/db` typecheck
+  clean. Note: `packages/api-client`'s typecheck is pre-existing RED (Plan 01's
+  `user_id NOT NULL` on `chat_conversations`/`chat_cost_ledger` broke two insert call
+  sites) — expected, scoped to Plan 44-07. Full detail: `44-02-SUMMARY.md`.
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 01 History
 
@@ -1971,6 +1986,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-10 (44-02): Central ownership helper (`@polytoken/db/ownership` — userOwnedImporterIds + 4 assert* functions + OwnershipError) built TDD via a from-scratch fake-Drizzle-chain test fixture, since no ctx.db-mocking precedent existed in this repo (every prior router test exercises DB-free pure helpers only) — ownership.ts IS the query itself, so that convention couldn't cover it
 - 2026-06-10: ECS Fargate (user-confirmed) over App Runner; generic webhook over SES-shaped; full 4-layer skeleton; shared ALB with staging on :8080
 - 2026-06-12 (04-07): D-14 structural: region in user turn only, system prompt never contains document content
 - 2026-06-12 (04-07): Cold-start: entity_type.description as KB, examples=() always (Plan 04-08 adds retrieval)
@@ -2265,6 +2281,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 43 P03 | ~10min | 2 tasks | 8 files |
 | Phase 43 P04 | 25 min | 2 tasks | 6 files |
 | Phase 44 P01 | 45min | 3 tasks | 14 files |
+| Phase 44 P44-02 | 30min | 2 tasks | 5 files |
 
 ## Operator Next Steps
 

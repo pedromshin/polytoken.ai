@@ -175,7 +175,7 @@ Plans:
 4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
 5. genui exact-match cache tables deliberately unscoped, documented
 
-**Plans:** 1/8 plans executed
+**Plans:** 2/8 plans executed
 
 Plans:
 
@@ -185,7 +185,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 44-02-PLAN.md — Central ownership helper (@polytoken/db/ownership) with allow/deny matrix tests
+- [x] 44-02-PLAN.md — Central ownership helper (@polytoken/db/ownership) with allow/deny matrix tests
 - [ ] 44-03-PLAN.md — FastAPI app-boundary enforcement (require X-User-Id + owned-importer scoping on emails + promote)
 - [ ] 44-04-PLAN.md — RLS defense-in-depth policies (auth.uid()) on user-owned tables
 
