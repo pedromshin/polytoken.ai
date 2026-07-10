@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T03:25:05.328Z"
-last_activity: 2026-07-10 -- Phase 44 Plan 05 (emails router ownership sweep) executed
+last_updated: "2026-07-10T04:01:11.000Z"
+last_activity: 2026-07-10 -- Phase 44 Plan 06 (entities/entity-types/knowledge router sweep) executed
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 18
-  completed_plans: 14
-  percent: 40
+  completed_plans: 15
+  percent: 43
 ---
 
 # State
@@ -25,9 +25,33 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Executing Phase 44
-Last activity: 2026-07-10 -- Phase 44 Plan 05 (emails router ownership sweep) executed
+Last activity: 2026-07-10 -- Phase 44 Plan 06 (entities/entity-types/knowledge router sweep) executed
+
+## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 06 History
+
+- **44-06 EXECUTED** (`c41e286` feat, `d3a0455` feat, `f8110b6` feat): entities +
+  entity-types + knowledge tRPC router sweep (9 files, 14 procedures) onto
+  `protectedProcedure` + `@polytoken/db/ownership`. `entities.list`/`knowledge.list`
+  scope via `userOwnedImporterIds` + a shared `resolveListScope` extracted to new
+  `router/_scope.ts`; `entities.byId`/`knowledge.byId` load-then-assert the row's
+  importer (`NOT_FOUND` for foreign, `null`-for-missing preserved); merge/unmerge
+  assert EVERY referenced entity id before the FastAPI proxy. `entityTypes.list`
+  returns system defaults (importer_id IS NULL) OR owned overrides (field rows scoped
+  in the leftJoin ON clause); entity-type WRITES are ownership-gated — NULL-importer
+  system defaults are FORBIDDEN (seed-only, T-44-06-04) and `create` is rejected
+  outright (FastAPI only mints system defaults; "reject" fork of the plan's own
+  choice). `knowledge.graph` drops client-importerId trust for owned derivation,
+  keeps the isNull taxonomy OR-branch (D-02 never-blank), bounds EVERY sub-query
+  incl. the previously UNSCOPED D-11 explicit-edge union (innerJoin source node);
+  `knowledge.expandNode` gains the seed-ownership gate (T-44-06-03, closes "expand
+  any node id"). 32 new tenancy regressions (11 entities + 13 knowledge + 8
+  entity-types-write); full suite 25 files/268 tests green; tsc unchanged at exactly
+  the 2 known chat `user_id` errors (Plan 44-07 scope). 1 Rule-1 deviation:
+  `entities/mutations.test.ts` (raw-resolver idiom, no ctx) broken by the gate and
+  fixed like 44-05's siblings. TENA-03 intentionally left Pending (completes at Plan
+  08's adversarial gate). Full detail: `44-06-SUMMARY.md`.
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 05 History
 
