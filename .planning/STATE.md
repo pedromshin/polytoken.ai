@@ -1,7 +1,7 @@
 ---
 gsd_state_version: 1.0
 milestone: v1.8
-milestone_name: Cortex Re-skin — Brand, Design System & Responsive Canvas
+milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
 status: planning
 last_updated: "2026-07-10T17:20:00.000Z"
 last_activity: 2026-07-10

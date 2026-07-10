@@ -10,7 +10,7 @@
 - ✅ **v1.5 — Knowledge-Graph Uplift** (Phases 29–32) — SHIPPED 2026-07-08. Activated the dormant knowledge-graph substrate: confirms materialize confidence-tiered edges (OCR token provenance) through a suggest-only promotion gate; cheap alias/identifier recall + a measurable retrieval-miss-rate gate for stage 3; `/knowledge` tiered exploration canvas (encoding, bounded expand, filter, promote). Archived: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md) · Audit: [milestones/v1.5-MILESTONE-AUDIT.md](milestones/v1.5-MILESTONE-AUDIT.md).
 - ✅ **v1.6 — Chat × Knowledge Convergence** (Phases 33–41) — SHIPPED 2026-07-09. The chat agent reads its own extracted data: bounded mid-turn tool loop + 3 tiered knowledge tools with structural injection quarantine, per-round cost ceilings, visible tool rounds with citation chips, live data-bound panels, chat-confirmable promotions, and a knowledge-preview canvas node. Archived: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · Audit: [milestones/v1.6-MILESTONE-AUDIT.md](milestones/v1.6-MILESTONE-AUDIT.md).
 - ✅ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — SHIPPED 2026-07-10. Atomic internal rename nauta → polytoken, Google OAuth + sessions (Supabase Auth), enforced per-user tenancy (app-boundary primary + RLS defense-in-depth, adversarially gated), email threads at ingest + personal-forwarding seam, hygiene folds + decision-ready v1.8 dossier. Archived: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) · Audit: [milestones/v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md).
-- ◆ **v1.8 — Cortex Re-skin — Brand, Design System & Responsive Canvas** (Phases 47–51) — IN PROGRESS (opened 2026-07-10). Total UI re-skin on an EXTENDED (never discarded) v1.4 token system in the Cortex voice (warm second-brain companion): brand identity application, token-system extensions (pill radius, success color, code typography, tier-ladder + graph node/edge-type tokens, hover/active convention, breakpoint decision), a market-validated mobile-responsive canvas answer, and genui panels upgraded from read-only renders to live editing surfaces (absorbs backlog 999.7 + the cheap slice of 999.4 Design Engine). Research: [research/v1.8-design/BRAND-IDENTITY-OPTIONS.md](research/v1.8-design/BRAND-IDENTITY-OPTIONS.md), [research/v1.8-design/DESIGN-PATTERN-DOSSIER.md](research/v1.8-design/DESIGN-PATTERN-DOSSIER.md).
+- ◆ **v1.8 — Polytoken Re-skin — Brand, Design System & Responsive Canvas** (Phases 47–51) — IN PROGRESS (opened 2026-07-10). Total UI re-skin on an EXTENDED (never discarded) v1.4 token system in the polytoken voice (warm second-brain companion; naming USER-LOCKED to polytoken/polytoken.ai 2026-07-10): brand identity application, token-system extensions (pill radius, success color, code typography, tier-ladder + graph node/edge-type tokens, hover/active convention, breakpoint decision), a market-validated mobile-responsive canvas answer, and genui panels upgraded from read-only renders to live editing surfaces (absorbs backlog 999.7 + the cheap slice of 999.4 Design Engine). Research: [research/v1.8-design/BRAND-IDENTITY-OPTIONS.md](research/v1.8-design/BRAND-IDENTITY-OPTIONS.md), [research/v1.8-design/DESIGN-PATTERN-DOSSIER.md](research/v1.8-design/DESIGN-PATTERN-DOSSIER.md).
 
 ## Phases
 
@@ -122,7 +122,7 @@ Full detail: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md). Audit `te
 
 </details>
 
-## v1.8 — Cortex Re-skin — Brand, Design System & Responsive Canvas (Phases 47–51) — CURRENT
+## v1.8 — Polytoken Re-skin — Brand, Design System & Responsive Canvas (Phases 47–51) — CURRENT
 
 23 requirements mapped (see REQUIREMENTS.md traceability). Dependency chain: 47 → 48 → 49 → 50;
 Phase 51 depends only on Phase 48 and is independent/parallelizable with 49/50 (per the dossier's
@@ -133,30 +133,30 @@ chips, MOBL's breakpoint decision). Research base:
 [research/v1.8-design/BRAND-IDENTITY-OPTIONS.md](research/v1.8-design/BRAND-IDENTITY-OPTIONS.md),
 [research/v1.8-design/DESIGN-PATTERN-DOSSIER.md](research/v1.8-design/DESIGN-PATTERN-DOSSIER.md).
 
-- [ ] **Phase 47: Brand Foundation + Verification Tooling** — Cortex brand identity (voice, logo, guide) documented and applied to login/chrome; Playwright + screenshot harness installed and working
+- [ ] **Phase 47: Brand Foundation + Verification Tooling** — polytoken brand identity (voice, logo, guide) documented and applied to login/chrome; Playwright + screenshot harness installed and working
 - [ ] **Phase 48: Token-System Extensions** — v1.4 DTCG token system extended with pill radius, success color, code typography, tier-ladder tokens, graph node/edge palette, hover/active convention, breakpoint decision
-- [ ] **Phase 49: Total UI Re-skin** — chat, inbox, knowledge canvas, studio, settings, login re-skinned in the Cortex register on extended tokens, zero raw hex
+- [ ] **Phase 49: Total UI Re-skin** — chat, inbox, knowledge canvas, studio, settings, login re-skinned in the polytoken register on extended tokens, zero raw hex
 - [ ] **Phase 50: Mobile-Responsive Answer** — canvas surfaces collapse to list/feed on small screens; core flows usable on a mobile viewport
 - [ ] **Phase 51: Editable Genui Panels / Studio-on-Canvas** — canvas genui panels become live editing surfaces (style-pack switch, spec tweak, regenerate, promptable re-theme)
 
 ### Phase 47: Brand Foundation + Verification Tooling
 
-**Goal:** The product has a documented Cortex brand identity ready to apply — voice, logo mark, brand guide — and a working visual-verification toolchain (Playwright + screenshot harness) exists for every subsequent re-skin phase to use.
+**Goal:** The product has a documented polytoken brand identity ready to apply — voice, logo mark, brand guide — and a working visual-verification toolchain (Playwright + screenshot harness) exists for every subsequent re-skin phase to use.
 **Depends on:** Nothing (first phase)
 **Requirements:** BRND-01, BRND-02, BRND-03, VRFY-01, VRFY-02
 **Success criteria:**
 
-1. Login page, empty states, sidebar chrome, page titles, and toasts speak the Cortex register (warm, first-person copy — "Your workspace", not systems vocabulary)
+1. Login page, empty states, sidebar chrome, page titles, and toasts speak the polytoken register (warm, first-person copy — "Your workspace", not systems vocabulary)
 2. A committed logo mark (rounded node/brain hybrid SVG, anchored on the existing teal `color.primary`) renders in the sidebar brand slot, login card, and favicon
-3. PROJECT.md records the brand decision + naming-collision mitigation posture (explicitly noting no domain purchase, no trademark filing — user-gated); an in-repo brand guide documents voice, do/don't, and mark usage
+3. PROJECT.md records the brand decision + USER-LOCKED naming (polytoken/polytoken.ai, collision explicitly accepted) plus what stays user-gated (domain purchase, trademark filing); an in-repo brand guide documents voice, do/don't, and mark usage
 4. `@playwright/test` (+ firefox) is installed; the parked code-island isolation spec runs green on chromium AND firefox, and the auth-redirect spec runs green (closes todo 2026-07-10-playwright-code-island-isolation-run)
 5. A screenshot-driven visual review harness exists (Playwright screenshots of surfaces across packs/viewports) and produces a reviewable artifact
 
 **Plans:** 5 plans (2 waves)
 
 Plans:
-- [ ] 47-01-PLAN.md — Cortex brand mark + login/sidebar chrome (BRND-02 + BRND-01 slice)
-- [ ] 47-02-PLAN.md — Cortex copy sweep: titles, empty states, toasts (BRND-01)
+- [ ] 47-01-PLAN.md — polytoken brand mark + login/sidebar chrome (BRND-02 + BRND-01 slice)
+- [ ] 47-02-PLAN.md — polytoken copy sweep: titles, empty states, toasts (BRND-01)
 - [ ] 47-03-PLAN.md — Brand guide + PROJECT.md Key Decisions entry (BRND-03)
 - [ ] 47-04-PLAN.md — Playwright toolchain + parked specs green on chromium+firefox (VRFY-01)
 - [ ] 47-05-PLAN.md — Screenshot review harness across surfaces/viewports (VRFY-02)
@@ -177,15 +177,15 @@ Plans:
 
 ### Phase 49: Total UI Re-skin
 
-**Goal:** Every major product surface — chat, inbox, knowledge canvas, studio, settings, login — speaks the Cortex register on the extended token system, with token discipline holding throughout.
+**Goal:** Every major product surface — chat, inbox, knowledge canvas, studio, settings, login — speaks the polytoken register on the extended token system, with token discipline holding throughout.
 **Depends on:** Phase 48 (consumes tier-ladder + graph-palette tokens on the knowledge canvas, pill/success/code tokens elsewhere)
 **Requirements:** RSKN-01, RSKN-02, RSKN-03, RSKN-04, RSKN-05
 **Success criteria:**
 
-1. `/chat` (composer, message stream, tool-round activity rows, citation chips) is re-skinned in the Cortex register on extended tokens
+1. `/chat` (composer, message stream, tool-round activity rows, citation chips) is re-skinned in the polytoken register on extended tokens
 2. The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
 3. `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on the TOKN-05 palette
-4. `/studio`, `/settings/*`, and `/login` are re-skinned in the Cortex register
+4. `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
 5. Zero raw hex outside token sources holds across the re-skin; the existing WCAG-AA contrast + token-family registration regression gates stay green and extend to the new TOKN-* aliases
 
 **Plans:** TBD

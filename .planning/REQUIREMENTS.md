@@ -1,9 +1,9 @@
-# Requirements: polytoken — v1.8 Cortex Re-skin
+# Requirements: polytoken — v1.8 Polytoken Re-skin
 
 **Defined:** 2026-07-10
 **Core Value:** Reliably receive every inbound email and make it observable — now wrapped in a product that looks and feels like the personal AI workspace VISION describes.
 
-Sources: `.planning/research/v1.8-design/BRAND-IDENTITY-OPTIONS.md` (DSSR-01, Cortex adopted),
+Sources: `.planning/research/v1.8-design/BRAND-IDENTITY-OPTIONS.md` (DSSR-01; naming USER-LOCKED to polytoken 2026-07-10, alternates purged),
 `.planning/research/v1.8-design/DESIGN-PATTERN-DOSSIER.md` (DSSR-02, 8-item token punch list),
 VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (promptable design).
 
@@ -11,9 +11,9 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 
 ### Brand Application (BRND)
 
-- [ ] **BRND-01**: All user-facing copy speaks the Cortex register (warm, companion, first-person — "Your workspace", not systems vocabulary) across login, empty states, sidebar chrome, page titles, and toasts
+- [ ] **BRND-01**: All user-facing copy speaks the polytoken brand register (warm, companion, first-person — "Your workspace", not systems vocabulary; the product always names itself polytoken) across login, empty states, sidebar chrome, page titles, and toasts
 - [ ] **BRND-02**: A committed logo mark exists (rounded node/brain hybrid SVG, anchored on the existing teal `color.primary`) and is used in the sidebar brand slot, login card, and favicon
-- [ ] **BRND-03**: The brand decision and naming-collision mitigation posture are recorded — PROJECT.md Key Decisions entry + an in-repo brand guide (voice, do/don't, mark usage) — explicitly noting what was NOT done (no domain purchase, no trademark filing; user-gated)
+- [ ] **BRND-03**: The brand decision is recorded — PROJECT.md Key Decisions entry + an in-repo brand guide (voice, do/don't, mark usage) — capturing the USER-LOCKED naming (polytoken / polytoken.ai, alternates purged, CLI-tool collision explicitly accepted by the user) and what remains user-gated (domain purchase, trademark filing)
 
 ### Token-System Extensions (TOKN)
 
@@ -27,10 +27,10 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 
 ### Total UI Re-skin (RSKN)
 
-- [ ] **RSKN-01**: `/chat` is re-skinned in the Cortex register on extended tokens — composer, message stream, tool-round activity rows, citation chips
+- [ ] **RSKN-01**: `/chat` is re-skinned in the polytoken register on extended tokens — composer, message stream, tool-round activity rows, citation chips
 - [ ] **RSKN-02**: The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
 - [ ] **RSKN-03**: `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on TOKN-05 palette
-- [ ] **RSKN-04**: `/studio`, `/settings/*`, and `/login` are re-skinned in the Cortex register
+- [ ] **RSKN-04**: `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
 - [ ] **RSKN-05**: The re-skin holds the token discipline: zero raw hex outside token sources, existing WCAG-AA contrast + token-family registration regression gates stay green and extend to the new aliases
 
 ### Mobile-Responsive Answer (MOBL)
@@ -59,7 +59,7 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 
 ### Brand/Design
 
-- **CNVP-01**: Canvas-first 7th style pack (Constellation register) — dossier follow-up #7, low priority under Cortex
+- **CNVP-01**: Canvas-first 7th style pack (spatial register) — dossier follow-up #7, low priority
 
 ## Out of Scope
 
@@ -71,7 +71,7 @@ VISION.md E2 remainder, backlog 999.7 (editable panels) + 999.4 cheap slice (pro
 | Native mobile apps | VISION E2: web-first, mobile-responsive only |
 | Tailwind v4 / React 19 migration (999.12) | Orthogonal platform risk; keeping the re-skin on the stable stack |
 | Marketing site | Brand applies in-app first; site is post-v1.8 / launch work |
-| Renaming code/packages to "Cortex" | Cortex is a brand voice/visual register, NOT a code identity; polytoken code scope stays |
+| Any product/brand name other than polytoken | USER-LOCKED 2026-07-10: "everything will be called polytoken and domain polytoken.ai. everything else is purged" |
 
 ## Traceability
 

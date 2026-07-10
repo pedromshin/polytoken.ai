@@ -9,7 +9,7 @@ is reversible and documented; none involves purchases, registrations, or externa
 <domain>
 ## Phase Boundary
 
-The product gains a documented, applied Cortex brand identity (voice + logo mark + brand guide) and
+The product gains a documented, applied polytoken brand identity (voice + logo mark + brand guide) and
 a working visual-verification toolchain (Playwright browsers + a screenshot harness) that every
 subsequent v1.8 phase uses as its review instrument. This phase does NOT re-skin surfaces beyond
 brand-copy/mark touchpoints (that is Phase 49), does NOT add tokens (Phase 48), and never touches
@@ -20,12 +20,16 @@ external dashboards (no domain purchase, no trademark filing, no OAuth work).
 <decisions>
 ## Implementation Decisions
 
-### D-47-01 (LOCKED): Brand direction = Cortex (DSSR-01 Direction B)
-Warm, human, companion register — "remember, recall, connect, your workspace"; first-person surface
-framing ("Your Cortex"-style naming is allowed in copy but product/app name in chrome stays
-"polytoken" until the user makes the naming call — the Cortex REGISTER is adopted, a rename is NOT).
-Voice reference points: Notion AI / Mem approachability, never infra vocabulary in user-facing copy.
-Source: BRAND-IDENTITY-OPTIONS.md Recommendation section, adopted as documented default.
+### D-47-01 (USER-LOCKED 2026-07-10): Brand name = polytoken, domain = polytoken.ai
+The user locked this mid-run: "everything will be called polytoken and domain polytoken.ai.
+everything else is purged." ALL alternate brand names/directions (Cortex/Nodal/Lattice/
+Constellation) are purged from product copy and docs — the product always names itself polytoken.
+The known CLI-tool name collision (docs.polytoken.dev) was explicitly ACCEPTED by the user: record
+as accepted risk in the brand guide; do NOT frame product copy around avoiding it.
+Voice/copy REGISTER (tone only): warm, human, companion — "remember, recall, connect, your
+workspace"; first-person surface framing; Notion AI / Mem approachability; never infra vocabulary
+in user-facing copy. (Tone grounded in VISION's north star; carries over from the dossier's
+Direction B ANALYSIS only — no alternate naming survives.)
 
 ### D-47-02 (LOCKED): Logo mark
 Rounded, organic node/brain hybrid — interlocking soft-edged shapes, NOT sharp graph lines, NOT an
@@ -39,9 +43,9 @@ included for small sizes.
 `docs/design/brand-guide.md` (sits beside the existing `docs/design/product-register-and-bans.md`,
 which stays authoritative for bans — glassmorphism ban etc. — the brand guide references it, never
 contradicts it). Contents: voice principles + do/don't table, mark usage (clear space, min sizes,
-monochrome rules), the collision-mitigation posture (SEO differentiation vs the `polytoken` CLI
-tool at docs.polytoken.dev; personal-productivity search intent), and an explicit "NOT done —
-user-gated" list (domain purchase, trademark search/filing, product rename decision).
+monochrome rules), the USER-LOCKED naming record (polytoken / polytoken.ai; alternates purged; the `polytoken`
+CLI-tool collision at docs.polytoken.dev explicitly accepted by the user 2026-07-10), and an
+explicit "user-gated" list (domain purchase, trademark search/filing).
 
 ### D-47-04 (LOCKED): Playwright toolchain shape
 `@playwright/test` as a devDependency (workspace root or apps/web per repo convention — planner
@@ -107,7 +111,7 @@ framing. All copy changes are string-level.
 <deferred>
 ## Deferred Ideas
 
-- Product rename to Cortex (if ever) — user decision, explicitly NOT this phase or milestone.
+- (superseded) Any product rename — PURGED by the user 2026-07-10: the name is polytoken, permanently.
 - Marketing-site brand application — post-v1.8.
 - CI integration of Playwright runs — local-only this milestone.
 

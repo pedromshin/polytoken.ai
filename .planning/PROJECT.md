@@ -119,25 +119,26 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
-## Current Milestone: v1.8 Cortex Re-skin — Brand, Design System & Responsive Canvas
+## Current Milestone: v1.8 Polytoken Re-skin — Brand, Design System & Responsive Canvas
 
-**Goal:** The product looks and feels like Cortex — the warm second-brain companion — everywhere:
+**Goal:** The product looks and feels like polytoken — a warm second-brain companion — everywhere:
 brand identity applied, total UI re-skin executed on an EXTENDED (never discarded) v1.4 token
 system, a market-validated mobile answer for the canvas, and genui panels upgraded from read-only
 renders to live editing surfaces.
 
 **Target features:**
-- **Brand application (Cortex, DSSR-01 Direction B):** voice/copy register (warm, companion,
-  first-person), logo mark (rounded node/brain hybrid; existing teal `color.primary` kept),
-  login/marketing-facing chrome, favicon/titles; naming-collision mitigation documented
-  (SEO differentiation vs the existing `polytoken` CLI dev tool — no purchases/registrations)
+- **Brand application (polytoken — USER-LOCKED):** name polytoken, domain polytoken.ai
+  ("everything else is purged" — user, 2026-07-10); voice/copy register stays warm/companion
+  (VISION-grounded), logo mark (rounded node/brain hybrid; existing teal `color.primary` kept),
+  login/marketing-facing chrome, favicon/titles; the CLI-tool name collision was explicitly
+  ACCEPTED by the user (no purchases/registrations — still user-gated)
 - **Token-system extensions (DSSR-02 punch list):** `radius.pill`; `color.success`/
   `color.successForeground`; `typography.code.family`; purpose-built tier-ladder tokens
   (INFERRED/EXTRACTED — novel, no competitor precedent); closed graph node/edge-type palette for
   the xyflow canvas; hover/active-state convention; breakpoint-awareness scoped as its own design
   conversation before the mobile answer implements
 - **Total UI re-skin on extended tokens:** chat, thread inbox, knowledge canvas, studio,
-  settings/login — Cortex register throughout, zero raw hex (D-03/STYLE-03), token-driven
+  settings/login — polytoken register throughout, zero raw hex (D-03/STYLE-03), token-driven
 - **Mobile-responsive answer:** list/feed view on small screens, canvas on desktop; inline-first
   posture market-validated (ChatGPT removed Canvas 2026-05-28 over cross-surface inconsistency;
   Claude Artifacts render inline on mobile)
@@ -153,9 +154,9 @@ renders to live editing surfaces.
   and use screenshot-driven review for the re-skin
 
 **Key context:** Opened autonomously under the user's explicit "DO EVERYTHING" mandate
-(2026-07-10). Brand direction = the dossier's own recommendation (Cortex), adopted as a documented,
-reversible default — it is a voice/visual register, NOT a code rename; domain posture stays
-polytoken.ai. Both dossier docs at `.planning/research/v1.8-design/` are the milestone's research
+(2026-07-10). Brand: USER-LOCKED 2026-07-10: the product is named **polytoken**, domain **polytoken.ai** — "everything else is purged". The name collision with the existing polytoken CLI tool was explicitly ACCEPTED by the user (recorded as accepted risk, not a mitigation target). The dossier's Cortex recommendation was initially adopted as the
+autonomous default and then OVERRIDDEN by this user decision; only the warm/companion copy TONE
+(grounded in VISION's own north star) carries over, speaking as polytoken. Both dossier docs at `.planning/research/v1.8-design/` are the milestone's research
 base (fresh, web-researched 2026-07-10). User-gated leftovers from v1.7 remain open in STATE.md
 Deferred Items (OAuth runbook, deploys, external renames) — auth-gated visual UAT items become
 naturally verifiable once the user completes the OAuth runbook. Phase numbering continues from 46.
