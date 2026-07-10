@@ -15,9 +15,11 @@ Task 3 adds a real/representative-fixture integration test at the bottom.
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 _BASE = datetime(2026, 1, 1, tzinfo=UTC)
 _WINDOW = timedelta(days=14)
+_FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "threads"
 
 
 def _email(
@@ -336,3 +338,78 @@ def test_tier2_ambiguous_subject_match_across_two_threads_stays_split() -> None:
     groups = _group_emails([thread_a, thread_b, ambiguous])
 
     assert groups == [("a5",), ("b5",), ("amb5",)]
+
+
+# ---------------------------------------------------------------------------
+# Task 3: real/representative .eml fixtures via parse_mime (anti-fragmentation)
+# ---------------------------------------------------------------------------
+
+
+def _parse_fixture(filename: str):
+    from app.domain.services.mime_parser import parse_mime
+
+    raw = (_FIXTURES_DIR / filename).read_bytes()
+    return parse_mime(raw)
+
+
+def _threadable_from_parsed(parsed, *, thread_id: str):
+    from app.domain.services.thread_grouping import ThreadableEmail
+
+    return ThreadableEmail(
+        id=thread_id,
+        message_id=parsed.message_id,
+        in_reply_to=parsed.in_reply_to,
+        references_ids=parsed.references_ids,
+        subject=parsed.subject,
+        received_at=parsed.received_at or _BASE,
+        body_text=parsed.body_text,
+        body_html=parsed.body_html,
+    )
+
+
+def test_reply_chain_fixture_via_real_mime_parsing_groups_into_one_thread() -> None:
+    """A real RFC 5322 reply (In-Reply-To + References), parsed via parse_mime,
+
+    threads correctly with its two earlier chain members (Tier 0, real-parser path).
+    """
+    parsed_reply = _parse_fixture("reply_chain_headers.eml")
+    reply = _threadable_from_parsed(parsed_reply, thread_id="reply")
+
+    original = _email(
+        "original",
+        message_id="<a-original@example.com>",
+        subject="Q1 shipment update",
+        received_at=_BASE,
+    )
+    middle = _email(
+        "middle",
+        message_id="<b-reply@example.com>",
+        in_reply_to="<a-original@example.com>",
+        subject="Re: Q1 shipment update",
+        received_at=_BASE + timedelta(hours=1),
+    )
+
+    groups = _group_emails([original, middle, reply])
+
+    assert groups == [("original", "middle", "reply")]
+
+
+def test_gmail_forward_fixture_does_not_fragment_the_thread() -> None:
+    """THRD-02 acceptance: a Gmail-UI-forward .eml (References/In-Reply-To stripped)
+
+    still joins its original thread via the Tier 1 embedded-Message-ID fallback —
+    the forward does NOT fragment into a separate thread.
+    """
+    parsed_forward = _parse_fixture("gmail_forward_stripped.eml")
+    forward = _threadable_from_parsed(parsed_forward, thread_id="forward")
+
+    original = _email(
+        "original2",
+        message_id="<booking-original@example.com>",
+        subject="Booking confirmation BK-2026-0417",
+        received_at=_BASE,
+    )
+
+    groups = _group_emails([original, forward])
+
+    assert groups == [("original2", "forward")]
