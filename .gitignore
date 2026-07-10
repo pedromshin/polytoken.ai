@@ -47,4 +47,8 @@ apps/web/.next/
 packages/api-client/dist/
 *.tsbuildinfo
 
+# Playwright artifacts
+apps/web/test-results/
+apps/web/playwright-report/
+
 .env*
