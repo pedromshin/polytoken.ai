@@ -14,7 +14,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "screenshot:review": "playwright test --config playwright.screenshot.config.ts"
   },
   "dependencies": {
     "@dagrejs/dagre": "^3.0.0",
