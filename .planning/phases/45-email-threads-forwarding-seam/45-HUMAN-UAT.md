@@ -55,12 +55,35 @@ components, or visual language beyond what `45-UI-SPEC.md` specifies. The
 change reads as "the same inbox, now grouped" rather than a redesign.
 result: [pending]
 
+### 5. Gmail-forward fixture realism (THRD-02)
+expected: Forward a real email to yourself from Gmail's UI, save the raw
+message (`Show original` → Download), and confirm
+`apps/email-listener/tests/fixtures/threads/gmail_forward_stripped.eml`
+matches its header shape (References/In-Reply-To stripped, `Fwd:` subject,
+embedded original headers in body). Replace the constructed fixture with the
+real one if they differ; re-run
+`uv run pytest tests/domain/services/test_thread_grouping.py --no-cov`.
+result: [pending]
+
+### 6. Forwarding round-trip end-to-end (FORWARDING-RUNBOOK.md)
+expected: Following `FORWARDING-RUNBOOK.md`: SES catch-all routes
+`u-{token}@{domain}` to the listener; Gmail's destination-verification email
+arrives, is ingested (visible in the inbox — never dropped), and its
+verification code/link is readable; after confirming, real forwarded mail
+lands under an importer anchored to your user.
+result: [pending]
+
+### 7. Verification-code visibility in product UI
+expected: The Gmail verification email's code is findable via the app UI
+(inbox → email detail) without needing direct DB access.
+result: [pending]
+
 ## Summary
 
-total: 4
+total: 7
 passed: 0
 issues: 0
-pending: 4
+pending: 7
 skipped: 0
 blocked: 0
 
