@@ -164,3 +164,175 @@ def test_group_and_member_order_is_deterministic_regardless_of_input_order() -> 
 def test_empty_input_returns_empty_list() -> None:
     """No emails -> no groups."""
     assert _group_emails([]) == []
+
+
+# ---------------------------------------------------------------------------
+# normalize_subject
+# ---------------------------------------------------------------------------
+
+
+def test_normalize_subject_strips_single_re_prefix() -> None:
+    from app.domain.services.thread_grouping import normalize_subject
+
+    assert normalize_subject("Re: Shipment update") == "shipment update"
+
+
+def test_normalize_subject_strips_repeated_mixed_prefixes() -> None:
+    """Fwd:/Re:/Fw:/Enc:/Res: (case-insensitive) strip in any repeated combination."""
+    from app.domain.services.thread_grouping import normalize_subject
+
+    assert normalize_subject("Fwd: Re: Fw: Enc: Res: Quarterly report") == "quarterly report"
+
+
+def test_normalize_subject_collapses_whitespace_and_lowercases() -> None:
+    from app.domain.services.thread_grouping import normalize_subject
+
+    assert normalize_subject("  Multiple   Spaces   Here  ") == "multiple spaces here"
+
+
+def test_normalize_subject_empty_or_none_or_whitespace_returns_empty_string() -> None:
+    from app.domain.services.thread_grouping import normalize_subject
+
+    assert normalize_subject(None) == ""
+    assert normalize_subject("") == ""
+    assert normalize_subject("   ") == ""
+
+
+# ---------------------------------------------------------------------------
+# extract_embedded_message_ids
+# ---------------------------------------------------------------------------
+
+
+def test_extract_embedded_message_ids_finds_forwarded_block_id() -> None:
+    from app.domain.services.thread_grouping import extract_embedded_message_ids
+
+    body = (
+        "---------- Forwarded message ---------\n"
+        "From: Jane <jane@example.com>\n"
+        "Date: Mon, Jan 5, 2026 at 9:00 AM\n"
+        "Subject: Re: Q1 shipment\n"
+        "To: Bob <bob@example.com>\n"
+        "Message-ID: <original123@mail.example.com>\n"
+        "\n"
+        "See below.\n"
+    )
+
+    assert extract_embedded_message_ids(body, None) == ("<original123@mail.example.com>",)
+
+
+def test_extract_embedded_message_ids_dedupes_across_text_and_html() -> None:
+    from app.domain.services.thread_grouping import extract_embedded_message_ids
+
+    text = "Message-ID: <dup@x>\n"
+    html = "Message-ID: <dup@x>\n"
+
+    assert extract_embedded_message_ids(text, html) == ("<dup@x>",)
+
+
+def test_extract_embedded_message_ids_returns_empty_tuple_when_none_present() -> None:
+    from app.domain.services.thread_grouping import extract_embedded_message_ids
+
+    assert extract_embedded_message_ids("Just a normal reply, no forward block.", None) == ()
+    assert extract_embedded_message_ids(None, None) == ()
+
+
+# ---------------------------------------------------------------------------
+# Tier 1: embedded-Message-ID fallback (forward strips References/In-Reply-To)
+# ---------------------------------------------------------------------------
+
+
+def test_tier1_forwarded_email_with_embedded_message_id_joins_existing_thread() -> None:
+    """A Gmail-forward with References stripped but an embedded original Message-ID joins that thread."""
+    original = _email("orig", message_id="<orig@x>", subject="Contract renewal", received_at=_BASE)
+    forwarded = _email(
+        "fwd",
+        message_id="<fwd@x>",
+        # References/In-Reply-To stripped by Gmail UI forward — no header link at all
+        subject="Fwd: Contract renewal",
+        received_at=_BASE + timedelta(days=1),
+        body_text=(
+            "---------- Forwarded message ---------\n"
+            "From: Jane <jane@example.com>\n"
+            "Date: Thu, Jan 1, 2026 at 12:00 AM\n"
+            "Subject: Contract renewal\n"
+            "To: Bob <bob@example.com>\n"
+            "Message-ID: <orig@x>\n"
+            "\n"
+            "FYI.\n"
+        ),
+    )
+
+    groups = _group_emails([original, forwarded])
+
+    assert groups == [("orig", "fwd")]
+
+
+# ---------------------------------------------------------------------------
+# Tier 2: conservative subject + window fallback
+# ---------------------------------------------------------------------------
+
+
+def test_tier2_subject_and_window_match_joins_when_no_header_or_embedded_link() -> None:
+    """No header link, no embedded id, but matching normalized subject within window -> joins."""
+    original = _email("orig2", message_id="<orig2@x>", subject="Booking confirmation", received_at=_BASE)
+    forwarded = _email(
+        "fwd2",
+        message_id="<fwd2@x>",
+        subject="Fwd: Booking confirmation",
+        received_at=_BASE + timedelta(days=3),
+    )
+
+    groups = _group_emails([original, forwarded], window=timedelta(days=14))
+
+    assert groups == [("orig2", "fwd2")]
+
+
+def test_tier2_subject_match_outside_window_stays_split() -> None:
+    """Same normalized subject but outside the bounded window -> does NOT merge."""
+    original = _email("orig3", message_id="<orig3@x>", subject="Renewal notice", received_at=_BASE)
+    forwarded = _email(
+        "fwd3",
+        message_id="<fwd3@x>",
+        subject="Fwd: Renewal notice",
+        received_at=_BASE + timedelta(days=30),
+    )
+
+    groups = _group_emails([original, forwarded], window=timedelta(days=14))
+
+    assert groups == [("orig3",), ("fwd3",)]
+
+
+def test_tier2_empty_subject_never_merges() -> None:
+    """Empty/generic subject never triggers the Tier 2 fallback (false-split beats false-merge)."""
+    original = _email("orig4", message_id="<orig4@x>", subject="", received_at=_BASE)
+    forwarded = _email(
+        "fwd4",
+        message_id="<fwd4@x>",
+        subject="",
+        received_at=_BASE + timedelta(hours=1),
+    )
+
+    groups = _group_emails([original, forwarded])
+
+    assert groups == [("orig4",), ("fwd4",)]
+
+
+def test_tier2_ambiguous_subject_match_across_two_threads_stays_split() -> None:
+    """A normalized subject matching two distinct existing components is ambiguous -> does NOT merge."""
+    thread_a = _email("a5", message_id="<a5@x>", subject="Status update", received_at=_BASE)
+    thread_b = _email(
+        "b5",
+        message_id="<b5@x>",
+        subject="Status update",
+        received_at=_BASE + timedelta(hours=1),
+    )
+    ambiguous = _email(
+        "amb5",
+        message_id="<amb5@x>",
+        subject="Fwd: Status update",
+        received_at=_BASE + timedelta(hours=2),
+    )
+
+    groups = _group_emails([thread_a, thread_b, ambiguous])
+
+    assert groups == [("a5",), ("b5",), ("amb5",)]
