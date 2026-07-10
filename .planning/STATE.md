@@ -2,16 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: milestone_complete
-last_updated: 2026-07-10T10:25:22.458Z
-last_activity: 2026-07-10 -- Phase 46 Plan 03 complete (DSSR-01/02 v1.8 brand-identity options + design-pattern dossier; Phase 46 fully executed 3/3 plans)
+status: Awaiting next milestone
+last_updated: "2026-07-10T10:37:43.642Z"
+last_activity: 2026-07-10 — Milestone v1.7 completed and archived
 progress:
   total_phases: 5
   completed_phases: 5
   total_plans: 25
   completed_plans: 25
   percent: 100
-stopped_at: Milestone complete (Phase 46 was final phase)
 ---
 
 # State
@@ -25,10 +24,10 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 46
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-07-10
+Phase: Milestone v1.7 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-07-10 — Milestone v1.7 completed and archived
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
 
@@ -1367,11 +1366,29 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
 
 ## Deferred Items
 
+### v1.7 (acknowledged and deferred at the v1.7 milestone close, 2026-07-10)
+
+Acknowledged autonomously per the user's standing directive (v1.6 precedent). Audit status
+tech_debt, 0 blockers — full detail in `.planning/milestones/v1.7-MILESTONE-AUDIT.md`.
+
+| Category | Item | Status |
+|----------|------|--------|
+| todo | 2026-07-07-knowledge-preexisting-ui-debt | pending |
+| todo | 2026-07-09-knowledge-cache-invalidation-gap | pending |
+| todo | 2026-07-10-playwright-code-island-isolation-run | pending (needs @playwright/test + firefox; blocked in v1.7 by the one-new-dependency guardrail) |
+| uat_gap | 43-HUMAN-UAT.md — 4 scenarios (live Google OAuth round-trip, session persistence, sign-out, Playwright auth-redirect) | partial — gated on user's GOOGLE-OAUTH-RUNBOOK.md setup |
+| uat_gap | 45-HUMAN-UAT.md — 7 scenarios (inbox thread visuals ×4, Gmail-forward fixture realism, live forwarding round-trip, verification-code visibility) | partial — mostly OAuth/SES-gated |
+| verification_gap | 42-VERIFICATION.md gaps_found | gap parked as backlog 999.14 (untracked dev/design scratch; ship not blocked) |
+| verification_gap | 43/45 human_needed | the UAT files above are the tracked remainder |
+| user_runbooks | EXTERNAL-RENAME-RUNBOOK.md, GOOGLE-OAUTH-RUNBOOK.md, FORWARDING-RUNBOOK.md, 45-USER-SETUP.md | user-executed; none run yet |
+| deploy | migrations 0031–0035 applied LOCALLY only; staging/prod pending | user-gated (deploy playbook: migrations-first) |
+| decision | local Supabase still on old `nauta` project-id containers (holds all local data); renamed `polytoken` id would start fresh volumes | user decision pending |
+
 ### v1.7 Phase 44 (flagged at Plan 44-08, the phase acceptance gate, 2026-07-10)
 
 | Category | Item | Status |
 |----------|------|--------|
-| security_gap | chat SSE surface not user-scoped: `POST /v1/chat/stream`, `POST /v1/chat/regenerate`, `POST /v1/chat/widget/submit` never enforce `X-User-Id` despite the BFF forwarding it -- a caller holding another user's `conversation_id` can inject messages into / read context from that conversation, or (the originally-flagged item) promote a knowledge edge under another user's importer via `confirm_action` | **OPEN — urgent, not a phase-44 blocker.** Locked with 4 `xfail(strict=True)` regressions (`apps/email-listener/tests/adversarial/test_chat_widget_submit_known_gap.py`) + full remediation detail in `44-SWEEP-INVENTORY.md` "Known Gap". Recommend a dedicated fast-follow plan before production multi-user chat traffic. |
+| security_gap | chat SSE surface not user-scoped: `POST /v1/chat/stream`, `POST /v1/chat/regenerate`, `POST /v1/chat/widget/submit` never enforce `X-User-Id` despite the BFF forwarding it | **CLOSED by Plan 44-09 (2026-07-10)** — `require_user_id` + pre-stream `assert_conversation_owned` on all 3 endpoints; `user_id` threaded to `PromoteEdgeUseCase`; the 4 `xfail(strict=True)` regressions converted to enforced contracts in `tests/adversarial/test_chat_sse_user_scoping.py` (10/10). Independently re-verified — 44-VERIFICATION.md status `passed`. |
 
 ### v1.6 (acknowledged and deferred at the v1.6 milestone close, 2026-07-09)
 
@@ -2655,5 +2672,4 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Operator Next Steps
 
-- Phase 44 (Tenancy) is fully executed (8/8 plans). Recommended: /gsd:verify-work 44, then /gsd:plan-phase 45 (email threads).
-- **Urgent, independent of Phase 45 sequencing:** open a dedicated fast-follow plan closing the chat SSE tenancy gap (POST /v1/chat/stream, /regenerate, /widget/submit — see 44-SWEEP-INVENTORY.md "Known Gap") before production multi-user chat traffic.
+- Start the next milestone with /gsd-new-milestone

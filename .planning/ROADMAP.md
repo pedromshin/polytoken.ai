@@ -9,7 +9,7 @@
 - ✅ **v1.4 — Chat & Studio Design Uplift** (Phases 26–28) — SHIPPED 2026-07-07. A no-bloat visual/token-discipline uplift of `/chat` + `/studio`'s own hand-built chrome — zero new npm dependencies — executing the locked 3-phase punch list (zero-dep contract fixes → adopted external picks → design-system token upgrades). Archived: [milestones/v1.4-ROADMAP.md](milestones/v1.4-ROADMAP.md) · Audit: [milestones/v1.4-MILESTONE-AUDIT.md](milestones/v1.4-MILESTONE-AUDIT.md).
 - ✅ **v1.5 — Knowledge-Graph Uplift** (Phases 29–32) — SHIPPED 2026-07-08. Activated the dormant knowledge-graph substrate: confirms materialize confidence-tiered edges (OCR token provenance) through a suggest-only promotion gate; cheap alias/identifier recall + a measurable retrieval-miss-rate gate for stage 3; `/knowledge` tiered exploration canvas (encoding, bounded expand, filter, promote). Archived: [milestones/v1.5-ROADMAP.md](milestones/v1.5-ROADMAP.md) · Audit: [milestones/v1.5-MILESTONE-AUDIT.md](milestones/v1.5-MILESTONE-AUDIT.md).
 - ✅ **v1.6 — Chat × Knowledge Convergence** (Phases 33–41) — SHIPPED 2026-07-09. The chat agent reads its own extracted data: bounded mid-turn tool loop + 3 tiered knowledge tools with structural injection quarantine, per-round cost ceilings, visible tool rounds with citation chips, live data-bound panels, chat-confirmable promotions, and a knowledge-preview canvas node. Archived: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · Audit: [milestones/v1.6-MILESTONE-AUDIT.md](milestones/v1.6-MILESTONE-AUDIT.md).
-- ◆ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — IN PROGRESS (opened 2026-07-09). VISION.md E2's autonomously-verifiable half: atomic internal rename, Google OAuth + sessions (Supabase Auth), per-user tenancy with enforced isolation, email thread model + forwarding seam, kickoff hygiene + the v1.8 brand/design dossier. Research: [research/v1.7-polytoken-foundation/SUMMARY.md](research/v1.7-polytoken-foundation/SUMMARY.md).
+- ✅ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — SHIPPED 2026-07-10. Atomic internal rename nauta → polytoken, Google OAuth + sessions (Supabase Auth), enforced per-user tenancy (app-boundary primary + RLS defense-in-depth, adversarially gated), email threads at ingest + personal-forwarding seam, hygiene folds + decision-ready v1.8 dossier. Archived: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) · Audit: [milestones/v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md).
 
 ## Phases
 
@@ -105,151 +105,21 @@ Full phase details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · 
 
 </details>
 
-## v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy (Phases 42–46) — CURRENT
+<details>
+<summary>✅ v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy (Phases 42–46) — SHIPPED 2026-07-10</summary>
 
-19 requirements mapped (see REQUIREMENTS.md traceability). Dependency chain: 42 → 43 → 44 → 45;
-Phase 46 is independent/parallelizable. Research base:
-[research/v1.7-polytoken-foundation/SUMMARY.md](research/v1.7-polytoken-foundation/SUMMARY.md).
+- [x] Phase 42: Atomic Rename nauta → polytoken (2/2 plans) — completed 2026-07-09
+- [x] Phase 43: Auth — Google OAuth + Sessions (Supabase Auth) (5/5 plans) — completed 2026-07-10
+- [x] Phase 44: Tenancy — user_id Scoping + Enforced Isolation (9/9 plans incl. gap-closure 44-09) — completed 2026-07-10
+- [x] Phase 45: Email Threads + Forwarding Seam (6/6 plans) — completed 2026-07-10
+- [x] Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier (3/3 plans) — completed 2026-07-10
 
-- [x] **Phase 42: Atomic Rename nauta → polytoken** (completed 2026-07-09)
-- [x] **Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)** (completed 2026-07-10)
-- [x] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation** (completed 2026-07-10)
-- [x] **Phase 45: Email Threads + Forwarding Seam** (completed 2026-07-10)
-- [x] **Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier** (completed 2026-07-10)
+Full detail: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md). Audit `tech_debt`, 0 blockers:
+19/19 requirements, 9/9 integration seams WIRED, 3/3 E2E flows. Deferred: 3 todos + 2 UAT files
+(11 scenarios, mostly OAuth/SES-gated) + user runbooks (external rename, Google OAuth, forwarding)
++ staging/prod migrations 0031–0035 (STATE.md → Deferred Items).
 
-### Phase 42: Atomic Rename nauta → polytoken
-
-**Goal:** The codebase is polytoken everywhere internally — one atomic pass, no hybrid states — with external renames runbook'd for the user.
-**Requirements:** RENM-01, RENM-02
-**Success criteria:**
-
-1. Zero `@nauta/` references remain in code/config (package names, workspace `-w` selectors, vercel.json, CI YAML); user-visible chrome says polytoken
-2. Workspace symlinks regenerated (`npm install`); typecheck + web tests + Python tests green post-rename
-3. External-rename runbook exists (GitHub repo, AWS/Terraform incl. ECR `force_delete`/tfstate warnings, Vercel, domain); `terraform plan` proves live AWS resource names untouched
-
-**Plans:** 2/2 plans complete
-
-Plans:
-
-- [x] 42-01-PLAN.md — Atomic internal rename (`@nauta/*` → `@polytoken/*`, UI chrome, `nauta-teal`, skill dir) + workspace regeneration + full verification matrix
-- [x] 42-02-PLAN.md — External-rename runbook (GitHub repo, AWS/Terraform, Vercel, domain) — documented, not executed
-
-### Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)
-
-**Goal:** The app has real user identity — Google sign-in via Supabase Auth (`@supabase/ssr`, the milestone's ONE new npm dependency), persistent sessions, session-derived identity in every server context.
-**Requirements:** AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05
-**Success criteria:**
-
-1. User signs in with Google and returns authenticated; session persists across browser refresh; sign-out works
-2. Signed-out visitors to app surfaces are redirected to sign-in
-3. tRPC context resolves the session user server-side; a test proves identity cannot be supplied from client input
-4. Server-side FastAPI proxy routes forward the user's identity; `X-API-Key` service boundary unchanged (existing service tests green)
-5. Missing auth env vars fail startup with a clear message; Google Cloud OAuth client runbook exists
-
-**Plans:** 5/5 plans complete
-
-Plans:
-**Wave 1**
-
-- [x] 43-01-PLAN.md — Foundation: @supabase/ssr install, Zod env fail-fast validation, browser/server/middleware Supabase client helpers
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 43-02-PLAN.md — Sign-in/out UX + route protection: middleware guard, /login + Continue-with-Google, /auth/callback, sidebar sign-out
-- [x] 43-03-PLAN.md — tRPC session context + protectedProcedure + identity-injection test
-- [x] 43-04-PLAN.md — Identity forwarding: server-derived X-User-Id on BFF proxy routes + non-enforcing FastAPI reader
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 43-05-PLAN.md — Google OAuth user runbook + config.toml/.env.example wiring + Playwright redirect smoke spec
-
-### Phase 44: Tenancy — user_id Scoping + Enforced Isolation
-
-**Goal:** Every row of user-owned data belongs to a user and is unreachable across users — enforced at the app boundary (primary), defended in depth by RLS.
-**Requirements:** TENA-01, TENA-02, TENA-03, TENA-04
-**Success criteria:**
-
-1. `user_id` anchored on `importers` + direct `user_id` on chat tables, migrated + backfilled to the first real user (expand→backfill→contract, live-verified locally)
-2. Adversarial cross-tenant test suite passes as the acceptance gate — a second user cannot read/write the first user's data via ANY route/procedure, including the attachments download route and the knowledge-promote proxy
-3. No route/procedure accepts client-supplied importer/user IDs for scoping (sweep + regression tests)
-4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
-5. genui exact-match cache tables deliberately unscoped, documented
-
-**Plans:** 9/9 plans complete
-
-Plans:
-
-**Wave 1**
-
-- [x] 44-01-PLAN.md — Schema anchoring + expand→backfill→contract migrations + enforcement-architecture decision + genui-unscoped docs
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 44-02-PLAN.md — Central ownership helper (@polytoken/db/ownership) with allow/deny matrix tests
-- [x] 44-03-PLAN.md — FastAPI app-boundary enforcement (require X-User-Id + owned-importer scoping on emails + promote)
-- [x] 44-04-PLAN.md — RLS defense-in-depth policies (auth.uid()) on user-owned tables
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 44-05-PLAN.md — tRPC sweep: emails router (reads + component mutations) → protectedProcedure + ownership
-- [x] 44-06-PLAN.md — tRPC sweep: entities + entity-types + knowledge routers → protectedProcedure + ownership
-- [x] 44-07-PLAN.md — tRPC sweep: chat + genui routers + attachments download route (closes 999.1 + IDOR)
-
-**Wave 4** *(blocked on Wave 3 completion)*
-
-- [x] 44-08-PLAN.md — Adversarial cross-tenant acceptance gate (vitest + pytest) + sweep inventory
-
-**Gap closure** *(closes 44-VERIFICATION.md SC2 / TENA-03 chat-SSE gap)*
-
-- [x] 44-09-PLAN.md — Chat SSE per-user authorization: require_user_id + conversation-ownership assert on /v1/chat/stream, /regenerate, /widget/submit + thread user_id into PromoteEdgeUseCase
-
-### Phase 45: Email Threads + Forwarding Seam
-
-**Goal:** Emails group into threads at ingest — resilient to forwarded mail — and the personal-forwarding seam exists.
-**Requirements:** THRD-01, THRD-02, THRD-03, THRD-04
-**Success criteria:**
-
-1. Ingesting a reply chain yields one thread (`ThreadResolver` port at ingest, Union-Find over RFC headers); existing emails backfilled into threads
-2. Real Gmail-UI-forward `.eml` fixtures do not fragment threads (conservative fallback tier, proven in tests)
-3. Inbox lists emails grouped by thread
-4. Unique secret-token forwarding-address seam works (SES wildcard pattern) with an onboarding runbook covering Gmail's destination-verification handshake
-
-**Plans:** 6/6 plans complete
-
-Plans:
-
-**Wave 1**
-
-- [x] 45-01-PLAN.md — THRD-01/04 schema: threads (importer-anchored) + emails.thread_id + forwarding_addresses tables, migration 0035 + RLS
-- [x] 45-02-PLAN.md — THRD-01/02 pure thread-grouping domain service (Union-Find + Tier1 embedded-id + Tier2 subject/window) with real Gmail-forward .eml fixtures
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 45-03-PLAN.md — THRD-01 ThreadResolver port + Supabase adapter + ingest wiring + Email.thread_id + idempotent backfill
-- [x] 45-06-PLAN.md — THRD-04 forwarding seam (web): getOrCreateMyAddress tRPC (CSPRNG token) + minimal surface + FORWARDING-RUNBOOK.md
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [x] 45-04-PLAN.md — THRD-03 thread-grouped inbox (tenant-scoped tRPC projection + expandable UI + 45-UI-SPEC contract + human verify)
-- [x] 45-05-PLAN.md — THRD-04 forwarding seam (FastAPI): recipient-token resolver + user-anchored importer creation + Gmail-verification mail ingested
-
-### Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier
-
-**Goal:** The substrate is verified before v1.8 re-skins it, small debts fold in, and the v1.8 dossier is decision-ready.
-**Requirements:** HYGN-01, HYGN-02, DSSR-01, DSSR-02
-**Success criteria:**
-
-1. Eval harness vs baseline executed on the v1.2 corpus and Playwright code-island isolation spec executed (both engines), with recorded evidence (999.3's locally-feasible set)
-2. pytest event-loop cleanup + grid `colSpan` support landed with tests (999.2)
-3. Brand-identity options document is decision-ready; design-pattern dossier maps Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system
-
-**Plans:** 3/3 plans complete
-
-Plans:
-
-- [x] 46-01-PLAN.md — HYGN-01: connected-env evidence (eval harness vs baseline on v1.2 corpus via live Bedrock; code-island isolation disposition) recorded honestly in 46-EVIDENCE.md
-- [x] 46-02-PLAN.md — HYGN-02: debt folds (Python-3.13 asyncio test migration + resolve todo; colSpan-aware grid clamp + corrected generator guidance) with targeted tests
-- [x] 46-03-PLAN.md — DSSR-01/02: v1.8 dossier (brand-identity options + design-pattern dossier mapping Claude/ChatGPT/Perplexity flows onto the v1.4 token system)
+</details>
 
 ## Backlog
 
