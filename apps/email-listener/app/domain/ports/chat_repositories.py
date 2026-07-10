@@ -174,8 +174,26 @@ class ChatRunRepository(Protocol):
 
 
 class ChatConversationRepository(Protocol):
-    """Port for the one chat_conversations write the turn loop performs (D-10, D-12)."""
+    """Port for chat_conversations reads/writes the turn loop and presentation layer perform.
+
+    touch() is the turn loop's one write (D-10, D-12). owner_user_id (Phase
+    44-09, TENA-03 gap closure) is a read used ONLY by the presentation
+    layer's fail-closed ownership gate (assert_conversation_owned in
+    chat_stream.py) — mirrors emails.py's `_assert_importer_owned` posture:
+    never trust a client-supplied conversation_id for scoping without
+    checking the caller actually owns it.
+    """
 
     async def touch(self, *, conversation_id: str, model_id: str, title: str | None = None) -> None:
         """Update model_id + updated_at; also set title when provided (first-turn snippet)."""
+        ...
+
+    async def owner_user_id(self, conversation_id: str) -> str | None:
+        """Return the owning user_id for conversation_id, or None if the row does not exist.
+
+        Single-column read on chat_conversations.user_id (NOT NULL, migrations
+        0031-0033) — never a join. Used exclusively by the presentation-layer
+        fail-closed ownership gate; the domain/application layers never call
+        this directly.
+        """
         ...

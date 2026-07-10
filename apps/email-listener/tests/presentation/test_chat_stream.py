@@ -7,6 +7,13 @@ Verifies:
 - a simulated client disconnect cancels the underlying agent task (D-15/D-25/T-22-27
   stopped-partial path — exercised directly against the stream_run_events helper,
   since simulating a real mid-stream TCP disconnect through TestClient is not practical)
+
+Phase 44-09 (TENA-03 gap closure): the shared TestClient carries a default
+X-User-Id header matching the fake ChatConversationRepository's configured
+owner, so every pre-existing streaming/validation/disconnect test below stays
+green under the new require_user_id + assert_conversation_owned contract.
+Cross-tenant/ownership-denial coverage lives in
+tests/adversarial/test_chat_sse_user_scoping.py, not here.
 """
 
 from __future__ import annotations
@@ -21,11 +28,13 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.application.use_cases.run_chat_turn import RunChatTurn
-from app.domain.ports.chat_repositories import ChatRunEvent
+from app.domain.ports.chat_repositories import ChatConversationRepository, ChatRunEvent
 from app.presentation.api.v1.chat_stream import stream_run_events
+from app.presentation.middleware.user_context import USER_ID_HEADER
 
 _VALID_UUID_1 = "11111111-1111-1111-1111-111111111111"
 _VALID_UUID_2 = "22222222-2222-2222-2222-222222222222"
+_TEST_USER_ID = "user-owner"
 
 
 # ---------------------------------------------------------------------------
@@ -84,6 +93,24 @@ class _FakeRequest:
         return self._calls > self._disconnect_after
 
 
+class _FakeChatConversationRepository:
+    """A ChatConversationRepository test double with a configurable owner (Phase 44-09).
+
+    Defaults to owning every conversation_id as `_TEST_USER_ID` — matches the
+    shared client's default X-User-Id header, so pre-existing tests exercise
+    the positive-control (owner) path without needing to know about ownership.
+    """
+
+    def __init__(self, owner_user_id: str | None = _TEST_USER_ID) -> None:
+        self._owner_user_id = owner_user_id
+
+    async def touch(self, *, conversation_id: str, model_id: str, title: str | None = None) -> None:
+        return None
+
+    async def owner_user_id(self, conversation_id: str) -> str | None:
+        return self._owner_user_id
+
+
 def _sample_events() -> list[ChatRunEvent]:
     return [
         ChatRunEvent(type="started", data={"model_id": "m1"}, id="e1", run_id="r1", seq=0),
@@ -93,7 +120,9 @@ def _sample_events() -> list[ChatRunEvent]:
     ]
 
 
-def _make_app_with_fake_agent(agent: _FakeRunChatTurn) -> FastAPI:
+def _make_app_with_fake_agent(
+    agent: _FakeRunChatTurn, conversations: ChatConversationRepository | None = None
+) -> FastAPI:
     from dishka import Provider, Scope, make_async_container
     from dishka.integrations.fastapi import setup_dishka
 
@@ -102,8 +131,11 @@ def _make_app_with_fake_agent(agent: _FakeRunChatTurn) -> FastAPI:
     app = FastAPI()
     app.include_router(router)
 
+    conversations_repo = conversations if conversations is not None else _FakeChatConversationRepository()
+
     provider = Provider(scope=Scope.APP)
     provider.provide(lambda: agent, provides=RunChatTurn, scope=Scope.APP)
+    provider.provide(lambda: conversations_repo, provides=ChatConversationRepository, scope=Scope.APP)
     container = make_async_container(provider)
     setup_dishka(container=container, app=app)
     return app
@@ -117,7 +149,9 @@ def fake_agent() -> _FakeRunChatTurn:
 @pytest.fixture
 def client(fake_agent: _FakeRunChatTurn) -> TestClient:
     app = _make_app_with_fake_agent(fake_agent)
-    return TestClient(app, raise_server_exceptions=True)
+    test_client = TestClient(app, raise_server_exceptions=True)
+    test_client.headers[USER_ID_HEADER] = _TEST_USER_ID
+    return test_client
 
 
 # ---------------------------------------------------------------------------
