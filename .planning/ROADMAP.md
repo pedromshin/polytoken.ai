@@ -214,7 +214,7 @@ Plans:
 3. Inbox lists emails grouped by thread
 4. Unique secret-token forwarding-address seam works (SES wildcard pattern) with an onboarding runbook covering Gmail's destination-verification handshake
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 
@@ -231,7 +231,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2 completion)*
 
 - [ ] 45-04-PLAN.md — THRD-03 thread-grouped inbox (tenant-scoped tRPC projection + expandable UI + 45-UI-SPEC contract + human verify)
-- [ ] 45-05-PLAN.md — THRD-04 forwarding seam (FastAPI): recipient-token resolver + user-anchored importer creation + Gmail-verification mail ingested
+- [x] 45-05-PLAN.md — THRD-04 forwarding seam (FastAPI): recipient-token resolver + user-anchored importer creation + Gmail-verification mail ingested
 
 ### Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier
 

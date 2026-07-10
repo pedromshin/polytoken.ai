@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T08:24:14.000Z"
-last_activity: 2026-07-10 -- Phase 45 Plan 06 complete (forwarding tRPC router + minimal web surface + FORWARDING-RUNBOOK.md; THRD-04 stays Pending until 45-05 lands)
+last_updated: "2026-07-10T08:57:05.910Z"
+last_activity: 2026-07-10 -- Phase 45 Plan 05 complete (ForwardingAddressResolver port + Supabase adapter, ingest anchoring, THRD-04 Complete)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 25
-  completed_plans: 22
-  percent: 88
+  completed_plans: 24
+  percent: 64
 ---
 
 # State
@@ -25,9 +25,38 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 45 (Email Threads + Forwarding Seam) — EXECUTING
-Plan: 06 executed out of sequence (wave 2, depends only on 45-01) — 45-04 and 45-05 still pending
-Status: Executing Phase 45 (4/6 plans complete: 01, 02, 03, 06)
-Last activity: 2026-07-10 -- Phase 45 Plan 06 complete (forwarding tRPC router + minimal web surface + FORWARDING-RUNBOOK.md; THRD-04 stays Pending until 45-05 lands)
+Plan: 05 executed (wave 3, depends on 45-01/45-03) — 45-04 still pending
+Status: Executing Phase 45 (5/6 plans complete: 01, 02, 03, 05, 06)
+Last activity: 2026-07-10 -- Phase 45 Plan 05 complete (ForwardingAddressResolver port + Supabase adapter; importer creation anchored to forwarding user; Gmail verification mail test-proven not dropped; THRD-04 Complete)
+
+## Phase 45 — Email Threads + Forwarding Seam — Plan 05 History
+
+- **45-05 EXECUTED** (`f4f35f5` feat, `600162d` feat, `8198101` test, `fc316c7`
+  docs): `ForwardingAddressResolver` domain port (`resolve_recipients(recipients)
+  -> user_id | None`, fail-closed) + `SupabaseForwardingAddressRepository` +
+  `token_from_recipient` helper (exact/case-sensitive `u-{token}` extraction,
+  tolerant of whitespace/angle brackets, never lowercases the token itself —
+  45-06's CSPRNG base64url tokens are case-sensitive). `ImporterResolver.resolve`
+  gains an additive keyword-only `user_id: str | None = None`; when a genuinely
+  new importer is created with a resolved user_id it's anchored; when user_id is
+  None and no existing row matches, resolve() now falls back to
+  `default_importer_id` instead of inserting a NOT-NULL-violating row — closes a
+  latent gap since Phase 44. `IngestInboundEmailUseCase.execute` gains a
+  `recipients` param + `forwarding_resolver` collaborator, resolved best-effort
+  BEFORE importer resolution; `sns_inbound.py` threads `meta["recipients"]`
+  through; `container.py` binds the new port into the ingest factory. 21 new
+  tests incl. a test-proven guarantee that Gmail's forwarding-verification email
+  is saved via `email_repo.save`, never dropped. Full suite: 1319 passed / 9
+  skipped (baseline 1297/9 + 22 new), zero regressions. THRD-04 marked Complete
+  in REQUIREMENTS.md — both halves (45-06 generation/runbook + this plan's
+  resolution) now genuinely exist per the requirement text; live SES catch-all
+  routing stays user-gated per 45-06's own runbook. 2 deviations (both Rule 1):
+  split one existing importer-repository test to match the intentional
+  None-user_id-fallback behavior change; fixed 4 downstream test files whose
+  direct `IngestInboundEmailUseCase(...)` construction broke on the new required
+  `forwarding_resolver` collaborator (same class of break as 45-03's
+  `thread_resolver` addition). Issue (not fixed, out of scope, verified via `git
+  diff --stat` empty): 25 pre-existing mypy errors in 8 unrelated files.
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 06 History
 
