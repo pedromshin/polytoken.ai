@@ -41,11 +41,11 @@ export function GraphLegend(): React.ReactElement {
   return (
     <div className="rounded-md border border-border bg-background/90 px-3 py-2 text-xs text-muted-foreground">
       <div className="flex items-center gap-3">
-        {/* EXTRACTED (solid, default stroke) -> "Confirmed" */}
+        {/* EXTRACTED (solid, tier-extracted stroke) -> "Confirmed" */}
         <LegendSwatch label="Confirmed" tier="EXTRACTED" />
-        {/* INFERRED (dashed, muted) -> "Suggested" */}
+        {/* INFERRED (dashed, tier-inferred stroke) -> "Suggested" */}
         <LegendSwatch label="Suggested" tier="INFERRED" />
-        {/* AMBIGUOUS (faint, muted) -> "Uncertain" */}
+        {/* AMBIGUOUS (faint, tier-inferred stroke) -> "Uncertain" */}
         <LegendSwatch label="Uncertain" tier="AMBIGUOUS" />
       </div>
     </div>

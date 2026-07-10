@@ -4,9 +4,10 @@
  * tier-filter-control.tsx — 3-segment cumulative radiogroup tier filter (GRAPH-03).
  *
  * Lives in the graph toolbar row (NOT inside FilterRail — that rail is node-type
- * filtering, a distinct concern from edge-tier filtering). Reuses filter-rail's
- * active/inactive token pair (border-primary/bg-primary/text-primary-foreground vs
- * border-border/bg-background/text-muted-foreground) — no new color.
+ * filtering, a distinct concern from edge-tier filtering). Active state ties to the
+ * D-48-04 tier ladder (border-tier-extracted/bg-tier-extracted/text-tier-extracted-foreground)
+ * since "Confirmed" IS the EXTRACTED tier — visually coherent with the edge/legend
+ * encoding, not a generic primary affordance.
  *
  * role="radiogroup" of three role="radio" Buttons, arrow-key navigation per the
  * standard radiogroup pattern. Exact UI-SPEC copy: "Confirmed only" / "+ Inferred" /
@@ -78,7 +79,7 @@ export function TierFilterControl({
             size="sm"
             className={
               active
-                ? "border-primary bg-primary font-semibold text-primary-foreground hover:bg-primary hover:text-primary-foreground"
+                ? "border-tier-extracted bg-tier-extracted font-semibold text-tier-extracted-foreground hover:bg-tier-extracted hover:text-tier-extracted-foreground"
                 : "border-border bg-background text-muted-foreground"
             }
             onClick={() => onChange(segment.state)}
