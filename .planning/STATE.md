@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.8
 milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
 status: executing
-last_updated: "2026-07-10T19:55:09.703Z"
-last_activity: 2026-07-10 -- 48-01 complete; 48-02 next
+last_updated: "2026-07-10T20:20:24.323Z"
+last_activity: 2026-07-10 -- 48-02 complete (tier-ladder color.tier.inferred/extracted + closed graph node-type palette color.graph.entity/emailComponent/email, all 6 packs, WCAG-AA verified); 48-03 next
 progress:
   total_phases: 5
   completed_phases: 1
   total_plans: 10
-  completed_plans: 6
-  percent: 60
+  completed_plans: 7
+  percent: 70
 ---
 
 # State
@@ -29,9 +29,32 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 ## Current Position
 
 Phase: 48 (token-system-extensions) — EXECUTING
-Plan: 2 of 5
+Plan: 3 of 5
 Status: Executing Phase 48
-Last activity: 2026-07-10 -- 48-01 complete (radius.pill/color.success/typography.code.family token extensions + touch-target guard + WCAG-AA/registration regression gates); 48-02 next
+Last activity: 2026-07-10 -- 48-02 complete (tier-ladder color.tier.inferred/extracted + closed graph node-type palette color.graph.entity/emailComponent/email, all 6 packs, WCAG-AA verified); 48-03 next
+
+## Phase 48 — Token System Extensions — Plan 02 History
+
+- **48-02 EXECUTED** (`b02562c` feat, `39f32ff` feat, `c46089a` docs):
+  Landed the two NOVEL, purpose-built token systems (D-48-04/D-48-05).
+  `TOKEN_ALIASES` grew from 25 to 35: `color.tier.inferred`/`inferredForeground`/
+  `extracted`/`extractedForeground` (knowledge confidence ladder — EXTRACTED
+  solid/confirmed vs INFERRED pale/provisional, never overloading
+  `color.accent`/`color.muted`) and `color.graph.entity`/`emailComponent`/
+  `email` (+Foreground each — a CLOSED violet/amber/slate node-type palette
+  replacing `graph-nodes.tsx`'s hardcoded Tailwind colors, documented inline
+  as closed: a new node type requires a new alias). All 10 aliases wired
+  through both token layers (`tokens.ts` + `packs.ts`), all 6 style packs,
+  `resolveVars`, `globals.css` `:root`/`.dark`, and a new `tier`/`graph`
+  Tailwind color group in `tailwind-config/base.ts` mirroring `primary`'s
+  `hsl(var(--x))` idiom. Every one of the 30 new fg/bg pairs (12 tier + 18
+  graph across 6 packs) was computationally verified >= 4.5:1 WCAG-AA via a
+  scratch port of the `contrast.ts` algorithm before being written into
+  `packs.ts`, then appended to the `SEMANTIC_STATUS_PAIRS` gate — 103/103
+  `src/theme` tests pass. `npm run typecheck -w @polytoken/web` reproduces
+  the same pre-existing, already-deferred `dev/design` scratch-dir failure
+  from 48-01 (confirmed unrelated to this plan's files). No deviations.
+  TOKN-04/TOKN-05 marked Complete in REQUIREMENTS.md.
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
 
@@ -1750,7 +1773,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-None
+48-03
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -2691,6 +2714,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 47 P04 | ~25 min | 3 tasks | 4 files — @playwright/test+firefox installed, 10/12 e2e assertions pass (1 pre-existing spec-probe finding documented, not fixed); VRFY-01 left Pending |
 | Phase 47 P05 | 35 min | 2 tasks | 4 files |
 | Phase 48 P01 | 20min | 3 tasks | 9 files |
+| Phase 48 P02 | 40min | 2 tasks | 5 files |
 
 ## Operator Next Steps
 
