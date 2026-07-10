@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T07:16:57.000Z"
-last_activity: 2026-07-10 -- Phase 45 Plan 02 complete (pure thread-grouping domain service, Union-Find + Tier1/2 fallback, real .eml fixtures)
+last_updated: "2026-07-10T08:05:57.004Z"
+last_activity: 2026-07-10 -- Phase 45 Plan 03 complete (ThreadResolver port + Supabase adapter + ingest wiring + idempotent backfill, live-verified locally)
 progress:
   total_phases: 5
   completed_phases: 3
   total_plans: 25
-  completed_plans: 20
-  percent: 80
+  completed_plans: 21
+  percent: 84
 ---
 
 # State
@@ -25,9 +25,27 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 45 (Email Threads + Forwarding Seam) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Executing Phase 45
-Last activity: 2026-07-10 -- Phase 45 Plan 02 complete (pure thread-grouping domain service, Union-Find + Tier1/2 fallback, real .eml fixtures)
+Last activity: 2026-07-10 -- Phase 45 Plan 03 complete (ThreadResolver port + Supabase adapter + ingest wiring + idempotent backfill, live-verified locally)
+
+## Phase 45 — Email Threads + Forwarding Seam — Plan 03 History
+
+- **45-03 EXECUTED** (`d5c9d83` feat, `c5fb29c` feat, `e909d13` feat): `ThreadResolver`
+  domain port + `SupabaseThreadRepository` adapter (Tier 0/1 forward+backward
+  header-linked neighbor search, Tier 2 subject/window fallback, deterministic
+  min-id merge, all importer_id-scoped) wired into `IngestInboundEmailUseCase`
+  as a best-effort collaborator (T-45-03-02: resolver failure -> thread_id=None,
+  never fails ingestion) + DI-bound in container.py. `Email.thread_id` added
+  (nullable, default None). `scripts/backfill_threads.py` — idempotent,
+  re-runnable, importer-scoped backfill reusing 45-02's `group_emails()` —
+  executed live locally: 16 emails / 3 importers scanned, 9 threads created,
+  16 emails reassigned; re-run confirmed 0/0 net changes (idempotent), and a
+  real 3-email Gmail-forward reply chain collapsed into one thread_id. 19 new
+  tests (10 repository + 4 ingest-wiring + 5 backfill), full suite green (0
+  failures, 9 skipped unchanged). THRD-01 marked Complete in REQUIREMENTS.md.
+  1 deviation: Rule 1 fix to tests/corpus/forwarding_harness.py's direct
+  IngestInboundEmailUseCase construction (added NullThreadResolver fake).
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 02 History
 
@@ -2214,6 +2232,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-10 (45-03): SupabaseThreadRepository.resolve() issues 3 separate importer_id-scoped queries (forward message_id match, backward in_reply_to, backward references_ids .contains()) instead of one raw .or_() filter string — Message-IDs contain `<`, `>`, `@` and can contain commas/parens that would corrupt a raw PostgREST OR filter
+- 2026-07-10 (45-03): thread_grouping._DEFAULT_TIER2_WINDOW renamed to public DEFAULT_TIER2_WINDOW so the ThreadResolver adapter and the backfill script reuse the SAME Tier-2 fallback window as the 45-02 pure grouping service, instead of duplicating the timedelta(days=14) literal
+- 2026-07-10 (45-03): New threads.subject stores the RAW subject (not normalize_subject()'s lowercased/prefix-stripped form) — normalize_subject is for matching only; a future inbox needs the original casing/Re:-Fwd: prefix intact (Claude's Discretion per 45-CONTEXT.md)
+- 2026-07-10 (45-03): requirements.mark-complete run for THRD-01 only (this plan's sole frontmatter requirement) — THRD-02's fallback-tier guarantee is now operationally proven live but stays Pending, mirroring the 45-01/45-02 precedent (avoids the premature-completion bug from 44-02)
 - 2026-07-10 (44-05): entitySummary scopes via a component-level `inArray(EmailComponents.importerId, owned)` filter, not per-id `assertEmailOwnership` — it's a batch endpoint (up to 100 emailIds) and email_components already carries importer_id directly; a foreign id yields an empty rollup entry rather than failing the whole batch
 - 2026-07-10 (44-05): Router-boundary tenancy tests mock `@polytoken/db/ownership` (vi.mock + vi.importActual to preserve the real OwnershipError class) instead of a second SQL-interpreting fake Drizzle chain — ownership.ts's own correctness is already proven by packages/db/src/ownership.test.ts (44-02); these tests isolate to the WIRING Plan 05 actually changed
 - 2026-07-10 (44-02): Central ownership helper (`@polytoken/db/ownership` — userOwnedImporterIds + 4 assert* functions + OwnershipError) built TDD via a from-scratch fake-Drizzle-chain test fixture, since no ctx.db-mocking precedent existed in this repo (every prior router test exercises DB-free pure helpers only) — ownership.ts IS the query itself, so that convention couldn't cover it

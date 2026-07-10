@@ -214,7 +214,7 @@ Plans:
 3. Inbox lists emails grouped by thread
 4. Unique secret-token forwarding-address seam works (SES wildcard pattern) with an onboarding runbook covering Gmail's destination-verification handshake
 
-**Plans:** 2/6 plans executed
+**Plans:** 3/6 plans executed
 
 Plans:
 
@@ -225,7 +225,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 45-03-PLAN.md — THRD-01 ThreadResolver port + Supabase adapter + ingest wiring + Email.thread_id + idempotent backfill
+- [x] 45-03-PLAN.md — THRD-01 ThreadResolver port + Supabase adapter + ingest wiring + Email.thread_id + idempotent backfill
 - [ ] 45-06-PLAN.md — THRD-04 forwarding seam (web): getOrCreateMyAddress tRPC (CSPRNG token) + minimal surface + FORWARDING-RUNBOOK.md
 
 **Wave 3** *(blocked on Wave 2 completion)*
