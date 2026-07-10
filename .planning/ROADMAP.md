@@ -133,7 +133,8 @@ chips, MOBL's breakpoint decision). Research base:
 [research/v1.8-design/BRAND-IDENTITY-OPTIONS.md](research/v1.8-design/BRAND-IDENTITY-OPTIONS.md),
 [research/v1.8-design/DESIGN-PATTERN-DOSSIER.md](research/v1.8-design/DESIGN-PATTERN-DOSSIER.md).
 
-- [x] **Phase 47: Brand Foundation + Verification Tooling** — polytoken brand identity (voice, logo, guide) documented and applied to login/chrome; Playwright + screenshot harness installed and working (completed 2026-07-10)
+- [x] **Phase 47: Brand Foundation + Verification Tooling** — polytoken brand identity (voice, logo, guide) documented and applied to login/chrome; Playwright + screenshot harness installed and working
+ (completed 2026-07-10)
 - [ ] **Phase 48: Token-System Extensions** — v1.4 DTCG token system extended with pill radius, success color, code typography, tier-ladder tokens, graph node/edge palette, hover/active convention, breakpoint decision
 - [ ] **Phase 49: Total UI Re-skin** — chat, inbox, knowledge canvas, studio, settings, login re-skinned in the polytoken register on extended tokens, zero raw hex
 - [ ] **Phase 50: Mobile-Responsive Answer** — canvas surfaces collapse to list/feed on small screens; core flows usable on a mobile viewport

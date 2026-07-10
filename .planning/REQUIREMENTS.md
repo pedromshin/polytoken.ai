@@ -79,7 +79,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BRND-01 | Phase 47 | In Progress |
+| BRND-01 | Phase 47 | Complete |
 | BRND-02 | Phase 47 | Complete |
 | BRND-03 | Phase 47 | Complete |
 | VRFY-01 | Phase 47 | Complete |
