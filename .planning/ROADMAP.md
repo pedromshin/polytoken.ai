@@ -115,7 +115,7 @@ Phase 46 is independent/parallelizable. Research base:
 - [x] **Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)** (completed 2026-07-10)
 - [x] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation** (completed 2026-07-10)
 - [x] **Phase 45: Email Threads + Forwarding Seam** (completed 2026-07-10)
-- [ ] **Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier**
+- [x] **Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier** (completed 2026-07-10)
 
 ### Phase 42: Atomic Rename nauta → polytoken
 
@@ -243,13 +243,13 @@ Plans:
 2. pytest event-loop cleanup + grid `colSpan` support landed with tests (999.2)
 3. Brand-identity options document is decision-ready; design-pattern dossier maps Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system
 
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 
 - [x] 46-01-PLAN.md — HYGN-01: connected-env evidence (eval harness vs baseline on v1.2 corpus via live Bedrock; code-island isolation disposition) recorded honestly in 46-EVIDENCE.md
 - [x] 46-02-PLAN.md — HYGN-02: debt folds (Python-3.13 asyncio test migration + resolve todo; colSpan-aware grid clamp + corrected generator guidance) with targeted tests
-- [ ] 46-03-PLAN.md — DSSR-01/02: v1.8 dossier (brand-identity options + design-pattern dossier mapping Claude/ChatGPT/Perplexity flows onto the v1.4 token system)
+- [x] 46-03-PLAN.md — DSSR-01/02: v1.8 dossier (brand-identity options + design-pattern dossier mapping Claude/ChatGPT/Perplexity flows onto the v1.4 token system)
 
 ## Backlog
 

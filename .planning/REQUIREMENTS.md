@@ -42,8 +42,8 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 ### Dossier
 
-- [ ] **DSSR-01**: A brand-identity options document exists for v1.8 (polytoken naming/voice/logo directions, decision-ready)
-- [ ] **DSSR-02**: A design-pattern research dossier exists mapping Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system (the v1.8 re-skin's input, produced the way v1.6's research ran during v1.5)
+- [x] **DSSR-01**: A brand-identity options document exists for v1.8 (polytoken naming/voice/logo directions, decision-ready)
+- [x] **DSSR-02**: A design-pattern research dossier exists mapping Claude/ChatGPT/Perplexity-class flows onto the v1.4 token system (the v1.8 re-skin's input, produced the way v1.6's research ran during v1.5)
 
 ## v2 Requirements
 
@@ -92,8 +92,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | THRD-04 | Phase 45 | Complete |
 | HYGN-01 | Phase 46 | Complete |
 | HYGN-02 | Phase 46 | Complete |
-| DSSR-01 | Phase 46 | Pending |
-| DSSR-02 | Phase 46 | Pending |
+| DSSR-01 | Phase 46 | Complete |
+| DSSR-02 | Phase 46 | Complete |
 
 **Coverage:**
 - v1 requirements: 19 total
