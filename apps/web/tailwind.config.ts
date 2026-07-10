@@ -17,6 +17,14 @@ export default {
       fontFamily: {
         sans: [...fontFamily.sans],
         mono: [...fontFamily.mono],
+        code: [
+          "var(--font-code)",
+          "ui-monospace",
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "monospace",
+        ],
       },
     },
   },

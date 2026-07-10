@@ -28,6 +28,9 @@
     --accent-foreground: 164 6% 12%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+    /* D-48-02: success pair — matches polytoken-teal pack's success pair (Task 1) */
+    --success: 142 71% 29%;
+    --success-foreground: 0 0% 98%;
     --border: 0 0% 89.8%;
     --input: 0 0% 89.8%;
     --ring: 0 0% 3.9%;
@@ -39,6 +42,10 @@
     --radius: 0.5rem;
     --radius-xl: calc(var(--radius) + 4px);
     --radius-2xl: calc(var(--radius) + 8px);
+    /* D-48-01: fully-rounded pill utility — breakpoint-static (see md-breakpoint note below) */
+    --radius-pill: 9999px;
+    /* D-48-03: monospace code family for code blocks / inline code */
+    --font-code: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     --sidebar-background: var(--background);
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);
@@ -70,6 +77,10 @@
     --accent-foreground: 164 8% 97%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+    /* D-48-02: success pair, darkened for the dark surface (mirrors --destructive's
+       light->dark deepening pattern above) */
+    --success: 142 65% 24%;
+    --success-foreground: 0 0% 98%;
     --border: 0 0% 14.9%;
     --input: 0 0% 14.9%;
     --ring: 0 0% 83.1%;
@@ -78,6 +89,9 @@
     --chart-3: 182 42% 73%;
     --chart-4: 152 35% 80%;
     --chart-5: 196 45% 59%;
+    /* D-48-01/D-48-03: breakpoint-static — identical to :root, mirrored per D-48-07 */
+    --radius-pill: 9999px;
+    --font-code: ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
     --sidebar-background: var(--background);
     --sidebar-foreground: var(--foreground);
     --sidebar-primary: var(--primary);
@@ -141,6 +155,26 @@
     border: 1px solid transparent;
   }
 }
+
+/* D-48-07: minimum interactive touch-target guard (WCAG 2.5.8 / Apple HIG /
+   Material — 44px is the common floor). Breakpoint-static: this is NOT a
+   per-breakpoint dimension — pack tokens stay breakpoint-static by decision
+   (rejected: a per-breakpoint token dimension). Applied by consumers starting
+   Phase 50 (mobile-responsive answer); declared here now so the primitive
+   exists ahead of its first consumer. */
+@layer utilities {
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Breakpoint convention (D-48-07): the Tailwind `md` breakpoint (768px) is
+   THE canvas -> feed switch line for the mobile-responsive answer (Phase 50) —
+   above `md`: 2D infinite canvas; below `md`: list/feed view. This is the
+   only breakpoint decision made in Phase 48. Style-pack tokens (packs.ts)
+   remain breakpoint-static — there is no per-breakpoint token dimension;
+   responsive layout is a Tailwind-variant concern, not a token concern. */
 
 /* ADOPT-03 (27-03-PLAN.md): <GeneratingRing> — hand-ported CSS TECHNIQUE from
    Magic UI's shine-border + animated-shiny-text (magicuidesign/magicui,

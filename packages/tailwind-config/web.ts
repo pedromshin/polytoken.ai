@@ -21,6 +21,7 @@ export default {
         sm: "calc(var(--radius) - 4px)",
         xl: "var(--radius-xl)",
         "2xl": "var(--radius-2xl)",
+        pill: "var(--radius-pill)",
       },
       keyframes: {
         "accordion-down": {
