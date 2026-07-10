@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
-status: executing
-last_updated: "2026-07-10T01:05:00.000Z"
+status: ready_to_plan
+last_updated: 2026-07-10T00:54:41.758Z
 last_activity: 2026-07-10 -- Phase 43 Plan 05 complete (Google OAuth runbook + config)
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 10
-  completed_plans: 10
+  completed_plans: 9
   percent: 40
+stopped_at: Phase 43 complete (5/5) — ready to discuss Phase 44
 ---
 
 # State
@@ -20,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-07)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Phase 43 — Auth — Google OAuth + Sessions (Supabase Auth)
+**Current focus:** Phase 44 — tenancy user id scoping enforced isolation
 
 ## Current Position
 
-Phase: 43 (Auth — Google OAuth + Sessions (Supabase Auth)) — ALL 5 PLANS EXECUTED, pending verification
-Plan: 5 of 5 complete (43-05 EXECUTED — Google OAuth runbook + local provider config + auth-redirect e2e spec)
-Status: Executing Phase 43 — awaiting phase verification
-Last activity: 2026-07-10 -- Phase 43 Plan 05 complete (runbook `GOOGLE-OAUTH-RUNBOOK.md`, `[auth.external.google]` in supabase/config.toml reading env(), .env.example auth vars, authored Playwright signed-out→/login spec). Executor was cut by an API error AFTER all 4 work commits + SUMMARY landed (8022a7b); orchestrator completed the ROADMAP/REQUIREMENTS/STATE sync. AUTH-01..05 all marked complete.
+Phase: 44
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-07-10
 
 ## Phase 42 — Atomic Rename nauta → polytoken — Plan 01 History
 
