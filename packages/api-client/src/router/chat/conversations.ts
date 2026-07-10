@@ -9,14 +9,23 @@
  *   - deleteConversation performs a real Drizzle `delete` (hard delete, D-14). The
  *     UI gates this behind an explicit AlertDialog confirm; there is no undo path.
  *   - listConversations caps the row count (T-22-19 — unbounded payload guard).
+ *
+ * Phase 44 (TENA-03, T-44-07-01/04): chat_conversations carries a DIRECT
+ * user_id (not importer-anchored, Plan 01/02). Every procedure here requires
+ * a session (protectedProcedure). createConversation writes
+ * user_id = ctx.user.id; listConversations filters on it (never the
+ * importerId alone); rename/delete/setModel assert conversation ownership
+ * via @polytoken/db/ownership BEFORE the write (fail-closed NOT_FOUND).
  */
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { ChatConversations } from "@polytoken/db/schema";
+import { assertConversationOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 
 // ---------------------------------------------------------------------------
 // D-04/D-10 — fallback default model for a brand-new conversation with no
@@ -102,9 +111,10 @@ export const chatConversationsProcedures = {
   /**
    * createConversation — insert a new chat_conversations row. modelId defaults
    * to the most-recently-updated conversation's modelId (D-10), else
-   * DEFAULT_CHAT_MODEL_ID. Returns the new row's id.
+   * DEFAULT_CHAT_MODEL_ID. user_id is always the session-derived ctx.user.id
+   * (T-44-07-04 — never client-supplied). Returns the new row's id.
    */
-  createConversation: publicProcedure
+  createConversation: protectedProcedure
     .input(createConversationInputSchema)
     .mutation(async ({ ctx, input }) => {
       let lastUsedModelId: string | null = null;
@@ -112,6 +122,7 @@ export const chatConversationsProcedures = {
         const [lastUsed] = await ctx.db
           .select({ modelId: ChatConversations.modelId })
           .from(ChatConversations)
+          .where(eq(ChatConversations.userId, ctx.user.id))
           .orderBy(desc(ChatConversations.updatedAt))
           .limit(1);
         lastUsedModelId = lastUsed?.modelId ?? null;
@@ -122,6 +133,7 @@ export const chatConversationsProcedures = {
       const [row] = await ctx.db
         .insert(ChatConversations)
         .values({
+          userId: ctx.user.id,
           modelId,
           importerId: input.importerId ?? null,
         })
@@ -136,9 +148,12 @@ export const chatConversationsProcedures = {
 
   /**
    * listConversations — id, title, modelId, updatedAt ordered by updatedAt
-   * desc, importer-scoped when importerId is provided (D-11 rail recency list).
+   * desc, scoped to the caller's own conversations (T-44-07-01 — replaces
+   * the old importerId-only scoping). importerId, when provided, narrows
+   * further within the caller's own rows (D-11 rail recency list) — it is
+   * NEVER trusted for tenant scoping on its own.
    */
-  listConversations: publicProcedure
+  listConversations: protectedProcedure
     .input(listConversationsInputSchema)
     .query(async ({ ctx, input }) => {
       const rows = await ctx.db
@@ -150,9 +165,12 @@ export const chatConversationsProcedures = {
         })
         .from(ChatConversations)
         .where(
-          input.importerId !== undefined
-            ? eq(ChatConversations.importerId, input.importerId)
-            : undefined,
+          and(
+            eq(ChatConversations.userId, ctx.user.id),
+            input.importerId !== undefined
+              ? eq(ChatConversations.importerId, input.importerId)
+              : undefined,
+          ),
         )
         .orderBy(desc(ChatConversations.updatedAt))
         .limit(MAX_LIST_ROWS);
@@ -162,10 +180,16 @@ export const chatConversationsProcedures = {
 
   /**
    * renameConversation — manual inline rename (D-12), title length-capped.
+   * Asserts conversation ownership BEFORE the write (T-44-07-01) — a
+   * non-owned conversationId surfaces as NOT_FOUND, fail-closed.
    */
-  renameConversation: publicProcedure
+  renameConversation: protectedProcedure
     .input(renameConversationInputSchema)
     .mutation(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.id, ctx.user.id),
+      );
+
       await ctx.db
         .update(ChatConversations)
         .set({ title: input.title, updatedAt: new Date() })
@@ -177,11 +201,16 @@ export const chatConversationsProcedures = {
    * deleteConversation — hard delete (D-14). FK cascade removes
    * messages/runs/events; chat_cost_ledger rows survive via ON DELETE SET
    * NULL. No soft-delete/undo path exists — the UI gates this behind an
-   * AlertDialog confirm (T-22-18).
+   * AlertDialog confirm (T-22-18). Asserts conversation ownership BEFORE the
+   * delete (T-44-07-01) — a non-owned conversationId surfaces as NOT_FOUND.
    */
-  deleteConversation: publicProcedure
+  deleteConversation: protectedProcedure
     .input(deleteConversationInputSchema)
     .mutation(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.id, ctx.user.id),
+      );
+
       await ctx.db
         .delete(ChatConversations)
         .where(eq(ChatConversations.id, input.id));
@@ -193,11 +222,16 @@ export const chatConversationsProcedures = {
    * Enforcement of which models are selectable (curated registry membership)
    * is the client's job (the picker only ever offers registry entries);
    * this mutation itself just writes the id through, matching the same
-   * trust posture as renameConversation's title write.
+   * trust posture as renameConversation's title write. Asserts conversation
+   * ownership BEFORE the write (T-44-07-01).
    */
-  setModel: publicProcedure
+  setModel: protectedProcedure
     .input(setModelInputSchema)
     .mutation(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
+      );
+
       await ctx.db
         .update(ChatConversations)
         .set({ modelId: input.modelId, updatedAt: new Date() })

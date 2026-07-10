@@ -54,6 +54,8 @@ const BASE_CTX = {
   runId: "00000000-0000-0000-0000-000000000099",
   importerId: DEFAULT_IMPORTER_ID,
   isFirstTurn: false,
+  // Phase 44 (TENA-03): session-derived owner of the ledger row.
+  userId: "20000000-0000-0000-0000-000000000001",
 };
 
 describe("buildBrowserTurnRows", () => {
@@ -84,6 +86,7 @@ describe("buildBrowserTurnRows", () => {
       conversationId: BASE_INPUT.conversationId,
       runId: BASE_CTX.runId,
       importerId: DEFAULT_IMPORTER_ID,
+      userId: BASE_CTX.userId,
       modelId: "webllm-qwen3-4b",
       executionLocus: "browser",
       costUsd: "0",

@@ -9,14 +9,20 @@
  * Security (T-22-16, T-22-19):
  *   - conversationId is validated as z.string().uuid() before any query runs.
  *   - row count is capped (unbounded-history guard).
+ *
+ * Phase 44 (TENA-03, T-44-07-01): requires a session (protectedProcedure)
+ * and asserts conversation ownership via @polytoken/db/ownership BEFORE
+ * reading messages — a non-owned conversationId surfaces as NOT_FOUND.
  */
 
 import { asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { ChatMessages } from "@polytoken/db/schema";
+import { assertConversationOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 
 // ---------------------------------------------------------------------------
 // Input schema — exported for DB-free testing
@@ -41,9 +47,13 @@ export const chatHistoryProcedures = {
    * version, with parts + sibling-version metadata so the UI can render
    * interleaved typed parts (D-18) and sibling navigation (D-16).
    */
-  getHistory: publicProcedure
+  getHistory: protectedProcedure
     .input(getHistoryInputSchema)
     .query(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
+      );
+
       const rows = await ctx.db
         .select({
           id: ChatMessages.id,

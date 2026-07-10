@@ -33,6 +33,12 @@
  * Row-shape building is a PURE function (buildBrowserTurnRows) tested
  * DB-free — this codebase has no precedent for mocking ctx.db chains
  * (22-05/22-10's established convention); see browser-turn.test.ts.
+ *
+ * Phase 44 (TENA-03, T-44-07-01/04): requires a session (protectedProcedure)
+ * and asserts conversation ownership via @polytoken/db/ownership BEFORE
+ * entering the transaction — a non-owned conversationId surfaces as
+ * NOT_FOUND, no write is ever attempted. chat_cost_ledger.user_id (Plan 01,
+ * NOT NULL) is always the session-derived ctx.user.id, never client-supplied.
  */
 
 import { desc, eq } from "drizzle-orm";
@@ -48,8 +54,10 @@ import {
   type InsertChatMessage,
   type InsertChatRunEvent,
 } from "@polytoken/db/schema";
+import { assertConversationOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 
 // ---------------------------------------------------------------------------
 // SEAM-04 — same agent id the server-side chat agent uses
@@ -114,6 +122,8 @@ export interface BrowserTurnRowContext {
   readonly runId: string;
   readonly importerId: string;
   readonly isFirstTurn: boolean;
+  /** Phase 44 (TENA-03): session-derived owner of the ledger row (never client-supplied). */
+  readonly userId: string;
 }
 
 export interface BrowserTurnConversationUpdate {
@@ -169,6 +179,7 @@ export function buildBrowserTurnRows(
     conversationId: input.conversationId,
     runId: ctx.runId,
     importerId: ctx.importerId,
+    userId: ctx.userId,
     modelId: input.modelId,
     executionLocus: "browser",
     inputTokens: input.inputTokens,
@@ -196,9 +207,13 @@ export const browserTurnProcedures = {
    * the conversation's model_id/title/updated_at are touched to match the
    * server-turn ChatConversationRepository.touch() behavior.
    */
-  recordBrowserTurn: publicProcedure
+  recordBrowserTurn: protectedProcedure
     .input(recordBrowserTurnInputSchema)
     .mutation(async ({ ctx, input }) => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
+      );
+
       const importerId = input.importerId ?? DEFAULT_IMPORTER_ID;
 
       return ctx.db.transaction(async (tx) => {
@@ -229,6 +244,7 @@ export const browserTurnProcedures = {
           runId: run.id,
           importerId,
           isFirstTurn: turnIndex === 0,
+          userId: ctx.user.id,
         });
 
         await tx.insert(ChatRunEvents).values([...rows.runEvents]);

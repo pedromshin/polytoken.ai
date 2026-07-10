@@ -13,14 +13,20 @@
  * conversation with more than MAX_BREAKDOWN_ROWS turns, a detached SUM
  * aggregate could disagree with what the breakdown popover actually shows;
  * deriving both from one capped query keeps them consistent by construction.
+ *
+ * Phase 44 (TENA-03, T-44-07-01): requires a session (protectedProcedure)
+ * and asserts conversation ownership via @polytoken/db/ownership BEFORE
+ * reading ledger rows — a non-owned conversationId surfaces as NOT_FOUND.
  */
 
 import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { ChatCostLedger } from "@polytoken/db/schema";
+import { assertConversationOwnership } from "@polytoken/db/ownership";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
+import { assertOwnedOrNotFound } from "../_ownership";
 
 // ---------------------------------------------------------------------------
 // Input schema — exported for DB-free testing
@@ -101,9 +107,13 @@ export const chatCostProcedures = {
    * (D-23). Never blocks/gates a turn; purely a read for the display-only
    * meter and its breakdown popover.
    */
-  sessionCost: publicProcedure
+  sessionCost: protectedProcedure
     .input(sessionCostInputSchema)
     .query(async ({ ctx, input }): Promise<SessionCostOutput> => {
+      await assertOwnedOrNotFound(() =>
+        assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
+      );
+
       const rows = await ctx.db
         .select({
           runId: ChatCostLedger.runId,
