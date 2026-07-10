@@ -12,11 +12,14 @@
  *   - Non-2xx / network / parse failures return a friendly, detail-free fallback; the raw
  *     FastAPI error is logged server-side only.
  *   - ApiResponse envelope: { success, data: { code, language, outcome, attempts } | null, error }.
+ *   - Phase 44 (TENA-03, T-44-07-04): requires a session (protectedProcedure).
+ *     Auth-gate ONLY, mirroring generate.ts — the generation cache stays
+ *     deliberately cross-tenant.
  */
 
 import { z } from "zod";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
 import { getListenerConfig } from "../_listener-config";
 
 function logError(event: string, detail: unknown): void {
@@ -66,7 +69,7 @@ function fallback(reason: string): CodeIslandOutput {
   return { code: WEB_FALLBACK_CODE, outcome: "fallback", attempts: 0, reason };
 }
 
-export const codeIslandGenerateProcedure = publicProcedure
+export const codeIslandGenerateProcedure = protectedProcedure
   .input(CodeIslandInput)
   .output(CodeIslandOutputSchema)
   .query(async ({ input }): Promise<CodeIslandOutput> => {

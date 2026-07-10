@@ -4,11 +4,26 @@
  * Phase 16-03 (STDO-05/STDO-06): Read-only history spine proxying to FastAPI
  * history endpoints. Re-validates responses at the web boundary (D-17).
  *
+ * Phase 44 (TENA-03, closes backlog 999.1): both procedures require a
+ * session (protectedProcedure). historyList NEVER forwards importer_id
+ * omitted to FastAPI — it derives the caller's owned importer set via
+ * `userOwnedImporterIds` (@polytoken/db/ownership) and fans out one FastAPI
+ * call per owned importer id (merging + re-sorting client-side by
+ * createdAt), closing the "returns all importers' rows" gap. historyById
+ * re-checks the returned row's `ui_spec_templates.importer_id` directly via
+ * Drizzle (the FastAPI detail view does not carry importer_id) against the
+ * caller's owned set — a NULL-importer or foreign-importer row is
+ * NOT_FOUND. The genui GENERATION CACHE itself stays deliberately unscoped
+ * (Plan 01) — this ownership gate applies only to the history browsing
+ * surface, never to cache-hit reuse.
+ *
  * Security contracts:
  *   D-17: Re-validates FastAPI output with Zod schemas at the web boundary.
  *     Never trusts FastAPI output blindly.
  *   D-15: Best-effort — network/non-2xx errors → [] (historyList) or null
- *     (historyById). No exceptions thrown to the caller.
+ *     (historyById). The Phase 44 ownership gate (historyById NOT_FOUND) and
+ *     the protectedProcedure session gate (UNAUTHORIZED) are intentional
+ *     exceptions to D-15's "never throw" posture — both new in Plan 07.
  *   T-06-07 / T-07-01: EMAIL_LISTENER_API_KEY is read server-side via
  *     getListenerConfig() at call time — never at module init, never NEXT_PUBLIC_.
  *   T-13-19: Non-2xx response bodies are logged server-side only; empty/null
@@ -19,11 +34,18 @@
  *     repository port on the FastAPI side.
  */
 
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
+import { TRPCError } from "@trpc/server";
+
 import { SAFE_FALLBACK_SPEC } from "@polytoken/genui/schema";
-import { publicProcedure } from "../../trpc";
+import { UiSpecTemplates } from "@polytoken/db/schema";
+import { userOwnedImporterIds } from "@polytoken/db/ownership";
+
+import { protectedProcedure } from "../../trpc";
 import { getListenerConfig } from "../_listener-config";
+import { resolveListScope } from "../_scope";
 
 // ---------------------------------------------------------------------------
 // Structured server-side logger (WR-03)
@@ -147,102 +169,139 @@ function mapDetail(raw: z.infer<typeof FastApiHistoryDetailSchema>): HistoryDeta
 }
 
 // ---------------------------------------------------------------------------
-// historyListProcedure — GET /v1/genui/history (STDO-05)
+// fetchHistoryPage — one FastAPI GET /v1/genui/history call scoped to a
+// SINGLE owned importerId (Phase 44 fan-out unit). Best-effort (D-15): any
+// failure for THIS page resolves to [] rather than throwing, so a partial
+// FastAPI outage for one importer never blocks the caller's other pages.
 // ---------------------------------------------------------------------------
 
-export const historyListProcedure = publicProcedure
-  .input(HistoryListInput)
-  .output(z.array(HistoryRowSchema))
-  .query(async ({ input }) => {
-    const { url, apiKey } = getListenerConfig();
+async function fetchHistoryPage(page: {
+  readonly importerId: string;
+  readonly limit: number;
+  readonly offset?: number;
+}): Promise<HistoryRow[]> {
+  const { url, apiKey } = getListenerConfig();
 
-    // Build query string
-    const params = new URLSearchParams();
-    if (input.limit !== undefined) params.set("limit", String(input.limit));
-    if (input.offset !== undefined) params.set("offset", String(input.offset));
-    if (input.importerId !== undefined) params.set("importer_id", input.importerId);
+  const params = new URLSearchParams();
+  params.set("limit", String(page.limit));
+  if (page.offset !== undefined) params.set("offset", String(page.offset));
+  // Phase 44 (TENA-03/999.1): ALWAYS a caller-owned importer id — never
+  // omitted (omitting it returns every importer's rows on the FastAPI side).
+  params.set("importer_id", page.importerId);
 
-    const queryString = params.toString();
-    const endpoint = `${url}/v1/genui/history${queryString ? `?${queryString}` : ""}`;
+  const endpoint = `${url}/v1/genui/history?${params.toString()}`;
 
-    let res: Response;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "GET",
+      headers: {
+        "X-API-Key": apiKey,
+      },
+    });
+  } catch (networkErr) {
+    // D-15: network failure → best-effort empty page; no throw
+    logError("genui.historyList", "genui_history_list_network_error", networkErr);
+    return [];
+  }
+
+  // T-13-19 / D-15: non-2xx → log server-side, return empty page
+  if (!res.ok) {
+    let rawDetail: unknown = "(unreadable)";
     try {
-      res = await fetch(endpoint, {
-        method: "GET",
-        headers: {
-          "X-API-Key": apiKey,
-        },
-      });
-    } catch (networkErr) {
-      // D-15: network failure → best-effort empty list; no throw
-      logError("genui.historyList", "genui_history_list_network_error", networkErr);
-      return [];
+      rawDetail = await res.json();
+    } catch {
+      // ignore parse failure
     }
+    logError(
+      "genui.historyList",
+      "genui_history_list_non2xx_response",
+      `status=${res.status} detail=${JSON.stringify(rawDetail)}`,
+    );
+    return [];
+  }
 
-    // T-13-19 / D-15: non-2xx → log server-side, return empty list
-    if (!res.ok) {
-      let rawDetail: unknown = "(unreadable)";
-      try {
-        rawDetail = await res.json();
-      } catch {
-        // ignore parse failure
-      }
+  let body: unknown;
+  try {
+    body = await res.json();
+  } catch (parseErr) {
+    logError("genui.historyList", "genui_history_list_json_parse_error", parseErr);
+    return [];
+  }
+
+  // Extract data from ApiResponse envelope: { success, data: [...], error }
+  const dataField =
+    body !== null &&
+    typeof body === "object" &&
+    "data" in body &&
+    Array.isArray((body as Record<string, unknown>)["data"])
+      ? ((body as Record<string, unknown>)["data"] as unknown[])
+      : undefined;
+
+  if (dataField === undefined) {
+    logError("genui.historyList", "genui_history_list_missing_data_field", JSON.stringify(body));
+    return [];
+  }
+
+  // D-17: re-validate each row at the web boundary; silently drop malformed rows
+  const rows: HistoryRow[] = [];
+  for (const rawRow of dataField) {
+    const parsed = FastApiHistoryRowSchema.safeParse(rawRow);
+    if (parsed.success) {
+      rows.push(mapRow(parsed.data));
+    } else {
       logError(
         "genui.historyList",
-        "genui_history_list_non2xx_response",
-        `status=${res.status} detail=${JSON.stringify(rawDetail)}`,
+        "genui_history_list_row_validation_failed",
+        JSON.stringify(parsed.error.issues),
       );
+    }
+  }
+
+  return rows;
+}
+
+// ---------------------------------------------------------------------------
+// historyListProcedure — GET /v1/genui/history (STDO-05, Phase 44 user-scoped)
+// ---------------------------------------------------------------------------
+
+export const historyListProcedure = protectedProcedure
+  .input(HistoryListInput)
+  .output(z.array(HistoryRowSchema))
+  .query(async ({ ctx, input }) => {
+    // Phase 44 (TENA-03/999.1): derive the caller's owned importer scope —
+    // an unowned/absent client-supplied importerId filter or an owner-less
+    // caller resolves to an empty page, with ZERO FastAPI calls issued.
+    const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
+    const scope = resolveListScope(owned, input.importerId);
+    if (!scope.ok) {
       return [];
     }
 
-    let body: unknown;
-    try {
-      body = await res.json();
-    } catch (parseErr) {
-      logError("genui.historyList", "genui_history_list_json_parse_error", parseErr);
-      return [];
-    }
+    const limit = input.limit ?? 20;
 
-    // Extract data from ApiResponse envelope: { success, data: [...], error }
-    const dataField =
-      body !== null &&
-      typeof body === "object" &&
-      "data" in body &&
-      Array.isArray((body as Record<string, unknown>)["data"])
-        ? ((body as Record<string, unknown>)["data"] as unknown[])
-        : undefined;
+    // Fan out one FastAPI call per owned importer (FastAPI's importer_id
+    // filter is single-valued) and merge, re-sorted by createdAt desc, back
+    // down to the requested page size.
+    const pages = await Promise.all(
+      scope.importerIds.map((importerId) =>
+        fetchHistoryPage({ importerId, limit, offset: input.offset }),
+      ),
+    );
 
-    if (dataField === undefined) {
-      logError("genui.historyList", "genui_history_list_missing_data_field", JSON.stringify(body));
-      return [];
-    }
-
-    // D-17: re-validate each row at the web boundary; silently drop malformed rows
-    const rows: HistoryRow[] = [];
-    for (const rawRow of dataField) {
-      const parsed = FastApiHistoryRowSchema.safeParse(rawRow);
-      if (parsed.success) {
-        rows.push(mapRow(parsed.data));
-      } else {
-        logError(
-          "genui.historyList",
-          "genui_history_list_row_validation_failed",
-          JSON.stringify(parsed.error.issues),
-        );
-      }
-    }
-
-    return rows;
+    const merged = pages.flat();
+    merged.sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+    return merged.slice(0, limit);
   });
 
 // ---------------------------------------------------------------------------
-// historyByIdProcedure — GET /v1/genui/history/{id} (STDO-06)
+// historyByIdProcedure — GET /v1/genui/history/{id} (STDO-06, Phase 44 gated)
 // ---------------------------------------------------------------------------
 
-export const historyByIdProcedure = publicProcedure
+export const historyByIdProcedure = protectedProcedure
   .input(HistoryByIdInput)
   .output(HistoryDetailSchema.nullable())
-  .query(async ({ input }) => {
+  .query(async ({ ctx, input }) => {
     const { url, apiKey } = getListenerConfig();
 
     const endpoint = `${url}/v1/genui/history/${encodeURIComponent(input.id)}`;
@@ -301,6 +360,27 @@ export const historyByIdProcedure = publicProcedure
     if (dataField === undefined) {
       logError("genui.historyById", "genui_history_detail_missing_data_field", JSON.stringify(body));
       return null;
+    }
+
+    // Phase 44 (TENA-03/999.1): ownership gate — verify the row's
+    // ui_spec_templates.importer_id belongs to the caller BEFORE returning
+    // either the real detail or the parse-failure fallback below. The
+    // FastAPI detail view does not carry importer_id, so this is a direct,
+    // parallel Drizzle lookup (T-44-07-02). A NULL-importer (system-level)
+    // generation is not user-browsable — fail-closed NOT_FOUND, same as a
+    // foreign-owned row (no existence oracle).
+    const [ownershipRow] = await ctx.db
+      .select({ importerId: UiSpecTemplates.importerId })
+      .from(UiSpecTemplates)
+      .where(eq(UiSpecTemplates.id, input.id))
+      .limit(1);
+    const importerId = ownershipRow?.importerId ?? null;
+    if (importerId === null) {
+      throw new TRPCError({ code: "NOT_FOUND" });
+    }
+    const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
+    if (!owned.includes(importerId)) {
+      throw new TRPCError({ code: "NOT_FOUND" });
     }
 
     // D-17: re-validate at the web boundary.

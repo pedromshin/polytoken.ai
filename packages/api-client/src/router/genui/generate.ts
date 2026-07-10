@@ -29,6 +29,11 @@
  *   CR-02: FastAPI wraps responses in ApiResponse envelope:
  *     { success: bool, data: { spec: {...} } | null, error: str | null }
  *     Spec extraction must read body.data.spec, not body.spec.
+ *
+ *   Phase 44 (TENA-03, T-44-07-04): requires a session (protectedProcedure).
+ *   Auth-gate ONLY — the generation cache itself stays deliberately
+ *   cross-tenant (exact-match cache reuse across users is intended, Plan 01
+ *   SC5); this procedure applies no ownership scoping.
  */
 
 import { SAFE_FALLBACK_SPEC, SpecRootSchema } from "@polytoken/genui/schema";
@@ -36,7 +41,7 @@ import { REGISTRY_VERSION } from "@polytoken/genui/registry";
 import { STYLE_PACK_IDS } from "@polytoken/genui/theme";
 import { z } from "zod";
 
-import { publicProcedure } from "../../trpc";
+import { protectedProcedure } from "../../trpc";
 import { getListenerConfig } from "../_listener-config";
 
 // ---------------------------------------------------------------------------
@@ -114,7 +119,7 @@ export type GenerateOutput = z.infer<typeof GenerateOutputSchema>;
 // Procedure
 // ---------------------------------------------------------------------------
 
-export const generateProcedure = publicProcedure
+export const generateProcedure = protectedProcedure
   .input(GenerateInput)
   .output(GenerateOutputSchema)
   .query(async ({ input }) => {

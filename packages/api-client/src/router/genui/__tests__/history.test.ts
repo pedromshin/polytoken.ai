@@ -13,10 +13,32 @@
  *   T-13-19: Non-2xx response bodies are logged server-side only; friendly/empty response
  *     is returned to the caller — no internal error detail is leaked.
  *
+ * Phase 44 (TENA-03, closes backlog 999.1):
+ *   Both procedures require a session (protectedProcedure). `@polytoken/db/ownership`'s
+ *   `userOwnedImporterIds` is mocked at the module boundary (its own correctness is
+ *   covered by packages/db/src/ownership.test.ts, 44-02) — these tests prove the
+ *   WIRING: historyList NEVER forwards importer_id omitted (it fans out one FastAPI
+ *   call per owned importer and merges); historyById re-checks the returned row's
+ *   ui_spec_templates.importer_id (via a direct Drizzle lookup, mocked through
+ *   `ctx.db.select`) against the caller's owned set — NOT_FOUND for a foreign or
+ *   NULL importer.
+ *
  * Test strategy: stub globalThis.fetch per test, set env vars in beforeEach, call via appRouter caller.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@polytoken/db/ownership", async () => {
+  const actual = await vi.importActual<typeof import("@polytoken/db/ownership")>(
+    "@polytoken/db/ownership",
+  );
+  return {
+    ...actual,
+    userOwnedImporterIds: vi.fn(),
+  };
+});
+
+import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
 import { appRouter } from "../../../root";
 
@@ -33,14 +55,74 @@ function mockResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-/** Create a tRPC caller with a stub ctx. */
-function makeCaller() {
+const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
+const IMPORTER_A = "30000000-0000-0000-0000-000000000a01";
+const IMPORTER_B = "30000000-0000-0000-0000-000000000b02";
+
+type FakeRow = Record<string, unknown>;
+
+function createFakeChain(rows: ReadonlyArray<FakeRow>) {
+  const chain = {
+    from() {
+      return chain;
+    },
+    where() {
+      return chain;
+    },
+    limit() {
+      return Promise.resolve(rows);
+    },
+  };
+  return chain;
+}
+
+/**
+ * Create a tRPC caller with a stub ctx. `dbRows` seeds the fake
+ * `ctx.db.select` chain used by historyById's Phase 44 ownership lookup
+ * (irrelevant for historyList, which only calls the mocked
+ * `userOwnedImporterIds`).
+ */
+function makeCaller(
+  user: { id: string } | null = USER_A,
+  dbRows: ReadonlyArray<FakeRow> = [],
+) {
+  const db = { select: () => createFakeChain(dbRows) };
   return appRouter.createCaller({
-    db: {} as never,
+    db: db as never,
     headers: new Headers(),
-    user: null,
+    user,
   });
 }
+
+// Default: the caller owns exactly IMPORTER_A. Individual tests override via
+// mockResolvedValueOnce for the non-owned / owner-less / multi-importer cases.
+beforeEach(() => {
+  vi.mocked(userOwnedImporterIds).mockResolvedValue([IMPORTER_A]);
+});
+
+afterEach(() => {
+  vi.mocked(userOwnedImporterIds).mockReset();
+});
+
+// ---------------------------------------------------------------------------
+// Session requirement (T-44-07-04)
+// ---------------------------------------------------------------------------
+
+describe("genui history — session requirement (T-44-07-04)", () => {
+  it("Test S1: historyList rejects a sessionless call with UNAUTHORIZED", async () => {
+    const caller = makeCaller(null);
+    await expect(caller.genui.historyList({})).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+  });
+
+  it("Test S2: historyById rejects a sessionless call with UNAUTHORIZED", async () => {
+    const caller = makeCaller(null);
+    await expect(
+      caller.genui.historyById({ id: "some-id" }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Sample data — matching ApiResponse envelope from FastAPI
@@ -152,16 +234,80 @@ describe("genui.historyList — happy path", () => {
     expect(calledUrl).toContain("offset=10");
   });
 
-  it("Test 4: forwards importer_id query param when provided", async () => {
+  it("Test 4 (Phase 44): forwards the caller's OWNED importer_id — not an arbitrary client-passed one", async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockResponse({ success: true, data: [], error: null }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const importerId = "00000000-0000-0000-0003-000000000001";
     const caller = makeCaller();
-    await caller.genui.historyList({ importerId });
+    await caller.genui.historyList({ importerId: IMPORTER_A });
 
     const [calledUrl] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(calledUrl).toContain(`importer_id=${importerId}`);
+    expect(calledUrl).toContain(`importer_id=${IMPORTER_A}`);
+  });
+
+  it("Test 4b (Phase 44): a non-owned importerId filter is rejected — empty list, zero fetch calls", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyList({ importerId: IMPORTER_B });
+
+    expect(result).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Test 4c (Phase 44): an owner-less caller gets an empty list, zero fetch calls", async () => {
+    vi.mocked(userOwnedImporterIds).mockResolvedValueOnce([]);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyList({});
+
+    expect(result).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("Test 4d (Phase 44): no importerId filter fans out to EVERY owned importer and merges, sorted by createdAt desc", async () => {
+    vi.mocked(userOwnedImporterIds).mockResolvedValueOnce([IMPORTER_A, IMPORTER_B]);
+    const rowFor = (id: string, importerId: string, createdAt: string) => ({
+      id,
+      intent_text: `from ${importerId}`,
+      created_at: createdAt,
+      registry_version: "v1",
+      use_count: 1,
+      validation_status: "validated",
+    });
+
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes(`importer_id=${IMPORTER_A}`)) {
+        return Promise.resolve(
+          mockResponse({
+            success: true,
+            data: [rowFor("row-a", IMPORTER_A, "2026-06-01T10:00:00+00:00")],
+            error: null,
+          }),
+        );
+      }
+      if (url.includes(`importer_id=${IMPORTER_B}`)) {
+        return Promise.resolve(
+          mockResponse({
+            success: true,
+            data: [rowFor("row-b", IMPORTER_B, "2026-06-02T10:00:00+00:00")],
+            error: null,
+          }),
+        );
+      }
+      return Promise.resolve(mockResponse({ success: true, data: [], error: null }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const caller = makeCaller();
+    const result = await caller.genui.historyList({});
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // row-b is newer (2026-06-02) — sorted first.
+    expect(result.map((r) => r.id)).toEqual(["row-b", "row-a"]);
   });
 
   it("Test 5: returns empty array when FastAPI returns empty list", async () => {
@@ -233,10 +379,10 @@ describe("genui.historyById — happy path", () => {
     vi.restoreAllMocks();
   });
 
-  it("Test 9: returns parsed detail with specJson when FastAPI returns valid envelope", async () => {
+  it("Test 9: returns parsed detail with specJson when FastAPI returns valid envelope and the row is owned", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(VALID_DETAIL_ENVELOPE)));
 
-    const caller = makeCaller();
+    const caller = makeCaller(USER_A, [{ importerId: IMPORTER_A }]);
     const result = await caller.genui.historyById({ id: SAMPLE_ID });
 
     expect(result).not.toBeNull();
@@ -255,7 +401,7 @@ describe("genui.historyById — happy path", () => {
     const fetchMock = vi.fn().mockResolvedValue(mockResponse(VALID_DETAIL_ENVELOPE));
     vi.stubGlobal("fetch", fetchMock);
 
-    const caller = makeCaller();
+    const caller = makeCaller(USER_A, [{ importerId: IMPORTER_A }]);
     await caller.genui.historyById({ id: SAMPLE_ID });
 
     expect(fetchMock).toHaveBeenCalledOnce();
@@ -275,6 +421,41 @@ describe("genui.historyById — happy path", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Phase 44 — historyById ownership gate (T-44-07-02)
+// ---------------------------------------------------------------------------
+
+describe("genui.historyById — Phase 44 ownership gate (T-44-07-02)", () => {
+  beforeEach(() => {
+    process.env.EMAIL_LISTENER_URL = URL_BASE;
+    process.env.EMAIL_LISTENER_API_KEY = API_KEY;
+  });
+
+  afterEach(() => {
+    delete process.env.EMAIL_LISTENER_URL;
+    delete process.env.EMAIL_LISTENER_API_KEY;
+    vi.restoreAllMocks();
+  });
+
+  it("Test 12: NOT_FOUND when the row's importer belongs to another user", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(VALID_DETAIL_ENVELOPE)));
+
+    const caller = makeCaller(USER_A, [{ importerId: IMPORTER_B }]);
+    await expect(
+      caller.genui.historyById({ id: SAMPLE_ID }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("Test 13: NOT_FOUND when the row has a NULL importer_id (system-level, not user-browsable)", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(VALID_DETAIL_ENVELOPE)));
+
+    const caller = makeCaller(USER_A, [{ importerId: null }]);
+    await expect(
+      caller.genui.historyById({ id: SAMPLE_ID }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
 describe("genui.historyById — error handling (D-15, T-13-19)", () => {
   beforeEach(() => {
     process.env.EMAIL_LISTENER_URL = URL_BASE;
@@ -287,7 +468,7 @@ describe("genui.historyById — error handling (D-15, T-13-19)", () => {
     vi.restoreAllMocks();
   });
 
-  it("Test 12: non-2xx (non-404) FastAPI response → returns null (D-15 best-effort)", async () => {
+  it("Test 14: non-2xx (non-404) FastAPI response → returns null (D-15 best-effort)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse({ detail: "server error" }, 500)));
 
     const caller = makeCaller();
@@ -296,7 +477,7 @@ describe("genui.historyById — error handling (D-15, T-13-19)", () => {
     expect(result).toBeNull();
   });
 
-  it("Test 13: network error → returns null (D-15 best-effort, no throw)", async () => {
+  it("Test 15: network error → returns null (D-15 best-effort, no throw)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("Network failure")));
 
     const caller = makeCaller();
@@ -307,7 +488,7 @@ describe("genui.historyById — error handling (D-15, T-13-19)", () => {
 });
 
 describe("genui.historyById — env guard", () => {
-  it("Test 14: throws when EMAIL_LISTENER_URL is missing", async () => {
+  it("Test 16: throws when EMAIL_LISTENER_URL is missing", async () => {
     delete process.env.EMAIL_LISTENER_URL;
     delete process.env.EMAIL_LISTENER_API_KEY;
 
@@ -332,7 +513,7 @@ describe("genui.historyById — CR-03 regression: parse failure → SAFE_FALLBAC
     vi.restoreAllMocks();
   });
 
-  it("Test 15 (CR-03): schema parse failure → returns non-null detail with specJson === SAFE_FALLBACK_SPEC", async () => {
+  it("Test 17 (CR-03): schema parse failure → returns non-null detail with specJson === SAFE_FALLBACK_SPEC", async () => {
     // FastAPI returns a valid 2xx envelope, but the detail row is malformed
     // (missing required fields like registry_version, spec_json).
     const malformedDetailEnvelope = {
@@ -350,7 +531,7 @@ describe("genui.historyById — CR-03 regression: parse failure → SAFE_FALLBAC
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(malformedDetailEnvelope)));
 
-    const caller = makeCaller();
+    const caller = makeCaller(USER_A, [{ importerId: IMPORTER_A }]);
     const result = await caller.genui.historyById({ id: SAMPLE_ID });
 
     // D-17 contract: must NOT be null — must degrade to SAFE_FALLBACK_SPEC
@@ -363,7 +544,7 @@ describe("genui.historyById — CR-03 regression: parse failure → SAFE_FALLBAC
     expect(root["type"]).toBe("alert");
   });
 
-  it("Test 16 (CR-03): valid spec_json in malformed envelope still degrades via SAFE_FALLBACK_SPEC (missing use_count)", async () => {
+  it("Test 18 (CR-03): valid spec_json in malformed envelope still degrades via SAFE_FALLBACK_SPEC (missing use_count)", async () => {
     // A detail response where spec_json is valid but envelope fields are wrong
     const badEnvelope = {
       success: true,
@@ -381,7 +562,7 @@ describe("genui.historyById — CR-03 regression: parse failure → SAFE_FALLBAC
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse(badEnvelope)));
 
-    const caller = makeCaller();
+    const caller = makeCaller(USER_A, [{ importerId: IMPORTER_A }]);
     const result = await caller.genui.historyById({ id: SAMPLE_ID });
 
     expect(result).not.toBeNull();
@@ -419,7 +600,7 @@ describe("genui.historyById — WR-01 regression: non-2xx errors return null (pr
     vi.restoreAllMocks();
   });
 
-  it("Test 17 (WR-01): 5xx response → returns null without throwing (D-15 best-effort, UI handles isError)", async () => {
+  it("Test 19 (WR-01): 5xx response → returns null without throwing (D-15 best-effort, UI handles isError)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(mockResponse({ detail: "Internal Server Error" }, 500)));
 
     const caller = makeCaller();
@@ -429,7 +610,7 @@ describe("genui.historyById — WR-01 regression: non-2xx errors return null (pr
     expect(result).toBeNull();
   });
 
-  it("Test 18 (WR-01): network failure → returns null without throwing (D-15 best-effort)", async () => {
+  it("Test 20 (WR-01): network failure → returns null without throwing (D-15 best-effort)", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("ECONNREFUSED")));
 
     const caller = makeCaller();

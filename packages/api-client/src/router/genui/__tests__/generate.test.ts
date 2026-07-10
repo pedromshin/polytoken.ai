@@ -35,12 +35,17 @@ function mockResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
+// Phase 44 (TENA-03): genui.generate is protectedProcedure (auth-gate only —
+// no ownership scoping, the generation cache stays deliberately cross-tenant).
+// A valid session user is required for every non-session-gate test below.
+const TEST_USER = { id: "10000000-0000-0000-0000-00000000000a" };
+
 /** Create a tRPC caller with a stub ctx that has no real db connection. */
 function makeCaller() {
   return appRouter.createCaller({
     db: {} as never,
     headers: new Headers(),
-    user: null,
+    user: TEST_USER,
   });
 }
 
@@ -360,6 +365,25 @@ describe("genui.generate — FastAPI transport error (T-13-19)", () => {
     // The raw error detail must NOT be leaked to the caller (T-13-19)
     expect(JSON.stringify(result)).not.toContain("secret-key=xyz");
     expect(JSON.stringify(result)).not.toContain("Internal Bedrock error");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 44 (TENA-03, T-44-07-04): session requirement — auth-gate only, no
+// ownership scoping (the generation cache stays deliberately cross-tenant).
+// ---------------------------------------------------------------------------
+
+describe("genui.generate — session requirement (T-44-07-04)", () => {
+  it("rejects a sessionless call with UNAUTHORIZED", async () => {
+    const caller = appRouter.createCaller({
+      db: {} as never,
+      headers: new Headers(),
+      user: null,
+    });
+
+    await expect(caller.genui.generate({ intent: "test" })).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
   });
 });
 

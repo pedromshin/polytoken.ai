@@ -22,11 +22,15 @@ function mockResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-function makeCaller() {
+// Phase 44 (TENA-03): genui.codeIslandGenerate is protectedProcedure
+// (auth-gate only — no ownership scoping, mirrors generate.ts).
+const TEST_USER = { id: "10000000-0000-0000-0000-00000000000a" };
+
+function makeCaller(user: { id: string } | null = TEST_USER) {
   return appRouter.createCaller({
     db: {} as never,
     headers: new Headers(),
-    user: null,
+    user,
   });
 }
 
@@ -89,5 +93,11 @@ describe("genui.codeIslandGenerate", () => {
       .mockResolvedValue(mockResponse({ success: true, data: { outcome: "ok" }, error: null })) as unknown as typeof fetch;
     const res = await makeCaller().genui.codeIslandGenerate({ intent: "x" });
     expect(res.outcome).toBe("fallback");
+  });
+
+  it("Phase 44 (T-44-07-04): rejects a sessionless call with UNAUTHORIZED", async () => {
+    await expect(
+      makeCaller(null).genui.codeIslandGenerate({ intent: "x" }),
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
