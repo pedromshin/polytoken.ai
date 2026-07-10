@@ -175,7 +175,7 @@ Plans:
 4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
 5. genui exact-match cache tables deliberately unscoped, documented
 
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 
 Plans:
 
@@ -193,7 +193,7 @@ Plans:
 
 - [x] 44-05-PLAN.md — tRPC sweep: emails router (reads + component mutations) → protectedProcedure + ownership
 - [x] 44-06-PLAN.md — tRPC sweep: entities + entity-types + knowledge routers → protectedProcedure + ownership
-- [ ] 44-07-PLAN.md — tRPC sweep: chat + genui routers + attachments download route (closes 999.1 + IDOR)
+- [x] 44-07-PLAN.md — tRPC sweep: chat + genui routers + attachments download route (closes 999.1 + IDOR)
 
 **Wave 4** *(blocked on Wave 3 completion)*
 

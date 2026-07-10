@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T04:01:11.000Z"
-last_activity: 2026-07-10 -- Phase 44 Plan 06 (entities/entity-types/knowledge router sweep) executed
+last_updated: "2026-07-10T04:34:28.231Z"
+last_activity: 2026-07-10 -- Phase 44 Plan 07 (chat+genui router sweep + attachments IDOR close) executed
 progress:
   total_phases: 5
   completed_phases: 2
   total_plans: 18
-  completed_plans: 15
-  percent: 43
+  completed_plans: 16
+  percent: 40
 ---
 
 # State
@@ -25,9 +25,37 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 ## Current Position
 
 Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — EXECUTING
-Plan: 7 of 8
+Plan: 8 of 8
 Status: Executing Phase 44
-Last activity: 2026-07-10 -- Phase 44 Plan 06 (entities/entity-types/knowledge router sweep) executed
+Last activity: 2026-07-10 -- Phase 44 Plan 07 (chat+genui router sweep + attachments IDOR close) executed
+
+## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 07 History
+
+- **44-07 EXECUTED** (`0397deb` feat, `d46be1b` feat, `b954f54` fix): chat + genui
+  tRPC router sweep + attachments route IDOR close. Chat's 11 procedures
+  (`conversations`/`history`/`cost`/`browser-turn`/`canvas`/`widget-interactions`)
+  moved to `protectedProcedure` with a DIRECT `chat_conversations.user_id` recipe
+  (not importer-anchored): `createConversation` writes `user_id = ctx.user.id`,
+  `listConversations` filters on it (importerId now a narrowing filter, not the
+  boundary), every conversationId-keyed procedure asserts
+  `assertConversationOwnership` before any further `ctx.db` access. Fixed the
+  pre-existing typecheck break flagged since 44-02: `chat_cost_ledger.user_id`
+  (Plan 01 NOT NULL) now threaded through `recordBrowserTurn`. `genui.generate`/
+  `codeIslandGenerate` auth-gated only (generation cache stays deliberately
+  cross-tenant); `genui.historyList` fans out one FastAPI call per owned importer
+  and merges (closes backlog 999.1 — never omits `importer_id`); `genui.historyById`
+  gains a parallel Drizzle ownership check on `ui_spec_templates.importer_id` (the
+  FastAPI response carries no importer_id) — NOT_FOUND for foreign or NULL
+  importer. The attachments download route (`apps/web`, previously ZERO tenant
+  scoping — a live IDOR) now gates on `getUser()` 401 + `assertImporterOwnership`
+  404 before minting any signed URL. `packages/api-client` `npx tsc --noEmit` is
+  now fully clean (was 2 known errors since 44-02). 2 deviations (Rule 3: the
+  NOT NULL fix + its test fixture; Rule 1: `generate.test.ts`/`code-island.test.ts`
+  sibling files broken by the protectedProcedure switch, fixed like 44-05/44-06's
+  precedent). TENA-03 intentionally left Pending (completes at Plan 08's
+  adversarial gate). Carried open item to 44-08: the chat `confirm_action`
+  promotion dispatch (`confirm_action_dispatch.py`, Python-side, out of this
+  plan's scope) still has no `user_id` wiring. Full detail: `44-07-SUMMARY.md`.
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 06 History
 
@@ -2380,6 +2408,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 44 P44-02 | 30min | 2 tasks | 5 files |
 | Phase 44 P03 | 50min | 3 tasks | 16 files |
 | Phase 44 P05 | 35 min | 2 tasks | 8 files |
+| Phase 44 P07 | 60min | 3 tasks | 16 files |
 
 ## Operator Next Steps
 
