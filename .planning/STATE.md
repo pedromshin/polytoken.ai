@@ -17,17 +17,21 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-07)
+See: .planning/PROJECT.md (updated 2026-07-10 after v1.7)
 
 **Core value:** Reliably receive every inbound email and make it observable.
-**Current focus:** Milestone complete
+**Current focus:** v1.7 SHIPPED — v1.8 kickoff awaits USER decisions (brand direction from
+BRAND-IDENTITY-OPTIONS.md incl. the polytoken naming-collision call; UI re-skin taste input).
+Also user-gated: GOOGLE-OAUTH-RUNBOOK.md (unblocks 11 UAT scenarios), staging/prod migrations
+0031–0035, external renames, SES forwarding rule, local supabase nauta→polytoken project-id
+decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approval).
 
 ## Current Position
 
-Phase: Milestone v1.7 complete
+Phase: Milestone v1.7 complete (tag v1.7 LOCAL — push deferred: main push triggers ECS deploy)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-10 — Milestone v1.7 completed and archived
+Status: Awaiting v1.8 kickoff (user decisions) — start with /gsd:new-milestone
+Last activity: 2026-07-10 — Milestone v1.7 completed, archived, tagged (autonomous run)
 
 ## Phase 45 — Email Threads + Forwarding Seam — Plan 04 History
 
