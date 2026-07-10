@@ -151,6 +151,33 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
+## Current Milestone: v1.9 Cloud Workspace
+
+**Goal:** polytoken becomes a *used* product — the live loop closes on the user's real email
+FIRST, then the total re-skin/mobile/editable-panels land, then the E3 email-cluster workflow
+ships depth-first as ONE fully-working scenario on the user's real inbox. Plan of record:
+`.planning/research/two-epoch-endgame/ENDGAME-PLAN.md` §2 (Epoch A).
+
+**Target features (three dependency-ordered bands):**
+- **Band 1 — Live-Loop Gate (FIRST; nothing else starts until green):** local stack green
+  end-to-end; migrations 0026–0035 on staging+prod; Google OAuth runbook executed (user
+  checkpoint tasks in-phase, never parked); SES/Gmail forwarding wired → real email flowing;
+  ~20 deferred UAT scenarios burned down; W-1 screenshot-surface fix; external-rename/
+  Supabase-project-id decisions surfaced as checkpoints.
+- **Band 2 — Folded v1.8 remainder:** total UI re-skin on extended tokens (RSKN + 999.16 +
+  /knowledge UI debt), mobile-responsive answer (MOBL), editable genui panels (PANL —
+  style-pack switch, spec tweak, regenerate, promptable re-theme).
+- **Band 3 — E3 Email-Cluster Workflow (depth-first):** email/thread cards as canvas nodes,
+  chats bound to thread context, `web_search` ToolExecutor (same port + quarantine discipline),
+  source-capture → INFERRED knowledge nodes, promote-to-global via the existing gate, cluster
+  context for subsequent chats — acceptance bar is the user running the whole scenario live.
+
+**Key context:** Opened under the two-epoch endgame restructure (all remaining vision =
+v1.9 + v2.0; E7 parked). STANDING RULE: deploy/OAuth/live-UAT gates are first-class phase
+work, never deferrable-by-default. Ex-Phase-49/50/51 seed specs: milestones/v1.8-ROADMAP.md;
+ex-49 discuss context: .planning/phases/49-total-ui-re-skin/49-CONTEXT.md. Band 2 ∥ Band 3
+interleaving allowed after Band 1; mobile last. Phase numbering continues at 49.
+
 ## v1.8 Milestone Detail (SHIPPED 2026-07-10, scope cut at Phase 48 — archived: milestones/v1.8-ROADMAP.md)
 
 **Scope cut (user-directed, 2026-07-10):** v1.8 ends at Phase 48 with brand foundation +

@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.8
-milestone_name: Polytoken Re-skin — Brand, Design System & Responsive Canvas
-status: Awaiting next milestone
-last_updated: "2026-07-10T22:41:58.878Z"
-last_activity: 2026-07-10 — Milestone v1.8 completed and archived
+milestone: v1.9
+milestone_name: Cloud Workspace
+status: planning
+last_updated: "2026-07-10T22:51:17.981Z"
+last_activity: 2026-07-10
 progress:
-  total_phases: 5
-  completed_phases: 2
-  total_plans: 10
-  completed_plans: 10
-  percent: 40
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State
@@ -28,10 +28,10 @@ decision, /gsd:cleanup (phase-dir archival deferred — needs interactive approv
 
 ## Current Position
 
-Phase: Milestone v1.8 complete
+Phase: Not started (defining requirements)
 Plan: —
-Status: Awaiting next milestone
-Last activity: 2026-07-10 — Milestone v1.8 completed and archived
+Status: Defining requirements
+Last activity: 2026-07-10 — Milestone v1.9 started
 
 ## Phase 48 — Token System Extensions — Plan 04 History
 
