@@ -28,6 +28,7 @@ import {
   SidebarMenuItem,
 } from "@polytoken/ui/sidebar";
 
+import { BrandMark } from "~/components/brand-mark";
 import { SignOutButton } from "~/components/sign-out-button";
 
 /** A navigable destination rendered as a next/link in the rail. */
@@ -117,12 +118,11 @@ export function AppSidebar(): React.ReactElement {
     >
       <SidebarHeader>
         <div className="flex h-11 items-center gap-2 px-2">
-          <span
-            aria-hidden
-            className="flex size-6 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground"
-          >
-            P
-          </span>
+          <BrandMark
+            variant="glyph"
+            size="size-6"
+            className="shrink-0 text-primary"
+          />
           <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
             Polytoken
           </span>
