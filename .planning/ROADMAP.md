@@ -113,7 +113,7 @@ Phase 46 is independent/parallelizable. Research base:
 
 - [x] **Phase 42: Atomic Rename nauta → polytoken** (completed 2026-07-09)
 - [x] **Phase 43: Auth — Google OAuth + Sessions (Supabase Auth)** (completed 2026-07-10)
-- [ ] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation**
+- [x] **Phase 44: Tenancy — user_id Scoping + Enforced Isolation** (completed 2026-07-10)
 - [ ] **Phase 45: Email Threads + Forwarding Seam**
 - [ ] **Phase 46: Kickoff Hygiene + v1.8 Brand & Design Dossier**
 
@@ -175,7 +175,7 @@ Plans:
 4. RLS policies active on user-owned tables; the enforcement-architecture decision (app-boundary primary, given the Drizzle superuser-connection precedent) recorded in PROJECT.md Key Decisions
 5. genui exact-match cache tables deliberately unscoped, documented
 
-**Plans:** 7/8 plans executed
+**Plans:** 8/8 plans complete
 
 Plans:
 
@@ -197,7 +197,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 44-08-PLAN.md — Adversarial cross-tenant acceptance gate (vitest + pytest) + sweep inventory
+- [x] 44-08-PLAN.md — Adversarial cross-tenant acceptance gate (vitest + pytest) + sweep inventory
 
 ### Phase 45: Email Threads + Forwarding Seam
 

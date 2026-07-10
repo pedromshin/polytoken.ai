@@ -25,7 +25,7 @@ Requirements for this milestone. Each maps to roadmap phases.
 
 - [x] **TENA-01**: `user_id` is anchored on `importers` (scoping the hard-FK descendant tables via one join); `chat_conversations`/`chat_cost_ledger` get direct `user_id`; genui exact-match cache tables stay deliberately unscoped; all NEW tables carry tenant scoping (VISION guardrail #1)
 - [x] **TENA-02**: All existing data is backfilled to the first real user account via expand→backfill→contract migrations
-- [ ] **TENA-03**: Every web route and tRPC procedure derives tenant scope from the session, never from client-supplied importer IDs — including the currently-unscoped attachments download route and the promote proxy — proven by an adversarial cross-tenant test that is a phase acceptance gate (absorbs backlog 999.1 as per-user scoping)
+- [x] **TENA-03**: Every web route and tRPC procedure derives tenant scope from the session, never from client-supplied importer IDs — including the currently-unscoped attachments download route and the promote proxy — proven by an adversarial cross-tenant test that is a phase acceptance gate (absorbs backlog 999.1 as per-user scoping)
 - [x] **TENA-04**: RLS policies exist as defense-in-depth on user-owned tables, with the enforcement architecture decision (app-boundary primary vs RLS primary, given the Drizzle superuser-connection precedent) recorded explicitly before policy work
 
 ### Threads
@@ -84,7 +84,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-05 | Phase 43 | Complete |
 | TENA-01 | Phase 44 | Complete |
 | TENA-02 | Phase 44 | Complete |
-| TENA-03 | Phase 44 | Pending (spans Plans 02/03/05/06/07/08 — Plan 02 delivered the ownership helper; the requirement completes at Plan 08's adversarial gate) |
+| TENA-03 | Phase 44 | Complete (spanned Plans 02/03/05/06/07/08; adversarial acceptance gate green — one open gap explicitly tracked, see 44-SWEEP-INVENTORY.md "Known Gap") |
 | TENA-04 | Phase 44 | Complete |
 | THRD-01 | Phase 45 | Pending |
 | THRD-02 | Phase 45 | Pending |

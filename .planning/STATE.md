@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.7
 milestone_name: polytoken.ai Foundation — Rename, Auth & Tenancy
 status: executing
-last_updated: "2026-07-10T04:34:28.231Z"
-last_activity: 2026-07-10 -- Phase 44 Plan 07 (chat+genui router sweep + attachments IDOR close) executed
+last_updated: "2026-07-10T05:10:00.000Z"
+last_activity: 2026-07-10 -- Phase 44 Plan 08 (adversarial cross-tenant acceptance gate, TENA-03 complete) executed -- Phase 44 fully executed 8/8 plans
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 18
-  completed_plans: 16
-  percent: 40
+  completed_plans: 18
+  percent: 64
 ---
 
 # State
@@ -24,10 +24,41 @@ See: .planning/PROJECT.md (updated 2026-07-07)
 
 ## Current Position
 
-Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — EXECUTING
-Plan: 8 of 8
-Status: Executing Phase 44
-Last activity: 2026-07-10 -- Phase 44 Plan 07 (chat+genui router sweep + attachments IDOR close) executed
+Phase: 44 (Tenancy — user_id Scoping + Enforced Isolation) — COMPLETE (8/8 plans)
+Plan: 8 of 8 (final -- adversarial acceptance gate)
+Status: Phase 44 complete, ready for Phase 45 (email threads) / verify-work
+Last activity: 2026-07-10 -- Phase 44 Plan 08 (adversarial cross-tenant acceptance gate, TENA-03 complete) executed
+
+## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 08 History
+
+- **44-08 EXECUTED** (`1d44929` feat, `4ece6fc` feat, `f939157` docs): the phase
+  ACCEPTANCE GATE. `cross-tenant-adversarial.test.ts` (26 tests) seeds two real
+  users and drives the real `appRouter` as user B against user A's owned rows
+  across every router (`emails`/`entities`/`entityTypes`/`knowledge`/`chat`/
+  `genui`) -- cross-tenant reads/writes denied, sessionless calls UNAUTHORIZED,
+  positive controls proving user B reaches user B's own data; `genui.generate`
+  confirmed auth-gated-only (cache deliberately cross-tenant, SC5). A dedicated
+  `apps/web` attachments cross-tenant.test.ts (404 non-owner / 200 owner) and a
+  FastAPI `test_cross_tenant.py` (16 tests: emails list/detail/download/
+  reprocess + knowledge-promote proxy, all denied for user B even with A's real
+  importer_id in the promote body) round out the gate. `44-SWEEP-INVENTORY.md`
+  enumerates every tRPC procedure/FastAPI endpoint/web route with its scoping
+  mechanism + locking test. **Mid-sweep discovery (Rule 4, not auto-fixed):**
+  `POST /v1/chat/{stream,regenerate}` and `/v1/chat/widget/submit` have ZERO
+  `require_user_id` enforcement despite the Next.js BFF forwarding `X-User-Id`
+  on every request -- broader than the originally-flagged chat confirm_action
+  item. Locked with 4 `xfail(strict=True)` regressions
+  (`test_chat_widget_submit_known_gap.py`) + a detailed "Known Gap" section in
+  the inventory rather than a rushed multi-layer fix inside this gate plan.
+  TENA-03 marked complete in REQUIREMENTS.md (both named must-fix items --
+  attachments route + promote proxy -- closed and locked; the gap is
+  prominently disclosed, not silently omitted). **Full suites green:**
+  packages/api-client 27 files/327 tests; apps/web 40 files/294 tests;
+  apps/email-listener 1248 passed/9 skipped/4 xfailed (full suite).
+  **URGENT FOLLOW-UP RECOMMENDED:** a dedicated fast-follow plan to close the
+  chat SSE surface gap before production traffic relies on multi-user chat
+  isolation -- see 44-SWEEP-INVENTORY.md "Known Gap" for the full remediation
+  shape.
 
 ## Phase 44 — Tenancy — user_id Scoping + Enforced Isolation — Plan 07 History
 
@@ -1137,6 +1168,12 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   **Next: 30-02** (TIER-03 promotion endpoint — not yet planned).
 
 ## Deferred Items
+
+### v1.7 Phase 44 (flagged at Plan 44-08, the phase acceptance gate, 2026-07-10)
+
+| Category | Item | Status |
+|----------|------|--------|
+| security_gap | chat SSE surface not user-scoped: `POST /v1/chat/stream`, `POST /v1/chat/regenerate`, `POST /v1/chat/widget/submit` never enforce `X-User-Id` despite the BFF forwarding it -- a caller holding another user's `conversation_id` can inject messages into / read context from that conversation, or (the originally-flagged item) promote a knowledge edge under another user's importer via `confirm_action` | **OPEN — urgent, not a phase-44 blocker.** Locked with 4 `xfail(strict=True)` regressions (`apps/email-listener/tests/adversarial/test_chat_widget_submit_known_gap.py`) + full remediation detail in `44-SWEEP-INVENTORY.md` "Known Gap". Recommend a dedicated fast-follow plan before production multi-user chat traffic. |
 
 ### v1.6 (acknowledged and deferred at the v1.6 milestone close, 2026-07-09)
 
@@ -2409,7 +2446,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 44 P03 | 50min | 3 tasks | 16 files |
 | Phase 44 P05 | 35 min | 2 tasks | 8 files |
 | Phase 44 P07 | 60min | 3 tasks | 16 files |
+| Phase 44 P08 | ~95min | 3 tasks | 8 files — adversarial acceptance gate (26+2+16 tests, all green) + sweep inventory + 4 xfail regressions locking a discovered chat-SSE gap; TENA-03 complete |
 
 ## Operator Next Steps
 
-- Start the next milestone with /gsd-new-milestone
+- Phase 44 (Tenancy) is fully executed (8/8 plans). Recommended: /gsd:verify-work 44, then /gsd:plan-phase 45 (email threads).
+- **Urgent, independent of Phase 45 sequencing:** open a dedicated fast-follow plan closing the chat SSE tenancy gap (POST /v1/chat/stream, /regenerate, /widget/submit — see 44-SWEEP-INVENTORY.md "Known Gap") before production multi-user chat traffic.
