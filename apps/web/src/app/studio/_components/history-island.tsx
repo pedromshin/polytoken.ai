@@ -133,8 +133,11 @@ function HistoryRow({
       onClick={(): void => { onSelect(id); }}
       className={[
         "w-full text-left px-4 py-3 border-b border-border/50 transition-colors",
-        "hover:bg-muted/50 focus:outline-none focus:bg-muted/70",
-        isSelected ? "bg-muted" : "",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+        // D-48-06: selected row is the pinned-state exception (hover reasserts
+        // bg-muted rather than intensifying); unselected rows are neutral/ghost
+        // and move to the accent surface pair on hover.
+        isSelected ? "bg-muted hover:bg-muted" : "hover:bg-accent hover:text-accent-foreground",
       ]
         .filter(Boolean)
         .join(" ")}

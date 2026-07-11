@@ -43,6 +43,15 @@ import { PageIdeasIsland } from "./page-ideas-island";
 type TabValue = "catalog" | "sandbox" | "code-island" | "history" | "page-ideas";
 
 // ---------------------------------------------------------------------------
+// D-48-06 hover/active + focus-visible convention — neutral/ghost segment.
+// Inactive segments move to the accent surface pair on hover; the active
+// (pinned-state) segment reasserts its own border-foreground treatment on
+// hover rather than intensifying further (hover-active-convention.md §2c).
+// ---------------------------------------------------------------------------
+const TAB_TRIGGER_CLASS =
+  "rounded-none border-b-2 border-transparent transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent data-[state=active]:hover:text-foreground";
+
+// ---------------------------------------------------------------------------
 // StudioTabs
 // ---------------------------------------------------------------------------
 
@@ -76,34 +85,19 @@ export function StudioTabs(): React.ReactElement {
     >
       {/* Tab strip — shrink-0, does not scroll */}
       <TabsList className="shrink-0 justify-start rounded-none border-b border-border/50 bg-transparent px-4 h-auto pb-0">
-        <TabsTrigger
-          value="catalog"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="catalog" className={TAB_TRIGGER_CLASS}>
           Catalog
         </TabsTrigger>
-        <TabsTrigger
-          value="sandbox"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="sandbox" className={TAB_TRIGGER_CLASS}>
           Sandbox
         </TabsTrigger>
-        <TabsTrigger
-          value="code-island"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="code-island" className={TAB_TRIGGER_CLASS}>
           Code-Island
         </TabsTrigger>
-        <TabsTrigger
-          value="history"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="history" className={TAB_TRIGGER_CLASS}>
           History
         </TabsTrigger>
-        <TabsTrigger
-          value="page-ideas"
-          className="rounded-none border-b-2 border-transparent data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-        >
+        <TabsTrigger value="page-ideas" className={TAB_TRIGGER_CLASS}>
           Page Ideas
         </TabsTrigger>
 
@@ -111,7 +105,7 @@ export function StudioTabs(): React.ReactElement {
         <Link
           href="/studio/preview"
           aria-label="Open Component Showcase"
-          className="ml-2 flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground px-3 py-1.5"
+          className="ml-2 flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           Showcase
           <ExternalLink className="size-3" aria-hidden />
