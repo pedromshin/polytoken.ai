@@ -36,8 +36,12 @@ Last activity: 2026-07-11 -- Phase 49-01 executed (local cold-start doc + prefli
 ## Phase 49 — Live-Loop Gate — Plan 01 History
 
 - **49-01 EXECUTED** (`10c846d` docs, `5eadc02` feat, `a62f65f` docs, `210b188` docs):
-  Built LIVE-01's documented, reproducible local start procedure and LIVE-07's
-  local project-id rename actualization. `docs/RUN-LOCAL.md` (161 lines, 7
+  Built the documented, reproducible local start procedure LIVE-01 requires
+  and captured the LIVE-07 local project-id rename decision in documentation
+  (config.toml itself was already renamed pre-plan). Neither requirement
+  marked Complete yet — LIVE-01 needs plan 49-03's live DB-verified run;
+  LIVE-07 needs the remaining external-rename decisions this phase (see
+  Decisions Log + 49-01-SUMMARY.md). `docs/RUN-LOCAL.md` (161 lines, 7
   sections) is the canonical cold-start doc: prerequisites (npm workspaces,
   NOT pnpm — this repo overrides the global pnpm rule), the env-file split
   as the #1 footgun (listener `.env` vs root `.env.local`, plus the
