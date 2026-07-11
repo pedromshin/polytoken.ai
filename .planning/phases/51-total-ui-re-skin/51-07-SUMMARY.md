@@ -216,3 +216,57 @@ Docker Desktop's backend is reachable — no other user action needed beyond tha
 `apps/web/src/app/__tests__/palette-ban.test.ts` confirmed present on disk; commit `150bfac`
 confirmed present in `git log --oneline --all`. No other files were claimed as created/modified
 in this plan (Tasks 2/3 produced no commits, honestly reflected above).
+
+---
+
+## Addendum (2026-07-11): App-wide glassmorphism-ban closure (UI-review-driven fix)
+
+`51-UI-REVIEW.md` (Top Priority Fix #1) independently re-grepped the whole `apps/web/src` tree
+and found `backdrop-blur` still live in 11 sites across 8 files that 51-01..51-06's per-plan
+file-ownership fences never opened (each plan owned a named file list; these 8 files sat outside
+every list, and `inbox-three-pane.tsx` was actively mis-labeled an "exemplar" in `51-UI-SPEC.md`,
+so no plan ever inspected it). This addendum closes that gap.
+
+**Hit list (11 sites, 8 files) — all converted:**
+
+| File | Site(s) | Before | After |
+|------|---------|--------|-------|
+| `apps/web/src/app/_components/inbox-three-pane.tsx` | lines 88, 123, 137, 314 (FiltersRail, ReadingPreview empty state, ReadingPreview header, Inbox list header) | `bg-background/70 backdrop-blur-md` (line 123: `bg-background/70 ... backdrop-blur-md`) | `bg-background/95` |
+| `apps/web/src/app/chat/page.tsx` | line 67 (conversation toolbar) | `bg-background/70 px-4 backdrop-blur-md` | `bg-background/95 px-4` |
+| `apps/web/src/app/entity-types/page.tsx` | line 176 (master-list header) | `bg-background/70 px-3 backdrop-blur-md` | `bg-background/95 px-3` |
+| `apps/web/src/app/entities/_components/entities-mosaic.tsx` | line 83 (MosaicCard) | `backdrop-blur-sm ...` ternary with `bg-card/80` | `border-border/50 ...` ternary with `bg-card/95` (backdrop-blur-sm dropped; `bg-tier-inferred/10` candidate-status tint left as-is — it's a status highlight, not a glass overlay) |
+| `apps/web/src/app/entities/_components/entities-gallery.tsx` | line 251 (page header) | `bg-background/70 backdrop-blur-md border-border/50` | `bg-background/95 border-border/50` |
+| `apps/web/src/app/chat/_canvas/chat-canvas.tsx` | line 733 ("Toggle minimap" button — the exact material-mismatch sibling the review called out next to the already-converted `ChatCanvasViewToggle`) | `size-11 bg-background/70 backdrop-blur-md` | `size-11 bg-background/95` |
+| `apps/web/src/app/chat/_canvas/canvas-keyboard-hint.tsx` | line 28 (dismissible caption bar) | `bg-background/70 px-4 py-2 backdrop-blur-md` | `bg-background/95 px-4 py-2` |
+| `apps/web/src/app/chat/_canvas/add-knowledge-preview-popover.tsx` | line 79 (popover trigger — the other material-mismatch sibling in the same toolbar row) | `size-11 bg-background/70 backdrop-blur-md` | `size-11 bg-background/95` |
+
+Same solid-recipe idiom `51-04` used on `graph-toolbar.tsx`/`filter-rail.tsx`/`node-detail-pane.tsx`/
+`taxonomy-banner.tsx`: translucent `bg-{token}/NN + backdrop-blur-*` → solid `bg-{token}/95`
+(nearest existing token surface), backdrop-blur class removed entirely.
+
+**Adjacent stale comment fixed:** `inbox-three-pane.tsx`'s file-level JSDoc described the
+component as "a resizable, glassy three-pane Gmail-style inbox" — updated to drop "glassy" since
+the file no longer has any glass material. Three other stale "frosted"/"glassy" doc-comment
+mentions (`components/app-sidebar.tsx:106`, `app/layout.tsx:17`, `components/theme-provider.tsx:10`)
+were investigated and left untouched — none of those files contain a `backdrop-blur` class today
+(confirmed via grep), so they're pre-existing D-20/D-21-era documentation drift unrelated to this
+fix's scope, not a site this task converted.
+
+**Out of scope (not touched, none found):** `packages/genui/renderer/*` and `packages/ui` shared
+primitives — grepped, zero `backdrop-blur` hits in either, so nothing needed leaving/reporting there.
+
+**Gates re-run, all green:**
+- `grep -rn "backdrop-blur" apps/web/src --include="*.tsx" --include="*.ts"` — zero hits (previously 11).
+- `npx vitest run apps/web/src/app/__tests__/{palette-ban,token-contrast,token-registration}.test.ts` — 3 files, 12/12 tests pass.
+- `npx tsc --noEmit` — zero errors outside the known pre-existing `apps/web/src/app/dev/design/**` module-resolution failures (unrelated `@nauta/ui` vs `@polytoken/ui` package-name drift in a dev-only preview gallery, not touched by this fix).
+
+**Commit:** `9ee850c` — `fix(51): close app-wide glassmorphism ban — convert remaining backdrop-blur sites`
+
+**Result:** `51-UI-REVIEW.md`'s Top Priority Fix #1 and Pillar 3 (Color) finding are now resolved.
+The phase's "zero glassmorphism exceptions remain in the app" claim is now actually true
+app-wide, not just within the 5 files the original burn-down table named. Pillar 2 (Visuals)
+material-mismatch finding (de-glassed `ChatCanvasViewToggle` sitting next to frosted siblings in
+the same toolbar row) is also resolved as a side effect — all three buttons in that row now share
+the same solid material. `51-UI-SPEC.md`'s "Confirmed exemplars to imitate" table still incorrectly
+lists `inbox-three-pane.tsx` as pre-converted; that spec-accuracy correction is out of scope for
+this fix (spec document, not source code) and is flagged here for a future doc pass.
