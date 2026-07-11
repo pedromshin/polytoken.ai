@@ -17,6 +17,9 @@ against the real databases — never against logs — and records the outcomes i
 
 ## A. OAuth — Google sign-in on the deployed app (LIVE-03)
 
+*Also closes Phase-50 UAT scenario 43.1 (live Google OAuth round-trip) — see
+`.planning/phases/50-live-loop-gate-uat-burn-down-screenshot-coverage/50-UAT-BURNDOWN.md`.*
+
 ### A.1 Google Cloud Console — consent screen + client
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/) -> select (or create) the
@@ -130,6 +133,10 @@ server-side `getUser`/`auth.users`/`auth.identities` confirmation, and your GitH
 ---
 
 ## B. Forwarding — SES catch-all apply + Gmail handshake (LIVE-04)
+
+*Also closes Phase-50 UAT scenarios 45.6 (live SES + Gmail forwarding round-trip) and 45.7's
+real-verification-email-arrival slice — see
+`.planning/phases/50-live-loop-gate-uat-burn-down-screenshot-coverage/50-UAT-BURNDOWN.md`.*
 
 **Do this after Section A** — `/settings/forwarding` requires a live signed-in session.
 
@@ -362,7 +369,42 @@ A one-glance judgment call — no setup needed.
 3. Tell Claude either **"brand mark approved"** or what's off (regenerating the SVG geometry is
    cheap if it misses).
 
-Recorded in `49-HUMAN-UAT.md` item 6.
+Recorded in `49-HUMAN-UAT.md` item 6. Also closes Phase-50 UAT scenario 47.1 — see
+`.planning/phases/50-live-loop-gate-uat-burn-down-screenshot-coverage/50-UAT-BURNDOWN.md`.
+
+---
+
+## F. Phase-50 UAT remainders
+
+Two more auth-gated/manual items surfaced by Phase 50's UAT burn-down
+(`50-UAT-BURNDOWN.md`, LIVE-05). One is genuinely new (no prior item covered it); the other
+(47.1) already has a home in Section E.3 above — noted here only so nothing reads as missing.
+
+### F.1 Gmail-forward fixture realism (THRD-02 / Phase-50 UAT scenario 45.5)
+
+A standalone manual confirmation step — no cross-reference to Section A/B, no deploy/OAuth
+gate. No setup needed beyond your own Gmail account.
+
+1. In Gmail's UI, forward any real email to yourself, then open that forwarded message and use
+   **Show original → Download original** to save the raw `.eml` source.
+2. Compare its header shape against the constructed fixture at
+   `apps/email-listener/tests/fixtures/threads/gmail_forward_stripped.eml` — specifically:
+   `References`/`In-Reply-To` headers stripped, subject prefixed `Fwd:`, and the original
+   headers embedded in the body (not the top-level header block).
+3. If the real message's shape differs from the fixture in any of those respects, replace the
+   constructed fixture with the real one (redact anything sensitive first) and re-run:
+   ```bash
+   uv run pytest tests/domain/services/test_thread_grouping.py --no-cov
+   ```
+   (run from `apps/email-listener/`) to confirm thread-grouping still parses it correctly.
+4. Tell Claude **"fixture verified"** (or describe what differed) — recorded in
+   `49-HUMAN-UAT.md` item 7.
+
+### F.2 Brand-mark sign-off (47.1) — already covered
+
+No new action here. The 47.1 brand-mark visual-fit sign-off already has its own item —
+**Section E.3** above (added by Plan 50-04). Phase 50's burn-down roll-up
+(`50-UAT-BURNDOWN.md`) confirmed the destination is real and did not duplicate it.
 
 ---
 
@@ -370,4 +412,6 @@ Recorded in `49-HUMAN-UAT.md` item 6.
 `FORWARDING-RUNBOOK.md`, `EXTERNAL-IDENTITY-DECISIONS.md`, `artifacts/migration-verification.md`,
 `artifacts/forwarding-catchall-tfplan.txt`, `.env.example`. Section E.3 added by Plan 50-04
 (LIVE-05) — routes the 47.1 brand-mark aesthetic sign-off here rather than leaving it
-`[pending]` in 47-HUMAN-UAT.md.*
+`[pending]` in 47-HUMAN-UAT.md. Section F added by Plan 50-05 (LIVE-05) — routes the 45.5
+Gmail-forward fixture-realism confirmation here, and cross-references the 47.1 item back to
+Section E.3 rather than duplicating it.*

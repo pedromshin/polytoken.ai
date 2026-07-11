@@ -36,12 +36,23 @@ result: [pending]
 expected: user looks at the real captured login-page pixels — `.planning/ui-reviews/2026-07-11T04-32-30-989Z/login-desktop.png` (or the live deployed/dev-server app) — and judges whether the rendered brand mark (sidebar slot, login card, favicon/browser tab) reads as a credible rounded "node/brain hybrid" (D-47-02) that fits the warm polytoken register and is an acceptable foundation for the re-skin. Routed here by Phase 50 Plan 04 (LIVE-05) because no DOM/CSS assertion can close a subjective aesthetic judgment — evidence is already captured, only the human call is outstanding. See MORNING-CHECKLIST.md §E.3.
 result: [pending]
 
+### 7. Gmail-forward fixture realism (THRD-02 / Phase 45 scenario 45.5)
+expected: user forwards a real email to themselves via Gmail's UI, saves the raw message
+(`Show original` → `Download original`), and confirms
+`apps/email-listener/tests/fixtures/threads/gmail_forward_stripped.eml` matches its header shape
+(`References`/`In-Reply-To` stripped, `Fwd:` subject, embedded original headers in body);
+replaces the constructed fixture with the real one if they differ and re-runs
+`uv run pytest tests/domain/services/test_thread_grouping.py --no-cov`. Routed here by Phase 50
+Plan 05 (LIVE-05) — a standalone manual confirmation step, not gated behind a tracked
+deploy/OAuth gate (no cross-reference to items 1/2). See MORNING-CHECKLIST.md §F.1.
+result: [pending]
+
 ## Summary
 
-total: 6
+total: 7
 passed: 0
 issues: 0
-pending: 6
+pending: 7
 skipped: 0
 blocked: 0
 
