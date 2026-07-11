@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: executing
-last_updated: "2026-07-11T06:59:09.863Z"
-last_activity: 2026-07-11 -- Phase 50-02 executed (LIVE-05 UAT burn-down: 39.1/39.2 + 41.1-41.5 all DB/DOM-verified passed; fixed chat-canvas.tsx canvas-restore race bug)
+last_updated: "2026-07-11T08:12:14.973Z"
+last_activity: "2026-07-11 -- Phase 50-03 executed (LIVE-05 UAT burn-down: 43.2/43.3/43.4 + 45.1-45.4/45.7(UI) all DB/DOM-verified passed; 43.1/45.5/45.6 routed to morning checklist)"
 progress:
   total_phases: 6
   completed_phases: 0
@@ -30,9 +30,48 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 ## Current Position
 
 Phase: 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage) — EXECUTING
-Plan: 3 of 5
+Plan: 4 of 5
 Status: Executing Phase 50
-Last activity: 2026-07-11 -- Phase 50-02 executed (LIVE-05 UAT burn-down: 39.1/39.2 + 41.1-41.5 all DB/DOM-verified passed; fixed chat-canvas.tsx canvas-restore race bug)
+Last activity: 2026-07-11 -- Phase 50-03 executed (LIVE-05 UAT burn-down: 43.2/43.3/43.4 + 45.1-45.4/45.7(UI) all DB/DOM-verified passed; 43.1/45.5/45.6 routed to morning checklist)
+
+## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 03 History -- LIVE-05
+
+- **50-03 EXECUTED** (`7d0d2e6` feat, `7444cd8` feat):
+  Burned down all 8 locally-provable Phase-43/45 UAT scenarios against the
+  local live stack via a seeded session (no interactive Google). Task 1
+  (`apps/web/e2e/uat-43-auth.spec.ts`) closed 43.2 (session persistence
+  across a full reload AND a second tab in the same browser context) and
+  43.3 (sign-out loop, proven via a REAL protected-route re-redirect after
+  sign-out — not just a cosmetic `/login` landing); 43.4 delegated to the
+  existing `auth-redirect.spec.ts` rather than duplicated. Task 2
+  (`apps/web/e2e/uat-45-threads.spec.ts` +
+  `apps/web/e2e/helpers/uat-thread-fixtures.ts`) closed 45.1-45.4
+  (thread grouping, expand-to-member + exact "Open editor ->" deep-link,
+  null-`thread_id` singleton rendering, Badge/token-only styling) and 45.7's
+  UI-visibility slice (a seeded verification code is visible in the inbox
+  reading preview without DB access).
+
+  43.1 (live Google OAuth), 45.5 (Gmail-forward fixture realism), and 45.6
+  (live SES + Gmail forwarding round-trip) are explicitly
+  `moved-to-morning-checklist` — 43.1 and 45.6 cross-reference
+  `49-HUMAN-UAT.md` Section 1 (LIVE-03) and Section 2 (LIVE-04)
+  respectively; never silently faked or parked.
+
+  Found and fixed (test-file only, both commits) two Playwright
+  concurrency/locator issues: a GoTrue magiclink race across tests in the
+  same spec file (fixed via `test.describe.configure({mode:"serial"})`, the
+  same pattern 50-02 established) and a strict-mode locator collision where
+  a thread's summary `<button>` and its own latest member's `InboxRow`
+  (`div[role=button]`) share identical accessible-name text once expanded
+  (fixed by scoping to the literal `button` HTML tag). No production code
+  was touched — Phase 43/45's auth and threads code held up correctly under
+  live DOM/DB verification.
+
+  Both `43-HUMAN-UAT.md` and `45-HUMAN-UAT.md` moved to `complete`, zero
+  pending scenarios remain in either file. LIVE-05 stays Pending overall (it
+  spans 39/41/43/45/47/48-HUMAN-UAT.md) — this plan closes the 43+45 slice
+  only; 50-04 closes 47/48, 50-05 rolls everything up and closes the
+  requirement.
 
 ## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 02 History -- LIVE-05
 
@@ -3058,6 +3097,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 49 P02 | 15min | 2 tasks | 2 files |
 | Phase 49 P03 | 50min | 2 tasks | 3 files |
 | Phase 50 P01 | ~25min | 2 tasks | 2 files |
+| Phase 50 P03 | 47min | 2 tasks | 5 files |
 
 ## Operator Next Steps
 

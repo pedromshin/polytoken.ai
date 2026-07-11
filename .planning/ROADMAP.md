@@ -214,10 +214,10 @@ the screenshot-verification harness covers the surface it was missing.
 2. Auth-gated scenarios among them execute for real now that Phase 49 produced a live OAuth session
 3. The screenshot-review harness (47-05) covers `/emails/[id]` (closing todo W-1) and captures authenticated surfaces using a seeded session instead of falling back to textual before/after artifacts
 
-**Plans:** 2/5 plans executed
+**Plans:** 3/5 plans executed
 - [x] 50-01-PLAN.md — LIVE-06: extend the screenshot harness with /emails/[id] + seeded-session capture (real authenticated pixels)
 - [x] 50-02-PLAN.md — LIVE-05: chat-surface burn-down (39 tool-round/chips + 41 knowledge-preview node)
-- [ ] 50-03-PLAN.md — LIVE-05: auth + inbox/threads burn-down (43 session/sign-out + 45 thread grouping)
+- [x] 50-03-PLAN.md — LIVE-05: auth + inbox/threads burn-down (43 session/sign-out + 45 thread grouping)
 - [ ] 50-04-PLAN.md — LIVE-05: visual/token-surface burn-down (48 chip/success/graph-tier + 47 brand mark)
 - [ ] 50-05-PLAN.md — LIVE-05: 50-UAT-BURNDOWN.md roll-up + morning-checklist appends (zero silently parked)
 
