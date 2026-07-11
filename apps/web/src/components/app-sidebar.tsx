@@ -84,7 +84,7 @@ function ThemeToggle(): React.ReactElement {
       variant="ghost"
       size="sm"
       aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className="h-11 w-full justify-start gap-2 text-muted-foreground hover:bg-muted"
+      className="h-11 w-full justify-start gap-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       onClick={() => setTheme(isDark ? "light" : "dark")}
     >
       {/* Render both icons until mounted to avoid an SSR/client glyph mismatch. */}
@@ -114,7 +114,7 @@ export function AppSidebar(): React.ReactElement {
   return (
     <Sidebar
       collapsible="icon"
-      className="border-r border-border/50 bg-background/70 backdrop-blur-md"
+      className="border-r border-border/50 bg-background/95"
     >
       <SidebarHeader>
         <div className="flex h-11 items-center gap-2 px-2">
@@ -142,8 +142,8 @@ export function AppSidebar(): React.ReactElement {
                   tooltip={item.label}
                   className={
                     active
-                      ? "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
-                      : "text-muted-foreground hover:bg-muted"
+                      ? "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                      : "text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
                   }
                 >
                   <Link
