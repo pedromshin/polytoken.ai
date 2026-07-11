@@ -3,9 +3,12 @@
 resource "aws_ecs_cluster" "main" {
   name = local.service_name
 
+  # Container Insights publishes dozens of per-task custom metrics (~$5/mo for
+  # 1-2 tasks) — disabled to cut the CloudWatch bill. Re-enable if you need
+  # per-task CPU/mem/network dashboards.
   setting {
     name  = "containerInsights"
-    value = "enabled"
+    value = "disabled"
   }
 
   tags = local.tags
@@ -15,7 +18,7 @@ resource "aws_cloudwatch_log_group" "service" {
   for_each = local.environments
 
   name              = "/ecs/${each.value.name}"
-  retention_in_days = 30
+  retention_in_days = 7
 
   tags = local.tags
 }
