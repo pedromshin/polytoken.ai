@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: executing
-last_updated: "2026-07-11T19:55:00.000Z"
-last_activity: "2026-07-11 -- Phase 50-05 executed (LIVE-05 roll-up: 50-UAT-BURNDOWN.md closes the requirement -- all 21 deferred UAT scenarios dispositioned, 17 passed + 4 moved-to-morning-checklist with real destinations; zero silently parked). Phase 50 all 5 plans complete."
+last_updated: "2026-07-11T20:28:30.000Z"
+last_activity: "2026-07-11 -- Phase 51-01 executed (RSKN-01: /chat interactive surfaces + global chrome carry the D-48-06 hover/active + focus-visible convention; app-sidebar glassmorphism ban cleared; zero raw hex/palette classes on touched surfaces)"
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 11
-  completed_plans: 11
-  percent: 17
+  total_plans: 18
+  completed_plans: 12
+  percent: 22
 ---
 
 # State
@@ -29,10 +29,36 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage) — all 5 plans EXECUTED, ready for verification
-Plan: 5 of 5
-Status: Phase 50 execution complete — LIVE-05 closed via 50-UAT-BURNDOWN.md roll-up (zero silently-parked scenarios); 4 items (43.1, 45.5, 45.6, 47.1) remain genuinely outstanding on the Phase 49 morning checklist pending the user's live session
-Last activity: 2026-07-11 -- Phase 50-05 executed (LIVE-05 roll-up: 50-UAT-BURNDOWN.md lists all 21 deferred UAT scenarios with disposition + evidence pointer -- 17 passed, 4 moved-to-morning-checklist; MORNING-CHECKLIST.md gained new §F for 45.5, the one scenario without a prior destination, plus cross-reference notes in §A/§B)
+Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01 done, siblings may still be in flight)
+Plan: 01 of 7 (this plan) done; see individual Plan History sections for sibling status
+Status: 51-01 (RSKN-01, /chat + global chrome) executed — hover/active + focus-visible convention applied, sidebar glassmorphism cleared, zero palette classes; typecheck green outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-01-SUMMARY.md Issues Encountered)
+Last activity: 2026-07-11 -- Phase 51-01 executed (RSKN-01: /chat interactive surfaces + global chrome carry the D-48-06 hover/active + focus-visible convention; app-sidebar glassmorphism ban cleared; zero raw hex/palette classes on touched surfaces)
+
+## Phase 51 -- Total UI Re-skin -- Plan 01 History -- RSKN-01
+
+- **51-01 EXECUTED** (`d3408bb` feat, `22f67c9` feat):
+  Applied the D-48-06 hover/active + focus-visible convention across every
+  `/chat` interactive surface (composer send/stop CTA, tool-round activity
+  row, tool-invocation-result-row's citation-chip overflow indicator, turn
+  action row copy/regenerate buttons, conversation rail rows, jump-to-bottom
+  button, chat/canvas view toggle) and cleared app-sidebar's last
+  glassmorphism-ban violation (`bg-background/70 backdrop-blur-md` ->
+  `bg-background/95`). Fixed via className overrides at each plan-owned call
+  site rather than editing shared `@polytoken/ui` primitives (Registry
+  Safety). Found and fixed 3 genuine accessibility/correctness gaps while
+  classifying elements: `TurnActionRow`'s copy/regenerate buttons had zero
+  focus-visible styling; `ConversationRow`'s clickable title button likewise;
+  and the sidebar's shared `SidebarMenuButton` primitive resolves its focus
+  ring to `--sidebar-ring` (= `--primary`), not the neutral `--ring` the
+  UI-SPEC mandates -- overridden at the app-sidebar call site. Zero raw
+  hex/palette classes across all `files_modified`; WCAG-AA contrast +
+  token-registration regression gates stay green. `layout.tsx`'s Toaster
+  register-confirmed clean, not edited. `tsc --noEmit` is clean for every
+  file this plan touched; the only remaining errors (52, all in the
+  untracked, user-owned `apps/web/src/app/dev/design/` scratch page importing
+  the pre-rename `@nauta/ui` package name) are pre-existing and out of scope
+  -- logged to `.planning/phases/51-total-ui-re-skin/deferred-items.md`.
+  See `51-01-SUMMARY.md` for full deviation detail.
 
 ## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 05 History -- LIVE-05
 

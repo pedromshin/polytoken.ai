@@ -29,7 +29,7 @@ completes before any Band 2/3 work starts.
 
 ### Total UI Re-skin (RSKN — Band 2; carried verbatim from v1.8 + scope extensions)
 
-- [ ] **RSKN-01**: `/chat` is re-skinned in the polytoken register on extended tokens — composer, message stream, tool-round activity rows, citation chips
+- [x] **RSKN-01**: `/chat` is re-skinned in the polytoken register on extended tokens — composer, message stream, tool-round activity rows, citation chips
 - [ ] **RSKN-02**: The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
 - [ ] **RSKN-03**: `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on TOKN-05 palette — and the pre-existing /knowledge UI debt (glassmorphism-ban violations, raw ⊞ glyph) is cleared
 - [ ] **RSKN-04**: `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
@@ -95,7 +95,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIVE-07 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
 | LIVE-05 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Complete |
 | LIVE-06 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Complete |
-| RSKN-01 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-01 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-02 | Phase 51 — Total UI Re-skin | Pending |
 | RSKN-03 | Phase 51 — Total UI Re-skin | Pending |
 | RSKN-04 | Phase 51 — Total UI Re-skin | Pending |
