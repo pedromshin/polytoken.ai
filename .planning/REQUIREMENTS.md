@@ -31,7 +31,7 @@ completes before any Band 2/3 work starts.
 
 - [x] **RSKN-01**: `/chat` is re-skinned in the polytoken register on extended tokens — composer, message stream, tool-round activity rows, citation chips
 - [x] **RSKN-02**: The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
-- [ ] **RSKN-03**: `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on TOKN-05 palette — and the pre-existing /knowledge UI debt (glassmorphism-ban violations, raw ⊞ glyph) is cleared
+- [x] **RSKN-03**: `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on TOKN-05 palette — and the pre-existing /knowledge UI debt (glassmorphism-ban violations, raw ⊞ glyph) is cleared
 - [ ] **RSKN-04**: `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
 - [x] **RSKN-05**: The re-skin holds the token discipline: zero raw hex outside token sources; existing WCAG-AA contrast + token-family registration regression gates stay green and extend to the new aliases
 - [x] **RSKN-06**: The off-token chip/badge stragglers consume the purpose-built tokens (backlog 999.16): inbox entity chips onto `color.graph.entity` + `radius.pill`, `/entities/[id]` StatusBadge onto the `color.tier.*` ladder — explicit scope extension to `/entities/[id]`
@@ -97,7 +97,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIVE-06 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Complete |
 | RSKN-01 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-02 | Phase 51 — Total UI Re-skin | Complete |
-| RSKN-03 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-03 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-04 | Phase 51 — Total UI Re-skin | Pending |
 | RSKN-05 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-06 | Phase 51 — Total UI Re-skin | Complete |

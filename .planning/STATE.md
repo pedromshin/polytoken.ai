@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: 51-03 (RSKN-02/RSKN-06/RSKN-05, entity-chip + StatusBadge token burn-down) executed — inbox entity-chips.tsx onto color.graph.entity + radius.pill, /entities/[id] StatusBadge onto the color.tier.* ladder (confirmed->tier-extracted, candidate->tier-inferred), /entities list pages + entity-fields.tsx palette-converted (D-49-04 light-touch); backlog 999.16 closed in full; zero palette classes; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-03-SUMMARY.md)
-last_updated: "2026-07-11T20:59:30.829Z"
-last_activity: "2026-07-11 -- Phase 51-03 executed (RSKN-02/RSKN-06/RSKN-05: inbox entity-chips.tsx onto color.graph.entity + radius.pill, /entities/[id] StatusBadge onto the color.tier.* ladder, /entities list pages + entity-fields.tsx palette-converted, backlog 999.16 closed)"
+status: 51-04 (RSKN-03, /knowledge glassmorphism burn-down + hover/active) executed — 4 backdrop-blur-md violations replaced with solid bg-background/95 (graph-toolbar, filter-rail, node-detail-pane, taxonomy-banner), raw ⊞ glyph replaced with lucide LayoutGrid, D-48-06 hover/active applied to toolbar+filter-rail controls, tier/graph badges confirmed on TOKN-04/05 tokens, todo 2026-07-07-knowledge-preexisting-ui-debt.md closed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-04-SUMMARY.md)
+last_updated: "2026-07-11T21:13:08.261Z"
+last_activity: "2026-07-11 -- Phase 51-04 executed (RSKN-03: /knowledge glassmorphism burn-down + lucide LayoutGrid + D-48-06 hover/active + UI-debt todo closed)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 18
-  completed_plans: 13
+  completed_plans: 14
   percent: 17
 ---
 
@@ -29,10 +29,36 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03 done, siblings may still be in flight)
-Plan: 3 of 7 done; see individual Plan History sections for sibling status
-Status: 51-03 (RSKN-02/RSKN-06/RSKN-05, entity-chip + StatusBadge token burn-down) executed — inbox entity-chips.tsx onto color.graph.entity + radius.pill, /entities/[id] StatusBadge onto the color.tier.* ladder (confirmed->tier-extracted, candidate->tier-inferred), /entities list pages + entity-fields.tsx palette-converted (D-49-04 light-touch); backlog 999.16 closed in full; zero palette classes; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-03-SUMMARY.md)
-Last activity: 2026-07-11 -- Phase 51-03 executed (RSKN-02/RSKN-06/RSKN-05: inbox entity-chips.tsx onto color.graph.entity + radius.pill, /entities/[id] StatusBadge onto the color.tier.* ladder, /entities list pages + entity-fields.tsx palette-converted, backlog 999.16 closed)
+Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03, 51-04 done, siblings may still be in flight)
+Plan: 4 of 7 done; see individual Plan History sections for sibling status
+Status: 51-04 (RSKN-03, /knowledge glassmorphism burn-down + hover/active) executed — 4 backdrop-blur-md violations replaced with solid bg-background/95 (graph-toolbar, filter-rail, node-detail-pane, taxonomy-banner), raw ⊞ glyph replaced with lucide LayoutGrid, D-48-06 hover/active applied to toolbar+filter-rail controls, tier/graph badges confirmed on TOKN-04/05 tokens, todo 2026-07-07-knowledge-preexisting-ui-debt.md closed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-04-SUMMARY.md)
+Last activity: 2026-07-11 -- Phase 51-04 executed (RSKN-03: /knowledge glassmorphism burn-down + lucide LayoutGrid + D-48-06 hover/active + UI-debt todo closed)
+
+## Phase 51 -- Total UI Re-skin -- Plan 04 History -- RSKN-03
+
+- **51-04 EXECUTED** (`76098c5` feat, `3bca5ba` feat):
+  Cleared the pre-existing `/knowledge` UI debt (todo 2026-07-07) and finished
+  RSKN-03: all four remaining glassmorphism-ban violations
+  (`graph-toolbar.tsx:42`, `filter-rail.tsx:96`, `node-detail-pane.tsx:373`,
+  `taxonomy-banner.tsx:46`) converted from `bg-background/70 backdrop-blur-md`
+  to solid `bg-background/95` (v1.4 conversation-rail precedent), and the raw
+  `⊞` Unicode glyph at `graph-toolbar.tsx:73` replaced with a `lucide-react`
+  `LayoutGrid` icon. D-48-06 neutral/ghost hover/active convention applied to
+  `graph-toolbar.tsx`'s zoom-to-fit/layout-toggle buttons (explicit
+  `focus-visible:ring-2`/`ring-offset-1` override on the shared `Button`
+  ghost variant's default `ring-1`/no-offset) and `filter-rail.tsx`'s six
+  node-type checkbox rows (focus ring routed through `peer`/`peer-focus-visible`
+  since the native input is `sr-only`). Confirmed, not re-touched:
+  `tier-filter-control.tsx`, `tier-edge-style.ts`, and `node-detail-pane.tsx`'s
+  Instance/Component badges — all already on TOKN-04/05 `color.graph.*`/
+  `color.tier.*` tokens. `edge-detail-popover.tsx` was not opened (LOCKED
+  content order, outside `files_modified`); `knowledge-graph.tsx` was not
+  touched (51-06 file-ownership fence held). Zero `backdrop-blur`/`⊞`/raw-palette
+  classes across all 4 files; `token-contrast.test.ts` +
+  `token-registration.test.ts` green; `tsc --noEmit` clean outside the
+  pre-existing `apps/web/src/app/dev/design/` scratch exclusion. Todo
+  `2026-07-07-knowledge-preexisting-ui-debt.md` moved to `.planning/todos/done/`
+  with a resolution note. See `51-04-SUMMARY.md` for full deviation detail.
 
 ## Phase 51 -- Total UI Re-skin -- Plan 03 History -- RSKN-02/RSKN-06/RSKN-05
 
@@ -45,6 +71,7 @@ Last activity: 2026-07-11 -- Phase 51-03 executed (RSKN-02/RSKN-06/RSKN-05: inbo
   Registry Safety) and the neutral-ghost hover/active + `focus-visible:
   ring-ring` recipe on the interactive chip, matching `ProvenanceLink`'s pill
   pattern exactly. `/entities/[id]`'s `StatusBadge` moved off `bg-primary/10`
+
   + raw `amber-*` onto solid `tier-extracted`/`tier-inferred` pairs (RSKN-06's
   named "entities half"). `/entities` list pages (`entities-table.tsx`,
   `entities-mosaic.tsx`) and `entity-fields.tsx` palette-converted (D-49-04
@@ -3259,6 +3286,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 50 P04 | 50min | 2 tasks | 5 files |
 | Phase 50 P05 | 35min | 2 tasks | 3 files |
 | Phase 51 P03 | 11min | 2 tasks | 5 files |
+| Phase 51 P04 | 5min | 2 tasks | 5 files |
 
 ## Operator Next Steps
 
