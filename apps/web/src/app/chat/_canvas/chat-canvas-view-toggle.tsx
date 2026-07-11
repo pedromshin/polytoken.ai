@@ -71,14 +71,14 @@ export function ChatCanvasViewToggle({
         <TabsTrigger
           value="chat"
           aria-label="Chat view"
-          className="h-7 px-3 text-xs"
+          className="h-7 px-3 text-xs data-[state=inactive]:hover:bg-accent data-[state=inactive]:hover:text-accent-foreground"
         >
           Chat
         </TabsTrigger>
         <TabsTrigger
           value="canvas"
           aria-label="Canvas view"
-          className="h-7 px-3 text-xs"
+          className="h-7 px-3 text-xs data-[state=inactive]:hover:bg-accent data-[state=inactive]:hover:text-accent-foreground"
         >
           Canvas
         </TabsTrigger>

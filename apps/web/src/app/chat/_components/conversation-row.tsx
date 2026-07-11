@@ -64,8 +64,8 @@ export function ConversationRow({
       className={cn(
         "group flex items-center gap-1 rounded-md px-1 py-1 transition-colors",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "text-foreground hover:bg-muted",
+          ? "bg-primary/10 text-primary hover:bg-primary/10 hover:text-primary"
+          : "text-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >
       {isRenaming ? (
@@ -86,7 +86,7 @@ export function ConversationRow({
               onRequestRename(conversation.id);
             }
           }}
-          className="flex min-w-0 flex-1 flex-col items-start px-1 py-1 text-left"
+          className="flex min-w-0 flex-1 flex-col items-start rounded-md px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <span className="w-full truncate text-sm">{conversation.title}</span>
           <span className="text-xs text-muted-foreground">
@@ -102,7 +102,7 @@ export function ConversationRow({
             variant="ghost"
             size="icon"
             aria-label={`More actions for ${conversation.title}`}
-            className="size-11 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="size-11 shrink-0 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
           >
             <MoreHorizontal className="size-4" aria-hidden />
           </Button>

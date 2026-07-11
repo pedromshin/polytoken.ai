@@ -23,7 +23,7 @@ export function JumpToBottomButton({
       variant="secondary"
       size="icon"
       aria-label="Jump to latest message"
-      className="absolute bottom-4 right-4 size-11 rounded-full shadow-md"
+      className="absolute bottom-4 right-4 size-11 rounded-full shadow-md hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       onClick={onClick}
     >
       <ArrowDown className="size-4" aria-hidden />

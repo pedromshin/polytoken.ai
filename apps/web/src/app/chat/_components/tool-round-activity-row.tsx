@@ -35,7 +35,7 @@ export function ToolRoundActivityRow({
   return (
     <div
       role="status"
-      className="flex items-center gap-2 py-1 text-sm text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+      className="flex items-center gap-2 rounded-md py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
     >
       <Loader2 className="size-4 shrink-0 motion-safe:animate-spin" aria-hidden />
       <span>{label}</span>

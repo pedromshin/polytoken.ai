@@ -114,7 +114,7 @@ function CitationChips({
         />
       ))}
       {overflowCount > 0 && (
-        <span className="inline-flex items-center rounded-md border border-transparent bg-muted px-2 py-1 text-xs font-normal text-muted-foreground">
+        <span className="inline-flex items-center rounded-pill border border-transparent bg-muted px-2 py-1 text-xs font-normal text-muted-foreground">
           +{overflowCount}
         </span>
       )}

@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 
+import { cn } from "@polytoken/ui";
 import { Button } from "@polytoken/ui/button";
 import { Textarea } from "@polytoken/ui/textarea";
 
@@ -89,7 +90,10 @@ export function Composer({
           type="button"
           variant={isStreaming ? "secondary" : "default"}
           size="icon"
-          className="size-11 shrink-0"
+          className={cn(
+            "size-11 shrink-0 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+            isStreaming ? "hover:bg-secondary/80" : "hover:bg-primary/90",
+          )}
           aria-label={isStreaming ? "Stop generating" : "Send message"}
           onClick={isStreaming ? onStop : submit}
           disabled={!isStreaming && value.trim().length === 0}

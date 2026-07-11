@@ -55,7 +55,7 @@ export function TurnActionRow({
         type="button"
         aria-label="Copy response"
         onClick={handleCopy}
-        className="rounded p-1 transition-colors hover:bg-muted hover:text-foreground"
+        className="rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
       >
         {copied ? (
           <Check className="size-3.5" aria-hidden />
@@ -69,7 +69,7 @@ export function TurnActionRow({
           aria-label="Regenerate response"
           disabled={regenerateDisabled}
           onClick={onRegenerate}
-          className="rounded p-1 transition-colors hover:bg-muted hover:text-foreground disabled:opacity-30"
+          className="rounded-md p-1 transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:opacity-30"
         >
           <RefreshCw className="size-3.5" aria-hidden />
         </button>
