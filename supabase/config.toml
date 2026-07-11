@@ -160,7 +160,10 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000", "http://127.0.0.1:3000/auth/callback"]
+# Both 127.0.0.1 and localhost are listed so the PKCE code_verifier (stored per-origin by
+# the browser) survives the OAuth round-trip regardless of which host you open the app on —
+# a localhost/127.0.0.1 mismatch here silently drops the session and lands you back on /login.
+additional_redirect_urls = ["http://127.0.0.1:3000/auth/callback", "http://localhost:3000/auth/callback", "http://127.0.0.1:3000", "http://localhost:3000"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -342,6 +345,11 @@ enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 # DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+# Required for LOCAL Google sign-in via the Supabase CLI (GoTrue can't validate the
+# id_token nonce round-tripped through the CLI-hosted callback). Local-only — hosted
+# staging/prod configure Google via the Dashboard, unaffected by this file. Matches the
+# working reference configs (kaszek-os, algomaxxing).
+skip_nonce_check = true
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
