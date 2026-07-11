@@ -122,6 +122,7 @@ Full phase details: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · 
 Full detail: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md). Audit `tech_debt`, 0 blockers:
 19/19 requirements, 9/9 integration seams WIRED, 3/3 E2E flows. Deferred: 3 todos + 2 UAT files
 (11 scenarios, mostly OAuth/SES-gated) + user runbooks (external rename, Google OAuth, forwarding)
+
 + staging/prod migrations 0031–0035 (STATE.md → Deferred Items).
 
 </details>
@@ -186,11 +187,19 @@ flows into polytoken.
 **Plans:** 6 plans (3 waves)
 
 Plans:
+**Wave 1**
+
 - [ ] 49-01-PLAN.md — Local stack green: RUN-LOCAL.md + preflight script + fresh-DB actualization (LIVE-01, LIVE-07)
 - [ ] 49-02-PLAN.md — SES forwarding catch-all terraform rule + read-only plan proof (LIVE-04 prep)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 49-03-PLAN.md — DB-verified local end-to-end green-path (seeded-session Playwright) (LIVE-01)
 - [ ] 49-04-PLAN.md — Staging+prod migrations 0026–0035 + ECS/Vercel deploys green (LIVE-02)
 - [ ] 49-05-PLAN.md — External-identity decisions recorded + Vercel rename + JWT audit fold-in (LIVE-07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 49-06-PLAN.md — CHECKPOINT: morning checklist + OAuth + forwarding round-trip + GitHub rename (LIVE-03, LIVE-04, LIVE-07)
 
 ### Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage
@@ -297,12 +306,14 @@ deferrable-by-default** — a milestone isn't done until the user has touched th
   on canvas, thread-bound chats, `web_search` executor, source-capture → INFERRED nodes,
   promote-to-global, cluster context) scoped around ONE fully-working scenario on the user's real
   inbox.
+
 - **v2.0 — Local Agent Platform** (Epoch B = VISION E4+E5+E6 merged): daemon + ONE permission
   model + generalized ToolExecutor as the shared foundation; watched folders → directory panels
   with Claude-Code-class attached chats (fs/terminal/git); browser panel CDP-first (perception
   research deferred); tool registry as per-user allowlist panel; embedded editor + agent
   self-repository as stretch. `/gsd:secure-phase` on every daemon phase. Split v2.0/v2.1 at the
   daemon-core/executors seam only if the roadmap exceeds ~15 phases.
+
 - **E7 (compute pooling): NOT an epoch** — parked at its gate as a venture decision; sole carried
   obligation is keeping the v2.0 daemon protocol job-shaped.
 
