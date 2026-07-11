@@ -163,7 +163,7 @@ seed specs (goal/success-criteria text) reused from
 [phases/51-total-ui-re-skin/51-CONTEXT.md](phases/51-total-ui-re-skin/51-CONTEXT.md).
 
 - [ ] Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
-- [ ] Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage
+- [x] Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage (completed 2026-07-11)
 - [ ] Phase 51: Total UI Re-skin
 - [ ] Phase 52: Editable Genui Panels / Studio-on-Canvas
 - [ ] Phase 53: Mobile-Responsive Answer
@@ -214,12 +214,12 @@ the screenshot-verification harness covers the surface it was missing.
 2. Auth-gated scenarios among them execute for real now that Phase 49 produced a live OAuth session
 3. The screenshot-review harness (47-05) covers `/emails/[id]` (closing todo W-1) and captures authenticated surfaces using a seeded session instead of falling back to textual before/after artifacts
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans complete
 - [x] 50-01-PLAN.md — LIVE-06: extend the screenshot harness with /emails/[id] + seeded-session capture (real authenticated pixels)
 - [x] 50-02-PLAN.md — LIVE-05: chat-surface burn-down (39 tool-round/chips + 41 knowledge-preview node)
 - [x] 50-03-PLAN.md — LIVE-05: auth + inbox/threads burn-down (43 session/sign-out + 45 thread grouping)
 - [x] 50-04-PLAN.md — LIVE-05: visual/token-surface burn-down (48 chip/success/graph-tier + 47 brand mark)
-- [ ] 50-05-PLAN.md — LIVE-05: 50-UAT-BURNDOWN.md roll-up + morning-checklist appends (zero silently parked)
+- [x] 50-05-PLAN.md — LIVE-05: 50-UAT-BURNDOWN.md roll-up + morning-checklist appends (zero silently parked)
 
 ### Phase 51: Total UI Re-skin
 

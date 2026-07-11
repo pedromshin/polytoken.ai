@@ -23,7 +23,7 @@ completes before any Band 2/3 work starts.
 - [ ] **LIVE-02**: Migrations 0026–0035 are applied to staging AND production (migrations-first per the deploy playbook) and live-verified; ECS + Vercel deploys are green on the renamed codebase
 - [ ] **LIVE-03**: Google OAuth works on the deployed app — GOOGLE-OAUTH-RUNBOOK.md executed (user console steps as in-phase checkpoint tasks), the user signs in with their real Google account, session persists, sign-out works
 - [ ] **LIVE-04**: The user's real email flows into polytoken — FORWARDING-RUNBOOK.md + SES rule wired, a real forwarded message lands, threads group correctly, attachments stored
-- [ ] **LIVE-05**: The deferred UAT backlog is burned down — all open scenarios in 39/41/43/45/47/48-HUMAN-UAT.md executed via /gsd:verify-work (auth-gated ones after LIVE-03), each closed or converted to a tracked fix
+- [x] **LIVE-05**: The deferred UAT backlog is burned down — all open scenarios in 39/41/43/45/47/48-HUMAN-UAT.md executed via /gsd:verify-work (auth-gated ones after LIVE-03), each closed or converted to a tracked fix
 - [x] **LIVE-06**: W-1 closed — the screenshot harness SURFACES covers /emails/[id] and captures authenticated surfaces once a seeded session exists
 - [ ] **LIVE-07**: External-identity leftovers are decided, not parked — EXTERNAL-RENAME-RUNBOOK.md items executed or explicitly re-parked by the user; the local Supabase nauta→polytoken project-id decision recorded
 
@@ -93,7 +93,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LIVE-03 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
 | LIVE-04 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
 | LIVE-07 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
-| LIVE-05 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Pending |
+| LIVE-05 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Complete |
 | LIVE-06 | Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage | Complete |
 | RSKN-01 | Phase 51 — Total UI Re-skin | Pending |
 | RSKN-02 | Phase 51 — Total UI Re-skin | Pending |

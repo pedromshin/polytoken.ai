@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: executing
-last_updated: "2026-07-11T11:17:43.518Z"
-last_activity: "2026-07-11 -- Phase 50-04 executed (LIVE-05 UAT burn-down: Phase 47/48 token-surface scenarios closed -- 48.1/48.2 DB/CSS-verified passed via uat-48-token-surfaces.spec.ts, real pixels cited; 47.1 evidence-captured -> routed to morning checklist)"
+last_updated: "2026-07-11T19:55:00.000Z"
+last_activity: "2026-07-11 -- Phase 50-05 executed (LIVE-05 roll-up: 50-UAT-BURNDOWN.md closes the requirement -- all 21 deferred UAT scenarios dispositioned, 17 passed + 4 moved-to-morning-checklist with real destinations; zero silently parked). Phase 50 all 5 plans complete."
 progress:
   total_phases: 6
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 11
-  completed_plans: 10
-  percent: 0
+  completed_plans: 11
+  percent: 17
 ---
 
 # State
@@ -29,10 +29,46 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage) — EXECUTING
+Phase: 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage) — all 5 plans EXECUTED, ready for verification
 Plan: 5 of 5
-Status: Executing Phase 50
-Last activity: 2026-07-11 -- Phase 50-04 executed (LIVE-05 UAT burn-down: Phase 47/48 token-surface scenarios closed -- 48.1/48.2 DB/CSS-verified passed via uat-48-token-surfaces.spec.ts, real pixels cited; 47.1 evidence-captured -> routed to morning checklist)
+Status: Phase 50 execution complete — LIVE-05 closed via 50-UAT-BURNDOWN.md roll-up (zero silently-parked scenarios); 4 items (43.1, 45.5, 45.6, 47.1) remain genuinely outstanding on the Phase 49 morning checklist pending the user's live session
+Last activity: 2026-07-11 -- Phase 50-05 executed (LIVE-05 roll-up: 50-UAT-BURNDOWN.md lists all 21 deferred UAT scenarios with disposition + evidence pointer -- 17 passed, 4 moved-to-morning-checklist; MORNING-CHECKLIST.md gained new §F for 45.5, the one scenario without a prior destination, plus cross-reference notes in §A/§B)
+
+## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 05 History -- LIVE-05
+
+- **50-05 EXECUTED** (`9a48ab2` docs, `008db6b` docs):
+  Wrote `50-UAT-BURNDOWN.md`, the single auditable roll-up of all 21
+  deferred Phase 39/41/43/45/47/48 UAT scenarios (39x2, 41x5, 43x4, 45x7,
+  47x1, 48x2), each keyed `{phase}.{n}` with exactly one disposition
+  (passed / moved-to-morning-checklist) and a concrete evidence pointer —
+  17 passed, 4 moved-to-morning-checklist, zero rows `pending` or blank.
+  Confirmed by direct read of all six source `*-HUMAN-UAT.md` files that
+  none still contains a `[pending]` result (the plan's own finalization
+  gate never triggered).
+
+  Task 2 gave the one moved-to-morning-checklist scenario that lacked any
+  existing destination (45.5, Gmail-forward header-shape fixture realism)
+  a real home: `MORNING-CHECKLIST.md` §F.1 (new) + `49-HUMAN-UAT.md` item
+  7 (`[pending]`, Summary counts 6→7). The other three moved scenarios
+  already had destinations (43.1 → §A/LIVE-03, 45.6 + 45.7's real-arrival
+  residual → §B/LIVE-04, 47.1 → §E.3 added by 50-04) — each gained a
+  one-line cross-reference note pointing back to the roll-up instead of a
+  duplicated runbook step. Existing sections A-E stayed intact and
+  un-renumbered; new §F appended after §E.
+
+  LIVE-05 marked complete per this plan's own literal success criteria:
+  "fully closed... passed/fixed/tracked-fix locally, OR explicitly moved
+  to the Phase-49 morning checklist" — the acceptance bar is zero silent
+  parking, not zero outstanding user actions. The 4 moved-to-morning-
+  checklist items remain genuinely open, fully specified, copy-paste-ready
+  runsheet items awaiting the user's live morning session — see
+  `MORNING-CHECKLIST.md` §A, §B, §E.3, §F.1.
+
+  Zero deviations — pure documentation aggregation, no bugs found, no code
+  touched. Phase 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage)
+  is now fully executed across all 5 plans (screenshot-surface fix,
+  chat-surface burn-down, auth+threads burn-down, token-surface burn-down,
+  and this roll-up).
 
 ## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 04 History -- LIVE-05
 
@@ -3139,6 +3175,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 50 P01 | ~25min | 2 tasks | 2 files |
 | Phase 50 P03 | 47min | 2 tasks | 5 files |
 | Phase 50 P04 | 50min | 2 tasks | 5 files |
+| Phase 50 P05 | 35min | 2 tasks | 3 files |
 
 ## Operator Next Steps
 
