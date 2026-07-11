@@ -415,3 +415,22 @@ No new action here. The 47.1 brand-mark visual-fit sign-off already has its own 
 `[pending]` in 47-HUMAN-UAT.md. Section F added by Plan 50-05 (LIVE-05) — routes the 45.5
 Gmail-forward fixture-realism confirmation here, and cross-references the 47.1 item back to
 Section E.3 rather than duplicating it.*
+
+## G. Docker/WSL recovery + queued live-stack verification (added 2026-07-11 overnight)
+
+Docker Desktop's WSL2 backend wedged mid-run (~19:17): `wsl` commands hang, vmmem
+unresponsive, com.docker.service stopped — recovery needs elevation, so it's queued here.
+
+1. **Recover the stack:** reboot (simplest), or elevated PowerShell:
+   `Restart-Service WSLService; Start-Service com.docker.service`, then launch Docker
+   Desktop and wait for "engine running".
+2. **Bring the app stack up:** `./scripts/preflight-local.ps1` (then listener + web per
+   docs/RUN-LOCAL.md).
+3. **Re-run the queued Phase-51 regression evidence (51-07 Tasks 2+3):**
+   - E2E suite: the six-spec Playwright run in `51-07-PLAN.md` `<verify>` (live-loop-green
+     + uat-39/41/43/45/48)
+   - Screenshot re-capture: `npm run screenshot:review` → fresh 16-surface run under
+     `.planning/ui-reviews/<ts>/`, compare against before-baseline
+     `.planning/ui-reviews/2026-07-11T04-32-30-989Z/`
+   These are execution-environment re-runs only — no code changes pending.
+4. Any Phase 52–54 items marked "queued to §G" in their SUMMARYs follow the same pattern.
