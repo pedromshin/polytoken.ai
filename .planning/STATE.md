@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: 51-05 (RSKN-04, /studio + /settings/forwarding + /login register/hover pass) executed — D-48-06 hover/active convention applied to studio-tabs.tsx (shared TAB_TRIGGER_CLASS + Showcase link) and history-island.tsx's HistoryRow (pinned-state exception for selected rows); Google sign-in button label corrected from "Continue with Google" to the locked brand-guide string "Sign in with Google" and explicitly pinned to bg-primary; 7 of 10 plan-named files confirmed already palette-clean/on-convention via shared Button variants, zero edits needed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-05-SUMMARY.md)
-last_updated: "2026-07-11T21:29:51.922Z"
-last_activity: "2026-07-11 -- Phase 51-05 executed (RSKN-04: /studio + /settings/forwarding + /login register/hover pass, Google CTA copy fix)"
+status: completed
+last_updated: "2026-07-11T21:45:22.933Z"
+last_activity: "2026-07-11 -- Phase 51-06 executed (RSKN-07: knowledge.* cache-invalidation gap closed across both promotion paths, todo closed)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 18
-  completed_plans: 15
+  completed_plans: 16
   percent: 17
 ---
 
@@ -29,10 +29,35 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03, 51-04, 51-05 done, siblings may still be in flight)
-Plan: 5 of 7 done; see individual Plan History sections for sibling status
-Status: 51-05 (RSKN-04, /studio + /settings/forwarding + /login register/hover pass) executed — D-48-06 hover/active convention applied to studio-tabs.tsx (shared TAB_TRIGGER_CLASS + Showcase link) and history-island.tsx's HistoryRow (pinned-state exception for selected rows); Google sign-in button label corrected from "Continue with Google" to the locked brand-guide string "Sign in with Google" and explicitly pinned to bg-primary; 7 of 10 plan-named files confirmed already palette-clean/on-convention via shared Button variants, zero edits needed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-05-SUMMARY.md)
-Last activity: 2026-07-11 -- Phase 51-05 executed (RSKN-04: /studio + /settings/forwarding + /login register/hover pass, Google CTA copy fix)
+Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03, 51-04, 51-05, 51-06 done; 51-07 still pending/in flight)
+Plan: 6 of 7 done; see individual Plan History sections for sibling status
+Status: 51-06 (RSKN-07, knowledge cache-invalidation gap closure) executed — promoteEdge (/knowledge page) extended to invalidate knowledge.expandNode alongside byId/graph on success only; handleTerminal in use-conversation-controller.ts extended via a new standalone exported invalidateOnChatTerminal(conversationId, utils) helper (mirrors promoteEdge's own extraction) so the chat-driven confirm_action widget promotion path now invalidates all three knowledge.* keys too, fired unconditionally on every terminal turn; two regression tests (extended knowledge-graph-invalidate.test.tsx + new use-conversation-controller-invalidate.test.ts) green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage; todo 2026-07-09-knowledge-cache-invalidation-gap.md closed and moved to done (see 51-06-SUMMARY.md)
+Last activity: 2026-07-11 -- Phase 51-06 executed (RSKN-07: knowledge.* cache-invalidation gap closed across both promotion paths, todo closed)
+
+## Phase 51 -- Total UI Re-skin -- Plan 06 History -- RSKN-07
+
+- **51-06 EXECUTED** (`a4e8f88` test, `cb9fa53` feat, `b1034d0` test, `e4b1dad` feat, `a4cf73c` docs, `6c0703d` docs):
+  Closed the RSKN-07 cache-invalidation gap (todo 2026-07-09-knowledge-cache-invalidation-gap) —
+  a FUNCTIONAL fix, not styling. `promoteEdge()` in `knowledge-graph.tsx` (the `/knowledge` page's
+  promote button) now invalidates `knowledge.expandNode` (the `KnowledgePreviewNode` data source)
+  alongside its existing `knowledge.byId`/`knowledge.graph` invalidation, success-branch-only — the
+  `!ok` early return still invalidates nothing (existing 3-case test extended with the new
+  assertion, not replaced). `handleTerminal` in `use-conversation-controller.ts` previously
+  invalidated only `chat.getHistory`/`chat.sessionCost`/`chat.getWidgetInteractions` on every
+  terminal turn — the chat-driven promotion path (confirm_action widget, Phase 40) never touched
+  `knowledge.*` at all. Extracted the invalidation logic into a new standalone exported
+  `invalidateOnChatTerminal(conversationId, utils)` function (mirrors the `promoteEdge` extraction
+  precedent) that fires all three `chat.*` invalidations PLUS all three `knowledge.*`
+  invalidations unconditionally on every terminal turn (Claude's Discretion, documented in
+  51-06-SUMMARY.md: simpler than threading a "was this a promotion?" flag through the
+  stream-terminal callback; the queries are cheap and staleTime-guarded per the todo's own
+  accepted rationale, T-51-07-B). Two regression tests: the extended
+  `knowledge-graph-invalidate.test.tsx` (16 total assertions across 3 cases, all green) and the
+  new `use-conversation-controller-invalidate.test.ts` (asserts all six invalidate spies fire with
+  the correct `conversationId` input). Zero new deps (T-51-SC); no widened data exposure — same
+  authenticated tRPC queries, same inputs (T-51-07-A). Todo moved to `.planning/todos/done/` with
+  a resolution note. `tsc --noEmit` clean outside the pre-existing `apps/web/src/app/dev/design/`
+  scratch exclusion. See `51-06-SUMMARY.md` for full detail.
 
 ## Phase 51 -- Total UI Re-skin -- Plan 05 History -- RSKN-04
 
@@ -3324,6 +3349,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 51 P03 | 11min | 2 tasks | 5 files |
 | Phase 51 P04 | 5min | 2 tasks | 5 files |
 | Phase 51 P05 | 8min | 2 tasks | 3 files |
+| Phase 51 P06 | 5min | 2 tasks | 5 files |
 
 ## Operator Next Steps
 

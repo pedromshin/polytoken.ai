@@ -239,7 +239,7 @@ Phase 50 (Band 1 gate — nothing in Band 2/3 starts before the live loop is gre
 6. The inbox entity chips consume `color.graph.entity` + `radius.pill`, and `/entities/[id]`'s StatusBadge consumes the `color.tier.*` ladder — closing backlog 999.16
 7. Knowledge-canvas cache invalidation extends to chat-driven promotions and expandNode results, not just staleTime self-healing
 
-**Plans:** 5/7 plans executed
+**Plans:** 6/7 plans executed
 **UI hint**: yes
 
 Plans:
@@ -250,7 +250,7 @@ Plans:
 - [x] 51-03-PLAN.md — Inbox entity chips→graph-entity+pill, /entities palette + StatusBadge→tier ladder (backlog 999.16) (RSKN-02, RSKN-06, RSKN-05)
 - [x] 51-04-PLAN.md — /knowledge re-skin: glassmorphism burn-down (4 files) + ⊞→LayoutGrid + tier/graph confirm (RSKN-03)
 - [x] 51-05-PLAN.md — /studio + /settings/forwarding + /login register/hover pass + brand-copy confirm (RSKN-04)
-- [ ] 51-06-PLAN.md — RSKN-07 FUNCTIONAL: cache invalidation for chat-driven promotions + expandNode (+ tests) (RSKN-07)
+- [x] 51-06-PLAN.md — RSKN-07 FUNCTIONAL: cache invalidation for chat-driven promotions + expandNode (+ tests) (RSKN-07)
 
 **Wave 2** *(blocked on Wave 1 — the enforceable gate + phase-wide regression)*
 

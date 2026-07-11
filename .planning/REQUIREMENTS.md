@@ -35,7 +35,7 @@ completes before any Band 2/3 work starts.
 - [x] **RSKN-04**: `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
 - [x] **RSKN-05**: The re-skin holds the token discipline: zero raw hex outside token sources; existing WCAG-AA contrast + token-family registration regression gates stay green and extend to the new aliases
 - [x] **RSKN-06**: The off-token chip/badge stragglers consume the purpose-built tokens (backlog 999.16): inbox entity chips onto `color.graph.entity` + `radius.pill`, `/entities/[id]` StatusBadge onto the `color.tier.*` ladder — explicit scope extension to `/entities/[id]`
-- [ ] **RSKN-07**: Knowledge-canvas cache invalidation is extended to chat-driven promotions and expandNode results (todo 2026-07-09; today it self-heals only via staleTime)
+- [x] **RSKN-07**: Knowledge-canvas cache invalidation is extended to chat-driven promotions and expandNode results (todo 2026-07-09; today it self-heals only via staleTime)
 
 ### Mobile-Responsive Answer (MOBL — Band 2, after RSKN)
 
@@ -101,7 +101,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RSKN-04 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-05 | Phase 51 — Total UI Re-skin | Complete |
 | RSKN-06 | Phase 51 — Total UI Re-skin | Complete |
-| RSKN-07 | Phase 51 — Total UI Re-skin | Pending |
+| RSKN-07 | Phase 51 — Total UI Re-skin | Complete |
 | PANL-01 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
 | PANL-02 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
 | PANL-03 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Pending |
