@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: executing
-last_updated: "2026-07-11T01:25:53.291Z"
-last_activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule + read-only plan proof)
+last_updated: "2026-07-11T02:25:21.091Z"
+last_activity: 2026-07-11 -- Phase 49-03 executed (LIVE-01 DB-verified green-path spec, ran live -- LIVE-01 marked Complete)
 progress:
   total_phases: 6
   completed_phases: 0
   total_plans: 6
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -29,9 +29,39 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 ## Current Position
 
 Phase: 49 (Live-Loop Gate — Deploy, OAuth & Real Email) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Executing Phase 49
 Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule + read-only plan proof)
+
+## Phase 49 — Live-Loop Gate — Plan 03 History
+
+- **49-03 EXECUTED** (`3746676` feat, `e4e3fbe` feat):
+  Proved LIVE-01 end-to-end, live, DB-verified — the exact live exercise
+  49-01 deferred to this plan. `apps/web/e2e/helpers/seed-session.ts`
+  mints a real Supabase session via GoTrue admin
+  (`createUser`+`generateLink(magiclink)`+`verifyOtp`, never interactive
+  Google) and injects the `sb-127-auth-token` cookie using
+  `@supabase/ssr`'s own exported `createChunks`/`stringToBase64URL`
+  primitives. `apps/web/e2e/live-loop-green.spec.ts` drove login(seeded)
+  -> inbox -> thread -> email detail -> `/chat` -> `/knowledge` against
+  the actually-running local stack (Supabase already up 6h under
+  `project_id=polytoken`; the FastAPI listener started fresh this
+  session, no `--reload`; `npm run dev` already running), backing every
+  step with a direct `pg` query. Ran live on BOTH chromium and firefox
+  (playwright.config.ts's default two projects) — 2 passed, 37.5s. DB
+  evidence captured: a genuine `search_emails` tool_invocation
+  (query="invoice") against a fresh DB with zero confirmed-extracted
+  emails (a real, honest zero-result envelope — `search_emails`/
+  `lookup_entity`/`search_knowledge` all read CONFIRMED extraction data,
+  which a fresh local DB legitimately has none of), and a genuine
+  rendered `genui_spec` summary card. Two live bugs found and fixed
+  in-session (both documented in 49-03-SUMMARY.md Deviations): a too-tight
+  5s `toHaveURL` default under concurrent dev-server route-compile load,
+  and a racy "click New chat + poll for most-recent conversation for this
+  user" pattern that could misattribute one browser project's DB evidence
+  check to the OTHER browser's conversation — replaced with a spec-owned
+  direct `chat_conversations` insert (own random id + run-unique title).
+  **LIVE-01 marked Complete** in REQUIREMENTS.md.
 
 ## Phase 49 — Live-Loop Gate — Plan 02 History
 
@@ -2547,6 +2577,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-11 (49-03): LIVE-01 marked Complete — apps/web/e2e/live-loop-green.spec.ts ran live against the local stack (chromium+firefox, both passed): seeded login (GoTrue admin magiclink+verifyOtp, no interactive Google) -> inbox -> thread -> email detail -> chat (real Bedrock Sonnet 4.6 search_emails tool_invocation + rendered genui card, zero-result envelope expected on a fresh DB) -> /knowledge, every step backed by a direct pg assertion; evidence captured at .planning/phases/49-live-loop-gate-deploy-oauth-real-email/artifacts/local-green-db-verification.md
+- 2026-07-11 (49-03): seed-session.ts's cookie encoding delegates to @supabase/ssr's own exported createChunks/stringToBase64URL rather than a hand-rolled reimplementation; storageKey derived via the same hostname.split('.')[0] rule @supabase/supabase-js itself uses (sb-127-auth-token locally) — reverse-engineered from installed package source, not guessed
+- 2026-07-11 (49-03): search_emails/lookup_entity/search_knowledge all read CONFIRMED extracted data (find_similar_confirmed/entity_instances/knowledge_nodes), which a fresh local DB has none of — the spec accepts a genuine zero-result tool round as valid LIVE-01 evidence rather than seeding fake confirmed-extraction data to force non-empty results
+- 2026-07-11 (49-03): chat conversation identification in e2e specs must use a spec-owned direct DB insert (own random id + a run-unique title) rather than "click New chat + poll for most-recent conversation for this user" — the polling approach is racy when multiple Playwright projects (chromium/firefox, this repo's default) run concurrently against the SAME shared local stack and user; discovered live during this plan's first two run attempts (see 49-03-SUMMARY.md Deviations)
 - 2026-07-10 (49-01): docs/RUN-LOCAL.md + scripts/preflight-local.ps1 built as the LIVE-01 canonical cold-start doc/script pair; local Supabase project-id rename nauta->polytoken (LIVE-07) actualized in documentation (already renamed in supabase/config.toml prior to this plan) — old nauta Docker volumes explicitly left un-migrated (local data disposable), preflight script auto-stops a stale nauta stack if detected
 - 2026-07-10 (49-01): plan's own Task-1 automated verify block has a grep-quoting bug (`grep -qi "--reload"` parsed by grep as an unrecognized option, not a pattern) — verified doc content with a dash-safe invocation instead; no deliverable change needed, flagged for the phase verifier
 - 2026-07-10 (48-01): brutalist pack keeps radius.pill="0rem" (zero-radius identity beats pill-ness, documented D-48-01 exception) and migrates its existing JetBrains Mono display font explicitly onto typography.code.family (display.family left unchanged)
@@ -2881,6 +2915,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 48 P04 | 20min | 3 tasks | 7 files |
 | Phase 49 P01 | 17min | 2 tasks | 2 files |
 | Phase 49 P02 | 15min | 2 tasks | 2 files |
+| Phase 49 P03 | 50min | 2 tasks | 3 files |
 
 ## Operator Next Steps
 

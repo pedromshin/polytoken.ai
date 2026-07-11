@@ -19,7 +19,7 @@ completes before any Band 2/3 work starts.
 
 ### Live-Loop Gate (LIVE — Band 1, strictly first)
 
-- [ ] **LIVE-01**: The local stack runs green end-to-end (login → inbox → thread → email detail → chat with tool rounds → genui panel → /knowledge) via a documented, reproducible start procedure — no zombie-process ambiguity, verified against the DB not the terminal
+- [x] **LIVE-01**: The local stack runs green end-to-end (login → inbox → thread → email detail → chat with tool rounds → genui panel → /knowledge) via a documented, reproducible start procedure — no zombie-process ambiguity, verified against the DB not the terminal
 - [ ] **LIVE-02**: Migrations 0026–0035 are applied to staging AND production (migrations-first per the deploy playbook) and live-verified; ECS + Vercel deploys are green on the renamed codebase
 - [ ] **LIVE-03**: Google OAuth works on the deployed app — GOOGLE-OAUTH-RUNBOOK.md executed (user console steps as in-phase checkpoint tasks), the user signs in with their real Google account, session persists, sign-out works
 - [ ] **LIVE-04**: The user's real email flows into polytoken — FORWARDING-RUNBOOK.md + SES rule wired, a real forwarded message lands, threads group correctly, attachments stored
@@ -88,7 +88,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LIVE-01 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
+| LIVE-01 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Complete |
 | LIVE-02 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
 | LIVE-03 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
 | LIVE-04 | Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email | Pending |
