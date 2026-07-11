@@ -393,10 +393,10 @@ class GenuiCodeGeneratorAdapter:
             model=model_id,
             max_tokens=self._max_tokens,
             temperature=temperature,
-            system=system_blocks,
+            system=system_blocks,  # type: ignore[arg-type]
             tools=[_EMIT_TOOL],
             tool_choice={"type": "tool", "name": _EMIT_TOOL_NAME},
-            messages=messages,
+            messages=messages,  # type: ignore[arg-type]
         ) as stream:
             async with asyncio.timeout(self._timeout_seconds) as cm:
                 async for _event in stream:

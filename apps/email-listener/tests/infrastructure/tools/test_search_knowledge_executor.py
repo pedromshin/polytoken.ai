@@ -99,8 +99,8 @@ def _make_executor(
     return executor, knowledge, embedder
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_mode_happy_path_embeds_searches_truncates_and_cites() -> None:
     long_title = "T" * (MAX_RESULT_FIELD_CHARS + 50)
     search_rows = [
@@ -143,8 +143,8 @@ async def test_search_mode_happy_path_embeds_searches_truncates_and_cites() -> N
         assert citation["route"] == f"/knowledge?focus={citation['id']}"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_mode_embedder_failure_degrades_to_trgm_only_and_notes_it() -> None:
     executor, knowledge, embedder = _make_executor(search_rows=[_node_row("node-a")])
     embedder.embed.side_effect = RuntimeError("bedrock titan unavailable")
@@ -164,8 +164,8 @@ async def test_search_mode_embedder_failure_degrades_to_trgm_only_and_notes_it()
     assert envelope["embedding_degraded"] is True
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_mode_happy_path_envelope_omits_degraded_key() -> None:
     executor, _knowledge, _embedder = _make_executor(search_rows=[_node_row("node-a")])
 
@@ -177,8 +177,8 @@ async def test_search_mode_happy_path_envelope_omits_degraded_key() -> None:
     assert "embedding_degraded" not in envelope, "omit the key entirely when not degraded, never `false`"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_mode_belt_two_omits_label_for_non_extracted_row() -> None:
     # Hostile fixture: simulates a hypothetical regression in 37-01's view (belt 1)
     # or RPC filter (belt 3) -- a non-EXTRACTED row arriving WITH non-null text.
@@ -204,8 +204,8 @@ async def test_search_mode_belt_two_omits_label_for_non_extracted_row() -> None:
     assert ok["label"] == "Confirmed title"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_expand_mode_happy_path_bounded_expand_maps_nodes_edges_and_cites() -> None:
     expand_result: dict[str, object] = {
         "nodes": [
@@ -259,8 +259,8 @@ async def test_expand_mode_happy_path_bounded_expand_maps_nodes_edges_and_cites(
         assert citation["route"] == f"/knowledge?focus={citation['id']}"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_expand_mode_belt_two_omits_label_for_non_extracted_node() -> None:
     # Same hostile-repository simulation as the search-mode belt-2 test, on the expand path.
     expand_result: dict[str, object] = {
@@ -286,8 +286,8 @@ async def test_expand_mode_belt_two_omits_label_for_non_extracted_node() -> None
     assert _HOSTILE_TITLE not in result.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_search_mode_empty_query_returns_error_without_repo_calls() -> None:
     for bad_arguments in (
         {"mode": "search"},
@@ -306,8 +306,8 @@ async def test_search_mode_empty_query_returns_error_without_repo_calls() -> Non
         knowledge.expand_neighbours.assert_not_called()
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_expand_mode_empty_node_id_returns_error_without_repo_calls() -> None:
     for bad_arguments in (
         {"mode": "expand"},
@@ -326,8 +326,8 @@ async def test_expand_mode_empty_node_id_returns_error_without_repo_calls() -> N
         knowledge.expand_neighbours.assert_not_called()
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_unknown_or_missing_mode_returns_error_without_repo_calls() -> None:
     for bad_arguments in ({}, {"mode": None}, {"mode": "delete"}, {"mode": "SEARCH", "query": "booking"}):
         executor, knowledge, embedder = _make_executor()
@@ -345,8 +345,8 @@ async def test_unknown_or_missing_mode_returns_error_without_repo_calls() -> Non
         knowledge.expand_neighbours.assert_not_called()
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_repository_exception_returns_error_never_raises() -> None:
     # search path
     executor, knowledge, _embedder = _make_executor()
@@ -375,8 +375,8 @@ async def test_repository_exception_returns_error_never_raises() -> None:
     assert "postgres://" not in result2.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_content_is_capped_json() -> None:
     executor, _knowledge, _embedder = _make_executor(search_rows=[_node_row("node-a")])
 

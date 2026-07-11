@@ -838,8 +838,6 @@ async def test_cache_miss_calls_retrieve_before_generate(
     """RAG-01: on cache MISS, retrieve() must be called BEFORE generator.generate()."""
     call_order: list[str] = []
 
-    original_retrieve = mock_retrieval.retrieve.side_effect or mock_retrieval.retrieve.return_value
-
     async def track_retrieve(**kwargs: object) -> RetrievalResult:
         call_order.append("retrieve")
         return _make_retrieval_result()

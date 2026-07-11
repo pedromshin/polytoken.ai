@@ -151,7 +151,8 @@ class SupabaseChatWidgetInteractionRepository:
             )
         )
         message_rows = message_result.data or []
-        if message_rows and not bool(message_rows[0].get("is_active", True)):
+        first_message_row = message_rows[0] if message_rows else None
+        if isinstance(first_message_row, dict) and not bool(first_message_row.get("is_active", True)):
             return True
 
         newer_turn_result = await asyncio.to_thread(

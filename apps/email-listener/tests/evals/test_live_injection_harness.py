@@ -295,9 +295,9 @@ def _visible_text_from(messages: list[ChatMessage]) -> str:
     return " ".join(p["text"] for p in parts if p.get("type") == "text")
 
 
-@pytest.mark.integration()
+@pytest.mark.integration
 @skip_no_bedrock_credentials
-@pytest.mark.asyncio()
+@pytest.mark.asyncio
 @pytest.mark.parametrize("fixture", _load_representative_fixtures(), ids=lambda f: f["name"])
 async def test_live_haiku_turn_never_leaks_canary_in_visible_text(fixture: dict[str, Any]) -> None:
     """A real Haiku-tier turn, having received the fixture's text as legitimate EXTRACTED tool_result

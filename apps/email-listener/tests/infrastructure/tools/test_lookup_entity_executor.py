@@ -114,8 +114,8 @@ def _make_executor(
     return executor, entity_instances, resolution_repo, entity_types_repo, embedder
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_id_hit_returns_self_plus_candidates() -> None:
     instance = _instance()
     candidates = [
@@ -158,8 +158,8 @@ async def test_id_hit_returns_self_plus_candidates() -> None:
     assert resolution_repo.calls[0]["entity_type_id"] == _ENTITY_TYPE_ID
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_id_miss_falls_back_to_name_search_across_entity_types() -> None:
     entity_types = [_entity_type(_ENTITY_TYPE_ID, "company"), _entity_type(_OTHER_ENTITY_TYPE_ID, "person")]
     candidates_by_type = {
@@ -197,8 +197,8 @@ async def test_id_miss_falls_back_to_name_search_across_entity_types() -> None:
     entity_types_repo.list_active.assert_awaited_once_with(_IMPORTER_ID)
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_cross_tenant_id_falls_back_to_name_search_without_leaking() -> None:
     other_tenant_instance = _instance(importer_id=_OTHER_IMPORTER_ID, display_name="Secret Corp")
     entity_types = [_entity_type()]
@@ -229,8 +229,8 @@ async def test_cross_tenant_id_falls_back_to_name_search_without_leaking() -> No
     assert ids == [_CANDIDATE_ID_1]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_empty_name_or_id_returns_error_without_repo_calls() -> None:
     for bad_arguments in ({}, {"name_or_id": None}, {"name_or_id": ""}, {"name_or_id": "   "}):
         executor, entity_instances, resolution_repo, entity_types_repo, embedder = _make_executor()
@@ -245,8 +245,8 @@ async def test_empty_name_or_id_returns_error_without_repo_calls() -> None:
         assert resolution_repo.calls == []
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_repository_exception_returns_error_never_raises() -> None:
     executor, entity_instances, _resolution_repo, _entity_types_repo, _embedder = _make_executor()
     entity_instances.find_by_id.side_effect = RuntimeError("db exploded, connection string: postgres://secret")
@@ -259,8 +259,8 @@ async def test_repository_exception_returns_error_never_raises() -> None:
     assert "postgres://" not in result.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_citations_shape_matches_results() -> None:
     instance = _instance()
     candidates = [
@@ -288,8 +288,8 @@ async def test_citations_shape_matches_results() -> None:
         assert citation["route"] == f"/entities/{citation['id']}"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_content_is_capped_json() -> None:
     instance = _instance()
     executor, *_rest = _make_executor(instance=instance)

@@ -12,8 +12,8 @@ from tests.support.echo_tool_executor import EchoToolExecutor
 _IMPORTER_ID = "imp-test-0000-0000-0000-000000000001"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_echo_round_trips_arguments() -> None:
     executor = EchoToolExecutor()
     arguments = {"tool_use_id": "tu_1", "query": "hello"}
@@ -25,16 +25,16 @@ async def test_echo_round_trips_arguments() -> None:
     assert json.loads(result.content) == arguments
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_echo_defaults_tool_use_id_when_absent() -> None:
     executor = EchoToolExecutor()
     result = await executor.execute(name="echo", arguments={"query": "hi"}, importer_id=_IMPORTER_ID)
     assert result.tool_use_id == "echo"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_echo_forced_error_returns_is_error_true() -> None:
     executor = EchoToolExecutor()
     result = await executor.execute(
@@ -45,8 +45,8 @@ async def test_echo_forced_error_returns_is_error_true() -> None:
     assert result.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_echo_output_is_capped() -> None:
     executor = EchoToolExecutor()
     result = await executor.execute(
@@ -56,8 +56,8 @@ async def test_echo_output_is_capped() -> None:
     assert result.content.endswith("…[truncated]")
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_echo_sleep_flag_delays_before_returning() -> None:
     import time
 

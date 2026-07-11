@@ -18,7 +18,7 @@ Security/correctness contracts:
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -29,7 +29,6 @@ from app.infrastructure.llm.genui_generator_adapter import (
     GenuiGeneratorAdapter,
 )
 from app.infrastructure.llm.genui_quarantine_adapter import QuarantineExtraction
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -61,7 +60,7 @@ def _make_extraction(entity_type: str = "alert", summary: str = "Show an alert")
     )
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_bedrock_client() -> MagicMock:
     client = MagicMock()
     client.messages = MagicMock()
@@ -69,7 +68,7 @@ def mock_bedrock_client() -> MagicMock:
     return client
 
 
-@pytest.fixture()
+@pytest.fixture
 def adapter(mock_bedrock_client: MagicMock) -> GenuiGeneratorAdapter:
     return GenuiGeneratorAdapter(
         client=mock_bedrock_client,
@@ -85,8 +84,8 @@ def adapter(mock_bedrock_client: MagicMock) -> GenuiGeneratorAdapter:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_raw_prose_absent_from_generator_prompt(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -126,8 +125,8 @@ async def test_raw_prose_absent_from_generator_prompt(
             assert raw_prose not in str(block_text)
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_extraction_appears_as_data_section(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -155,8 +154,8 @@ async def test_extraction_appears_as_data_section(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_forced_emit_ui_spec_tool(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -171,8 +170,8 @@ async def test_forced_emit_ui_spec_tool(
     assert call_kwargs["tool_choice"]["name"] == "emit_ui_spec"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_max_tokens_and_temperature_set(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -187,8 +186,8 @@ async def test_max_tokens_and_temperature_set(
     assert call_kwargs["temperature"] == 0
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_cache_control_on_system_prompt(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -215,8 +214,8 @@ async def test_cache_control_on_system_prompt(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_happy_path_returns_valid_spec(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -233,8 +232,8 @@ async def test_happy_path_returns_valid_spec(
     assert result.is_fallback is False, "Happy path must return is_fallback=False (CR-02)"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_invalid_spec_retries_up_to_3(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -258,8 +257,8 @@ async def test_invalid_spec_retries_up_to_3(
     assert mock_bedrock_client.messages.create.call_count == 3, "Must attempt exactly 3 times"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_repair_loop_succeeds_on_second_attempt(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -284,8 +283,8 @@ async def test_repair_loop_succeeds_on_second_attempt(
     assert mock_bedrock_client.messages.create.call_count == 2
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_escalation_on_third_attempt(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -312,8 +311,8 @@ async def test_escalation_on_third_attempt(
     assert calls[2].kwargs["model"] == "us.anthropic.claude-sonnet-4-6"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_validation_error_fed_back_in_repair(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -345,8 +344,8 @@ async def test_validation_error_fed_back_in_repair(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_spec_exceeding_max_nodes_triggers_fallback(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -379,14 +378,14 @@ async def test_spec_exceeding_max_nodes_triggers_fallback(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_timeout_returns_fallback(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
 ) -> None:
     """asyncio.TimeoutError must return SAFE_FALLBACK_SPEC, not raise (D-17)."""
-    mock_bedrock_client.messages.create.side_effect = asyncio.TimeoutError()
+    mock_bedrock_client.messages.create.side_effect = TimeoutError()
 
     result = await adapter.generate(extraction=_make_extraction(), registry_version="v1")
 
@@ -395,8 +394,8 @@ async def test_timeout_returns_fallback(
     assert result.is_fallback is True, "Timeout path must set is_fallback=True (CR-02)"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_exception_returns_fallback(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -416,7 +415,7 @@ async def test_exception_returns_fallback(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_safe_fallback_spec_is_valid_spec() -> None:
     """SAFE_FALLBACK_SPEC must be a valid SpecRoot dict (hardcoded constant, D-07)."""
     assert isinstance(SAFE_FALLBACK_SPEC, dict)
@@ -425,15 +424,15 @@ def test_safe_fallback_spec_is_valid_spec() -> None:
     assert "title" in SAFE_FALLBACK_SPEC["root"]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_safe_fallback_spec_is_immutable() -> None:
     """SAFE_FALLBACK_SPEC must not be mutated across calls (immutability, D-07)."""
-    from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC as spec1
-    from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC as spec2
+    from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC as SPEC_FIRST
+    from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC as SPEC_SECOND
 
-    assert spec1 is spec2, "SAFE_FALLBACK_SPEC must be the same object (constant)"
+    assert SPEC_FIRST is SPEC_SECOND, "SAFE_FALLBACK_SPEC must be the same object (constant)"
     # It must be a dict with the expected structure
-    assert spec1["v"] == 1
+    assert SPEC_FIRST["v"] == 1
 
 
 # ---------------------------------------------------------------------------
@@ -441,7 +440,7 @@ def test_safe_fallback_spec_is_immutable() -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_retrieval_result_with_exemplar() -> "RetrievalResult":
+def _make_retrieval_result_with_exemplar() -> RetrievalResult:
     """Build a minimal RetrievalResult with one exemplar item for injection tests."""
     from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
 
@@ -459,7 +458,7 @@ def _make_retrieval_result_with_exemplar() -> "RetrievalResult":
     return RetrievalResult(items=(exemplar_item,))
 
 
-def _make_empty_retrieval_result() -> "RetrievalResult":
+def _make_empty_retrieval_result() -> RetrievalResult:
     """Build an empty RetrievalResult."""
     from app.domain.ports.retrieval_provider import RetrievalResult
 
@@ -467,14 +466,12 @@ def _make_empty_retrieval_result() -> "RetrievalResult":
 
 
 # Import RetrievalResult at module level for type annotations
-try:
+with contextlib.suppress(ImportError):  # Tests will fail if import fails — expected in RED phase
     from app.domain.ports.retrieval_provider import RetrievalResult
-except ImportError:
-    pass  # Tests will fail if import fails — that's expected in RED phase
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_generate_accepts_style_pack_id_param(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -492,8 +489,8 @@ async def test_generate_accepts_style_pack_id_param(
     assert result.is_fallback is False
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_generate_accepts_none_style_pack_id(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -511,8 +508,8 @@ async def test_generate_accepts_none_style_pack_id(
     assert result.is_fallback is False
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_generate_accepts_retrieval_param(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -531,8 +528,8 @@ async def test_generate_accepts_retrieval_param(
     assert result.is_fallback is False
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_pack_token_table_injected_in_user_content(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -562,8 +559,8 @@ async def test_pack_token_table_injected_in_user_content(
     )
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_pack_token_table_not_in_system_prompt(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -593,7 +590,7 @@ async def test_pack_token_table_not_in_system_prompt(
     )
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_build_system_blocks_identical_regardless_of_pack() -> None:
     """_build_system_blocks() must be byte-identical regardless of style_pack_id/retrieval (T-17-21).
 
@@ -616,8 +613,8 @@ def test_build_system_blocks_identical_regardless_of_pack() -> None:
     )
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_retrieved_exemplars_injected_as_data_framing(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -643,13 +640,12 @@ async def test_retrieved_exemplars_injected_as_data_framing(
     # Exemplar id must appear in user content
     assert "dashboard-saas" in user_content, "Retrieved exemplar id must appear in user content"
     # Must use DATA framing (structured section delimiter, SAFE-02)
-    assert "<" in user_content and ">" in user_content, (
-        "Exemplars must be enclosed in structured XML-style data framing (SAFE-02)"
-    )
+    assert "<" in user_content, "Exemplars must be enclosed in structured XML-style data framing (SAFE-02)"
+    assert ">" in user_content, "Exemplars must be enclosed in structured XML-style data framing (SAFE-02)"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_no_retrieval_no_exemplar_section(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,
@@ -673,7 +669,7 @@ async def test_no_retrieval_no_exemplar_section(
     )
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_system_prompt_teaches_dataref_state_binding() -> None:
     """Regression test (POLISH-01 / 999.8 option (a)): the built system prompt must teach
     declared-state display via `dataRef`-bound `list`/`conditional` nodes, forbid a
@@ -706,8 +702,8 @@ def test_system_prompt_teaches_dataref_state_binding() -> None:
     assert "decrement" in text_lower, "System prompt must clarify decrement semantics"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_empty_retrieval_no_exemplar_section(
     adapter: GenuiGeneratorAdapter,
     mock_bedrock_client: MagicMock,

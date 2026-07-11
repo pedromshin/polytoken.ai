@@ -107,6 +107,7 @@ SHALLOW_SPEC = {
 # Import rubric — this will NameError/ImportError on RED run
 # ---------------------------------------------------------------------------
 
+from scripts.genui_eval.report import PromptReport, build_report  # noqa: E402
 from scripts.genui_eval.rubric import (  # noqa: E402
     WEIGHTS,
     CriterionResult,
@@ -115,7 +116,6 @@ from scripts.genui_eval.rubric import (  # noqa: E402
     composed_not_placeholder,
     valid_spec,
 )
-from scripts.genui_eval.report import EvalReport, PromptReport, build_report  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # CriterionResult — basic shape

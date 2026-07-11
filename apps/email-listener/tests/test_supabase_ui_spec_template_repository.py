@@ -27,7 +27,6 @@ import pytest
 from app.domain.ports.ui_spec_template_repository import (
     CachedTemplate,
     TemplateToPersist,
-    UiSpecTemplateRepository,
 )
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import (
     SupabaseUiSpecTemplateRepository,
@@ -242,20 +241,18 @@ def test_find_by_cache_key_filters_by_cache_key_and_validation_status() -> None:
 
     asyncio.run(repo.find_by_cache_key(_SAMPLE_CACHE_KEY))
 
-    # First call to select() is from find_by_cache_key
-    first_select = table_mock.select.side_effect.__closure__  # noqa: ignore; check via call args instead
-    # Check via the select_mock (first call result)
+    # First call to select() is from find_by_cache_key — check via call args
     calls = table_mock.select.call_args_list
     assert len(calls) >= 1  # at least one select call was made
 
     # We verify the eq chain from the first select call's return value
-    first_select_result = table_mock.select.return_value  # not reliable with side_effect
+    # (table_mock.select.return_value is not reliable with side_effect)
     # Approach: verify through the find chain directly
     # The first call to table_mock.select(). Since side_effect is used, .return_value isn't set.
     # Instead we capture the chain: select mock returned the find_chain.
     # To avoid brittle introspection, we verify indirectly: result was CachedTemplate (correct row returned).
     # The filters are tested by checking the eq call counts below using a simpler direct mock.
-    pass  # filter correctness is validated by the fact that only validated rows are returned
+    # filter correctness is validated by the fact that only validated rows are returned
 
 
 def test_find_by_cache_key_filters_eq_calls_directly() -> None:

@@ -268,10 +268,10 @@ def _make_use_case(
     use_case = RunChatTurn(
         messages=messages,
         runs=FakeChatRunRepository(),
-        conversations=FakeChatConversationRepository(),
-        router=_FakeRouter(provider),
-        breaker=FakeCostCircuitBreaker(),
-        ledger=FakeCostLedgerRepository(),
+        conversations=FakeChatConversationRepository(),  # type: ignore[arg-type]
+        router=_FakeRouter(provider),  # type: ignore[arg-type]
+        breaker=FakeCostCircuitBreaker(),  # type: ignore[arg-type]
+        ledger=FakeCostLedgerRepository(),  # type: ignore[arg-type]
         emit_ui_spec_tool=_TEST_EMIT_UI_SPEC_TOOL,
         default_importer_id=_IMPORTER_ID,
         max_output_tokens=1000,

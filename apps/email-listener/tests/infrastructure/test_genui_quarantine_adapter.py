@@ -10,7 +10,6 @@ Security contract (D-09, SAFE-01):
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -19,7 +18,6 @@ from app.infrastructure.llm.genui_quarantine_adapter import (
     GenuiQuarantineAdapter,
     QuarantineExtraction,
 )
-
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -52,7 +50,7 @@ def _make_empty_response() -> MagicMock:
     return response
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_bedrock_client() -> MagicMock:
     client = MagicMock()
     client.messages = MagicMock()
@@ -60,7 +58,7 @@ def mock_bedrock_client() -> MagicMock:
     return client
 
 
-@pytest.fixture()
+@pytest.fixture
 def adapter(mock_bedrock_client: MagicMock) -> GenuiQuarantineAdapter:
     return GenuiQuarantineAdapter(
         client=mock_bedrock_client,
@@ -75,8 +73,8 @@ def adapter(mock_bedrock_client: MagicMock) -> GenuiQuarantineAdapter:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_raw_content_absent_from_system_prompt(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -104,8 +102,8 @@ async def test_raw_content_absent_from_system_prompt(
             assert "INJECT_SYSTEM" not in block_text, "Raw injection string must not be in system prompt block"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_raw_content_appears_in_user_turn(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -138,8 +136,8 @@ async def test_raw_content_appears_in_user_turn(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tool_choice_is_forced(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -156,8 +154,8 @@ async def test_tool_choice_is_forced(
     assert tool_choice["name"] == "quarantine_extraction", "tool_choice.name must be 'quarantine_extraction'"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_max_tokens_is_set(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -172,8 +170,8 @@ async def test_max_tokens_is_set(
     assert call_kwargs["max_tokens"] == 1024, "max_tokens must match configured value"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_entity_type_enum_is_constrained(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -205,8 +203,8 @@ async def test_entity_type_enum_is_constrained(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_successful_extraction_returns_extraction(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -224,8 +222,8 @@ async def test_successful_extraction_returns_extraction(
     assert result.output_tokens == 50
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_no_tool_use_block_returns_unknown(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -239,8 +237,8 @@ async def test_no_tool_use_block_returns_unknown(
     assert result.entity_type == "unknown"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_injection_shaped_value_treated_as_data(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
@@ -277,14 +275,14 @@ async def test_injection_shaped_value_treated_as_data(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_timeout_returns_empty_extraction(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,
 ) -> None:
     """asyncio.TimeoutError must return empty QuarantineExtraction, not raise (D-17)."""
-    mock_bedrock_client.messages.create.side_effect = asyncio.TimeoutError()
+    mock_bedrock_client.messages.create.side_effect = TimeoutError()
 
     result = await adapter.extract(intent="Show something", raw_content="content")
 
@@ -294,8 +292,8 @@ async def test_timeout_returns_empty_extraction(
     assert result.output_tokens == 0
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_exception_returns_empty_extraction(
     adapter: GenuiQuarantineAdapter,
     mock_bedrock_client: MagicMock,

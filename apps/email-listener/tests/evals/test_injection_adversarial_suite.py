@@ -100,8 +100,8 @@ def _crafted_query_fixture() -> dict[str, Any]:
     return fixtures[0]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 @pytest.mark.parametrize("fixture", _non_crafted_fixtures(), ids=lambda f: f["name"])
 async def test_non_extracted_seeded_fixture_never_leaks(fixture: dict[str, Any]) -> None:
     """Belt 2 + Plan 38-01's envelope gate hold for every fixture seeded as a non-EXTRACTED row's title."""
@@ -117,8 +117,8 @@ async def test_non_extracted_seeded_fixture_never_leaks(fixture: dict[str, Any])
     assert score["leaked"] is False, f"fixture {fixture['name']!r} leaked its canary via a non-EXTRACTED row"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 @pytest.mark.parametrize("fixture", _non_crafted_fixtures(), ids=lambda f: f["name"])
 async def test_extracted_seeded_fixture_surfaces_and_passes_envelope_gate(fixture: dict[str, Any]) -> None:
     """Sanity companion: an EXTRACTED (confirmed) row's text DOES surface -- the suite isn't over-blocking."""
@@ -138,8 +138,8 @@ async def test_extracted_seeded_fixture_surfaces_and_passes_envelope_gate(fixtur
     assert gate.ok is True, f"fixture {fixture['name']!r}'s legitimate EXTRACTED envelope failed the gate: {gate.reason}"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_crafted_adversarial_search_query_reaches_repo_unmodified_and_tier_filter_holds() -> None:
     """The `knowledge-inferred-crafted-search` fixture arrives as the QUERY argument, not seeded content.
 

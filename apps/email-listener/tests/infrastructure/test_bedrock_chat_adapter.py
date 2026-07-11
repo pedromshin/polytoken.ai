@@ -130,8 +130,8 @@ async def _collect(stream: Any) -> list[Any]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_text_deltas_in_order_then_usage_then_stream_end(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -158,7 +158,7 @@ async def test_text_deltas_in_order_then_usage_then_stream_end(
     ]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_usage_read_from_final_message_source() -> None:
     """D-22: usage MUST be read from get_final_message().usage, not dropped."""
     assert "input_tokens" in inspect.getsource(BedrockChatAdapter.stream)
@@ -169,8 +169,8 @@ def test_usage_read_from_final_message_source() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tool_call_delta_carries_tracked_name_and_id(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -202,8 +202,8 @@ async def test_tool_call_delta_carries_tracked_name_and_id(
     assert deltas[-1] == StreamEnd(stop_reason="tool_use")
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tool_choice_never_forced_when_tools_empty(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -227,8 +227,8 @@ async def test_tool_choice_never_forced_when_tools_empty(
     assert "tools" not in call_kwargs
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tool_choice_still_not_forced_when_tools_present(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -258,8 +258,8 @@ async def test_tool_choice_still_not_forced_when_tools_present(
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_mid_stream_raise_yields_partial_then_stream_end_error(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -282,8 +282,8 @@ async def test_mid_stream_raise_yields_partial_then_stream_end_error(
     assert deltas == [TextDelta(text="partial text"), StreamEnd(stop_reason="error")]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_exception_before_any_event_yields_only_stream_end_error(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
@@ -304,8 +304,8 @@ async def test_exception_before_any_event_yields_only_stream_end_error(
     assert deltas == [StreamEnd(stop_reason="error")]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_usage_defaults_to_zero_when_missing_from_final_message(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,

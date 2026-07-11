@@ -11,32 +11,25 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock
 
+import fastapi
 import pytest
 from fastapi.testclient import TestClient
 
 from app.application.use_cases.generate_ui_spec import GenerateUiSpecResult, GenerateUiSpecUseCase
 from app.infrastructure.llm.genui_generator_adapter import SAFE_FALLBACK_SPEC
 
-
 # ---------------------------------------------------------------------------
 # App factory for tests
 # ---------------------------------------------------------------------------
 
 
-def _make_app_with_mock_use_case(use_case: GenerateUiSpecUseCase) -> "fastapi.FastAPI":  # type: ignore[name-defined]
+def _make_app_with_mock_use_case(use_case: GenerateUiSpecUseCase) -> fastapi.FastAPI:
     """Create a minimal FastAPI app with the genui router and mocked DI."""
-    from unittest.mock import patch
 
-    import fastapi
-    from dishka import make_async_container
+    from dishka import Provider, Scope, make_async_container
     from dishka.integrations.fastapi import setup_dishka
-    from dishka import Provider, Scope
 
     from app.presentation.api.v1.genui import router
-    from app.settings import get_settings
-
-    # Patch get_settings to disable auth in dev mode
-    settings = get_settings()
 
     app = fastapi.FastAPI()
     app.include_router(router)
@@ -68,7 +61,7 @@ def client(mock_use_case: MagicMock) -> TestClient:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_returns_200_with_spec(client: TestClient, mock_use_case: MagicMock) -> None:
     """POST /v1/genui/generate returns 200 with ApiResponse wrapping the spec."""
     resp = client.post(
@@ -86,7 +79,7 @@ def test_generate_returns_200_with_spec(client: TestClient, mock_use_case: Magic
     assert "spec" in body["data"]
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_missing_intent_returns_422(client: TestClient) -> None:
     """422 when 'intent' field is missing from the request body."""
     resp = client.post(
@@ -99,7 +92,7 @@ def test_generate_missing_intent_returns_422(client: TestClient) -> None:
     assert resp.status_code == 422
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_missing_raw_content_is_accepted_intent_only(
     client: TestClient, mock_use_case: MagicMock
 ) -> None:
@@ -123,7 +116,7 @@ def test_generate_missing_raw_content_is_accepted_intent_only(
     assert call_kwargs["importer_id"] is None
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_missing_registry_version_returns_422(client: TestClient) -> None:
     """422 when 'registry_version' field is missing from the request body."""
     resp = client.post(
@@ -136,7 +129,7 @@ def test_generate_missing_registry_version_returns_422(client: TestClient) -> No
     assert resp.status_code == 422
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_calls_use_case_with_correct_args(
     client: TestClient,
     mock_use_case: MagicMock,
@@ -158,7 +151,7 @@ def test_generate_calls_use_case_with_correct_args(
     assert call_kwargs["importer_id"] is None
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_returns_fallback_spec_when_use_case_returns_fallback(
     client: TestClient,
     mock_use_case: MagicMock,
@@ -181,7 +174,7 @@ def test_generate_returns_fallback_spec_when_use_case_returns_fallback(
     assert body["data"]["spec"]["root"]["type"] == "alert"
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_response_includes_outcome_and_cache_hit(
     client: TestClient,
     mock_use_case: MagicMock,
@@ -208,7 +201,7 @@ def test_generate_response_includes_outcome_and_cache_hit(
     assert body["data"]["cache_hit"] is True
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_generate_response_outcome_escalated(
     client: TestClient,
     mock_use_case: MagicMock,

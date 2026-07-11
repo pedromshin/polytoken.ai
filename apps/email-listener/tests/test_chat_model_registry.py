@@ -22,21 +22,21 @@ from app.domain.services.chat_model_registry import (
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_registry_has_at_least_one_bedrock_entry() -> None:
     """Registry must curate at least one Bedrock (Anthropic) entry (D-04)."""
     bedrock_entries = [model for model in CHAT_MODEL_REGISTRY if model.transport == "bedrock"]
     assert len(bedrock_entries) >= 1
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_registry_has_at_least_three_openrouter_entries() -> None:
     """Registry must curate at least three OpenRouter entries (D-04)."""
     openrouter_entries = [model for model in CHAT_MODEL_REGISTRY if model.transport == "openrouter"]
     assert len(openrouter_entries) >= 3
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_registry_has_at_least_one_browser_entry() -> None:
     """Registry must curate at least one in-browser WebLLM entry (D-08)."""
     browser_entries = [model for model in CHAT_MODEL_REGISTRY if model.transport == "browser"]
@@ -48,7 +48,7 @@ def test_registry_has_at_least_one_browser_entry() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_browser_entry_is_free_and_locus_browser() -> None:
     """Browser entries must have execution_locus='browser' and $0 pricing (D-08)."""
     browser_entries = [model for model in CHAT_MODEL_REGISTRY if model.transport == "browser"]
@@ -64,7 +64,7 @@ def test_browser_entry_is_free_and_locus_browser() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_at_least_one_entry_genui_true_and_one_false() -> None:
     """The picker must be able to distinguish GenUI-reliable models from the rest (D-05)."""
     genui_flags = {model.capabilities.genui for model in CHAT_MODEL_REGISTRY}
@@ -72,7 +72,7 @@ def test_at_least_one_entry_genui_true_and_one_false() -> None:
     assert False in genui_flags
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_genui_capable_ids_only_include_genui_true_entries() -> None:
     """genui_capable_ids() must be a strict, non-empty subset of genui=True entries."""
     ids = genui_capable_ids()
@@ -88,13 +88,13 @@ def test_genui_capable_ids_only_include_genui_true_entries() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_registry_version_is_stable_across_calls() -> None:
     """chat_registry_version() must be deterministic: same content -> same hash."""
     assert chat_registry_version() == chat_registry_version()
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_registry_version_is_64_char_hex_sha256() -> None:
     """chat_registry_version() must be a 64-hex-char SHA-256 digest."""
     version = chat_registry_version()
@@ -107,7 +107,7 @@ def test_registry_version_is_64_char_hex_sha256() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_get_model_returns_entry_for_known_id() -> None:
     known_id = CHAT_MODEL_REGISTRY[0].id
     result = get_model(known_id)
@@ -115,12 +115,12 @@ def test_get_model_returns_entry_for_known_id() -> None:
     assert result.id == known_id
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_get_model_returns_none_for_unknown_id() -> None:
     assert get_model("not-a-real-model-id") is None
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_no_duplicate_ids_in_registry() -> None:
     ids = [model.id for model in CHAT_MODEL_REGISTRY]
     assert len(ids) == len(set(ids)), "registry entries must have unique ids"
@@ -131,7 +131,7 @@ def test_no_duplicate_ids_in_registry() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
+@pytest.mark.unit
 def test_only_bedrock_claude_entries_enable_tool_rounds() -> None:
     """Only the 2 Bedrock Claude entries carry max_tool_rounds=4; everyone else stays 0."""
     sonnet = get_model("us.anthropic.claude-sonnet-4-6")

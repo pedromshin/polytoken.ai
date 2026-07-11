@@ -8,10 +8,8 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import FrozenInstanceError
-from typing import runtime_checkable
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Task 1: DTO / Protocol contract tests (run in TDD RED before implementation)
@@ -66,7 +64,7 @@ class TestRetrievalResultDTO:
     """RetrievalResult is a frozen dataclass with items tuple + retrieved_ids property."""
 
     def test_retrieval_result_items_is_tuple(self) -> None:
-        from app.domain.ports.retrieval_provider import RetrievedItem, RetrievalResult
+        from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
 
         item_a = RetrievedItem(id="a", kind="component", score=0.9, payload={})
         item_b = RetrievedItem(id="b", kind="exemplar", score=0.7, payload={})
@@ -77,7 +75,7 @@ class TestRetrievalResultDTO:
 
     def test_retrieval_result_retrieved_ids_convenience(self) -> None:
         """retrieved_ids returns tuple of ids in the same order as items."""
-        from app.domain.ports.retrieval_provider import RetrievedItem, RetrievalResult
+        from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
 
         item_a = RetrievedItem(id="dashboard-exemplar", kind="exemplar", score=0.9, payload={})
         item_b = RetrievedItem(id="comp-grid", kind="component", score=0.7, payload={})
@@ -101,7 +99,7 @@ class TestRetrievalResultDTO:
 
     def test_retrieval_result_items_sorted_descending_score(self) -> None:
         """Items in a RetrievalResult should be sorted by descending score (caller convention)."""
-        from app.domain.ports.retrieval_provider import RetrievedItem, RetrievalResult
+        from app.domain.ports.retrieval_provider import RetrievalResult, RetrievedItem
 
         # The DTO itself does NOT enforce ordering — that is the provider's responsibility.
         # Here we test the convention: when provider returns items, they are sorted.
@@ -118,8 +116,8 @@ class TestRetrievalProviderProtocol:
     """RetrievalProvider is a runtime-checkable Protocol."""
 
     def test_retrieval_provider_is_protocol(self) -> None:
+
         from app.domain.ports.retrieval_provider import RetrievalProvider
-        from typing import get_protocol_members  # type: ignore[attr-defined]
 
         # Just verify the class can be imported and has retrieve
         assert hasattr(RetrievalProvider, "retrieve")
@@ -145,6 +143,7 @@ class TestRetrievalProviderProtocol:
     def test_retrieval_provider_signature_accepts_style_pack_id(self) -> None:
         """The Protocol signature must carry style_pack_id for FLY-readiness (D-10)."""
         import inspect
+
         from app.domain.ports.retrieval_provider import RetrievalProvider
 
         sig = inspect.signature(RetrievalProvider.retrieve)
@@ -157,9 +156,6 @@ class TestRetrievalProviderProtocol:
 
     def test_port_module_no_infra_imports(self) -> None:
         """The port module must import only stdlib/typing — lint-imports clean."""
-        import importlib
-        import importlib.util
-        import sys
         from pathlib import Path
 
         port_path = (
@@ -187,8 +183,8 @@ class TestLexicalRetrievalProviderBehavior:
     """LexicalRetrievalProvider: deterministic top-k over catalog + exemplars."""
 
     def test_retrieve_returns_retrieval_result(self) -> None:
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalResult
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
         result = asyncio.run(
@@ -227,7 +223,6 @@ class TestLexicalRetrievalProviderBehavior:
 
         # Check that a dashboard exemplar or dashboard-related item appears in results
         ids = [item.id for item in result.items]
-        kinds = [item.kind for item in result.items]
 
         # The top items should include something dashboard-related (exemplar or grid/card/table component)
         top_ids_lower = [i.lower() for i in ids[:5]]
@@ -253,8 +248,8 @@ class TestLexicalRetrievalProviderBehavior:
 
     def test_empty_intent_does_not_crash(self) -> None:
         """Empty/garbage intent returns non-crashing RetrievalResult, never raises."""
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalResult
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
         result = asyncio.run(
@@ -264,8 +259,8 @@ class TestLexicalRetrievalProviderBehavior:
 
     def test_garbage_intent_does_not_crash(self) -> None:
         """Random garbage intent returns a valid result without raising."""
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalResult
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
         result = asyncio.run(
@@ -275,8 +270,8 @@ class TestLexicalRetrievalProviderBehavior:
 
     def test_provider_no_network_call_catalog_exemplar_arm(self) -> None:
         """LexicalRetrievalProvider requires no network client to construct or call for catalog+exemplar arms."""
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalResult
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         # Can be constructed with zero arguments — no client dependency required
         provider = LexicalRetrievalProvider()
@@ -300,8 +295,8 @@ class TestLexicalRetrievalProviderBehavior:
 
     def test_style_pack_id_accepted_does_not_crash(self) -> None:
         """style_pack_id parameter is accepted and does not break retrieval."""
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalResult
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
         result = asyncio.run(
@@ -315,8 +310,8 @@ class TestLexicalRetrievalProviderBehavior:
 
     def test_provider_implements_retrieval_provider_protocol(self) -> None:
         """LexicalRetrievalProvider passes isinstance check against RetrievalProvider."""
-        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
         from app.domain.ports.retrieval_provider import RetrievalProvider
+        from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
         assert isinstance(provider, RetrievalProvider)

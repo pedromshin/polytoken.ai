@@ -57,8 +57,8 @@ async def _collect(stream: Any) -> list[Any]:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_text_deltas_parsed_then_usage_then_stream_end() -> None:
     body = _sse_body(
         [
@@ -95,8 +95,8 @@ async def test_text_deltas_parsed_then_usage_then_stream_end() -> None:
     ]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_done_sentinel_terminates_cleanly_with_no_trailing_deltas() -> None:
     """The [DONE] sentinel itself must not produce any delta -- only the terminal StreamEnd."""
     body = _sse_body([{"choices": [{"index": 0, "delta": {"content": "hi"}}]}])
@@ -120,8 +120,8 @@ async def test_done_sentinel_terminates_cleanly_with_no_trailing_deltas() -> Non
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tool_call_delta_parsed_from_sse() -> None:
     body = _sse_body(
         [
@@ -175,11 +175,11 @@ async def test_tool_call_delta_parsed_from_sse() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_missing_api_key_raises_fail_closed() -> None:
     """A missing OPENROUTER_API_KEY must raise immediately -- never silently degrade (D-07)."""
-    http_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, content=b"")))
+    http_client = httpx.AsyncClient(transport=httpx.MockTransport(lambda _request: httpx.Response(200, content=b"")))
     adapter = OpenRouterChatAdapter(api_key="", http_client=http_client, inactivity_timeout_seconds=15.0)
 
     with pytest.raises(RuntimeError, match="OPENROUTER_API_KEY"):
@@ -198,8 +198,8 @@ async def test_missing_api_key_raises_fail_closed() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_non_2xx_response_yields_stream_end_error_not_raise() -> None:
     http_client = _mock_client(500, b"Internal Server Error")
     adapter = OpenRouterChatAdapter(api_key="test-key", http_client=http_client, inactivity_timeout_seconds=15.0)
@@ -216,8 +216,8 @@ async def test_non_2xx_response_yields_stream_end_error_not_raise() -> None:
     assert deltas == [StreamEnd(stop_reason="error")]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_401_response_yields_stream_end_error_not_raise() -> None:
     """An auth failure from OpenRouter itself must not raise past this boundary."""
     http_client = _mock_client(401, b'{"error": "invalid api key"}')
@@ -240,8 +240,8 @@ async def test_401_response_yields_stream_end_error_not_raise() -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_authorization_header_carries_bearer_token() -> None:
     captured: dict[str, Any] = {}
 

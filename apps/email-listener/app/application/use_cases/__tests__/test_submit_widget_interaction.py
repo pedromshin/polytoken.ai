@@ -264,7 +264,7 @@ def _make_use_case(
     runner = runner or FakeContinuationRunner([])
     knowledge_graph = knowledge_graph or FakeKnowledgeGraphRepository()
     use_case = SubmitWidgetInteraction(
-        widget_interactions=widget_interactions,
+        widget_interactions=widget_interactions,  # type: ignore[arg-type]
         messages=messages,
         continuation_runner=runner,
         knowledge_graph=knowledge_graph,  # type: ignore[arg-type]

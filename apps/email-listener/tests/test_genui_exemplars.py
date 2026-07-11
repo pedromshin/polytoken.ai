@@ -7,7 +7,6 @@ Every exemplar must validate against load_spec_schema() with zero errors.
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
 
 import pytest
 
@@ -192,7 +191,6 @@ class TestExemplarSchemaValidation:
 
     def test_all_exemplars_validate_against_spec_schema(self) -> None:
         """D-12: Exemplars are real, renderable specs — zero schema validation errors."""
-        import jsonschema
         from jsonschema import Draft7Validator
 
         from app.infrastructure.llm.genui_artifacts import load_spec_schema
@@ -211,7 +209,7 @@ class TestExemplarSchemaValidation:
                 ]
 
         assert not errors_by_id, (
-            f"Schema validation failed for exemplar(s):\n"
+            "Schema validation failed for exemplar(s):\n"
             + "\n".join(
                 f"  [{eid}]: {errs}" for eid, errs in errors_by_id.items()
             )

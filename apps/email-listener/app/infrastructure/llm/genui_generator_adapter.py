@@ -501,7 +501,7 @@ class GenuiGeneratorAdapter:
             # Parse candidate from tool_use block
             candidate = self._parse_response(response)
             if candidate is None:
-                error_msg = "Model did not call emit_ui_spec tool"
+                error_msg: str | None = "Model did not call emit_ui_spec tool"
                 logger.warning(
                     "genui_generator_no_tool_use",
                     attempt=attempt + 1,

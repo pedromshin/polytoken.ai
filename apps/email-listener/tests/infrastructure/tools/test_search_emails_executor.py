@@ -151,8 +151,8 @@ def _make_executor(
     return executor, retrieval, entity_types_repo, components_repo, emails_repo, embedder
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_happy_path_merges_dedupes_ranks_and_caps_at_five_emails() -> None:
     entity_types = [_entity_type(_ENTITY_TYPE_A, "shipment"), _entity_type(_ENTITY_TYPE_B, "invoice")]
     examples_by_type = {
@@ -199,8 +199,8 @@ async def test_happy_path_merges_dedupes_ranks_and_caps_at_five_emails() -> None
     assert len(retrieval.calls) == 2, "one find_similar_confirmed call PER active entity type"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tenant_defense_in_depth_skips_cross_tenant_component_and_email() -> None:
     examples_by_type = {
         _ENTITY_TYPE_A: [
@@ -233,8 +233,8 @@ async def test_tenant_defense_in_depth_skips_cross_tenant_component_and_email() 
     assert ids == ["email-z"]
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_tier2_never_surfaces_raw_source_text() -> None:
     marker = "SECRET-MARKER-9f3a1c-DO-NOT-LEAK"
     component = _component("cmp-1", email_id="email-1")
@@ -260,8 +260,8 @@ async def test_tier2_never_surfaces_raw_source_text() -> None:
         assert key not in result.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_empty_query_returns_error_without_repo_calls() -> None:
     for bad_arguments in ({}, {"query": None}, {"query": ""}, {"query": "   "}):
         executor, retrieval, entity_types_repo, components_repo, emails_repo, embedder = _make_executor()
@@ -277,8 +277,8 @@ async def test_empty_query_returns_error_without_repo_calls() -> None:
         assert retrieval.calls == []
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_no_active_entity_types_or_no_matches_returns_empty_non_error() -> None:
     # Sub-case A: no active entity types at all.
     executor, *_rest = _make_executor(entity_types=[])
@@ -297,8 +297,8 @@ async def test_no_active_entity_types_or_no_matches_returns_empty_non_error() ->
     assert envelope2["citations"] == []
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_collaborator_exception_returns_error_never_raises() -> None:
     executor, _retrieval, entity_types_repo, *_rest = _make_executor()
     entity_types_repo.list_active.side_effect = RuntimeError("db exploded, connection string: postgres://secret")
@@ -311,8 +311,8 @@ async def test_collaborator_exception_returns_error_never_raises() -> None:
     assert "postgres://" not in result.content
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_citations_shape_matches_results() -> None:
     examples_by_type = {_ENTITY_TYPE_A: [_example("cmp-1", score=0.9), _example("cmp-2", score=0.5)]}
     components_by_id = {
@@ -336,8 +336,8 @@ async def test_citations_shape_matches_results() -> None:
         assert citation["route"] == f"/emails/{citation['id']}"
 
 
-@pytest.mark.unit()
-@pytest.mark.asyncio()
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_content_is_capped_json() -> None:
     examples_by_type = {_ENTITY_TYPE_A: [_example("cmp-1", score=0.9)]}
     components_by_id = {"cmp-1": _component("cmp-1", email_id="email-1")}

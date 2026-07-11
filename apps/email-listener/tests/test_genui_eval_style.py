@@ -412,8 +412,6 @@ class TestStyleMetricsPurityGuard:
     @pytest.mark.unit
     def test_style_metrics_no_anthropic_import(self) -> None:
         """style_metrics.py must not import anthropic."""
-        import importlib
-        import importlib.util
         from pathlib import Path
 
         metrics_path = (
@@ -630,7 +628,7 @@ class TestReportStyleFields:
     @pytest.mark.unit
     def test_eval_report_has_additive_style_aggregates(self) -> None:
         """EvalReport has mean_brand_score + mean_distinctiveness + mean_retrieval_overlap."""
-        from scripts.genui_eval.report import EvalReport, PromptReport, build_report
+        from scripts.genui_eval.report import PromptReport, build_report
 
         pr = PromptReport(
             prompt_id="t1",
@@ -718,8 +716,8 @@ class TestAllPacksAggregation:
     @pytest.mark.unit
     def test_all_packs_aggregation_computes_per_pack_means(self) -> None:
         """aggregate_all_packs() groups PromptReports by pack and computes means."""
-        from scripts.genui_eval.run_eval import aggregate_all_packs
         from scripts.genui_eval.report import PromptReport
+        from scripts.genui_eval.run_eval import aggregate_all_packs
 
         def _make_pr(prompt_id: str, pack_id: str, overall: float) -> PromptReport:
             return PromptReport(
@@ -756,8 +754,8 @@ class TestAllPacksAggregation:
     @pytest.mark.unit
     def test_all_packs_cross_distinctiveness(self) -> None:
         """aggregate_all_packs() computes cross-pack distinctiveness when >=2 packs."""
-        from scripts.genui_eval.run_eval import aggregate_all_packs
         from scripts.genui_eval.report import PromptReport
+        from scripts.genui_eval.run_eval import aggregate_all_packs
 
         def _make_pr_with_spec(
             prompt_id: str, pack_id: str, spec_token: str
@@ -934,8 +932,8 @@ class TestRunnerStylePackWiring:
     @pytest.mark.unit
     def test_eval_prompt_passes_style_pack_id_to_use_case(self) -> None:
         """_eval_prompt() passes style_pack_id to use_case.execute(...)."""
-        from scripts.genui_eval.run_eval import _eval_prompt
         from scripts.genui_eval.report import PromptReport
+        from scripts.genui_eval.run_eval import _eval_prompt
 
         mock_result = MagicMock()
         mock_result.spec = _GOOD_SPEC
@@ -975,8 +973,8 @@ class TestRunnerStylePackWiring:
     @pytest.mark.unit
     def test_eval_prompt_records_retrieval_overlap(self) -> None:
         """_eval_prompt() computes retrieval_overlap from the use case result."""
-        from scripts.genui_eval.run_eval import _eval_prompt
         from scripts.genui_eval.report import PromptReport
+        from scripts.genui_eval.run_eval import _eval_prompt
 
         mock_result = MagicMock()
         mock_result.spec = _GOOD_SPEC

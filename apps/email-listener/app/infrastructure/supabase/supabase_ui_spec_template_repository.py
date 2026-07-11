@@ -26,7 +26,7 @@ from __future__ import annotations
 import asyncio
 import json as _json
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 
 import structlog
 from supabase import Client
@@ -96,7 +96,7 @@ class SupabaseUiSpecTemplateRepository:
                     .execute()
                 )
             )
-            rows: list[dict[str, Any]] = response.data or []
+            rows = cast(list[dict[str, Any]], response.data or [])
             if not rows:
                 return None
             row = rows[0]
@@ -177,7 +177,7 @@ class SupabaseUiSpecTemplateRepository:
                     .execute()
                 )
             )
-            rows: list[dict[str, Any]] = select_resp.data or []
+            rows = cast(list[dict[str, Any]], select_resp.data or [])
             if not rows:
                 # Row not found — nothing to increment; log and return gracefully.
                 logger.warning(
@@ -241,7 +241,7 @@ class SupabaseUiSpecTemplateRepository:
                 return q.order("created_at", desc=True).range(range_start, range_end).execute()
 
             response = await asyncio.to_thread(_query)
-            rows: list[dict[str, Any]] = response.data or []
+            rows = cast(list[dict[str, Any]], response.data or [])
             return [
                 TemplateSummary(
                     id=str(row["id"]),
@@ -290,7 +290,7 @@ class SupabaseUiSpecTemplateRepository:
                     .execute()
                 )
             )
-            rows: list[dict[str, Any]] = response.data or []
+            rows = cast(list[dict[str, Any]], response.data or [])
             if not rows:
                 return None
             row = rows[0]
