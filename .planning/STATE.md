@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: executing
-last_updated: "2026-07-11T02:25:21.091Z"
-last_activity: 2026-07-11 -- Phase 49-03 executed (LIVE-01 DB-verified green-path spec, ran live -- LIVE-01 marked Complete)
+last_updated: "2026-07-11T04:36:45.167Z"
+last_activity: 2026-07-11 -- Phase 50-01 executed (screenshot harness extended with /emails/[id] + seeded-session auth — LIVE-06 closed, todo W-1 closed)
 progress:
   total_phases: 6
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 3
+  total_plans: 11
+  completed_plans: 6
   percent: 0
 ---
 
@@ -21,17 +21,36 @@ See: .planning/PROJECT.md (updated 2026-07-10 after v1.8 milestone close)
 
 **Core value:** Reliably receive every inbound email and make it observable — now as a product
 the user actually lives in.
-**Current focus:** Phase 49 — Live-Loop Gate — Deploy, OAuth & Real Email
+**Current focus:** Phase 50 — Live-Loop Gate — UAT Burn-down & Screenshot Coverage
 Plan of record: research/two-epoch-endgame/ENDGAME-PLAN.md. STANDING RULE: deploy/OAuth/live-UAT
 gates are first-class phase work, never deferrable-by-default; user-executed steps (Google
-console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in Phase 49.
+console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in Phase 49
+(49-06 still pending, held for the user's morning checkpoint).
 
 ## Current Position
 
-Phase: 49 (Live-Loop Gate — Deploy, OAuth & Real Email) — EXECUTING
-Plan: 4 of 6
-Status: Executing Phase 49
-Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule + read-only plan proof)
+Phase: 50 (Live-Loop Gate — UAT Burn-down & Screenshot Coverage) — EXECUTING
+Plan: 2 of 5
+Status: Executing Phase 50
+Last activity: 2026-07-11 -- Phase 50-01 executed (screenshot harness extended with /emails/[id] + seeded-session auth — LIVE-06 closed, todo W-1 closed)
+
+## Phase 50 -- Live-Loop Gate -- UAT Burn-down & Screenshot Coverage -- Plan 01 History -- LIVE-06
+
+- **50-01 EXECUTED** (`0d4da3a` feat):
+  Extended the 47-05 screenshot-review harness for LIVE-06 (todo W-1). Added
+  `apps/web/e2e/helpers/screenshot-fixtures.ts` (`seedEmailFixture(userId)`,
+  DB-fixture-seed pattern mirroring `live-loop-green.spec.ts`) and an exported
+  `isLocalTarget(baseURL, supabaseUrl)` fail-closed guard (T-50-01) in
+  `screenshot-review.spec.ts` that gates the 49-03 `seedAuthenticatedContext`
+  helper to local-only targets. SURFACES is now built dynamically to include
+  `/emails/{seeded-id}` only when seeding succeeds. Ran the harness live against
+  the already-running local stack (verified DB-green directly rather than
+  re-running `preflight-local.ps1`, which would have killed the 9h-uptime
+  `npm run dev`) — passed clean on the first attempt, no fixes needed. Produced
+  `.planning/ui-reviews/2026-07-11T04-32-30-989Z/` with all 16 rows `captured`
+  (zero `/login` redirects), visually confirmed real seeded content on
+  `/emails/[id]`. LIVE-06 marked Complete; this run directory is the evidence
+  baseline for 50-04 and the Phase 51 re-skin.
 
 ## Phase 49 -- Live-Loop Gate -- Plan 05 History -- LIVE-07 external-identity decisions
 
@@ -53,12 +72,14 @@ Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule
     rename-triggered `apply` from the wrong machine risks orphaned or
     duplicate resources). Zero user-facing value today; high blast radius.
     Full detail: `EXTERNAL-IDENTITY-DECISIONS.md` "AWS / Terraform re-park".
+
   - **Local Supabase project-id (nauta -> polytoken): RENAME actualized.**
     `supabase/config.toml` `project_id = "polytoken"` was already in place
     pre-Phase-49; plan 49-01 documented the decision (fresh containers
     accepted, migrations re-run, local data disposable -- `docs/RUN-LOCAL.md`
     Section 5); plan 49-03 proved the local stack runs live and DB-verified
     under `project_id=polytoken`. Closed.
+
   - **GitHub repo rename: decided EXECUTE, held for the 49-06 user
     checkpoint** -- NOT executed autonomously. Reason: `iam.tf:110-131`'s
     GitHub Actions OIDC trust condition matches
@@ -74,6 +95,7 @@ Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule
     login (`pedromshin`) -- the "gh unauthed" assumption carried into planning
     was stale -- but this does not change the decision; the OIDC coupling, not
     CLI capability, is why the rename stays user-gated.
+
   - **Vercel project rename (`nauta-web` -> `polytoken-web`): decided
     EXECUTE, attempted, BLOCKED this session, deferred to 49-06.** The
     `vercel` CLI (54.18.0) was found installed and authenticated
@@ -88,9 +110,11 @@ Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule
     `EXTERNAL-IDENTITY-DECISIONS.md` for 49-06; a repo-wide grep confirmed
     zero hardcoded `nauta-web`/`vercel.app` references in application code
     (only planning docs), so the rename's blast radius is contained.
+
   - **Domain purchase / DNS:** user-only, out of scope (registrar/DNS
     console access not available to this agent) -- unchanged from Phase 42's
     runbook.
+
   - **JWT signing-key audit folded into the tracked tree.** `JWT-SIGNING-KEY-AUDIT.md`
     (Phase 43) was untracked prior to this plan; content confirmed still
     accurate (staging `fyfwkjvbcrmjqjysdyqw` and production
@@ -98,6 +122,7 @@ Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule
     to HS256), annotated with a verified-2026-07-10 note, and is now
     git-tracked. The user re-confirms it live in the Supabase Dashboard during
     the 49-06 checkpoint.
+
   - **Related note (not this plan's scope, cross-referenced for
     continuity):** plan 49-04's migration-verification artifact
     (`artifacts/migration-verification.md`) records that the raw Postgres
@@ -1651,7 +1676,7 @@ work, not open-ended deferrals.
 | verification_gap | 47-VERIFICATION.md | human_needed — same brand-fit item as the UAT scenario above |
 | todo | 2026-07-07-knowledge-preexisting-ui-debt | pending — carried from v1.5; lands in v1.9 re-skin band |
 | todo | 2026-07-09-knowledge-cache-invalidation-gap | pending — carried from v1.6; lands in v1.9 re-skin/knowledge band |
-| integration_warning | W-1: screenshot-review SURFACES omits /emails/[id] (48-03 success-token consumers uncaptured by harness) | new at audit; extend SURFACES in v1.9 Band 1 once OAuth unblocks a seeded session |
+| integration_warning | W-1: screenshot-review SURFACES omits /emails/[id] (48-03 success-token consumers uncaptured by harness) | **CLOSED 2026-07-11 (50-01)** — /emails/[id] added via a seeded fixture, seedAuthenticatedContext wired behind isLocalTarget (T-50-01); live run at .planning/ui-reviews/2026-07-11T04-32-30-989Z/ captured all surfaces including studio's pill/success tokens and knowledge's graph palette |
 
 Also carried (unchanged from v1.7 close, still user-gated → become v1.9 Band 1 checkpoint
 tasks): OAuth/forwarding/external-rename runbooks, staging/prod migrations 0026–0035, local
@@ -2651,6 +2676,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-11 (50-01): LIVE-06 marked Complete — screenshot-review.spec.ts's isLocalTarget(baseURL, supabaseUrl) fail-closed guard (T-50-01) gates the 49-03 seedAuthenticatedContext helper to localhost/127.0.0.1 targets only; a new screenshot-fixtures.ts seedEmailFixture(userId) upserts a fixed-id thread+email so /emails/[id] renders real content. Live run produced .planning/ui-reviews/2026-07-11T04-32-30-989Z/ with all 16 rows captured (zero /login redirects) — evidence baseline for 50-04 and Phase 51.
+- 2026-07-11 (50-01): seedEmailFixture looks up the seeded user's real auth.users email for the fixture's to_addresses field (rather than the sender's own address) so the rendered /emails/[id] card's "To:" line reads correctly — a small correctness improvement beyond the plan's literal minimal interface spec.
+- 2026-07-11 (50-01): Skipped re-running scripts/preflight-local.ps1 before the live harness run — its Step 1 kills all python/uvicorn/node processes, which would have torn down the already-running 9h-uptime `npm run dev` for no benefit; verified DB-green state directly instead (has_table_privilege = t, 25 public tables, seed user present), the same DB-based check the script itself runs as its PASS/FAIL gate.
 - 2026-07-11 (49-03): LIVE-01 marked Complete — apps/web/e2e/live-loop-green.spec.ts ran live against the local stack (chromium+firefox, both passed): seeded login (GoTrue admin magiclink+verifyOtp, no interactive Google) -> inbox -> thread -> email detail -> chat (real Bedrock Sonnet 4.6 search_emails tool_invocation + rendered genui card, zero-result envelope expected on a fresh DB) -> /knowledge, every step backed by a direct pg assertion; evidence captured at .planning/phases/49-live-loop-gate-deploy-oauth-real-email/artifacts/local-green-db-verification.md
 - 2026-07-11 (49-03): seed-session.ts's cookie encoding delegates to @supabase/ssr's own exported createChunks/stringToBase64URL rather than a hand-rolled reimplementation; storageKey derived via the same hostname.split('.')[0] rule @supabase/supabase-js itself uses (sb-127-auth-token locally) — reverse-engineered from installed package source, not guessed
 - 2026-07-11 (49-03): search_emails/lookup_entity/search_knowledge all read CONFIRMED extracted data (find_similar_confirmed/entity_instances/knowledge_nodes), which a fresh local DB has none of — the spec accepts a genuine zero-result tool round as valid LIVE-01 evidence rather than seeding fake confirmed-extraction data to force non-empty results
@@ -2990,6 +3018,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 49 P01 | 17min | 2 tasks | 2 files |
 | Phase 49 P02 | 15min | 2 tasks | 2 files |
 | Phase 49 P03 | 50min | 2 tasks | 3 files |
+| Phase 50 P01 | ~25min | 2 tasks | 2 files |
 
 ## Operator Next Steps
 
