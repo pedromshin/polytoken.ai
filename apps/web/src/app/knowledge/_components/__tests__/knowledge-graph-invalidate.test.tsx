@@ -25,6 +25,7 @@ function makeUtils(): PromoteEdgeUtils {
     knowledge: {
       byId: { invalidate: vi.fn() },
       graph: { invalidate: vi.fn() },
+      expandNode: { invalidate: vi.fn() },
     },
   };
 }
@@ -58,6 +59,7 @@ describe("promoteEdge — invalidation fires only after a successful promote res
     );
     expect(utils.knowledge.byId.invalidate).toHaveBeenCalledTimes(1);
     expect(utils.knowledge.graph.invalidate).toHaveBeenCalledTimes(1);
+    expect(utils.knowledge.expandNode.invalidate).toHaveBeenCalledTimes(1);
   });
 
   it("does NOT invalidate when the fetch response is !ok — the error branch returns early", async () => {
@@ -74,6 +76,7 @@ describe("promoteEdge — invalidation fires only after a successful promote res
     expect(outcome.errorMessage).toBe("Edge not found");
     expect(utils.knowledge.byId.invalidate).not.toHaveBeenCalled();
     expect(utils.knowledge.graph.invalidate).not.toHaveBeenCalled();
+    expect(utils.knowledge.expandNode.invalidate).not.toHaveBeenCalled();
   });
 
   it("falls back to a default error message when the !ok response body has no error field", async () => {
@@ -90,5 +93,6 @@ describe("promoteEdge — invalidation fires only after a successful promote res
     expect(outcome.errorMessage).toBe("This suggestion could not be promoted.");
     expect(utils.knowledge.byId.invalidate).not.toHaveBeenCalled();
     expect(utils.knowledge.graph.invalidate).not.toHaveBeenCalled();
+    expect(utils.knowledge.expandNode.invalidate).not.toHaveBeenCalled();
   });
 });
