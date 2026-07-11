@@ -58,7 +58,7 @@ export function ConfirmDenyControls({
       <button
         type="button"
         aria-label="Confirm field value"
-        className="h-5 w-5 rounded-full bg-success hover:bg-success/90 text-success-foreground flex items-center justify-center text-xs font-bold"
+        className="h-5 w-5 rounded-full bg-success hover:bg-success/90 active:bg-success/80 text-success-foreground flex items-center justify-center text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         onClick={(e) => {
           e.stopPropagation();
           onConfirm(componentId);
@@ -69,7 +69,7 @@ export function ConfirmDenyControls({
       <button
         type="button"
         aria-label="Deny field value"
-        className="h-5 w-5 rounded-full bg-destructive hover:bg-destructive/90 text-white flex items-center justify-center text-xs font-bold"
+        className="h-5 w-5 rounded-full bg-destructive hover:bg-destructive/90 active:bg-destructive/80 text-destructive-foreground flex items-center justify-center text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         onClick={(e) => {
           e.stopPropagation();
           handleDeny();

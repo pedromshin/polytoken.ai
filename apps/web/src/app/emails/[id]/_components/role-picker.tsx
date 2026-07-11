@@ -15,9 +15,9 @@ const ROLE_OPTIONS: ReadonlyArray<{ value: AssignableRole; label: string }> = [
 
 /** Active-state classes per role (09-UI-SPEC §INSPECTOR → Role Picker). */
 const ACTIVE_CLASS: Record<AssignableRole, string> = {
-  entity: "bg-violet-100 text-violet-800 border-violet-300",
-  field: "bg-amber-100 text-amber-800 border-amber-300",
-  unrelated: "bg-slate-100 text-slate-600 border-slate-300",
+  entity: "bg-graph-entity/10 text-graph-entity border-graph-entity/30",
+  field: "bg-graph-email-component/10 text-graph-email-component border-graph-email-component/30",
+  unrelated: "bg-graph-email/10 text-graph-email border-graph-email/30",
 };
 
 interface RolePickerProps {

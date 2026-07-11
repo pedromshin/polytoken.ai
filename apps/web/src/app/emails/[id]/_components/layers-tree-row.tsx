@@ -11,9 +11,9 @@ import type { ComponentRole } from "./region-overlay-box";
  * Compact inline chips: `text-xs px-2 py-1 rounded-sm font-semibold`.
  */
 const ROLE_CHIP: Record<NonNullable<ComponentRole>, string> = {
-  entity: "bg-violet-100 text-violet-800",
-  field: "bg-amber-100 text-amber-800",
-  unrelated: "bg-slate-100 text-slate-600",
+  entity: "bg-graph-entity/10 text-graph-entity",
+  field: "bg-graph-email-component/10 text-graph-email-component",
+  unrelated: "bg-graph-email/10 text-graph-email",
 };
 
 const ROLE_LABEL: Record<NonNullable<ComponentRole>, string> = {
@@ -95,7 +95,7 @@ export function LayersTreeRow({
         <button
           type="button"
           aria-label={isExpanded ? "Collapse fields" : "Expand fields"}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          className="shrink-0 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
           onClick={(e) => {
             e.stopPropagation();
             onToggleExpand?.();
@@ -154,7 +154,7 @@ export function LayersTreeRow({
             <button
               type="button"
               aria-label="Confirm field value"
-              className="h-4 w-4 rounded-full bg-success hover:bg-success/90 text-success-foreground flex items-center justify-center text-[10px] font-bold"
+              className="h-4 w-4 rounded-full bg-success hover:bg-success/90 active:bg-success/80 text-success-foreground flex items-center justify-center text-[10px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={(e) => {
                 e.stopPropagation();
                 onConfirm?.();
@@ -165,7 +165,7 @@ export function LayersTreeRow({
             <button
               type="button"
               aria-label="Deny field value"
-              className="h-4 w-4 rounded-full bg-destructive hover:bg-destructive/90 text-white flex items-center justify-center text-[10px] font-bold"
+              className="h-4 w-4 rounded-full bg-destructive hover:bg-destructive/90 active:bg-destructive/80 text-destructive-foreground flex items-center justify-center text-[10px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
               onClick={(e) => {
                 e.stopPropagation();
                 onDeny?.();
