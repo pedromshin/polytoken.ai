@@ -1,21 +1,27 @@
 /**
- * screenshot-review.spec.ts — visual review capture harness (D-47-05, VRFY-02).
+ * screenshot-review.spec.ts — visual review capture harness (D-47-05, VRFY-02;
+ * extended Phase 50 Plan 01 for LIVE-06 / todo W-1).
  *
  * Boots the dev server (via playwright.screenshot.config.ts's webServer, reused from the base
- * config per D-47-04) and walks the app's six main surfaces across two viewports, capturing a
+ * config per D-47-04) and walks the app's main surfaces across two viewports, capturing a
  * full-page PNG for each combination plus a reviewable index.md — all under a single timestamped
  * run directory at `.planning/ui-reviews/{ISO-timestamp}/` (repo root, resolved via
  * `import.meta.url` so the output lands there regardless of the invoking cwd).
  *
- * Surfaces: /login (public), / (inbox), /chat, /knowledge, /studio, /settings/forwarding.
+ * Surfaces: /login (public), / (inbox), /chat, /knowledge, /studio, /settings/forwarding, and
+ * (local target only) /emails/[id] built from a seeded fixture — see below.
  * Viewports: mobile 390px, desktop 1440px.
  *
- * Auth: this harness has NO signed-in session and MUST NOT fake one (T-47-11) — no cookie
- * injection, no browser-context cookie calls, no sign-in call of any kind. When a protected
- * surface's middleware redirects to `/login`, that is captured AS-IS (the redirect target) and
- * recorded in the index with an auth-status note rather than treated as an error. This is
- * documented, best-effort behavior, not a harness failure — re-running after a real sign-in
- * captures the authenticated surfaces.
+ * Auth (T-47-11, SUPERSEDED for the local case by T-50-01): the original harness had no
+ * signed-in session and never faked one. This is still true against a NON-local target — no
+ * cookie injection, no sign-in call of any kind runs there, and a protected surface's middleware
+ * redirect to `/login` is captured AS-IS and recorded with an auth-status note, exactly as
+ * before. Against a LOCAL target (`isLocalTarget` below), the harness now authenticates via the
+ * 49-03 `seedAuthenticatedContext` helper — a REAL Supabase session minted locally through GoTrue
+ * admin (magiclink + verifyOtp), never an interactive Google flow and never a faked cookie. That
+ * seeded session is gated to local-only by construction (T-50-01): it is NEVER minted against a
+ * non-local baseURL/SUPABASE_URL, so a hosted Supabase/Vercel target never receives service_role
+ * admin traffic from this harness.
  *
  * Studio pack switcher (D-47-05): studio is the only surface with a style-pack switcher (the
  * Sandbox tab's "Select visual theme" dropdown, see generation-sandbox-island.tsx). When studio
@@ -32,8 +38,11 @@ import path from "node:path";
 
 import { test, type Page } from "@playwright/test";
 
+import { seedAuthenticatedContext } from "./helpers/seed-session";
+import { seedEmailFixture } from "./helpers/screenshot-fixtures";
+
 // ---------------------------------------------------------------------------
-// Surfaces + viewports (D-47-05 LOCKED spec)
+// Surfaces + viewports (D-47-05 LOCKED spec + Phase 50 Plan 01 /emails/[id] addition)
 // ---------------------------------------------------------------------------
 
 interface Surface {
@@ -41,8 +50,8 @@ interface Surface {
   readonly path: string;
 }
 
-/** The six main surfaces reviewed every run — login is public, the rest are auth-gated. */
-const SURFACES: readonly Surface[] = [
+/** The six D-47-05 surfaces reviewed every run — login is public, the rest are auth-gated. */
+const BASE_SURFACES: readonly Surface[] = [
   { name: "login", path: "/login" },
   { name: "inbox", path: "/" },
   { name: "chat", path: "/chat" },
@@ -50,6 +59,25 @@ const SURFACES: readonly Surface[] = [
   { name: "studio", path: "/studio" },
   { name: "forwarding", path: "/settings/forwarding" },
 ];
+
+/** Hosts allowed to receive the seeded (service_role-minted) session — T-50-01. */
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1"]);
+
+/**
+ * isLocalTarget — true ONLY when BOTH the app baseURL host and the Supabase URL host are
+ * localhost/127.0.0.1. This is the security gate (T-50-01): the seeded session mints a
+ * service_role admin session and MUST NEVER run against a hosted Supabase/Vercel target. Any
+ * unparseable URL or non-local host fails closed (returns false, seeding skipped).
+ */
+export function isLocalTarget(baseURL: string, supabaseUrl: string): boolean {
+  try {
+    const baseHost = new URL(baseURL).hostname;
+    const supabaseHost = new URL(supabaseUrl).hostname;
+    return LOCAL_HOSTS.has(baseHost) && LOCAL_HOSTS.has(supabaseHost);
+  } catch {
+    return false;
+  }
+}
 
 interface Viewport {
   readonly name: string;
@@ -174,18 +202,25 @@ async function captureAlternatePackIfPresent(
   });
 }
 
-async function writeIndex(records: readonly CaptureRecord[]): Promise<void> {
-  const header = [
-    `# Screenshot review — ${RUN_TIMESTAMP}`,
-    "",
-    "Auth-gated surfaces are captured best-effort: with no signed-in session, protected routes",
-    'redirect to `/login` and are recorded below as "redirected to /login (no session)" — this',
-    "is documented, expected behavior, not a harness failure. Re-run after completing a real",
-    "sign-in to capture the authenticated surfaces.",
-    "",
-    "| Surface | Viewport | Pack | Auth Status | File |",
-    "| --- | --- | --- | --- | --- |",
-  ].join("\n");
+async function writeIndex(records: readonly CaptureRecord[], authSeeded: boolean): Promise<void> {
+  const authNote = authSeeded
+    ? [
+        "Authenticated capture (T-50-01): a REAL session was minted locally via GoTrue admin",
+        "(magiclink + verifyOtp — never interactive Google) and injected into this run's browser",
+        "context, so auth-gated surfaces below capture real signed-in pixels rather than the",
+        "`/login` redirect. The seeded session is local-only by construction — it is never minted",
+        "against a non-local baseURL/SUPABASE_URL.",
+      ]
+    : [
+        "Auth-gated surfaces are captured best-effort: with no signed-in session (non-local target,",
+        "or seeding was skipped), protected routes redirect to `/login` and are recorded below as",
+        '"redirected to /login (no session)" — this is documented, expected behavior, not a harness',
+        "failure. Re-run against a local target to capture the authenticated surfaces.",
+      ];
+
+  const header = [`# Screenshot review — ${RUN_TIMESTAMP}`, "", ...authNote, "", "| Surface | Viewport | Pack | Auth Status | File |", "| --- | --- | --- | --- | --- |"].join(
+    "\n",
+  );
 
   const rows = records
     .map((r) => `| ${r.surface} | ${r.viewport} | ${r.pack} | ${r.authStatus} | ${r.filename} |`)
@@ -202,19 +237,36 @@ async function writeIndex(records: readonly CaptureRecord[]): Promise<void> {
 test.describe("screenshot review capture", () => {
   test("captures all surfaces across mobile (390) and desktop (1440) viewports", async ({
     page,
+    context,
+    baseURL,
   }) => {
     test.setTimeout(300_000);
     await mkdir(RUN_DIR, { recursive: true });
 
+    // Local-only seeded session (T-50-01): the seeded session mints a service_role admin
+    // session and MUST NEVER run against a hosted Supabase/Vercel target — isLocalTarget gates
+    // this to local dev only. A non-local baseURL/SUPABASE_URL skips seeding entirely and keeps
+    // the original best-effort public capture behavior.
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const resolvedBaseURL = baseURL ?? "http://localhost:3000";
+    const authSeeded = isLocalTarget(resolvedBaseURL, supabaseUrl);
+
+    let surfaces: readonly Surface[] = BASE_SURFACES;
+    if (authSeeded) {
+      const seeded = await seedAuthenticatedContext(context);
+      const fixture = await seedEmailFixture(seeded.userId);
+      surfaces = [...BASE_SURFACES, { name: "emails", path: "/emails/" + fixture.emailId }];
+    }
+
     const records: CaptureRecord[] = [];
 
-    for (const surface of SURFACES) {
+    for (const surface of surfaces) {
       for (const viewport of VIEWPORTS) {
         const authStatus = await captureSurface(page, surface, viewport, records);
         await captureAlternatePackIfPresent(page, surface, viewport, authStatus, records);
       }
     }
 
-    await writeIndex(records);
+    await writeIndex(records, authSeeded);
   });
 });
