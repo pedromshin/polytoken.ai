@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: 51-04 (RSKN-03, /knowledge glassmorphism burn-down + hover/active) executed — 4 backdrop-blur-md violations replaced with solid bg-background/95 (graph-toolbar, filter-rail, node-detail-pane, taxonomy-banner), raw ⊞ glyph replaced with lucide LayoutGrid, D-48-06 hover/active applied to toolbar+filter-rail controls, tier/graph badges confirmed on TOKN-04/05 tokens, todo 2026-07-07-knowledge-preexisting-ui-debt.md closed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-04-SUMMARY.md)
-last_updated: "2026-07-11T21:13:08.261Z"
-last_activity: "2026-07-11 -- Phase 51-04 executed (RSKN-03: /knowledge glassmorphism burn-down + lucide LayoutGrid + D-48-06 hover/active + UI-debt todo closed)"
+status: 51-05 (RSKN-04, /studio + /settings/forwarding + /login register/hover pass) executed — D-48-06 hover/active convention applied to studio-tabs.tsx (shared TAB_TRIGGER_CLASS + Showcase link) and history-island.tsx's HistoryRow (pinned-state exception for selected rows); Google sign-in button label corrected from "Continue with Google" to the locked brand-guide string "Sign in with Google" and explicitly pinned to bg-primary; 7 of 10 plan-named files confirmed already palette-clean/on-convention via shared Button variants, zero edits needed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-05-SUMMARY.md)
+last_updated: "2026-07-11T21:29:51.922Z"
+last_activity: "2026-07-11 -- Phase 51-05 executed (RSKN-04: /studio + /settings/forwarding + /login register/hover pass, Google CTA copy fix)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 18
-  completed_plans: 14
+  completed_plans: 15
   percent: 17
 ---
 
@@ -29,10 +29,46 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03, 51-04 done, siblings may still be in flight)
-Plan: 4 of 7 done; see individual Plan History sections for sibling status
-Status: 51-04 (RSKN-03, /knowledge glassmorphism burn-down + hover/active) executed — 4 backdrop-blur-md violations replaced with solid bg-background/95 (graph-toolbar, filter-rail, node-detail-pane, taxonomy-banner), raw ⊞ glyph replaced with lucide LayoutGrid, D-48-06 hover/active applied to toolbar+filter-rail controls, tier/graph badges confirmed on TOKN-04/05 tokens, todo 2026-07-07-knowledge-preexisting-ui-debt.md closed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-04-SUMMARY.md)
-Last activity: 2026-07-11 -- Phase 51-04 executed (RSKN-03: /knowledge glassmorphism burn-down + lucide LayoutGrid + D-48-06 hover/active + UI-debt todo closed)
+Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01, 51-02, 51-03, 51-04, 51-05 done, siblings may still be in flight)
+Plan: 5 of 7 done; see individual Plan History sections for sibling status
+Status: 51-05 (RSKN-04, /studio + /settings/forwarding + /login register/hover pass) executed — D-48-06 hover/active convention applied to studio-tabs.tsx (shared TAB_TRIGGER_CLASS + Showcase link) and history-island.tsx's HistoryRow (pinned-state exception for selected rows); Google sign-in button label corrected from "Continue with Google" to the locked brand-guide string "Sign in with Google" and explicitly pinned to bg-primary; 7 of 10 plan-named files confirmed already palette-clean/on-convention via shared Button variants, zero edits needed; palette grep clean; token-contrast.test.ts + token-registration.test.ts green; typecheck clean outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-05-SUMMARY.md)
+Last activity: 2026-07-11 -- Phase 51-05 executed (RSKN-04: /studio + /settings/forwarding + /login register/hover pass, Google CTA copy fix)
+
+## Phase 51 -- Total UI Re-skin -- Plan 05 History -- RSKN-04
+
+- **51-05 EXECUTED** (`30b3d7f` feat, `e419543` fix):
+  Applied the D-48-06 hover/active + focus-visible convention to `/studio`'s
+  tab strip (`studio-tabs.tsx`: shared `TAB_TRIGGER_CLASS` constant across
+  all 5 `TabsTrigger`s replacing 5x duplicated literal strings, carrying
+  `hover:bg-accent`/`focus-visible:ring-2 ring-ring ring-offset-1` on
+  inactive segments and a `data-[state=active]:hover:bg-transparent
+  data-[state=active]:hover:text-foreground` pair reasserting the
+  border-only active treatment on hover per the pinned-state exception; the
+  "Showcase" `next/link` got the matching neutral-ghost hover +
+  focus-visible ring) and `history-island.tsx`'s `HistoryRow` (moved off
+  ad-hoc `hover:bg-muted/50`/`focus:bg-muted/70` onto the D-48-06 recipe —
+  selected rows reassert `bg-muted` per the pinned-state exception,
+  unselected rows move to `hover:bg-accent`, with a real
+  `focus-visible:ring-2 ring-ring ring-inset` replacing the prior
+  background-only focus indicator, a Rule-2 accessibility fix). Register
+  confirm on `/login` found `google-signin-button.tsx`'s label read
+  "Continue with Google" — not "Sign in with Google" as the plan's
+  research assumed already landed — corrected as a Rule-1 auto-fix and
+  given an explicit `bg-primary`/`hover:bg-primary/90`/`focus-visible:
+  ring-ring` override confirming the filled-semantic CTA recipe; OAuth
+  logic (`handleSignIn`, `safeNextPath`, redirect flow) byte-identical,
+  confirmed via diff (T-51-05-A holds). 7 of the 10 plan-named files
+  (`studio/page.tsx`, `generation-state-chrome.tsx`, `page-ideas-island.tsx`,
+  `catalog-browser-island.tsx`, `settings/forwarding/page.tsx`,
+  `forwarding-address-card.tsx`, `login/page.tsx`) were read in full and
+  confirmed already palette-clean and on-convention (interactive controls
+  inherit the D-48-06 recipe from the shared `@polytoken/ui/button`
+  primitive's own `cva` variants) — zero edits needed, not assumed. Zero
+  raw palette classes across all 10 files; `token-contrast.test.ts` +
+  `token-registration.test.ts` green; `tsc --noEmit` clean outside the
+  pre-existing `apps/web/src/app/dev/design/` scratch exclusion; no
+  `package.json` diff (T-51-SC). No settings hub/index page created
+  (D-49-09 held). See `51-05-SUMMARY.md` for full deviation detail.
 
 ## Phase 51 -- Total UI Re-skin -- Plan 04 History -- RSKN-03
 
@@ -3287,6 +3323,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 50 P05 | 35min | 2 tasks | 3 files |
 | Phase 51 P03 | 11min | 2 tasks | 5 files |
 | Phase 51 P04 | 5min | 2 tasks | 5 files |
+| Phase 51 P05 | 8min | 2 tasks | 3 files |
 
 ## Operator Next Steps
 
