@@ -33,6 +33,80 @@ Plan: 4 of 6
 Status: Executing Phase 49
 Last activity: 2026-07-11 -- Phase 49-02 executed (SES forwarding catch-all rule + read-only plan proof)
 
+## Phase 49 -- Live-Loop Gate -- Plan 05 History -- LIVE-07 external-identity decisions
+
+- **49-05 EXECUTED** (`3ba0d22` docs):
+  Decided-not-parked every LIVE-07 external-identity leftover from
+  `EXTERNAL-RENAME-RUNBOOK.md` (Phase 42) and recorded the dispositions in
+  `.planning/phases/49-live-loop-gate-deploy-oauth-real-email/EXTERNAL-IDENTITY-DECISIONS.md`.
+
+  - **AWS/Terraform resource renames: RE-PARKED, explicitly.** `var.project`
+    (`infrastructure/aws/variables.tf:16`), `tg_prefix`
+    (`infrastructure/aws/locals.tf:4`), and the hardcoded GitHub Actions
+    `ECR_REPOSITORY`/`ECS_CLUSTER`/`ECS_SERVICE` env vars are NOT being renamed
+    this milestone. Rationale: Hazard A (Terraform vars and the workflow
+    YAML's hardcoded env vars are two unsynced sources of truth -- renaming one
+    without the other in the same PR breaks the next deploy), Hazard B (ECR
+    `force_delete=false` means a rename forces a destroy+recreate that fails
+    loudly unless the repo is empty -- never flip `force_delete=true` to force
+    it through), Hazard C (`terraform.tfstate` is local-only/gitignored, so a
+    rename-triggered `apply` from the wrong machine risks orphaned or
+    duplicate resources). Zero user-facing value today; high blast radius.
+    Full detail: `EXTERNAL-IDENTITY-DECISIONS.md` "AWS / Terraform re-park".
+  - **Local Supabase project-id (nauta -> polytoken): RENAME actualized.**
+    `supabase/config.toml` `project_id = "polytoken"` was already in place
+    pre-Phase-49; plan 49-01 documented the decision (fresh containers
+    accepted, migrations re-run, local data disposable -- `docs/RUN-LOCAL.md`
+    Section 5); plan 49-03 proved the local stack runs live and DB-verified
+    under `project_id=polytoken`. Closed.
+  - **GitHub repo rename: decided EXECUTE, held for the 49-06 user
+    checkpoint** -- NOT executed autonomously. Reason: `iam.tf:110-131`'s
+    GitHub Actions OIDC trust condition matches
+    `sub = repo:${var.github_repository}:*`
+    (`terraform.tfvars:4` currently `pedromshin/nauta.services.email-listener`).
+    A repo rename changes the `sub` claim on every future CI run, breaking
+    `sts:AssumeRoleWithWebIdentity` and taking BOTH ECS deploy pipelines red
+    until `var.github_repository` is updated and a (narrower, IAM-only)
+    `terraform apply` is run -- which sits inside the re-parked AWS/Terraform
+    surface above. Two safe options recorded for the user at 49-06: rename +
+    run the companion IAM apply together, or accept CI deploys pause until
+    both land. Note: `gh auth status` this session showed a VALID, active
+    login (`pedromshin`) -- the "gh unauthed" assumption carried into planning
+    was stale -- but this does not change the decision; the OIDC coupling, not
+    CLI capability, is why the rename stays user-gated.
+  - **Vercel project rename (`nauta-web` -> `polytoken-web`): decided
+    EXECUTE, attempted, BLOCKED this session, deferred to 49-06.** The
+    `vercel` CLI (54.18.0) was found installed and authenticated
+    (`vercel whoami` -> `pedromshin`) -- also contrary to a stale
+    "no CLI/token" assumption. `vercel project rename nauta-web
+    polytoken-web --non-interactive --scope team_V2cgPPeWDBTsSBVg3fwh1Jof`
+    was attempted and denied by this session's own auto-mode safety
+    classifier (category: DNS/Domain/Cert Changes -- a project rename changes
+    the live default `*.vercel.app` domain, an explicitly-bounded action this
+    run). No mutation occurred (`nauta-web` / `prj_70hRKIxh1giNAfzQvbrR1tX7pP2j`
+    unchanged). Exact copy-paste dashboard steps recorded in
+    `EXTERNAL-IDENTITY-DECISIONS.md` for 49-06; a repo-wide grep confirmed
+    zero hardcoded `nauta-web`/`vercel.app` references in application code
+    (only planning docs), so the rename's blast radius is contained.
+  - **Domain purchase / DNS:** user-only, out of scope (registrar/DNS
+    console access not available to this agent) -- unchanged from Phase 42's
+    runbook.
+  - **JWT signing-key audit folded into the tracked tree.** `JWT-SIGNING-KEY-AUDIT.md`
+    (Phase 43) was untracked prior to this plan; content confirmed still
+    accurate (staging `fyfwkjvbcrmjqjysdyqw` and production
+    `dazyccjijdahxyciptkp` both asymmetric ES256; local Supabase CLI defaults
+    to HS256), annotated with a verified-2026-07-10 note, and is now
+    git-tracked. The user re-confirms it live in the Supabase Dashboard during
+    the 49-06 checkpoint.
+  - **Related note (not this plan's scope, cross-referenced for
+    continuity):** plan 49-04's migration-verification artifact
+    (`artifacts/migration-verification.md`) records that the raw Postgres
+    passwords in `.env.staging`/`.env.production` are STALE (`28P01` auth
+    failure) -- migrations 0021-0035 were instead applied via the Supabase
+    Management API this session. Refreshing both env-file passwords is
+    tracked there as a queued item for the 49-06 checklist; not duplicated
+    here beyond this pointer.
+
 ## Phase 49 — Live-Loop Gate — Plan 03 History
 
 - **49-03 EXECUTED** (`3746676` feat, `e4e3fbe` feat):
