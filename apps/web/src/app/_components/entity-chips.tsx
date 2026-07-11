@@ -30,8 +30,9 @@ const MAX_VISIBLE_CHIPS = 4;
  * EntityChips (D-23/D-24) — translucent per-entity-type badges for an inbox row.
  *
  * Each chip shows the entity-type label, suffixed with `·count` when more than
- * one of that type was extracted. Chips use the violet entity-family tint from
- * the canvas role-color palette (no second accent hue).
+ * one of that type was extracted. Chips render on `color.graph.entity` (the
+ * entity-family tint from the canvas role-color palette, no second accent
+ * hue) and `radius.pill`.
  *
  * D-24: When entityInstanceId is present the chip deep-links to
  * /entities/{entityInstanceId}. Otherwise falls back to /emails/{emailId}.
@@ -59,24 +60,22 @@ export function EntityChips({
           <Link
             key={entity.entityTypeId}
             href={href}
-            className="rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50"
+            className="rounded-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
             // The chip is independent of row selection; stop the click from also
             // toggling the row's reading-preview selection.
             onClick={(event) => event.stopPropagation()}
           >
             <Badge
               variant="outline"
-              className="gap-1 border-violet-200 bg-violet-100 text-violet-800 hover:bg-violet-200 dark:border-violet-900 dark:bg-violet-950/40 dark:text-violet-200"
+              className="gap-1 rounded-pill border-graph-entity/30 bg-graph-entity/10 text-graph-entity hover:bg-accent hover:text-accent-foreground"
             >
               <span
                 aria-hidden
-                className="size-1.5 rounded-full bg-violet-500"
+                className="size-1.5 rounded-full bg-graph-entity"
               />
               <span className="truncate">{entity.label}</span>
               {entity.count > 1 && (
-                <span className="text-violet-600 dark:text-violet-300">
-                  ·{entity.count}
-                </span>
+                <span className="text-graph-entity">·{entity.count}</span>
               )}
             </Badge>
           </Link>
@@ -86,7 +85,7 @@ export function EntityChips({
       {overflowCount > 0 && (
         <Badge
           variant="outline"
-          className="border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900 dark:bg-violet-950/20 dark:text-violet-300"
+          className="rounded-pill border-graph-entity/30 bg-graph-entity/10 text-graph-entity"
         >
           +{overflowCount}
         </Badge>
