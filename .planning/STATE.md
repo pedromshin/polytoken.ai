@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: executing
-last_updated: "2026-07-11T20:28:30.000Z"
-last_activity: "2026-07-11 -- Phase 51-01 executed (RSKN-01: /chat interactive surfaces + global chrome carry the D-48-06 hover/active + focus-visible convention; app-sidebar glassmorphism ban cleared; zero raw hex/palette classes on touched surfaces)"
+status: 51-02 (RSKN-02/RSKN-05, email-detail palette burn-down) executed — region/entity type-coding lands on color.graph.* closed palette, confirm-deny-controls filled-semantic recipe complete, zero palette classes; typecheck green outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-02-SUMMARY.md Issues Encountered)
+last_updated: "2026-07-11T21:16:00.000Z"
+last_activity: "2026-07-11 -- Phase 51-02 executed (RSKN-02/RSKN-05: email-detail region/entity type-coding onto color.graph.* closed palette across 7 files, confirm-deny-controls.tsx filled-semantic hover/active recipe completed)"
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 18
-  completed_plans: 12
-  percent: 22
+  completed_plans: 13
+  percent: 17
 ---
 
 # State
@@ -29,10 +29,32 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01 done, siblings may still be in flight)
-Plan: 01 of 7 (this plan) done; see individual Plan History sections for sibling status
-Status: 51-01 (RSKN-01, /chat + global chrome) executed — hover/active + focus-visible convention applied, sidebar glassmorphism cleared, zero palette classes; typecheck green outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-01-SUMMARY.md Issues Encountered)
-Last activity: 2026-07-11 -- Phase 51-01 executed (RSKN-01: /chat interactive surfaces + global chrome carry the D-48-06 hover/active + focus-visible convention; app-sidebar glassmorphism ban cleared; zero raw hex/palette classes on touched surfaces)
+Phase: 51 (Total UI Re-skin) — Wave 1 executing (parallel plans; 51-01 and 51-02 done, siblings may still be in flight)
+Plan: 2 of 7 done; see individual Plan History sections for sibling status
+Status: 51-02 (RSKN-02/RSKN-05, email-detail palette burn-down) executed — region/entity type-coding lands on color.graph.* closed palette, confirm-deny-controls filled-semantic recipe complete, zero palette classes; typecheck green outside the pre-existing unrelated `apps/web/src/app/dev/design/` scratch breakage (see 51-02-SUMMARY.md Issues Encountered)
+Last activity: 2026-07-11 -- Phase 51-02 executed (RSKN-02/RSKN-05: email-detail region/entity type-coding onto color.graph.* closed palette across 7 files, confirm-deny-controls.tsx filled-semantic hover/active recipe completed)
+
+## Phase 51 -- Total UI Re-skin -- Plan 02 History -- RSKN-02/RSKN-05
+
+- **51-02 EXECUTED** (`3783a6c` feat, `6656735` feat):
+  Converted the heaviest off-token cluster the Phase-48 scout found
+  (`region-overlay-box.tsx`'s 17 violet/amber/slate role-coding occurrences)
+  plus 6 sibling `/emails/[id]` files onto the `color.graph.*` CLOSED palette
+  (violet->graph-entity, amber->graph-email-component, slate->graph-email,
+  matching the palette's own designed semantics). `confirm-deny-controls.tsx`
+  (the phase's filled-semantic exemplar) now carries the complete
+  `bg-{alias} hover:bg-{alias}/90 active:bg-{alias}/80 text-{alias}-foreground`
+  recipe on both buttons plus a `focus-visible` ring neither had before; its
+  deny button's raw `text-white` became `text-destructive-foreground`. Found
+  and fixed the same accessibility gap (missing `focus-visible`, missing
+  `active:` step, raw `text-white`) in `layers-tree-row.tsx`'s parallel inline
+  confirm/deny buttons and its expand/collapse toggle (Rule 2). Zero palette
+  classes and zero raw hex remain across all 7 owned files;
+  `token-contrast.test.ts` + `token-registration.test.ts` green; `tsc
+  --noEmit` clean for every touched file (repo-wide errors are 100% the
+  pre-existing `apps/web/src/app/dev/design/` scratch exclusion, confirmed via
+  `grep -v`). No region/entity kind lacked a `graph.*` home — no deferred
+  items logged. See `51-02-SUMMARY.md` for full deviation detail.
 
 ## Phase 51 -- Total UI Re-skin -- Plan 01 History -- RSKN-01
 
