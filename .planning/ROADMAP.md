@@ -184,7 +184,7 @@ flows into polytoken.
 4. FORWARDING-RUNBOOK.md + the SES rule are wired; a real forwarded message lands in polytoken, threads group correctly, and attachments are stored
 5. External-identity leftovers are decided, not parked: EXTERNAL-RENAME-RUNBOOK.md items are executed or explicitly re-parked by the user, and the local Supabase nauta→polytoken project-id decision is recorded
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 **Wave 1**
@@ -195,7 +195,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 49-03-PLAN.md — DB-verified local end-to-end green-path (seeded-session Playwright) (LIVE-01)
-- [ ] 49-04-PLAN.md — Staging+prod migrations 0026–0035 + ECS/Vercel deploys green (LIVE-02)
+- [x] 49-04-PLAN.md — Staging+prod migrations 0026–0035 + ECS/Vercel deploys green (LIVE-02)
 - [x] 49-05-PLAN.md — External-identity decisions recorded + Vercel rename + JWT audit fold-in (LIVE-07)
 
 **Wave 3** *(blocked on Wave 2 completion)*
