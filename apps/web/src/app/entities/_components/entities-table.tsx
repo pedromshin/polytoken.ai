@@ -124,7 +124,7 @@ function StatusBadge({
     );
   }
   return (
-    <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 text-xs px-2 py-1">
+    <Badge className="bg-tier-inferred text-tier-inferred-foreground border-tier-inferred text-xs px-2 py-1">
       Candidate
     </Badge>
   );
@@ -191,11 +191,11 @@ export function EntitiesTable({
               key={item.id}
               role="row"
               className={`hover:bg-muted/50 cursor-pointer border-b border-border/50 py-3 ${
-                isCandidate ? "bg-amber-50/50 dark:bg-amber-950/10" : ""
+                isCandidate ? "bg-tier-inferred/10" : ""
               }`}
               onClick={() => router.push(`/entities/${item.id}`)}
             >
-              {/* Display name — violet dot accent + link */}
+              {/* Display name — graph-entity dot accent + link */}
               <TableCell className="flex-1 min-w-[180px]">
                 <Link
                   href={`/entities/${item.id}`}
@@ -203,17 +203,17 @@ export function EntitiesTable({
                   className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary"
                 >
                   <span
-                    className="inline-block size-2 rounded-full bg-violet-500 shrink-0"
+                    className="inline-block size-2 rounded-full bg-graph-entity shrink-0"
                     aria-hidden
                   />
                   {item.displayName}
                 </Link>
               </TableCell>
 
-              {/* Entity type — violet badge */}
+              {/* Entity type — graph-entity badge */}
               <TableCell className="w-36">
                 {item.entityTypeLabel !== null ? (
-                  <Badge className="bg-violet-100 text-violet-800 border-violet-200 text-xs px-2 py-1">
+                  <Badge className="bg-graph-entity/10 text-graph-entity border-graph-entity/30 text-xs px-2 py-1">
                     {item.entityTypeLabel}
                   </Badge>
                 ) : (
@@ -256,7 +256,7 @@ export function EntitiesTable({
               {/* Pending duplicates */}
               <TableCell className="w-32">
                 {item.pendingDuplicatesCount > 0 ? (
-                  <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs px-2 py-1">
+                  <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-xs px-2 py-1">
                     {item.pendingDuplicatesCount} possible duplicates
                   </Badge>
                 ) : null}

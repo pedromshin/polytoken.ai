@@ -70,15 +70,15 @@ function StatusBadge({
 }) {
   if (status === "confirmed") {
     return (
-      <Badge className="bg-primary/10 text-primary border-primary/20 border font-medium">
-        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+      <Badge className="border border-tier-extracted bg-tier-extracted font-medium text-tier-extracted-foreground">
+        <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-tier-extracted-foreground" />
         Confirmed
       </Badge>
     );
   }
   return (
-    <Badge className="border border-amber-200 bg-amber-50 font-medium text-amber-700 dark:bg-amber-950/40 dark:text-amber-300">
-      <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400" />
+    <Badge className="border border-tier-inferred bg-tier-inferred font-medium text-tier-inferred-foreground">
+      <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-tier-inferred-foreground" />
       Candidate
     </Badge>
   );

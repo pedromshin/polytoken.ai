@@ -59,7 +59,7 @@ export function EntityFields({ fields }: EntityFieldsProps) {
                 <dt className="mb-1 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {field.fieldLabel ?? field.fieldSlug}
                   {field.conflicting && (
-                    <span className="inline-flex items-center gap-1 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-700">
+                    <span className="inline-flex items-center gap-1 rounded bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold text-destructive">
                       <AlertTriangle className="h-3 w-3" aria-hidden="true" />
                       conflict
                     </span>

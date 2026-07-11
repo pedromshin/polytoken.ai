@@ -60,7 +60,7 @@ function StatusBadge({
     );
   }
   return (
-    <Badge className="bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-950/40 dark:text-amber-200 text-xs px-2 py-0.5">
+    <Badge className="bg-tier-inferred text-tier-inferred-foreground border-tier-inferred text-xs px-2 py-0.5">
       Candidate
     </Badge>
   );
@@ -81,16 +81,14 @@ function MosaicCard({ item }: { readonly item: GalleryItem }): React.ReactElemen
       aria-label={`${item.displayName} entity`}
       onClick={() => router.push(`/entities/${item.id}`)}
       className={`cursor-pointer backdrop-blur-sm border-border/50 hover:border-primary/30 transition-colors ${
-        isCandidate
-          ? "bg-amber-50/60 dark:bg-amber-950/10 border-amber-200/60"
-          : "bg-card/80"
+        isCandidate ? "bg-tier-inferred/10 border-tier-inferred/30" : "bg-card/80"
       }`}
     >
       <CardHeader className="pb-2">
         {/* Row 1: entity-type badge + status badge */}
         <div className="flex items-center gap-2 flex-wrap">
           {item.entityTypeLabel !== null && (
-            <Badge className="bg-violet-100 text-violet-800 border-violet-200 text-xs px-2 py-0.5">
+            <Badge className="bg-graph-entity/10 text-graph-entity border-graph-entity/30 text-xs px-2 py-0.5">
               {item.entityTypeLabel}
             </Badge>
           )}
@@ -118,7 +116,7 @@ function MosaicCard({ item }: { readonly item: GalleryItem }): React.ReactElemen
 
         {/* Duplicates indicator (conditional) */}
         {item.pendingDuplicatesCount > 0 && (
-          <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs mt-1">
+          <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-xs mt-1">
             {item.pendingDuplicatesCount} possible duplicates
           </Badge>
         )}
