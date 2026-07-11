@@ -169,3 +169,39 @@ resource "aws_ses_receipt_rule" "prod" {
 
   depends_on = [aws_s3_bucket_policy.ses_inbound]
 }
+
+# ---------------------------------------------------------------------------
+# Domain-level catch-all — routes u-{token}@magnitudetech.com.br (any token,
+# the personal-forwarding seam, THRD-04/LIVE-04) into the prod pipeline.
+#
+# SES evaluates receipt rules in the rule set's defined `after`-chain order
+# and STOPS at the first match. This rule uses a bare domain as `recipients`
+# (not an exact local-part) so it matches everything that the three
+# exact-match rules above do NOT already claim. Because it is positioned
+# `after = aws_ses_receipt_rule.prod.name` — i.e. LAST in the chain — it can
+# never shadow agent-local@ / agent-staging@ / agent@: SES always tries those
+# three exact matches first and only falls through to this catch-all when
+# none of them match. Do not reorder this rule ahead of the exact-match
+# rules; doing so would make it swallow all mail for the domain, including
+# the three dedicated addresses.
+# ---------------------------------------------------------------------------
+resource "aws_ses_receipt_rule" "forwarding_catchall" {
+  name          = "forwarding-catchall"
+  rule_set_name = aws_ses_receipt_rule_set.main.rule_set_name
+  recipients    = ["magnitudetech.com.br"] # bare domain = catch-all
+  enabled       = true
+  scan_enabled  = false
+  after         = aws_ses_receipt_rule.prod.name
+
+  # Routed at the PROD pipeline: the forwarding user's account lives in the
+  # prod database (single-operator personal-use seam), matching agent-prod's
+  # own routing above.
+  s3_action {
+    bucket_name       = aws_s3_bucket.ses_inbound.bucket
+    object_key_prefix = "inbound/prod/"
+    topic_arn         = aws_sns_topic.ses_inbound["prod"].arn
+    position          = 1
+  }
+
+  depends_on = [aws_s3_bucket_policy.ses_inbound]
+}
