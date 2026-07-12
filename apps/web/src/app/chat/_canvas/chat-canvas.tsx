@@ -91,6 +91,10 @@ import type { EdgePayload } from "./edge-payload-schema";
 import { ChatControllerProvider } from "./chat-node";
 import { nodeTypes } from "./node-types";
 import {
+  CanvasPersistenceProvider,
+  type CanvasPersistenceContextValue,
+} from "./panel-overlay-context";
+import {
   reconcileNodesFromHistory,
   withDefaultChatNode,
   type PersistedCanvasEdge,
@@ -306,6 +310,19 @@ export function ChatCanvas({
     conversationId,
     toCanvasStoreSeed(persistence.initialSharedState),
     !persistence.isRestoring,
+  );
+
+  // Exposes scheduleSave + conversationId to every editable-panel control
+  // (PANL-01..04, 52-01-PLAN.md Task 3) without any panel needing to know
+  // about chat.saveCanvasLayout directly — mirrors every other save call
+  // site in this file (`persistence.scheduleSave(canvasStore)`), never a
+  // new/parallel save path.
+  const canvasPersistenceValue = useMemo<CanvasPersistenceContextValue>(
+    () => ({
+      scheduleSave: () => persistence.scheduleSave(canvasStore),
+      conversationId,
+    }),
+    [persistence, canvasStore, conversationId],
   );
 
   // Seed once restore resolves, then reconcile on every later historyRows
@@ -667,6 +684,7 @@ export function ChatCanvas({
 
   return (
     <CanvasStoreProvider store={canvasStore}>
+      <CanvasPersistenceProvider value={canvasPersistenceValue}>
       <CanvasEdgesProvider edges={dataCarryingEdges}>
         <CanvasSpecProvider
           specsByProvenance={specsByProvenance}
@@ -758,6 +776,7 @@ export function ChatCanvas({
           </ChatControllerProvider>
         </CanvasSpecProvider>
       </CanvasEdgesProvider>
+      </CanvasPersistenceProvider>
     </CanvasStoreProvider>
   );
 }
