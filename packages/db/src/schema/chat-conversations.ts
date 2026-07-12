@@ -13,6 +13,16 @@
  * Phase 44 (tenancy): chat_conversations is NOT an importer-descendant (its
  * importer_id has no FK), so it gets a DIRECT user_id referencing
  * auth.users(id) rather than being scoped transitively through importers.
+ *
+ * Phase 54 (CLUS-02, migration 0036): thread_id is nullable + ON DELETE SET
+ * NULL — mirrors emails.thread_id (Phase 45) exactly. This is the durable
+ * server-side thread<->conversation linkage (canvas sharedState is NOT the
+ * linkage store — it must survive canvas changes and be readable at turn
+ * time). AUTHORED TONIGHT, APPLIED TO NO ENVIRONMENT — Docker/WSL is down;
+ * the morning §H flow applies 0036 local->staging->prod. Every reader/writer
+ * of this column MUST feature-detect via
+ * packages/api-client/src/router/_column-detect.ts's tableColumnExists
+ * before querying it, so an unapplied migration never 500s.
  */
 
 import {
@@ -24,6 +34,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { AuthUsers } from "./_auth";
+import { Threads } from "./threads";
 
 // ---------------------------------------------------------------------------
 // chat_conversations
@@ -50,6 +61,14 @@ export const ChatConversations = pgTable(
     // read from the most recently updated row's model_id.
     modelId: text("model_id").notNull(),
 
+    // Phase 54 (CLUS-02): durable thread<->conversation linkage. Nullable —
+    // most conversations are never attached to a thread. SET NULL on thread
+    // delete (mirrors emails.threadId's D-03-flavored survive-deletion
+    // posture — a conversation must survive its linked thread disappearing).
+    threadId: uuid("thread_id").references(() => Threads.id, {
+      onDelete: "set null",
+    }),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -67,6 +86,11 @@ export const ChatConversations = pgTable(
     chatConversationsUserIdIdx: index(
       "idx_chat_conversations_user_id",
     ).on(t.userId),
+
+    // Phase 54 (CLUS-02): lookups/joins by linked thread.
+    chatConversationsThreadIdIdx: index(
+      "idx_chat_conversations_thread_id",
+    ).on(t.threadId),
   }),
 );
 

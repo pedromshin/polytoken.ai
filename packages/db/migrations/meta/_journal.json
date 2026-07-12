@@ -253,6 +253,13 @@
       "when": 1784140800000,
       "tag": "0035_threads_forwarding",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784227200000,
+      "tag": "0036_chat_conversation_thread_id",
+      "breakpoints": true
     }
   ]
 }

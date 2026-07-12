@@ -1,0 +1,3 @@
+ALTER TABLE "chat_conversations" ADD COLUMN "thread_id" uuid;--> statement-breakpoint
+ALTER TABLE "chat_conversations" ADD CONSTRAINT "chat_conversations_thread_id_threads_id_fk" FOREIGN KEY ("thread_id") REFERENCES "public"."threads"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "idx_chat_conversations_thread_id" ON "chat_conversations" USING btree ("thread_id");
