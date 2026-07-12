@@ -93,7 +93,21 @@ test.describe("UAT 43.3 — sign-out loop clears the session for real", () => {
     page,
     context,
   }) => {
-    await seedAuthenticatedContext(context);
+    // Dedicated seed user (NOT the shared DEFAULT_SEED_EMAIL): the app's real
+    // sign-out route (apps/web/src/app/auth/signout/route.ts) calls
+    // `supabase.auth.signOut()` with no `scope` option, which defaults to
+    // `scope: "global"` — it revokes EVERY session for that user, not just
+    // this browser context's. Every other spec file in this regression run
+    // also seeds a session for DEFAULT_SEED_EMAIL concurrently; sharing it
+    // here would globally sign THEM out mid-test the instant this scenario's
+    // sign-out fires (found live, 51-07 regression burn-down — surfaced as
+    // sporadic cross-file "session_not_found" 403s from GoTrue once the
+    // magic-link mint race itself was fixed). Scoping this scenario to its
+    // own account isolates the blast radius without changing the app's real
+    // (and plausibly intentional) global sign-out semantics.
+    await seedAuthenticatedContext(context, {
+      email: "pedromaschio.shin+e2e-signout@gmail.com",
+    });
 
     await page.goto("/");
     await assertNotLoginUrl(page);

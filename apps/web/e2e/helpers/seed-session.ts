@@ -54,6 +54,22 @@ const BASE64_COOKIE_PREFIX = "base64-";
  * scripts/preflight-local.ps1 both seed via the GoTrue admin API. */
 const DEFAULT_SEED_EMAIL = "pedromaschio.shin@gmail.com";
 
+/**
+ * GoTrue invalidates a user's prior unconsumed magic-link token the moment a
+ * NEW one is minted for the same email. Every e2e spec file seeds sessions
+ * for the SAME DEFAULT_SEED_EMAIL, and Playwright's `fullyParallel: true`
+ * runs many spec files/projects concurrently — file-level `test.describe
+ * .configure({ mode: "serial" })` (uat-41/uat-43/uat-48) only prevents races
+ * WITHIN a file, not ACROSS files. When two workers mint+verify concurrently,
+ * the loser's verifyOtp fails with "Email link is invalid or has expired"
+ * (found live, 51-07 regression burn-down — 3 of 7 failures shared this exact
+ * stack trace). Bounded retry with a fresh mint + jittered backoff tolerates
+ * this transient collision without masking a genuine auth failure (verifyOtp
+ * still must succeed for real on some attempt).
+ */
+const MAX_MINT_ATTEMPTS = 5;
+const MINT_RETRY_BASE_DELAY_MS = 250;
+
 export interface SeedAuthenticatedContextOptions {
   /** Defaults to the documented single local seed user. */
   readonly email?: string;
@@ -94,6 +110,47 @@ function isAlreadyExistsError(message: string): boolean {
   return /already.*registered|already exists|email_exists/i.test(message);
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * mintSession — mints a magiclink + verifyOtp session, retrying on the
+ * transient cross-worker invalidation race documented above. Each attempt
+ * mints a FRESH link (a stale token_hash from a prior attempt is never
+ * reused) and backs off with jitter so concurrently-retrying workers
+ * desynchronize rather than re-colliding on the next attempt.
+ */
+async function mintSession(
+  admin: ReturnType<typeof createClient>,
+  anonClient: ReturnType<typeof createClient>,
+  email: string,
+): Promise<Session> {
+  let lastError = "no session returned";
+  for (let attempt = 1; attempt <= MAX_MINT_ATTEMPTS; attempt++) {
+    const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
+    if (link.error !== null) {
+      lastError = `generateLink failed: ${link.error.message}`;
+    } else {
+      const tokenHash = link.data.properties.hashed_token;
+      const verified = await anonClient.auth.verifyOtp({
+        token_hash: tokenHash,
+        type: "email",
+      });
+      if (verified.error === null && verified.data.session !== null) {
+        return verified.data.session;
+      }
+      lastError = verified.error?.message ?? "no session returned";
+    }
+    if (attempt < MAX_MINT_ATTEMPTS) {
+      await sleep(MINT_RETRY_BASE_DELAY_MS * attempt + Math.random() * 150);
+    }
+  }
+  throw new Error(
+    `seed-session: verifyOtp failed to mint a session after ${MAX_MINT_ATTEMPTS} attempts: ${lastError}`,
+  );
+}
+
 /**
  * seedAuthenticatedContext — ensures the seed user exists, mints a session
  * via GoTrue admin (magiclink + verifyOtp — never interactive Google), and
@@ -131,27 +188,12 @@ export async function seedAuthenticatedContext(
   // 2. Mint a session WITHOUT interactive Google: admin generateLink
   //    (magiclink) -> verifyOtp exchanges the hashed token for a real
   //    access/refresh token pair (never a password, never a browser).
-  const link = await admin.auth.admin.generateLink({ type: "magiclink", email });
-  if (link.error !== null) {
-    throw new Error(`seed-session: generateLink failed: ${link.error.message}`);
-  }
-  const tokenHash = link.data.properties.hashed_token;
-
+  //    Retries on the documented cross-worker magic-link invalidation race
+  //    (see MAX_MINT_ATTEMPTS's doc comment above).
   const anonClient = createClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const verified = await anonClient.auth.verifyOtp({
-    token_hash: tokenHash,
-    type: "email",
-  });
-  if (verified.error !== null || verified.data.session === null) {
-    throw new Error(
-      `seed-session: verifyOtp failed to mint a session: ${
-        verified.error?.message ?? "no session returned"
-      }`,
-    );
-  }
-  const session: Session = verified.data.session;
+  const session: Session = await mintSession(admin, anonClient, email);
 
   // 3. Build the EXACT @supabase/ssr cookie encoding (base64url,
   //    `base64-`-prefixed, chunked past MAX_CHUNK_SIZE) using the library's

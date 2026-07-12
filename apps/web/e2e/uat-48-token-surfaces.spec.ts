@@ -179,7 +179,8 @@ test.describe("UAT 48: token-surface burn-down (seeded session, DOM/CSS-verified
          )
          VALUES ($1, $2, $3, $4, 'region', 'field', $5, 'candidate', $6::jsonb, $7)
          ON CONFLICT (id) DO UPDATE
-           SET parent_component_id = EXCLUDED.parent_component_id,
+           SET role = 'field',
+               parent_component_id = EXCLUDED.parent_component_id,
                entity_type_field_id = EXCLUDED.entity_type_field_id,
                extraction_status = 'candidate'`,
         [

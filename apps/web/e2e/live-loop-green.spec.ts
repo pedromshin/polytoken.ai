@@ -236,6 +236,23 @@ test.describe("LIVE-01 green path (seeded session, DB-verified)", () => {
       // Step 2: thread -> email detail renders.
       // -----------------------------------------------------------------
       await test.step("thread -> email detail renders", async () => {
+        // Explicitly select this test's own seeded thread before opening the
+        // editor. InboxThreePane's default-select effect auto-picks "the
+        // latest member of the first visible thread" purely from page-load-
+        // time query data — under concurrent Playwright workers (this run's
+        // sibling spec files insert THEIR OWN received_at=now() fixture
+        // emails into the SAME shared local DB), a sibling worker's fresher
+        // insert can win the "most recent" slot between this test's own
+        // insert and its own inbox page load, causing the global
+        // "Open editor" link to point at the WRONG email (found live, 51-07
+        // regression burn-down — firefox landed on uat-45-threads.spec.ts's
+        // own fixture email instead of this test's). Selecting by this
+        // fixture's own subject text first (the SAME pattern
+        // uat-45-threads.spec.ts's singleton-row scenarios already
+        // establish) is deterministic regardless of sibling-worker writes.
+        await page
+          .getByRole("button", { name: new RegExp(escapeRegExp(FIXTURE_SUBJECT)) })
+          .click();
         await page.getByRole("link", { name: /Open editor/ }).click();
         // Generous timeout: Next.js dev-mode on-demand route compilation for
         // /emails/[id] (first visit this dev-server session) can exceed the
