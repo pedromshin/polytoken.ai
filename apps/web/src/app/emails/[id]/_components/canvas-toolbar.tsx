@@ -1,7 +1,11 @@
 "use client";
 
+// Explicit React import required: vitest's classic-runtime JSX transform
+// needs `React` in scope even though Next.js's SWC automatic runtime does
+// not (documented gotcha, see genui-panel-node.tsx / 53-03-SUMMARY.md).
+import * as React from "react";
 import { useEffect } from "react";
-import { MousePointer2, Pencil, X } from "lucide-react";
+import { Layers, MousePointer2, PanelRight, Pencil, X } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
 import { Separator } from "@polytoken/ui/separator";
@@ -32,6 +36,10 @@ interface CanvasToolbarProps {
 
   // ---- Right group ----
   readonly onClose: () => void;
+  /** Opens the mobile LAYERS Sheet (53-UI-SPEC §5). Omit on desktop-only call sites. */
+  readonly onOpenLayers?: () => void;
+  /** Opens the mobile INSPECTOR/SUMMARY Sheet (53-UI-SPEC §5). Omit on desktop-only call sites. */
+  readonly onOpenInspector?: () => void;
 
   /** When false, the global keybinding listener is not installed. */
   readonly keybindingsEnabled?: boolean;
@@ -66,6 +74,8 @@ export function CanvasToolbar({
   showUnrelated,
   onShowUnrelatedChange,
   onClose,
+  onOpenLayers,
+  onOpenInspector,
   keybindingsEnabled = true,
 }: CanvasToolbarProps) {
   // Tool-mode keybindings (V/S = select, D = draw). Ignore when a form control
@@ -169,16 +179,49 @@ export function CanvasToolbar({
           </label>
         </div>
 
-        {/* Right group */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          aria-label="Close document preview"
-          className="ml-auto"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        {/* Right group — mobile Sheet triggers (md:hidden, 53-UI-SPEC §5) + close */}
+        <div className="ml-auto flex items-center gap-1">
+          {onOpenLayers ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onOpenLayers}
+                  aria-label="Show layers"
+                  className="md:hidden size-11 text-muted-foreground"
+                >
+                  <Layers className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show layers</TooltipContent>
+            </Tooltip>
+          ) : null}
+          {onOpenInspector ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onOpenInspector}
+                  aria-label="Show inspector"
+                  className="md:hidden size-11 text-muted-foreground"
+                >
+                  <PanelRight className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show inspector</TooltipContent>
+            </Tooltip>
+          ) : null}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            aria-label="Close document preview"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </TooltipProvider>
   );

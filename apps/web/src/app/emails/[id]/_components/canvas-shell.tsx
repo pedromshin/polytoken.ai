@@ -1,6 +1,13 @@
 "use client";
 
+// Explicit React import required: vitest's classic-runtime JSX transform
+// needs `React` in scope even though Next.js's SWC automatic runtime does
+// not (documented gotcha, see genui-panel-node.tsx / 53-03-SUMMARY.md).
+import * as React from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
+
+import { Sheet, SheetContent, SheetTitle } from "@polytoken/ui/sheet";
 
 import { CanvasToolbar } from "./canvas-toolbar";
 
@@ -46,6 +53,12 @@ interface CanvasShellProps {
  * page/scale state, so they are not duplicated in the shell toolbar (Bundle C).
  * The LAYERS/INSPECTOR contents and the full page wiring are composed in 09-09.
  * It renders inside the app-shell SidebarInset (09-06).
+ *
+ * Below `md` (53-UI-SPEC §5, Judgment Call #7): LAYERS/INSPECTOR/SUMMARY stop
+ * being persistent flex siblings (`hidden md:flex`) — CANVAS becomes the sole
+ * persistent `w-full flex-1` zone, and the SAME slot nodes render instead
+ * inside a left/right `Sheet` each, opened from `CanvasToolbar`'s new
+ * `onOpenLayers`/`onOpenInspector` triggers. Desktop (`>=md`) is unchanged.
  */
 export function CanvasShell({
   state,
@@ -64,6 +77,12 @@ export function CanvasShell({
 }: CanvasShellProps) {
   const handleModeChange = (mode: CanvasMode) => state.setMode(mode);
 
+  // Below-md Sheet-collapse state (53-UI-SPEC §5) — the persistent LAYERS/
+  // INSPECTOR/SUMMARY panels are hidden below md; these two Sheets render the
+  // SAME slot nodes instead, opened from CanvasToolbar's mobile-only triggers.
+  const [mobileLayersOpen, setMobileLayersOpen] = useState(false);
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+
   return (
     <div className="flex flex-col h-full">
       {/* TOOLBAR — full width, 44px, border-b */}
@@ -77,34 +96,58 @@ export function CanvasShell({
         showUnrelated={showUnrelated}
         onShowUnrelatedChange={onShowUnrelatedChange}
         onClose={onClose}
+        onOpenLayers={() => setMobileLayersOpen(true)}
+        onOpenInspector={() => setMobileInspectorOpen(true)}
       />
 
       {/* Three-column body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* LAYERS — 256px, border-r, scroll */}
-        <div className="w-64 shrink-0 border-r overflow-hidden flex flex-col">
+        {/* LAYERS — 256px, border-r, scroll. Persistent only >=md. */}
+        <div className="hidden md:flex md:flex-col w-64 shrink-0 border-r overflow-hidden">
           {layers}
         </div>
 
-        {/* CANVAS — flex-1, overflow-hidden, relative for overlay stacking */}
+        {/* CANVAS — flex-1, overflow-hidden, relative for overlay stacking.
+            The sole persistent zone below md (53-UI-SPEC §5). */}
         <div className="flex-1 min-w-0 overflow-hidden relative bg-muted/40 flex flex-col">
           {/* Active-parent banner slot (D-10) */}
           {banner}
           <div className="flex-1 min-h-0 overflow-hidden relative">{canvas}</div>
         </div>
 
-        {/* INSPECTOR — 288px, border-l, scroll */}
-        <div className="w-72 shrink-0 border-l overflow-hidden flex flex-col">
+        {/* INSPECTOR — 288px, border-l, scroll. Persistent only >=md. */}
+        <div className="hidden md:flex md:flex-col w-72 shrink-0 border-l overflow-hidden">
           {inspector}
         </div>
 
-        {/* SUMMARY — 288px, rightmost, border-l, scroll (optional slot) */}
+        {/* SUMMARY — 288px, rightmost, border-l, scroll (optional slot). Persistent only >=md. */}
         {summary ? (
-          <div className="w-72 shrink-0 border-l overflow-hidden flex flex-col">
+          <div className="hidden md:flex md:flex-col w-72 shrink-0 border-l overflow-hidden">
             {summary}
           </div>
         ) : null}
       </div>
+
+      {/* Mobile Sheet-collapsed LAYERS (side="left", 53-UI-SPEC §5) — same
+          `layers` slot node, only its container differs below md. */}
+      <Sheet open={mobileLayersOpen} onOpenChange={setMobileLayersOpen}>
+        <SheetContent side="left" className="md:hidden w-64 sm:max-w-xs p-0">
+          <SheetTitle className="sr-only">Layers</SheetTitle>
+          <div className="flex h-full flex-col overflow-hidden">{layers}</div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile Sheet-collapsed INSPECTOR + SUMMARY (side="right",
+          53-UI-SPEC §5) — same slot node(s), only the container differs. */}
+      <Sheet open={mobileInspectorOpen} onOpenChange={setMobileInspectorOpen}>
+        <SheetContent side="right" className="md:hidden w-72 sm:max-w-xs p-0">
+          <SheetTitle className="sr-only">Inspector</SheetTitle>
+          <div className="flex h-full flex-col overflow-hidden">
+            {inspector}
+            {summary}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
