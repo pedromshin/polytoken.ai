@@ -193,6 +193,26 @@ def test_missing_source_payload_returns_capture_failed_without_raising() -> None
     assert knowledge.upsert_node_calls == []
 
 
+def test_source_payload_missing_url_returns_capture_failed_without_raising() -> None:
+    knowledge = FakeKnowledgeGraphRepository()
+    handler = SourceCaptureHandler(knowledge_graph=knowledge)
+
+    result = asyncio.run(
+        handler.execute(
+            action="confirm",
+            suggestion_id="toolu_1:0",
+            importer_id=_IMPORTER_ID,
+            widget_interaction_id="wi-1",
+            source_payload=_source_payload(url=""),
+            conversation_id=_CONVERSATION_ID,
+            thread_id=None,
+        )
+    )
+
+    assert result == {"status": "capture_failed"}
+    assert knowledge.upsert_node_calls == []
+
+
 def test_missing_importer_id_returns_capture_failed_without_raising() -> None:
     knowledge = FakeKnowledgeGraphRepository()
     handler = SourceCaptureHandler(knowledge_graph=knowledge)
