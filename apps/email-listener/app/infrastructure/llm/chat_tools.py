@@ -45,7 +45,17 @@ live suggestion at emission time (run_chat_turn.py's `_finalize_confirm_action`)
 and derives the frozen confirm/reject widget declaration — the model
 structurally cannot supply anything beyond an id to look up, enforced by
 `additionalProperties: false` at both the root and the nested `suggestionRef`
-object plus `suggestionRef.kind`'s single-value enum (T-40-01).
+object plus `suggestionRef.kind`'s enum (T-40-01).
+
+Phase 54-03 (CLUS-04): `suggestionRef.kind` enum gains a SECOND value,
+"source_capture" — proposing a captured web_search result as an INFERRED
+knowledge node. Its `id` is NOT a database row id (unlike
+"knowledge_edge_tier_promotion"'s edge id) — it is a `{toolUseId}:{index}`
+composite the model builds itself from ITS OWN prior web_search tool_use id
+(visible in this same turn) plus the 0-based position of the result inside
+that call's `results` array. The server re-reads the actual url/title from
+the PERSISTED tool result by this id — the model never supplies source
+content directly (T-54-03-01).
 """
 
 from __future__ import annotations
@@ -232,21 +242,26 @@ def build_emit_clarify_widget_tool() -> dict[str, Any]:
 
 
 _CONFIRM_ACTION_DESCRIPTION = (
-    "Ask the user to confirm or reject a specific, already-identified knowledge suggestion "
-    "(e.g. an inferred/ambiguous relationship you found while helping them). Supply ONLY a "
-    "suggestionRef {kind, id} identifying the suggestion — NEVER a tier, node id, or any other "
-    "mutation parameter; the server re-reads the live suggestion and derives the confirm/reject "
-    "options itself. An optional short `rationale` may explain why you're surfacing it. Calling "
-    "this tool ENDS your turn: you will not see the user's choice until they explicitly click "
-    "Confirm or Reject and the conversation resumes with their decision. Only call this when a "
-    "specific, already-identified suggestion exists — never to propose a new, unidentified action."
+    "Ask the user to confirm or reject a specific, already-identified suggestion — either a "
+    "knowledge relationship you found while helping them (kind: knowledge_edge_tier_promotion, "
+    "id: the suggestion's own id), or a web_search result worth capturing as a knowledge source "
+    "for this cluster (kind: source_capture, id: '{the exact toolUseId of your OWN prior "
+    "web_search tool call}:{the 0-based index of the result in that call's results array}', e.g. "
+    "'toolu_01Ab...:0' for the first result). Supply ONLY a suggestionRef {kind, id} — NEVER a "
+    "tier, node id, url, title, or any other mutation parameter; the server re-reads the live "
+    "suggestion/result and derives the confirm/reject options itself. An optional short "
+    "`rationale` may explain why you're surfacing it. Calling this tool ENDS your turn: you will "
+    "not see the user's choice until they explicitly click Confirm or Reject and the conversation "
+    "resumes with their decision. Only call this when a specific, already-identified suggestion "
+    "exists — never to propose a new, unidentified action."
 )
 
 # Hand-authored, Bedrock-valid input_schema (root type:object, additionalProperties:false, no
-# root $ref) — the exact contract from 40-01-PLAN.md's <interfaces>/<action> blocks. Only
-# "knowledge_edge_tier_promotion" is offered to the model this phase (40-CONTEXT.md's allowlist
-# ordering) — "entity_merge_confirm" stays registered server-side in Plan 40-02's dispatch table
-# but is structurally unreachable via this tool's schema.
+# root $ref) — the exact contract from 40-01-PLAN.md's <interfaces>/<action> blocks, extended by
+# 54-03-PLAN.md (CLUS-04). "knowledge_edge_tier_promotion" and "source_capture" are BOTH offered
+# to the model (40-CONTEXT.md's allowlist ordering + 54-CONTEXT.md's suggest-only capture) —
+# "entity_merge_confirm" stays registered server-side in Plan 40-02's dispatch table but is
+# structurally unreachable via this tool's schema.
 _CONFIRM_ACTION_INPUT_SCHEMA: dict[str, Any] = {
     "type": "object",
     "required": ["suggestionRef"],
@@ -257,7 +272,7 @@ _CONFIRM_ACTION_INPUT_SCHEMA: dict[str, Any] = {
             "required": ["kind", "id"],
             "additionalProperties": False,
             "properties": {
-                "kind": {"enum": ["knowledge_edge_tier_promotion"]},
+                "kind": {"enum": ["knowledge_edge_tier_promotion", "source_capture"]},
                 "id": {"type": "string", "minLength": 1, "maxLength": 100},
             },
         },
