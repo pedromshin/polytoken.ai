@@ -168,7 +168,7 @@ seed specs (goal/success-criteria text) reused from
 - [x] Phase 52: Editable Genui Panels / Studio-on-Canvas
  (completed 2026-07-12)
 - [x] Phase 53: Mobile-Responsive Answer (completed 2026-07-12)
-- [ ] Phase 54: Email-Cluster Workflow (E3)
+- [x] Phase 54: Email-Cluster Workflow (E3) (completed 2026-07-12)
 
 ### Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
 
@@ -333,7 +333,7 @@ the milestone's final acceptance gate
 6. Cluster context accumulates — artifacts from earlier chats in the cluster (genui panels, captured sources) are available as context to subsequent chats attached to the same thread
 7. The end-to-end scenario is proven live by the user on their real inbox: real thread → attached chat → web research with thread in context → sources captured → promotion confirmed → a follow-up chat sees the cluster context — the milestone's acceptance bar
 
-**Plans:** 6/7 plans executed
+**Plans:** 7/7 plans complete
 
 Plans:
 - [x] 54-01-PLAN.md — Migration 0036 + thread<->conversation linkage tRPC seam (attach + threadId reads + emails.threadCard) (wave 1)
@@ -342,7 +342,7 @@ Plans:
 - [x] 54-04-PLAN.md — EmailThreadNode + Add-thread popover + versioned node registry (wave 2)
 - [x] 54-05-PLAN.md — Thread + cluster context assembly injection (bounded, quarantined) (wave 3)
 - [x] 54-06-PLAN.md — ThreadClusterIndicator + clusterSummary + web_search tool-round copy (wave 3)
-- [ ] 54-07-PLAN.md — CLUS-07 live-acceptance §H runsheet in MORNING-CHECKLIST.md (wave 4)
+- [x] 54-07-PLAN.md — CLUS-07 live-acceptance §H runsheet in MORNING-CHECKLIST.md (wave 4)
 
 ## Next Two Epochs — the endgame map (LOCKED 2026-07-10)
 

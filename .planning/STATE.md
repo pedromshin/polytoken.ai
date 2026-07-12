@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: completed
-last_updated: "2026-07-12T14:15:00.000Z"
-last_activity: 2026-07-12 -- Phase 54-06 executed (ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy -- CLUS-02/CLUS-06/CLUS-03 UI -- see 54-06-SUMMARY.md; Phase 54 now 6/7 plans complete)
+last_updated: "2026-07-12T14:40:00.000Z"
+last_activity: 2026-07-12 -- Phase 54-07 executed (MORNING-CHECKLIST.md sect:H CLUS-07 live-acceptance runsheet -- doc-only, never faked -- see 54-07-SUMMARY.md; Phase 54 now 7/7 plans complete, PHASE COMPLETE)
 progress:
   total_phases: 6
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 37
   completed_plans: 36
   percent: 97
@@ -29,12 +29,44 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 54 (Email-Cluster Workflow E3) — 54-06 (ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy, CLUS-02/CLUS-06/CLUS-03 UI) EXECUTED this session, Wave 3 (`depends_on: [54-01]`, `requirements: [CLUS-02, CLUS-06, CLUS-03]`). Task 1 (TDD RED->GREEN): new `chat.clusterSummary` tRPC query — ownership assertion, migration-0036 feature-detect (degrades to `{hasThread:false,0,0}`, never a 500), a real `siblingChatCount` (other of the caller's own conversations sharing `thread_id`) and a real `capturedSourceCount` (distinct active `knowledge_nodes` with `source="web_search_capture"`/`scope_ref_type="web_source"` attached via an active `knowledge_node_edges` row to ANY conversation in the caller's cluster, scoped to owned importers) — reads `knowledge_node_edges`/`knowledge_nodes` DIRECTLY via Drizzle (same Postgres tables 54-03's Python `SourceCaptureHandler` already writes; no new cross-service seam needed), two-step edge->node select with a JS `Set` dedupe rather than a single JOIN. 7 tests. Task 2 (TDD RED->GREEN): `ThreadClusterIndicator` — one popover, two sections ("Linked thread" + "Cluster context"), additive-only (renders nothing for a null/pending threadId), mounted unconditionally in `page.tsx`'s `ConversationView` top bar between `SaveStatusIndicator` and `CostMeter`; `invalidateOnChatTerminal` extended to also invalidate `chat.clusterSummary`. 10 tests. Task 3 (TDD RED->GREEN): `web_search` copy-map entries added to the EXISTING `tool-round-activity-row.tsx`/`tool-invocation-result-row.tsx` chrome — zero new components, zero new `ProvenanceKind` members (Judgment Call #7 — no citation chips for raw web results). 6 tests. **[Rule 3 x2]** extended `chat-mobile-feed.test.tsx`'s `~/trpc/react` mock (anticipated by the plan's own gotcha note — `ThreadClusterIndicator`'s now-unconditional mount would otherwise throw in that pre-existing 12-test suite) and rebuilt `@polytoken/api-client`'s stale `dist/` (same gotcha 54-01/54-04 already flagged for the first `apps/web` consumer of a new procedure). Full api-client suite (35 files/405 tests) and full web suite (64 files/452 tests) green, zero regressions; `tsc --noEmit` clean outside the pre-existing, unrelated `app/dev/design/**` (untracked, logged to `deferred-items.md`); palette-ban/token gates 12/12. Live header render + a real `web_search` round DEFERRED to MORNING-CHECKLIST.md §H. See Phase 54 Plan 06 History below and `54-06-SUMMARY.md` for full detail.
+Phase: 54 (Email-Cluster Workflow E3) — 54-07 (MORNING-CHECKLIST.md §H, the CLUS-07 live-acceptance runsheet) EXECUTED this session, Wave 4 (`depends_on: [54-01, 54-02, 54-03, 54-04, 54-05, 54-06]`, `requirements: [CLUS-07]`). Task 1: appended a 6-subsection `## H.` section to `.planning/phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md` (207 lines) — H.1 Prerequisites (§A OAuth, §B forwarding with a REAL thread, §G stack-up + Bedrock, migration 0036 applied, `WEB_SEARCH_TOOL_ENABLED=True` shipped-state confirmation); H.2 exact migration-0036 apply commands (`npm run db:migrate`/`db:migrate:staging`/`db:migrate:prod`) PLUS a fully-worked Supabase Dashboard SQL Editor fallback (the real path that applied 0021-0035 tonight per `artifacts/migration-verification.md`, since `.env.staging`/`.env.production` passwords are documented-stale) — including a precomputed, verified-exact `sha256` hash and journal timestamp for the `INSERT INTO drizzle."__drizzle_migrations"` bookkeeping row; H.3 Claude's read-only resume-signal DB verification; H.4 the six-leg scenario walkthrough (pick real thread -> Attach chat -> web research with thread context -> capture source -> promote -> new chat sees cluster context), each leg referencing the REAL shipped UI labels (grepped from source: "Add thread", "Attach chat", `aria-label="Linked thread: {subject}"`) with its own DB-verify query; H.5 the explicit acceptance bar + the "CLUS-07 verified" resume phrase; H.6 a cross-reference note superseding the six individual "queued to §H" deferrals in `54-01-SUMMARY.md` through `54-06-SUMMARY.md`. No step in §H is marked passed/checked (confirmed via a 0-count `[x]` scan within the section) — doc-only, the scenario stays user-executed live in the morning, never faked tonight. CLUS-07 intentionally NOT marked complete in `REQUIREMENTS.md` (stays Pending until the user's live "CLUS-07 verified" resume signal). Phase 54 is now 7/7 plans with a SUMMARY.md — PHASE COMPLETE (plan-wise; CLUS-07 itself is the milestone's live acceptance gate, pending the user's morning session). See Phase 54 Plan 07 History below and `54-07-SUMMARY.md` for full detail.
 
-Prior: 54-05 (thread+cluster context injection, CLUS-02/CLUS-06 Python-side turn injection) EXECUTED, Wave 3 (`depends_on: [54-01, 54-03]`, `requirements: [CLUS-02, CLUS-06]`). New pure domain service `app.domain.services.thread_cluster_context` assembles a labeled, budget-bounded "untrusted DATA" block injected into the system prompt at the ONE `_execute_turn` site for any thread-linked conversation; `ChatConversationRepository` gained the FIRST Python read path to `chat_conversations.thread_id`. Two Rule-2 deviations (new repo reads) + one Rule-1 fix (stale file path) — full detail in `54-05-SUMMARY.md` and Phase 54 Plan 05 History below.
-Plan: Phase 54 — 6 of 7 have a SUMMARY.md (54-01, 54-02, 54-03, 54-04, 54-05, 54-06). Phase 53 — 6 of 6 have a SUMMARY.md (53-01..53-06) — PHASE COMPLETE. Phase 52 — 6 of 6 have a SUMMARY.md (52-01..52-06). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
-Status: 54-06 executed — ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy: the chat header now shows a real linked-thread + cluster-context popover for thread-linked conversations (invisible for unlinked ones), and web_search tool rounds render the correct in-progress/success/error labels through the existing chrome. Only 54-07 (the §H runsheet doc plan) remains in Phase 54. See Phase 54 Plan 06 History below and `54-06-SUMMARY.md` for full detail.
-Last activity: 2026-07-12 -- Phase 54-06 executed (ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy -- CLUS-02/CLUS-06/CLUS-03 UI -- see 54-06-SUMMARY.md; Phase 54 now 6/7 plans complete)
+Prior: 54-06 (ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy, CLUS-02/CLUS-06/CLUS-03 UI) EXECUTED, Wave 3 (`depends_on: [54-01]`, `requirements: [CLUS-02, CLUS-06, CLUS-03]`). Real ownership-scoped sibling-chat/captured-source counts via `chat.clusterSummary`, surfaced through `ThreadClusterIndicator` in the chat header (additive-only), plus the `web_search` tool-round copy-map entries. Full detail in `54-06-SUMMARY.md` and Phase 54 Plan 06 History below.
+Plan: Phase 54 — 7 of 7 have a SUMMARY.md (54-01..54-07) — PHASE COMPLETE (plan-wise; CLUS-07 live-acceptance gate itself pending the user's morning §H session). Phase 53 — 6 of 6 have a SUMMARY.md (53-01..53-06) — PHASE COMPLETE. Phase 52 — 6 of 6 have a SUMMARY.md (52-01..52-06). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
+Status: 54-07 executed — MORNING-CHECKLIST.md §H (the CLUS-07 live-acceptance runsheet) is now complete: prerequisites, exact migration-0036 apply commands (native + Dashboard fallback), the six-leg scenario walkthrough with real UI labels and DB-verify queries per leg, and the acceptance bar. Phase 54 (Email-Cluster Workflow E3) is now fully executed, 7/7 plans. CLUS-01..CLUS-06 Complete in REQUIREMENTS.md; CLUS-07 stays Pending until the user runs §H live and replies "CLUS-07 verified". See Phase 54 Plan 07 History below and `54-07-SUMMARY.md` for full detail.
+Last activity: 2026-07-12 -- Phase 54-07 executed (MORNING-CHECKLIST.md sect:H CLUS-07 live-acceptance runsheet -- doc-only, never faked -- see 54-07-SUMMARY.md; Phase 54 now 7/7 plans complete, PHASE COMPLETE)
+
+## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
+
+- **54-07 EXECUTED** (`01c4b23` docs):
+  Appended the milestone's live acceptance-gate runsheet to
+  `MORNING-CHECKLIST.md` without executing or faking any of it. H.1
+  Prerequisites cross-references §A/§B/§G rather than duplicating them, and
+  states the shipped `WEB_SEARCH_TOOL_ENABLED=True` fact from 54-02 with a
+  re-verify-then-enable fallback. H.2 gives BOTH the native
+  `db:migrate:staging`/`db:migrate:prod` path AND a fully-worked Supabase
+  Dashboard SQL Editor fallback (the actual path 0021-0035 used tonight,
+  since the hosted DB passwords are documented-stale) — the fallback's
+  `INSERT INTO drizzle."__drizzle_migrations"` bookkeeping statement uses a
+  precomputed `sha256` hash (`c294272d...068554`) and journal timestamp
+  (`1784227200000`) independently verified against `drizzle-orm`'s own
+  migrator source and the on-disk journal entry, not guessed. H.3 states
+  Claude's read-only resume-signal verification (`information_schema`/
+  `pg_constraint`/`pg_indexes`/journal-row-count, per environment). H.4 walks
+  all six scenario legs, each referencing the REAL shipped UI text (grepped
+  from `add-email-thread-popover.tsx`/`email-thread-node.tsx`/
+  `thread-cluster-indicator.tsx` source, not paraphrased from the plan: "Add
+  thread", "Attach chat", `aria-label="Linked thread: {subject}"`) with its
+  own DB-verify query (or, for the context-injection leg, the correct
+  non-DB verification method since that leg is a system-prompt injection).
+  H.5 states the explicit acceptance bar and the "CLUS-07 verified" resume
+  phrase that flips the `REQUIREMENTS.md` checkbox. H.6 cross-references and
+  supersedes the six individual "queued to §H" deferral notes already
+  present in `54-01-SUMMARY.md` through `54-06-SUMMARY.md`. Verified 0
+  `[x]` occurrences within the §H block (nothing marked passed). No
+  deviations — plan executed exactly as written; a doc-only, single-task
+  plan. CLUS-07 intentionally left Pending in `REQUIREMENTS.md`. Phase 54 is
+  now 7/7 plans with a SUMMARY.md. See `54-07-SUMMARY.md` for full detail.
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 06 History -- ThreadClusterIndicator + chat.clusterSummary + web_search Tool-Round Copy (CLUS-02/CLUS-06/CLUS-03 UI)
 
