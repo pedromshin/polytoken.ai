@@ -15,6 +15,10 @@
     "./chat-canvas": {
       "types": "./dist/router/chat/canvas-schema.d.ts",
       "default": "./src/router/chat/canvas-schema.ts"
+    },
+    "./genui/panel-edit-schema": {
+      "types": "./dist/router/genui/panel-edit-schema.d.ts",
+      "default": "./src/router/genui/panel-edit-schema.ts"
     }
   },
   "scripts": {

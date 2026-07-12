@@ -70,9 +70,19 @@ const useQueriesMock = vi.fn((callback: (t: typeof FAKE_T) => unknown[]) => {
   });
 });
 
+// 52-03-PLAN.md Task 3: EditParamsControl (mounted for real inside the
+// toolbar this suite renders, no longer an inert skeleton) calls
+// `api.genui.applyPanelEdit.useMutation()` — stubbed inert here since this
+// suite only exercises toolbar/theming wiring, not the edit-params flow
+// itself (covered by edit-params-control.test.tsx).
 vi.mock("~/trpc/react", () => ({
   api: {
     useQueries: (cb: (t: typeof FAKE_T) => unknown[]) => useQueriesMock(cb),
+    genui: {
+      applyPanelEdit: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+      },
+    },
   },
 }));
 
