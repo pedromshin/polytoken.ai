@@ -78,3 +78,20 @@ export const KnowledgePreviewNodeDataSchema = z
   .strict();
 
 export type KnowledgePreviewNodeData = z.infer<typeof KnowledgePreviewNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// EmailThreadNodeDataSchema — email-thread node.data (thread ref + optional
+// label only, CLUS-01) — mirrors KnowledgePreviewNodeDataSchema's exact
+// provenance-ref-only discipline: node.data carries ONLY a threadId ref,
+// never fetched content (subject/participants/summary rehydrate via
+// emails.threadCard, 54-01).
+// ---------------------------------------------------------------------------
+
+export const EmailThreadNodeDataSchema = z
+  .object({
+    threadId: z.string().uuid(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type EmailThreadNodeData = z.infer<typeof EmailThreadNodeDataSchema>;

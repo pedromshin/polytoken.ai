@@ -14,6 +14,7 @@ import type { z } from "zod";
 
 import {
   ChatNodeDataSchema,
+  EmailThreadNodeDataSchema,
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
 } from "./node-data-schemas";
@@ -48,6 +49,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: KnowledgePreviewNodeDataSchema,
     description:
       "Knowledge-preview node — renders a bounded, non-interactive knowledge-graph subgraph anchored on a focus node id.",
+  },
+  "email-thread": {
+    id: "email-thread",
+    dataSchema: EmailThreadNodeDataSchema,
+    description:
+      "Email-thread node — renders a real thread's subject/participants/summary anchored on a thread id, with Open-thread/Attach-chat actions.",
   },
 };
 
