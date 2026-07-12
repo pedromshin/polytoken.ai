@@ -51,7 +51,7 @@ completes before any Band 2/3 work starts.
 
 ### Email-Cluster Workflow (CLUS — Band 3, depth-first on the real inbox)
 
-- [ ] **CLUS-01**: User can place an email-thread card on the `/chat` canvas as a first-class node type (versioned registry entry), showing the thread's real subject/participants/summary
+- [x] **CLUS-01**: User can place an email-thread card on the `/chat` canvas as a first-class node type (versioned registry entry), showing the thread's real subject/participants/summary
 - [ ] **CLUS-02**: User can attach a chat to an email thread — the conversation is linked to the thread and the agent's answers draw on that thread's content (thread → conversation linkage)
 - [x] **CLUS-03**: The agent can search the web mid-turn via a `web_search` ToolExecutor behind the same port, allowlist, envelope-quarantine, and adversarial-fixture discipline as the v1.6 tools (exposure code-gated on the suite passing)
 - [x] **CLUS-04**: Tool results (URLs/pages) can be captured as INFERRED knowledge nodes attached to the thread/chat cluster — suggest-only, provenance retained
@@ -108,7 +108,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PANL-04 | Phase 52 — Editable Genui Panels / Studio-on-Canvas | Complete |
 | MOBL-01 | Phase 53 — Mobile-Responsive Answer | Complete |
 | MOBL-02 | Phase 53 — Mobile-Responsive Answer | Complete |
-| CLUS-01 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
+| CLUS-01 | Phase 54 — Email-Cluster Workflow (E3) | Complete |
 | CLUS-02 | Phase 54 — Email-Cluster Workflow (E3) | Pending |
 | CLUS-03 | Phase 54 — Email-Cluster Workflow (E3) | Complete |
 | CLUS-04 | Phase 54 — Email-Cluster Workflow (E3) | Complete |
