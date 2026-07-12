@@ -85,6 +85,7 @@ from app.application.use_cases.run_chat_turn_confirm_action import (
     parse_source_capture_result_id,
 )
 from app.application.use_cases.run_chat_turn_tool_loop import (
+    FINAL_ROUND_NUDGE_TEXT,
     MAX_SERVER_CALLS_PER_ROUND,
     PARALLEL_CALL_OVERFLOW_TEXT,
     PARSE_FAILURE_TEXT,
@@ -800,6 +801,16 @@ class RunChatTurn:
             history=history,
         )
 
+        # The FINAL allowed stream (round_count == _MAX_TOOL_ROUNDS) is offered
+        # NO server tools — combined with the FINAL_ROUND_NUDGE_TEXT appended
+        # to the last round's tool results, the model must spend it writing
+        # the actual answer (genui tools stay offered so it can still emit a
+        # panel) instead of burning the cap on one more lookup and stranding
+        # the user with only ROUND_CAP_EXHAUSTED_TEXT (observed live
+        # 2026-07-12: thin keyless-search results made every research turn end
+        # capped with no answer).
+        final_round_tools = tuple(t for t in tools if t.get("name") not in self._server_tool_names)
+
         state = _TurnState()
         round_count = 0
         # Phase 34-03 (LOOP-01): a round is one "stream -> [server tool call ->
@@ -831,7 +842,7 @@ class RunChatTurn:
                     model=model,
                     model_id=model_id,
                     provider_messages=provider_messages,
-                    tools=tools,
+                    tools=tools if round_count < _MAX_TOOL_ROUNDS else final_round_tools,
                     system_prompt=system_prompt,
                     state=state,
                     round_start_output_tokens=round_start_output_tokens,
@@ -1463,6 +1474,7 @@ class RunChatTurn:
             round_start_output_tokens=round_start_output_tokens,
             round_start_text_len=round_start_text_len,
             importer_id=importer_id,
+            is_last_round=round_count + 1 >= _MAX_TOOL_ROUNDS,
         )
         if round_result.provider_messages is not None:
             return _RoundAdvance(
@@ -1505,6 +1517,7 @@ class RunChatTurn:
         round_start_output_tokens: int,
         round_start_text_len: int,
         importer_id: str,
+        is_last_round: bool = False,
     ) -> _ServerRoundResult:
         """Execute one server-tool round (Phase 34-03, LOOP-01): dispatch, cap, feed back.
 
@@ -1513,6 +1526,11 @@ class RunChatTurn:
         contract requires one tool_result per tool_use in the SAME next user
         message. Calls beyond MAX_SERVER_CALLS_PER_ROUND are not executed but
         still get an is_error tool_result (bounded work, protocol intact).
+
+        `is_last_round`: this round consumed the tool budget — the fed-back
+        user message gains a trailing FINAL_ROUND_NUDGE_TEXT text block
+        (paired with the final stream offering no server tools) so the model
+        spends its last stream answering instead of asking for another lookup.
 
         A per-tool timeout (`asyncio.wait_for`, ~10s, T-34-01) or ANY raised
         exception NEVER escapes this method — both become an `is_error`
@@ -1642,10 +1660,16 @@ class RunChatTurn:
         # the next round ("Input tag 'genui_spec' ... does not match") if
         # replayed raw. Same conversion as history replay.
         lead_blocks = _provider_content_blocks(this_round_lead_parts)
+        results_message = build_synthetic_tool_results_message(results)
+        if is_last_round:
+            results_message = {
+                **results_message,
+                "content": [*results_message["content"], {"type": "text", "text": FINAL_ROUND_NUDGE_TEXT}],
+            }
         next_provider_messages = [
             *provider_messages,
             {"role": "assistant", "content": [*lead_blocks, *tool_use_blocks]},
-            build_synthetic_tool_results_message(results),
+            results_message,
         ]
         return _ServerRoundResult(state=state, events=tuple(events), provider_messages=next_provider_messages)
 

@@ -56,6 +56,15 @@ PARALLEL_CALL_OVERFLOW_TEXT = "Too many tool calls in one step — this call was
 # never a bogus genui_spec part.
 SERVER_CALL_NOT_EXECUTED_TEXT = "[a lookup was interrupted before it could run]"
 
+# Appended (as a text block after the tool_result blocks) to the LAST allowed
+# round's fed-back user message, paired with that final stream offering no
+# server tools: the model must spend the final round answering, not asking
+# for another lookup and stranding the user with ROUND_CAP_EXHAUSTED_TEXT.
+FINAL_ROUND_NUDGE_TEXT = (
+    "That was the final lookup round available this turn. Do not request any more lookups — "
+    "write your final answer now from the results above (emit a UI panel if it helps)."
+)
+
 
 def build_tool_invocation_part(tool_name: str, tool_use_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
     """Build the `tool_invocation` message part recording a dispatched server-tool call."""
@@ -134,6 +143,7 @@ def cap_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
 
 __all__ = [
     "EMIT_UI_SPEC_TOOL_NAME",
+    "FINAL_ROUND_NUDGE_TEXT",
     "MAX_SERVER_CALLS_PER_ROUND",
     "PARALLEL_CALL_OVERFLOW_TEXT",
     "PARSE_FAILURE_TEXT",

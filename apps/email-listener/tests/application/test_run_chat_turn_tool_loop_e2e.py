@@ -31,6 +31,7 @@ import pytest
 
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.run_chat_turn_tool_loop import (
+    FINAL_ROUND_NUDGE_TEXT,
     MAX_SERVER_CALLS_PER_ROUND,
     ROUND_CAP_EXHAUSTED_TEXT,
 )
@@ -563,6 +564,48 @@ async def test_parallel_server_calls_beyond_per_round_cap_get_error_results() ->
         p for p in parts if p["type"] == "tool_invocation_result" and p["isError"] is True
     ]
     assert len(overflow_results) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_final_round_offers_no_server_tools_and_carries_answer_nudge() -> None:
+    """The last allowed stream must offer NO server tools and the last round's fed-back
+    message must end with FINAL_ROUND_NUDGE_TEXT — so the model answers instead of
+    burning the cap on another lookup (live 2026-07-12: every research turn ended
+    capped with no answer)."""
+    provider = _MultiRoundFakeChatProvider(
+        rounds=[[ToolCallDelta(tool_name="echo", id="tool-x", partial_json='{"q": "again"}'),
+                 StreamEnd(stop_reason="tool_use")]]
+    )
+    counting_executor = _CountingEchoToolExecutor()
+    use_case, _fakes = _make_use_case(provider=provider, tool_executors={"echo": counting_executor})
+
+    events = [
+        event
+        async for event in use_case.run(
+            conversation_id=_CONVERSATION_ID, user_text="keep looking", model_id=_GENUI_TOOL_ROUND_MODEL.id
+        )
+    ]
+
+    assert events[-1].type == "completed"
+    assert len(provider.stream_calls) == 5, "4 executed rounds + 1 final stream"
+
+    # Rounds 0-3 offer the server tool; the FINAL stream must not.
+    for call_index in range(4):
+        names = [t["name"] for t in provider.stream_calls[call_index]["tools"]]
+        assert "echo" in names, f"stream {call_index} must still offer the server tool"
+    final_names = [t["name"] for t in provider.stream_calls[4]["tools"]]
+    assert "echo" not in final_names, "the final stream must NOT offer server tools"
+    assert "emit_ui_spec" in final_names, "genui tools stay offered so the model can still emit a panel"
+
+    # Only the LAST round's fed-back message carries the nudge.
+    final_feedback = provider.stream_calls[4]["messages"][-1]
+    assert final_feedback["role"] == "user"
+    assert final_feedback["content"][-1] == {"type": "text", "text": FINAL_ROUND_NUDGE_TEXT}
+    earlier_feedback = provider.stream_calls[1]["messages"][-1]
+    assert all(
+        block.get("text") != FINAL_ROUND_NUDGE_TEXT for block in earlier_feedback["content"]
+    ), "earlier rounds must NOT carry the nudge"
 
 
 @pytest.mark.unit
