@@ -59,7 +59,14 @@ import { parseOverlay, type PanelOverlay } from "./panel-overlay";
 // ---------------------------------------------------------------------------
 
 export interface CanvasPersistenceContextValue {
-  readonly scheduleSave: () => void;
+  /** `onError` (optional) — invoked ONLY when the real, underlying
+   * `chat.saveCanvasLayout` mutation for the debounce cycle this call
+   * coalesces into genuinely fails (mirrors
+   * `use-canvas-persistence.ts`'s `UseCanvasPersistenceResult.scheduleSave`
+   * — this context wrapper is that same function pre-bound to the
+   * conversation's canvas store, see `chat-canvas.tsx`). Never fires on
+   * success, never fires synchronously. */
+  readonly scheduleSave: (onError?: () => void) => void;
   readonly conversationId: string;
 }
 
@@ -99,7 +106,14 @@ export function useCanvasPersistenceContext(): CanvasPersistenceContextValue {
 
 export interface UsePanelOverlayResult {
   readonly overlay: PanelOverlay | undefined;
-  readonly writeOverlay: (next: PanelOverlay) => void;
+  /** `onSaveError` (optional) — forwarded verbatim to `scheduleSave`, so it
+   * fires ONLY when THIS write's debounce cycle genuinely fails to persist
+   * (52-UI-REVIEW.md finding #1: a real network/DB failure, not the
+   * synchronous-throw test seam). Callers like `PackSwitcher`/
+   * `VersionHistoryControl` pass a revert + `toast.error` here to react to
+   * an ACTUAL persistence failure rather than only their own optimistic
+   * write ever silently landing. */
+  readonly writeOverlay: (next: PanelOverlay, onSaveError?: () => void) => void;
 }
 
 /**
@@ -112,9 +126,12 @@ export interface UsePanelOverlayResult {
  * key's reference); `parseOverlay` is then memoized on that raw reference so
  * repeated renders never re-parse into a fresh (shallow-unequal) object and
  * loop `useSyncExternalStore` (mirrors `usePanelData`'s own stability note).
- * `writeOverlay(next)` commits through the store's bounded `mutate("set", ...)`
- * grammar (never a raw store escape hatch) and always schedules a persist —
- * every overlay write is durable across a reload.
+ * `writeOverlay(next, onSaveError?)` commits through the store's bounded
+ * `mutate("set", ...)` grammar (never a raw store escape hatch) and always
+ * schedules a persist — every overlay write is durable across a reload.
+ * `onSaveError` (optional) rides along to `scheduleSave` so the CALLER finds
+ * out if the real persist for THIS write later fails, not just the ambient
+ * `SaveStatusIndicator`.
  */
 export function usePanelOverlay(panelId: string): UsePanelOverlayResult {
   const store = useCanvasStore();
@@ -129,9 +146,9 @@ export function usePanelOverlay(panelId: string): UsePanelOverlayResult {
   const mutate = useStore(store, (state) => state.mutate);
 
   const writeOverlay = useCallback(
-    (next: PanelOverlay) => {
+    (next: PanelOverlay, onSaveError?: () => void) => {
       mutate("set", `shared.panelOverlays.${panelId}`, next);
-      scheduleSave();
+      scheduleSave(onSaveError);
     },
     [mutate, panelId, scheduleSave],
   );

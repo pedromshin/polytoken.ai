@@ -330,8 +330,21 @@ export interface UseCanvasPersistenceResult {
    * time (via `latestStateRef`), never whatever was current when scheduled.
    * `canvasStore` (optional — omit when nothing has changed there) is read
    * via `.getState().values` AT FIRE TIME (not at schedule time) so the
-   * persisted `sharedState` is always the freshest snapshot (D-10). */
-  readonly scheduleSave: (canvasStore?: CanvasStore | null) => void;
+   * persisted `sharedState` is always the freshest snapshot (D-10).
+   *
+   * `onError` (optional) — invoked ONLY when the underlying
+   * `chat.saveCanvasLayout` mutation genuinely fails (its own `onError`,
+   * never a synchronous throw) for the debounce cycle THIS call's timer
+   * fires as part of. Every `onError` registered while calls are still
+   * being coalesced into the SAME pending timer fires together on that
+   * cycle's failure (each caller's optimistic write is equally unpersisted)
+   * — 52-UI-REVIEW.md's #1 finding: this is the real failure signal
+   * `usePanelOverlay.writeOverlay` threads through to panels like
+   * `PackSwitcher`/`VersionHistoryControl` so they can revert + toast on an
+   * ACTUAL persistence failure, not just their own synchronous-throw test
+   * seam. Never called on success; never called for a cycle other than the
+   * one this listener was registered against. */
+  readonly scheduleSave: (canvasStore?: CanvasStore | null, onError?: () => void) => void;
 }
 
 /** Re-validates the persisted row against `CanvasSnapshotSchema` on the READ
@@ -429,6 +442,12 @@ export function useCanvasPersistence({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const canvasStoreRef = useRef<CanvasStore | null>(null);
+  // Every onError listener registered by a scheduleSave call THIS pending
+  // debounce cycle will coalesce into — flushed (called on failure, cleared
+  // either way) exactly once when that cycle's real save settles. Cleared
+  // whenever a NEW cycle's timer actually fires (never carries stale
+  // listeners from an already-settled cycle into a later one).
+  const pendingErrorListenersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     return () => {
@@ -436,40 +455,52 @@ export function useCanvasPersistence({
     };
   }, []);
 
-  const scheduleSave = useCallback((canvasStore?: CanvasStore | null) => {
-    if (canvasStore !== undefined) canvasStoreRef.current = canvasStore;
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      const current = latestStateRef.current;
-      const sharedState = canvasStoreRef.current?.getState().values ?? {};
+  const scheduleSave = useCallback(
+    (canvasStore?: CanvasStore | null, onError?: () => void) => {
+      if (canvasStore !== undefined) canvasStoreRef.current = canvasStore;
+      if (onError) pendingErrorListenersRef.current.push(onError);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        // Own this cycle's listeners now — anything scheduled AFTER this
+        // point belongs to the NEXT cycle, never this one's outcome.
+        const cycleErrorListeners = pendingErrorListenersRef.current;
+        pendingErrorListenersRef.current = [];
 
-      let snapshot: CanvasSnapshot;
-      try {
-        snapshot = buildSnapshot(current.nodes, current.edges, current.viewport, sharedState);
-      } catch (error) {
-        // An internal invariant violation (not untrusted external input —
-        // buildSnapshot only ever sees our own React Flow state) — never
-        // crash the canvas over a failed save (CANVAS-03's ethos extended
-        // to persistence failures).
-        console.error("[useCanvasPersistence] buildSnapshot failed — skipping this save", error);
-        setSaveStatus("error");
-        return;
-      }
+        const current = latestStateRef.current;
+        const sharedState = canvasStoreRef.current?.getState().values ?? {};
 
-      setSaveStatus("saving");
-      saveMutation.mutate(
-        { conversationId, snapshot },
-        {
-          onSuccess: () => setSaveStatus("saved"),
-          onError: (error) => {
-            console.error("[useCanvasPersistence] saveCanvasLayout failed", error);
-            setSaveStatus("error");
+        let snapshot: CanvasSnapshot;
+        try {
+          snapshot = buildSnapshot(current.nodes, current.edges, current.viewport, sharedState);
+        } catch (error) {
+          // An internal invariant violation (not untrusted external input —
+          // buildSnapshot only ever sees our own React Flow state) — never
+          // crash the canvas over a failed save (CANVAS-03's ethos extended
+          // to persistence failures). Still a genuine failure to persist —
+          // fires this cycle's onError listeners same as a network failure.
+          console.error("[useCanvasPersistence] buildSnapshot failed — skipping this save", error);
+          setSaveStatus("error");
+          for (const listener of cycleErrorListeners) listener();
+          return;
+        }
+
+        setSaveStatus("saving");
+        saveMutation.mutate(
+          { conversationId, snapshot },
+          {
+            onSuccess: () => setSaveStatus("saved"),
+            onError: (error) => {
+              console.error("[useCanvasPersistence] saveCanvasLayout failed", error);
+              setSaveStatus("error");
+              for (const listener of cycleErrorListeners) listener();
+            },
           },
-        },
-      );
-    }, SAVE_DEBOUNCE_MS);
-  }, [conversationId, saveMutation]);
+        );
+      }, SAVE_DEBOUNCE_MS);
+    },
+    [conversationId, saveMutation],
+  );
 
   return {
     initialNodes,

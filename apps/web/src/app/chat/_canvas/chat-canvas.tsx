@@ -316,10 +316,13 @@ export function ChatCanvas({
   // (PANL-01..04, 52-01-PLAN.md Task 3) without any panel needing to know
   // about chat.saveCanvasLayout directly — mirrors every other save call
   // site in this file (`persistence.scheduleSave(canvasStore)`), never a
-  // new/parallel save path.
+  // new/parallel save path. `onError` passes through to the SAME real
+  // `chat.saveCanvasLayout` failure signal every other scheduleSave caller
+  // in this file feeds into `saveStatus` — panels get the same real signal,
+  // not a parallel/synthetic one (52-UI-REVIEW.md finding #1).
   const canvasPersistenceValue = useMemo<CanvasPersistenceContextValue>(
     () => ({
-      scheduleSave: () => persistence.scheduleSave(canvasStore),
+      scheduleSave: (onError) => persistence.scheduleSave(canvasStore, onError),
       conversationId,
     }),
     [persistence, canvasStore, conversationId],
