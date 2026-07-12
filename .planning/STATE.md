@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: planning
-last_updated: "2026-07-12T00:55:17.000Z"
+status: verifying
+last_updated: "2026-07-12T01:34:11.963Z"
 last_activity: 2026-07-12 -- Phase 52-05 executed (PANL-04 server side — one-shot Bedrock retheme resolution + resolveRetheme tRPC web-boundary gate, all green, no migration — see 52-05-SUMMARY.md)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 24
-  completed_plans: 19
+  completed_plans: 20
   percent: 33
 ---
 
@@ -29,10 +29,50 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 52 (Editable Genui Panels / Studio-on-Canvas) — Wave 1 plan 52-01 (Foundation substrate) EXECUTED; Plan 52-05 (PANL-04 server side) EXECUTED this session — 52-02/52-03/52-04/52-06 not yet started (52-06 depends on 52-05's tRPC procedure; 52-02..04 depend only on 52-01's contracts, independently startable). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
-Plan: Phase 52 — 2 of 6 have a SUMMARY.md (52-01, 52-05). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
-Status: 52-05 executed — one-shot NL re-theme resolution server side (PANL-04): RethemeResolverPort/RethemeResolution/ALLOWED_OVERRIDE_KEYS (domain) + ResolveRethemeUseCase (two-belt untrusted-output validation, never raises) + GenuiRethemeAdapter (ONE Bedrock forced-tool-use emit_retheme call, no repair loop, reuses the existing client) + POST /v1/genui/retheme + genui.resolveRetheme tRPC procedure with the AUTHORITATIVE RethemeResolutionSchema web-boundary gate (known-pack enum + `.strict()` allowed-override-key object + per-key HSL/radius/spacing-density value-format regexes). Live-verified against real Bedrock (Docker down, IAM role reachable) — a live call surfaced a real malformed `radius:"high"` value, proving the web-boundary regex gate load-bearing; fixed via an improved system prompt, re-verified live. Zero migration, zero new dependency. See Phase 52 Plan 05 History below and `52-05-SUMMARY.md` for full detail. Phase 52 Plan 01 (data-layer substrate) and Phase 51's 51-07 Docker-stack blocker are UNCHANGED this session — see their own History sections / `51-07-SUMMARY.md`.
-Last activity: 2026-07-12 -- Phase 52-05 executed (PANL-04 server side — one-shot Bedrock retheme resolution + resolveRetheme tRPC web-boundary gate, all green, no migration — see 52-05-SUMMARY.md)
+Phase: 52 (Editable Genui Panels / Studio-on-Canvas) — Wave 1 plan 52-01 (Foundation substrate) EXECUTED; Plan 52-05 (PANL-04 server side) EXECUTED; Plan 52-02 (panel toolbar chrome + pack switch end-to-end) EXECUTED this session — 52-03/52-04/52-06 not yet started (52-06 depends on 52-05's tRPC procedure; 52-03/52-04 depend only on 52-01/52-02's contracts, independently startable). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
+Plan: Phase 52 — 3 of 6 have a SUMMARY.md (52-01, 52-02, 52-05). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
+Status: 52-02 executed — panel toolbar chrome + PANL-01 end-to-end: `PanelActionsToolbar` (`role="toolbar"` h-8 row, mutual-exclusion lock, generating-signal forwarding) mounted into `GenuiPanelNode` between the h-9 drag-handle row and `ScrollArea` (byte-unchanged drag-handle, `min-h-[272px]`, `GeneratingRing` shell); `PackSwitcher` delivers PANL-01 fully (optimistic apply, persist via `writeOverlay`/`scheduleSave`, revert-on-failure + `toast.error` with Retry, rehydrates on reload — proven by a seeded overlay themeing the panel with the correct `--primary` on first mount); 4 interface-first skeleton controls (edit/regenerate/re-theme/history) implement the full `PanelActionControlProps` contract, inert until Plans 52-03/52-04/52-06. `GenuiPanelNode` now resolves its ACTUAL rendered spec/pack via `resolveActivePanel` and wraps the genui_spec branch in `PanelThemeScope`. 7/7 new tests green; full `_canvas` regression suite (19 files/166 tests) green; typecheck clean outside the pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/token-registration gates green. Zero new dependency, zero migration. See Phase 52 Plan 02 History below and `52-02-SUMMARY.md` for full detail. Phase 52 Plans 01/05 and Phase 51's 51-07 Docker-stack blocker are UNCHANGED this session — see their own History sections / SUMMARY files.
+Last activity: 2026-07-11 -- Phase 52-02 executed (panel toolbar chrome + PANL-01 pack-switcher end-to-end, interface-first control skeletons — see 52-02-SUMMARY.md)
+
+## Phase 52 -- Editable Genui Panels / Studio-on-Canvas -- Plan 02 History -- panel toolbar chrome + PANL-01 end-to-end
+
+- **52-02 EXECUTED** (`9fa8c28` feat, `006b843` test, `5dfdd94` feat, `e9afcf7` feat):
+  Delivered the panel toolbar chrome (52-UI-SPEC Component 1) and PANL-01 end-to-end.
+  `panel-actions-toolbar.tsx`: `PanelActionsToolbar` — the `h-8` `role="toolbar"` row,
+  owns the per-panel mutual-exclusion lock (`busyAction`) shared via
+  `PanelActionControlProps.isLocked`/`onBusyChange`, `isStreaming` force-locks every
+  control, forwards `onGeneratingChange` up to the panel shell. `controls/pack-switcher.tsx`:
+  `PackSwitcher` — optimistic apply (local value updates immediately), persists via
+  `usePanelOverlay`'s `writeOverlay(setPack(overlay, id))` (the canvas's existing
+  `scheduleSave` debounce), reverts + `toast.error("Couldn't switch style — try again.",
+  { action: { label: "Retry", onClick } })` on a persist failure (modeled via an
+  injectable throwing `scheduleSave` — production's debounce never rejects a promise
+  to await). `controls/{edit-params,regenerate,retheme,version-history}-control.tsx` —
+  4 interface-first skeletons implementing the full `PanelActionControlProps` contract
+  (correct icon/tooltip/aria-label, inert `disabled`) for Plans 52-03/52-04/52-06.
+  `genui-panel-node.tsx`: `resolveActivePanel(overlay, specJson, isStreaming)` feeds the
+  genui_spec branch's ACTUAL content (active version if any, else base — streaming
+  always wins); wrapped in `PanelThemeScope(packId, tokenOverrides)`; toolbar mounted
+  between the h-9 drag-handle (byte-unchanged) and `ScrollArea`, ONLY for genui_spec
+  panels; shell `min-h-[240px]` → `min-h-[272px]`, wrapped in `GeneratingRing`. 7 new
+  tests (4 pack-switcher + 3 toolbar-wiring), all green; full `_canvas` suite (19
+  files/166 tests) reconfirmed green, no regressions; typecheck clean outside the
+  pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/
+  token-registration gates green. Task 2 (PackSwitcher) followed a genuine TDD RED
+  (2/4 assertions failed against Task 1's inert stub, not just a missing import) then
+  GREEN cycle. 4 deviations auto-fixed (2 Rule 3 blocking: PackSwitcher needed a stub
+  before Task 1's own typecheck could pass, and a shared icon-button-class module
+  extracted to avoid a toolbar<->controls circular import; 2 Rule 1 bugs: missing
+  `import * as React` — the same classic-JSX-runtime gotcha already documented in
+  canvas-store-context.tsx/panel-overlay-context.tsx — and `GeneratingRing`'s wrapper
+  needed full flex layout classes, not just the plan's literal `rounded-lg`, to avoid
+  breaking `ScrollArea`'s sizing one layout level deeper). PANL-01 was already marked
+  Complete by 52-01's frontmatter (data-layer half); this plan confirms the record is
+  now genuinely accurate end-to-end (the user-visible switcher exists, applies
+  immediately, persists, reverts on failure, rehydrates on reload) — no correction
+  needed. Live-canvas visual confirmation remains deferred to `.planning/MORNING-CHECKLIST.md`
+  §G per 52-CONTEXT.md's environment-constrained posture (Docker/WSL down this session).
+  See `52-02-SUMMARY.md` for full detail.
 
 ## Phase 52 -- Editable Genui Panels / Studio-on-Canvas -- Plan 05 History -- PANL-04 server side (one-shot Bedrock retheme resolution)
 
@@ -51,6 +91,7 @@ Last activity: 2026-07-12 -- Phase 52-05 executed (PANL-04 server side — one-s
   call (no repair loop, no screenshot judging, locked), reusing the existing
   `AsyncAnthropicBedrock` client; pure `build_retheme_messages` prompt-assembly helper
   (independently unit-tested). Wired `POST /v1/genui/retheme` (always 200, ApiResponse envelope)
+
   + dishka DI registration in `container.py`; new `GENUI_RETHEME_MAX_TOKENS=512` setting (Rule 2
   — not in the plan's files_modified list but required for correct operation). TS side:
   `genui.resolveRetheme` tRPC procedure (`retheme.ts`) proxies to FastAPI then re-validates with
@@ -2466,7 +2507,7 @@ User direction after v1.1: keep LOCAL + `/studio` sandbox (no deploy/convergence
 
 - **Resume file:** 
 
-.planning/phases/51-total-ui-re-skin/51-07-SUMMARY.md
+None
   col); resolution = **suggest-only, never auto** → **parallel BlendedRAG (dense HNSW + lexical
   pg_trgm exact/fuzzy) fused by RRF(k=60)**, on-confirm + re-runnable backfill, confirm writes back
   aliases (flywheel), reranker deferred, degrades to lexical-only without Bedrock. Gallery = table
@@ -3444,6 +3485,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 51 P06 | 5min | 2 tasks | 5 files |
 | Phase 51 P07 | 40min | 3 tasks | 1 files |
 | Phase 52 P01 | 20min | 3 tasks | 7 files |
+| Phase 52 P02 | 28min | 3 tasks | 10 files |
 
 ## Operator Next Steps
 
