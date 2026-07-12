@@ -29,6 +29,7 @@ from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
 from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTypeRepository
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
 from app.infrastructure.tools.search_knowledge_executor import SearchKnowledgeExecutor
+from app.infrastructure.tools.web_search_executor import WebSearchExecutor
 from app.settings import get_settings
 
 _PATCH_TARGET = "app.container.get_supabase_client"
@@ -207,4 +208,72 @@ class TestSearchKnowledgeExposureGate:
         finally:
             # Mirror conftest.py's before/after cache_clear pattern so later
             # tests are never polluted by the cached flag override.
+            get_settings.cache_clear()
+
+
+class TestWebSearchExposureGate:
+    """T-54-02-04 permanent CI guard: web_search's exposure is settings-driven, never dead code.
+
+    Mirrors `TestSearchKnowledgeExposureGate` exactly (37-CONTEXT.md's
+    "Exposure gating" P6 rule, applied here per 54-02-PLAN.md's
+    threat_model T-54-02-04): the executor + its full test suite (including
+    the adversarial fixture suite) exist regardless of the flag; only
+    container.py's production tool_executors/server_tool_defs wiring reads
+    it. This plan flips the default to True in the SAME run only after
+    `tests/evals/test_web_search_injection_suite.py` passes -- the flag
+    stays a REAL, working kill-switch either way.
+    """
+
+    def test_container_web_search_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("WEB_SEARCH_TOOL_ENABLED", raising=False)
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            executors = run_chat_turn._tool_executors
+            assert "web_search" in executors
+            assert isinstance(executors["web_search"], WebSearchExecutor)
+            tool_def = run_chat_turn._server_tool_defs["web_search"]
+            assert "query" in tool_def["input_schema"]["properties"]
+            # Additive, not a regression: Phase 36/37's wiring must stay intact.
+            assert "lookup_entity" in executors
+            assert "search_emails" in executors
+            assert "search_knowledge" in executors
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_web_search_can_be_disabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("WEB_SEARCH_TOOL_ENABLED", "false")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            assert "web_search" not in run_chat_turn._tool_executors
+            assert "web_search" not in run_chat_turn._server_tool_defs
+            # Additive, not a regression: Phase 36/37's wiring must stay intact.
+            assert "lookup_entity" in run_chat_turn._tool_executors
+            assert "search_emails" in run_chat_turn._tool_executors
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_web_search_enabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("WEB_SEARCH_TOOL_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            executors = run_chat_turn._tool_executors
+            assert "web_search" in executors
+            assert isinstance(executors["web_search"], WebSearchExecutor)
+            tool_def = run_chat_turn._server_tool_defs["web_search"]
+            assert "query" in tool_def["input_schema"]["properties"]
+            assert "lookup_entity" in executors
+            assert "search_emails" in executors
+        finally:
             get_settings.cache_clear()
