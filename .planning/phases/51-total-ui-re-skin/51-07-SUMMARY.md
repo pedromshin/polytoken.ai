@@ -270,3 +270,67 @@ the same toolbar row) is also resolved as a side effect — all three buttons in
 the same solid material. `51-UI-SPEC.md`'s "Confirmed exemplars to imitate" table still incorrectly
 lists `inbox-three-pane.tsx` as pre-converted; that spec-accuracy correction is out of scope for
 this fix (spec document, not source code) and is flagged here for a future doc pass.
+
+---
+
+## Addendum (2026-07-12): §G.3 E2E regression suite — Task 2 completed (Docker now available)
+
+Docker Desktop reached a ready state in this session (project_id=polytoken, all containers
+healthy, migration 0036 applied) — the blocker documented above under "Issues Encountered" no
+longer applies. This addendum executes the deferred Task 2 (E2E regression suite) that the
+2026-07-11 session couldn't reach.
+
+**Initial run** (`npx playwright test e2e/live-loop-green.spec.ts e2e/uat-39-tool-round.spec.ts
+e2e/uat-41-knowledge-preview.spec.ts e2e/uat-43-auth.spec.ts e2e/uat-45-threads.spec.ts
+e2e/uat-48-token-surfaces.spec.ts --reporter=line`) surfaced 7 failures (15 passed, 10
+cascaded-skip): `live-loop-green.spec.ts` (chromium+firefox), `uat-41-knowledge-preview.spec.ts`
+41.1 (chromium)/41.2 (firefox), `uat-43-auth.spec.ts` 43.2 (chromium), `uat-48-token-surfaces.spec.ts`
+48.1 (chromium+firefox).
+
+**Root-caused via `/gsd:debug`** (full investigation trail:
+`.planning/debug/resolved/e2e-regressions-51-07.md`) — **all 7 failures were e2e test-suite
+topology/contention bugs, ZERO were Phase 51/52/53/54 product regressions.** Bundling more spec
+files into one shared-local-stack run than the 2026-07-11 baseline (notably Phase 54's new
+`uat-45-threads.spec.ts`, adding 7 more `seedAuthenticatedContext` calls to the shared-seed-user
+contention budget) exposed four distinct pre-existing test-infra races:
+
+1. **Magic-link mint race** (`seed-session.ts`) — GoTrue invalidates a user's prior unconsumed
+   magic-link token the instant a new one is minted for the same email; every spec file
+   authenticates as the same `DEFAULT_SEED_EMAIL`, and file-level `serial` mode only prevented
+   INTRA-file races, never inter-file ones. Fixed with bounded retry (5 attempts, jittered
+   backoff) around `generateLink`+`verifyOtp`.
+2. **Inbox default-select race** (`live-loop-green.spec.ts`) — relied on "most recent email"
+   auto-selection instead of explicitly picking its own seeded thread; a sibling spec's
+   concurrent DB insert could win the "most recent" slot mid-test (confirmed: it landed on
+   `uat-45-threads.spec.ts`'s own fixture email). Fixed by explicitly clicking its own thread row
+   first, mirroring `uat-45-threads.spec.ts`'s established pattern.
+3. **Stale-role idempotency bug** (`uat-48-token-surfaces.spec.ts`) — the FIELD fixture
+   component's `ON CONFLICT DO UPDATE` omitted `role` from its SET list, leaving a stale
+   `role='entity'` value from an earlier DB state that could never self-correct (confirmed via
+   direct DB query), producing a duplicate-labeled entity treeitem. Fixed by adding
+   `role = 'field'` to the SET clause.
+4. **Global sign-out cross-contamination** (`uat-43-auth.spec.ts`) — the app's real sign-out
+   route calls `supabase.auth.signOut()` with the SDK's default `scope: "global"`, revoking
+   every session for that user, not just its own context. Since every spec shares
+   `DEFAULT_SEED_EMAIL`, running the 43.3 sign-out scenario globally signed out every other
+   concurrently-running test mid-flight (confirmed via GoTrue auth logs showing clustered
+   `session_not_found` 403s across multiple concurrent request_ids, and ruled out passive
+   session-limiting via a standalone refresh-token isolation script). Fixed by giving 43.3 its
+   own dedicated seed email — production sign-out semantics untouched (plausibly intentional
+   security behavior, out of scope to change on a test-topology finding alone).
+
+**Verification:** 2 consecutive full-suite re-runs, **32/32 passed both times** (up from 15
+passed / 7 failed / 10 cascaded-skip). No assertion was weakened or skipped to fake a pass —
+every fix addresses a confirmed root cause backed by direct evidence (DB queries, GoTrue auth
+logs, a standalone refresh-token isolation script, and cross-referencing a wrongly-navigated URL
+against a sibling spec's own fixture).
+
+**Commit:** `dec6402` — `fix(51-07): resolve 7 E2E regression-run failures (test-infra races, not product bugs)`
+
+**Files changed:** `apps/web/e2e/helpers/seed-session.ts`, `apps/web/e2e/live-loop-green.spec.ts`,
+`apps/web/e2e/uat-43-auth.spec.ts`, `apps/web/e2e/uat-48-token-surfaces.spec.ts` — all e2e
+test/fixture code; zero application source files touched.
+
+**Task 3 (16-surface screenshot re-capture) remains open** — out of scope for this debug session
+(a read-only visual-diff verification, not an E2E correctness question); still needs a dedicated
+re-run per the "Issues Encountered" section above.

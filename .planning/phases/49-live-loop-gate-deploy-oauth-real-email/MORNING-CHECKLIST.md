@@ -427,12 +427,18 @@ unresponsive, com.docker.service stopped — recovery needs elevation, so it's q
 2. **Bring the app stack up:** `./scripts/preflight-local.ps1` (then listener + web per
    docs/RUN-LOCAL.md).
 3. **Re-run the queued Phase-51 regression evidence (51-07 Tasks 2+3):**
-   - E2E suite: the six-spec Playwright run in `51-07-PLAN.md` `<verify>` (live-loop-green
-     + uat-39/41/43/45/48)
-   - Screenshot re-capture: `npm run screenshot:review` → fresh 16-surface run under
-     `.planning/ui-reviews/<ts>/`, compare against before-baseline
-     `.planning/ui-reviews/2026-07-11T04-32-30-989Z/`
-   These are execution-environment re-runs only — no code changes pending.
+   - [x] **E2E suite** — DONE 2026-07-12. The six-spec Playwright run in `51-07-PLAN.md`
+     `<verify>` (live-loop-green + uat-39/41/43/45/48) surfaced 7 failures on first run; all
+     root-caused via `/gsd:debug` as e2e test-suite topology/contention bugs (magic-link mint
+     race, inbox default-select race, a stale-role upsert bug, and cross-test global-sign-out
+     contamination) — **zero were Phase 51/52/53/54 product regressions**. Fixed and verified
+     green across 2 consecutive full-suite runs (32/32 passed both times). See
+     `.planning/debug/resolved/e2e-regressions-51-07.md` for the full investigation trail and
+     `51-07-SUMMARY.md`'s 2026-07-12 addendum for the roll-up. Commit `dec6402`.
+   - [ ] **Screenshot re-capture** — still open. `npm run screenshot:review` → fresh 16-surface
+     run under `.planning/ui-reviews/<ts>/`, compare against before-baseline
+     `.planning/ui-reviews/2026-07-11T04-32-30-989Z/`. This is an execution-environment re-run
+     only — no code changes pending.
 4. Any Phase 52–54 items marked "queued to §G" in their SUMMARYs follow the same pattern.
 5. **Phase-52 live-canvas confirmation (Editable Genui Panels / Studio-on-Canvas,
    PANL-01..04)** — added by Plan 52-06, consolidating the individual "queued to §G"

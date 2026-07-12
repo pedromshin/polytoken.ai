@@ -1,6 +1,6 @@
 # LIVE-01 local green-path DB-verification evidence
 
-Captured: 2026-07-11T02:08:24.885Z
+Captured: 2026-07-12T18:04:13.890Z
 
 ## Inbox
 Query: `SELECT id FROM threads WHERE id = $1 AND importer_id = $2`
@@ -11,7 +11,7 @@ Query: `SELECT e.id FROM emails e JOIN importers i ON i.id = e.importer_id WHERE
 Result: [{"id":"bbbbbbbb-2222-4bbb-8bbb-bbbbbbbbbbbb"}]
 
 ## Chat (conversation)
-Conversation id: d586bee0-e8c3-42ba-9923-d76e71eab7f9
+Conversation id: f5f9d8bb-0460-488f-a928-b7a5343d3e8a
 Query: `SELECT cre.id FROM chat_run_events cre JOIN chat_runs cr ON cr.id = cre.run_id WHERE cr.conversation_id = $1 AND cre.type = 'tool_call'`
 Result: hasToolCall=true
 Query: `SELECT cm.id FROM chat_messages cm WHERE cm.conversation_id = $1 AND EXISTS (SELECT 1 FROM jsonb_array_elements(cm.parts) elem WHERE elem->>'type' = 'genui_spec')`
