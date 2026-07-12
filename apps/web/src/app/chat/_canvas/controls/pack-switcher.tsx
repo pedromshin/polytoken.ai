@@ -8,14 +8,21 @@
  *
  * Optimistic apply, no confirmation step (52-CONTEXT.md): `onValueChange`
  * immediately sets the local pending value AND writes the new pack through
- * `usePanelOverlay`'s `writeOverlay(setPack(overlay, id))`, which persists
- * via the canvas's existing `scheduleSave` debounce (fire-and-forget — see
- * `use-canvas-persistence.ts`, which never resolves/rejects a promise this
- * component could await). Because of that, the REVERT-ON-FAILURE path is
- * modeled through `writeOverlay` itself throwing synchronously — the
- * injectable/spyable test seam the plan calls for: a test-supplied
- * `scheduleSave` that throws simulates "the persist surfaced an error"
- * without needing the live save (see `__tests__/pack-switcher.test.tsx`).
+ * `usePanelOverlay`'s `writeOverlay(setPack(overlay, id), onSaveError)`,
+ * which persists via the canvas's existing `scheduleSave` debounce
+ * (`use-canvas-persistence.ts` never resolves/rejects a promise this
+ * component could await, so `onSaveError` is a callback, not a promise
+ * rejection). Two distinct revert-on-failure signals both feed the SAME
+ * `revertAndToast`:
+ *   (a) `writeOverlay` itself throwing SYNCHRONOUSLY — the pre-existing
+ *       injectable/spyable test seam (a test-supplied `scheduleSave` that
+ *       throws) kept intact for the existing suite.
+ *   (b) `onSaveError` firing LATER, asynchronously, when the debounced
+ *       `chat.saveCanvasLayout` mutation genuinely fails over the network —
+ *       the REAL failure path 52-UI-REVIEW.md's #1 finding closes: before
+ *       this, a real persist failure was silent (no revert, no toast — only
+ *       the ambient `SaveStatusIndicator` ever saw it).
+ * (see `__tests__/pack-switcher.test.tsx`, both "persist failure" cases).
  */
 
 import * as React from "react";
@@ -68,12 +75,7 @@ export function PackSwitcher({
     setIsPending(true);
     onBusyChange(true);
 
-    try {
-      writeOverlay(setPack(overlay, nextId));
-      setIsPending(false);
-      onBusyChange(false);
-    } catch {
-      // Persist failure surrogate (see module doc) — revert + toast.
+    function revertAndToast(): void {
       setPendingPackId(priorId);
       setIsPending(false);
       onBusyChange(false);
@@ -83,6 +85,18 @@ export function PackSwitcher({
           onClick: () => applyPack(nextId, priorId),
         },
       });
+    }
+
+    try {
+      // `revertAndToast` doubles as the REAL async-failure handler: fires
+      // later, only if this write's debounced save genuinely fails (see
+      // module doc point (b)) — never on success, never synchronously.
+      writeOverlay(setPack(overlay, nextId), revertAndToast);
+      setIsPending(false);
+      onBusyChange(false);
+    } catch {
+      // Synchronous persist-failure test seam (module doc point (a)).
+      revertAndToast();
     }
   }
 

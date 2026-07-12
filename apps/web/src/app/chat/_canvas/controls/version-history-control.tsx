@@ -14,9 +14,16 @@
  *
  * Restore is supersede-never-mutate (`restoreVersion` APPENDS a clone of
  * the target version, it never rewinds/removes anything — panel-overlay.ts).
- * The persist-failure surrogate (`writeOverlay`/`scheduleSave` throwing
- * synchronously) mirrors `pack-switcher.tsx`'s identical test seam — the
- * SAME established pattern from Plan 52-02, not a new one.
+ * Two distinct persist-failure signals both feed the SAME `revertAndToast`
+ * (mirrors `pack-switcher.tsx`'s identical pattern, closing 52-UI-REVIEW.md's
+ * #1 finding):
+ *   (a) `writeOverlay`/`scheduleSave` throwing SYNCHRONOUSLY — the
+ *       pre-existing injectable test seam, kept intact.
+ *   (b) `writeOverlay`'s `onSaveError` firing LATER when the debounced
+ *       `chat.saveCanvasLayout` mutation genuinely fails — the REAL failure
+ *       path; before this, a real restore-persist failure never reverted
+ *       the busy state or toasted, it only flipped the ambient
+ *       `SaveStatusIndicator`.
  */
 
 import * as React from "react";
@@ -138,18 +145,26 @@ export function VersionHistoryControl({
     if (overlay === undefined) return;
     setRestoringId(versionId);
 
-    try {
-      writeOverlay(restoreVersion(overlay, versionId));
-      setRestoringId(null);
-      setOpen(false);
-      toast.success(RESTORE_SUCCESS_COPY);
-    } catch {
-      // Persist failure surrogate (mirrors pack-switcher.tsx) — stays open,
-      // offers Retry, never rewinds/removes anything either way (append-only).
+    function revertAndToast(): void {
+      // Stays open, offers Retry, never rewinds/removes anything either way
+      // (append-only) — mirrors pack-switcher.tsx's identical shape.
       setRestoringId(null);
       toast.error(RESTORE_ERROR_COPY, {
         action: { label: "Retry", onClick: () => handleRestore(versionId) },
       });
+    }
+
+    try {
+      // `revertAndToast` doubles as the REAL async-failure handler: fires
+      // later, only if this write's debounced save genuinely fails (module
+      // doc point (b)) — never on success, never synchronously.
+      writeOverlay(restoreVersion(overlay, versionId), revertAndToast);
+      setRestoringId(null);
+      setOpen(false);
+      toast.success(RESTORE_SUCCESS_COPY);
+    } catch {
+      // Synchronous persist-failure test seam (module doc point (a)).
+      revertAndToast();
     }
   }
 
