@@ -61,6 +61,22 @@ _TOOL_ROUND_MODEL = ChatModel(
     best_for="testing",
 )
 
+# A Bedrock-style model with BOTH genui and the round loop enabled -- mirrors
+# the real registry entries the live chat uses (emit_ui_spec AND web_search
+# offered in the same stream).
+_GENUI_TOOL_ROUND_MODEL = ChatModel(
+    id="test-genui-tool-round-model",
+    display_name="Test Genui Tool-Round Model",
+    transport="bedrock",
+    execution_locus="server",
+    price_in_per_mtok=3.0,
+    price_out_per_mtok=15.0,
+    capabilities=ChatModelCapabilities(
+        tools=True, genui=True, streaming=True, context_tokens=200_000, max_tool_rounds=4
+    ),
+    best_for="testing",
+)
+
 # An OpenRouter-style model -- max_tool_rounds defaults to 0 (T-34-05 gate).
 # genui=True here specifically so the gate test proves the max_tool_rounds
 # check in isolation (emit_ui_spec IS still offered; "echo" must NOT be) --
@@ -76,7 +92,7 @@ _OPENROUTER_MODEL = ChatModel(
     best_for="testing",
 )
 
-_TEST_MODELS = {model.id: model for model in (_TOOL_ROUND_MODEL, _OPENROUTER_MODEL)}
+_TEST_MODELS = {model.id: model for model in (_TOOL_ROUND_MODEL, _GENUI_TOOL_ROUND_MODEL, _OPENROUTER_MODEL)}
 
 _TEST_EMIT_UI_SPEC_TOOL: dict[str, Any] = {"name": "emit_ui_spec", "description": "test", "input_schema": {}}
 
@@ -407,6 +423,69 @@ async def test_server_tool_round_continues_streaming_within_single_run() -> None
     round_two_messages = provider.stream_calls[1]["messages"]
     round_two_content = str(round_two_messages)
     assert "tool_result" in round_two_content, "round 2 must see the native tool_result block fed back"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_genui_spec_lead_part_replayed_as_text_stand_in_never_raw() -> None:
+    """A genui_spec part finalized BEFORE a server-tool call in the same stream must be
+    replayed to the provider as the '[emitted UI spec: ...]' text stand-in, never as a
+    raw {'type': 'genui_spec'} block.
+
+    Live regression (2026-07-12): the model emitted a UI panel then called web_search in
+    one response; the raw genui_spec dict entered round 2's assistant message and Bedrock
+    400'd with \"Input tag 'genui_spec' ... does not match any of the expected tags\".
+    """
+    provider = _MultiRoundFakeChatProvider(
+        rounds=[
+            # Round 1: emit_ui_spec completes (finalized by the DIFFERENT-id delta
+            # that follows), then the model calls the echo server tool.
+            [
+                ToolCallDelta(tool_name="emit_ui_spec", id="tool-1", partial_json='{"type": "SpecRoot"}'),
+                ToolCallDelta(tool_name="echo", id="tool-2", partial_json='{"q": "hi"}'),
+                StreamEnd(stop_reason="tool_use"),
+            ],
+            # Round 2: plain text completion (SAME run).
+            [
+                TextDelta(text="Done!"),
+                StreamEnd(stop_reason="end_turn"),
+            ],
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()})
+
+    events = [
+        event
+        async for event in use_case.run(
+            conversation_id=_CONVERSATION_ID, user_text="research this", model_id=_GENUI_TOOL_ROUND_MODEL.id
+        )
+    ]
+
+    assert events[-1].type == "completed"
+    assert len(provider.stream_calls) == 2, "the server-tool round must still complete (one stream per round)"
+
+    round_two_messages = provider.stream_calls[1]["messages"]
+    assistant_blocks = [
+        block
+        for message in round_two_messages
+        if message["role"] == "assistant"
+        for block in message["content"]
+    ]
+    assert all(
+        block.get("type") != "genui_spec" for block in assistant_blocks
+    ), "a raw genui_spec block must NEVER reach the provider (Anthropic rejects unknown content tags)"
+    stand_ins = [
+        block
+        for block in assistant_blocks
+        if block.get("type") == "text" and block.get("text", "").startswith("[emitted UI spec:")
+    ]
+    assert stand_ins, "the spec must survive as the text stand-in (same conversion as history replay)"
+
+    # The persisted canonical part is UNCHANGED: still a real genui_spec part.
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant_messages = [m for m in messages.messages if m.role == "assistant"]
+    assert len(assistant_messages) == 1
+    assert any(p.get("type") == "genui_spec" for p in assistant_messages[0].parts)
 
 
 @pytest.mark.unit

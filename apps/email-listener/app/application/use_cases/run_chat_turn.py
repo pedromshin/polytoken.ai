@@ -1590,9 +1590,15 @@ class RunChatTurn:
             return _ServerRoundResult(state=state, events=tuple(events), provider_messages=None)
 
         tool_use_block = {"type": "tool_use", "id": tool_id, "name": tool_name, "input": arguments}
+        # this_round_lead_parts are CANONICAL parts (text | genui_spec |
+        # interactive_widget ...), not Anthropic content blocks — a genui_spec
+        # finalized before this server-tool call in the same stream would 400
+        # the next round ("Input tag 'genui_spec' ... does not match") if
+        # replayed raw. Same conversion as history replay.
+        lead_blocks = _provider_content_blocks(this_round_lead_parts)
         next_provider_messages = [
             *provider_messages,
-            {"role": "assistant", "content": [*this_round_lead_parts, tool_use_block]},
+            {"role": "assistant", "content": [*lead_blocks, tool_use_block]},
             build_synthetic_tool_result_message(result),
         ]
         return _ServerRoundResult(state=state, events=tuple(events), provider_messages=next_provider_messages)
