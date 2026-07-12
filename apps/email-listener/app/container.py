@@ -10,6 +10,7 @@ Registers:
 
 from __future__ import annotations
 
+import functools
 from collections.abc import Mapping
 
 import boto3
@@ -161,6 +162,7 @@ from app.infrastructure.supabase.supabase_cost_ledger_repository import Supabase
 from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
 from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
 from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
+from app.infrastructure.tools.duckduckgo_search_provider import DuckDuckGoSearchProvider
 from app.infrastructure.tools.lookup_entity_executor import (
     LOOKUP_ENTITY_TOOL_NAME,
     LookupEntityExecutor,
@@ -175,6 +177,12 @@ from app.infrastructure.tools.search_knowledge_executor import (
     SEARCH_KNOWLEDGE_TOOL_NAME,
     SearchKnowledgeExecutor,
     build_search_knowledge_tool,
+)
+from app.infrastructure.tools.web_search_executor import (
+    WEB_SEARCH_TOOL_NAME,
+    WebSearchExecutor,
+    build_web_search_tool,
+    fetch_page_via_httpx,
 )
 from app.settings import get_settings
 
@@ -728,6 +736,7 @@ def _provide_run_chat_turn(
     retrieval: RetrievalPort,
     components: ComponentRepository,
     email_repo: EmailRepository,
+    http_client: httpx.AsyncClient,
 ) -> RunChatTurn:
     """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
@@ -770,6 +779,17 @@ def _provide_run_chat_turn(
     `knowledge_repo` instance built above for search_knowledge is reused as
     RunChatTurn's `knowledge_graph` collaborator — `_finalize_confirm_action`'s
     live edge re-read at emission time.
+
+    Phase 54-02 (CLUS-03): web_search is built and fully tested (incl. its
+    own 10-fixture adversarial injection suite) but follows the SAME
+    exposure-gate discipline as search_knowledge — WEB_SEARCH_TOOL_ENABLED
+    structurally omits the web_search key from both mappings below unless
+    explicitly set true. Flipped to True in this same run because the
+    adversarial suite passed against the real wired executor. Reuses the
+    ALREADY-shared `http_client` singleton (D-07 seam, `_provide_httpx_client`)
+    for BOTH the DuckDuckGoSearchProvider's search step and
+    `fetch_page_via_httpx`'s page-fetch step — no second httpx client is
+    created.
     """
     settings = get_settings()
     resolution_repo = SupabaseEntityResolutionRepository(client=client)
@@ -788,6 +808,10 @@ def _provide_run_chat_turn(
     )
     knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
     search_knowledge_executor = SearchKnowledgeExecutor(knowledge=knowledge_repo, embedder=embedder)
+    web_search_executor = WebSearchExecutor(
+        provider=DuckDuckGoSearchProvider(client=http_client),
+        fetch_page=functools.partial(fetch_page_via_httpx, http_client),
+    )
     return RunChatTurn(
         messages=messages,
         runs=runs,
@@ -813,6 +837,7 @@ def _provide_run_chat_turn(
                 if settings.SEARCH_KNOWLEDGE_TOOL_ENABLED
                 else {}
             ),
+            **({WEB_SEARCH_TOOL_NAME: web_search_executor} if settings.WEB_SEARCH_TOOL_ENABLED else {}),
         },
         server_tool_defs={
             LOOKUP_ENTITY_TOOL_NAME: build_lookup_entity_tool(),
@@ -822,6 +847,7 @@ def _provide_run_chat_turn(
                 if settings.SEARCH_KNOWLEDGE_TOOL_ENABLED
                 else {}
             ),
+            **({WEB_SEARCH_TOOL_NAME: build_web_search_tool()} if settings.WEB_SEARCH_TOOL_ENABLED else {}),
         },
     )
 

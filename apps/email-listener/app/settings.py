@@ -159,6 +159,18 @@ class BaseAppSettings(BaseSettings):
     # mirrors ANTICIPATORY_PROMPTING_ENABLED's un-wrapped convention.
     SEARCH_KNOWLEDGE_TOOL_ENABLED: bool = True
 
+    # --- web_search exposure gate (Phase 54, CLUS-03, T-54-02-04) ---
+    # Same code-gated-exposure discipline as SEARCH_KNOWLEDGE_TOOL_ENABLED
+    # above: WebSearchExecutor + its full test suite (incl. the 10-fixture
+    # adversarial injection suite, tests/evals/test_web_search_injection_suite.py)
+    # exist regardless of this flag; only container.py's production wiring
+    # reads it. Flipped to True in THIS SAME execution run because the
+    # adversarial suite passed against the real wired executor (54-02-PLAN.md's
+    # exposure-gate rule, mirroring "Phase 38 flips the default after the
+    # adversarial fixture suite passes"). Plain bool field (no @property
+    # wrapper) -- mirrors SEARCH_KNOWLEDGE_TOOL_ENABLED's own convention.
+    WEB_SEARCH_TOOL_ENABLED: bool = True
+
     # --- Chat turn agent (Phase 22-06, SEAM-04) ---
     # Hard cap on generated tokens for a single chat turn (always set, no implicit
     # default — required by the ChatProvider.stream contract).

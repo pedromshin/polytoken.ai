@@ -15,12 +15,17 @@ Parameterized over 5 cases:
 
 Plus one companion test asserting the exact set of tool names resolvable
 from `container.py`'s real `create_container()` is
-`{"lookup_entity", "search_emails", "search_knowledge"}` -- documents WHY
-exactly 3, not N, executors are contract-tested (`EchoToolExecutor` is
-test-only and intentionally excluded per 38-CONTEXT.md). Mirrors
-`test_container.py`'s `TestSearchKnowledgeExposureGate`'s exact
+`{"lookup_entity", "search_emails", "search_knowledge", "web_search"}` --
+documents WHY exactly 4, not N, executors are contract-tested
+(`EchoToolExecutor` is test-only and intentionally excluded per
+38-CONTEXT.md). Mirrors `test_container.py`'s
+`TestSearchKnowledgeExposureGate`/`TestWebSearchExposureGate`'s exact
 `monkeypatch.setenv(...)` + `get_settings.cache_clear()` before/after
-pattern.
+pattern. `web_search`'s own envelope-contract proof (QUAR-01 applied to
+fetched-page content) lives in `tests/evals/test_web_search_injection_suite.py`
+-- not duplicated into this file's 3 "happy path" parameterized cases above,
+which predate Phase 54 and stay scoped to the original 3 tenant-data
+executors.
 
 Executors are constructed directly with hand-built fake collaborators
 (mirrors each executor's own test file's established pattern -- NOT
@@ -52,6 +57,7 @@ from app.domain.services.tool_envelope_gate import validate_tool_envelope
 from app.infrastructure.tools.lookup_entity_executor import LOOKUP_ENTITY_TOOL_NAME, LookupEntityExecutor
 from app.infrastructure.tools.search_emails_executor import SEARCH_EMAILS_TOOL_NAME, SearchEmailsExecutor
 from app.infrastructure.tools.search_knowledge_executor import SEARCH_KNOWLEDGE_TOOL_NAME, SearchKnowledgeExecutor
+from app.infrastructure.tools.web_search_executor import WEB_SEARCH_TOOL_NAME
 from app.settings import get_settings
 
 _IMPORTER_ID = "imp-0000-0000-0000-000000000001"
@@ -335,16 +341,17 @@ async def test_envelope_gate_contract(case_name: str, content_factory: _ContentF
 
 
 @pytest.mark.unit
-def test_container_resolves_exactly_the_three_real_tool_executors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_container_resolves_exactly_the_four_real_tool_executors(monkeypatch: pytest.MonkeyPatch) -> None:
     """EchoToolExecutor is test-only and intentionally excluded from this contract (38-CONTEXT.md).
 
-    Mirrors test_container.py's TestSearchKnowledgeExposureGate.
-    test_container_search_knowledge_enabled_via_flag's exact
-    monkeypatch.setenv(...) + get_settings.cache_clear() before/after
-    pattern -- forces search_knowledge into scope so all 3 real executors
-    are resolvable in one assertion.
+    Mirrors test_container.py's TestSearchKnowledgeExposureGate/
+    TestWebSearchExposureGate's exact monkeypatch.setenv(...) +
+    get_settings.cache_clear() before/after pattern -- forces both
+    search_knowledge and web_search into scope so all 4 real executors are
+    resolvable in one assertion (Phase 54-02 added web_search as the 4th).
     """
     monkeypatch.setenv("SEARCH_KNOWLEDGE_TOOL_ENABLED", "true")
+    monkeypatch.setenv("WEB_SEARCH_TOOL_ENABLED", "true")
     get_settings.cache_clear()
     try:
         with (
@@ -360,6 +367,7 @@ def test_container_resolves_exactly_the_three_real_tool_executors(monkeypatch: p
             LOOKUP_ENTITY_TOOL_NAME,
             SEARCH_EMAILS_TOOL_NAME,
             SEARCH_KNOWLEDGE_TOOL_NAME,
+            WEB_SEARCH_TOOL_NAME,
         }
     finally:
         get_settings.cache_clear()

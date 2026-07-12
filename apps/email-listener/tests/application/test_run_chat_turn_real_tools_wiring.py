@@ -308,10 +308,13 @@ def test_container_wires_both_real_tool_executors(monkeypatch: pytest.MonkeyPatc
     # This test is scoped to Phase 36's additive wiring proof (lookup_entity +
     # search_emails), independent of Phase 37/38's separate search_knowledge
     # exposure gate (tests/test_container.py's TestSearchKnowledgeExposureGate
-    # owns that assertion) -- explicitly force the flag off so this test's
-    # meaning stays stable regardless of SEARCH_KNOWLEDGE_TOOL_ENABLED's
-    # current default (Phase 38 flipped it to True).
+    # owns that assertion) and Phase 54's separate web_search exposure gate
+    # (tests/test_container.py's TestWebSearchExposureGate owns that one) --
+    # explicitly force BOTH flags off so this test's meaning stays stable
+    # regardless of either flag's current default (both flipped to True after
+    # their respective adversarial suites passed).
     monkeypatch.setenv("SEARCH_KNOWLEDGE_TOOL_ENABLED", "false")
+    monkeypatch.setenv("WEB_SEARCH_TOOL_ENABLED", "false")
     get_settings.cache_clear()
     try:
         with (
