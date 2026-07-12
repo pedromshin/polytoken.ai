@@ -333,7 +333,16 @@ the milestone's final acceptance gate
 6. Cluster context accumulates — artifacts from earlier chats in the cluster (genui panels, captured sources) are available as context to subsequent chats attached to the same thread
 7. The end-to-end scenario is proven live by the user on their real inbox: real thread → attached chat → web research with thread in context → sources captured → promotion confirmed → a follow-up chat sees the cluster context — the milestone's acceptance bar
 
-**Plans:** TBD
+**Plans:** 7 plans
+
+Plans:
+- [ ] 54-01-PLAN.md — Migration 0036 + thread<->conversation linkage tRPC seam (attach + threadId reads + emails.threadCard) (wave 1)
+- [ ] 54-02-PLAN.md — web_search ToolExecutor: SearchProvider port + SSRF-guarded fetch + adversarial fixtures + dark exposure gate (wave 1)
+- [ ] 54-03-PLAN.md — Source capture as INFERRED nodes + promotion reuse (wave 2)
+- [ ] 54-04-PLAN.md — EmailThreadNode + Add-thread popover + versioned node registry (wave 2)
+- [ ] 54-05-PLAN.md — Thread + cluster context assembly injection (bounded, quarantined) (wave 3)
+- [ ] 54-06-PLAN.md — ThreadClusterIndicator + clusterSummary + web_search tool-round copy (wave 3)
+- [ ] 54-07-PLAN.md — CLUS-07 live-acceptance §H runsheet in MORNING-CHECKLIST.md (wave 4)
 
 ## Next Two Epochs — the endgame map (LOCKED 2026-07-10)
 
