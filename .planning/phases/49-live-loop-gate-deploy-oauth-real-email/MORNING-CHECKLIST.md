@@ -536,6 +536,8 @@ Confirm all five before starting the scenario in H.4:
 
 ### H.2 Apply migration 0036 (local → staging → prod, in that order)
 
+> **DONE 2026-07-12** — 0036 applied + verified on LOCAL, STAGING (fyfwkjvbcrmjqjysdyqw), and PROD (dazyccjijdahxyciptkp): journal 36→37, thread_id column + idx_chat_conversations_thread_id + FK all present on each host. Management API path, fresh token.
+
 Migration 0036 (`packages/db/migrations/0036_chat_conversation_thread_id.sql`, authored by
 Plan 54-01) adds `chat_conversations.thread_id` — nullable `uuid`, `FOREIGN KEY` → `threads(id)
 ON DELETE SET NULL`, plus an index — additive-only, mirroring `emails.thread_id` (0035). It has
