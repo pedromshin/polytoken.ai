@@ -55,7 +55,6 @@ import { Button } from "@polytoken/ui/button";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
 import { api } from "~/trpc/react";
-import { EmptyState } from "~/components/empty-state";
 import { hrefFor } from "~/components/provenance-link";
 
 import { useCanvasPersistenceContext } from "./panel-overlay-context";
@@ -158,24 +157,38 @@ export const EmailThreadNode = memo(function EmailThreadNode({
             <Skeleton className="h-3 w-full" />
           </div>
         ) : query.isError ? (
-          <EmptyState
-            icon={AlertCircle}
-            tone="destructive"
-            layout="centered"
-            size="compact"
-            heading="Couldn't load this thread."
-            body="Try again, or open it from your inbox."
-            action={{ label: "Retry", onClick: () => void query.refetch() }}
-          />
+          // Compact, card-embedded error presentation (54-UI-REVIEW.md fix
+          // #1/#3) — deliberately NOT the shared `EmptyState` primitive:
+          // `EmptyState`'s "compact" recipe (icon + text-base heading +
+          // text-sm body + mt-6 default-variant Button, ~160px tall) needs
+          // more height than this node's fixed shell provides (148px gross
+          // body budget), and its `ActionButton` hardcodes
+          // `variant="default"` (`bg-primary`), which this phase's Color
+          // contract explicitly reserves for the selection ring only. This
+          // inline icon + one-line message + ghost-recipe Retry stays inside
+          // the ~90px it actually needs and never touches `--primary`.
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 px-1 text-center">
+            <AlertCircle className="size-5 shrink-0 text-destructive" aria-hidden />
+            <p className="text-xs text-muted-foreground">
+              Couldn&apos;t load this thread. Try again, or open it from your inbox.
+            </p>
+            <button
+              type="button"
+              onClick={() => void query.refetch()}
+              className="rounded-sm px-1.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+            >
+              Retry
+            </button>
+          </div>
         ) : query.data === null ? (
-          <EmptyState
-            icon={Mail}
-            tone="muted"
-            layout="centered"
-            size="compact"
-            heading="This thread is unavailable."
-            body="It may have been removed or is no longer accessible."
-          />
+          // Same compact recipe, no action (54-UI-REVIEW.md fix #1) — see
+          // the error branch's comment above for why this isn't `EmptyState`.
+          <div className="flex h-full flex-col items-center justify-center gap-1.5 px-1 text-center">
+            <Mail className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+            <p className="text-xs text-muted-foreground">
+              This thread is unavailable. It may have been removed or is no longer accessible.
+            </p>
+          </div>
         ) : query.data ? (
           <>
             <div className="flex min-w-0 items-center gap-2 text-xs text-muted-foreground">

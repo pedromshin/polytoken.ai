@@ -80,6 +80,10 @@ export function ThreadClusterIndicator({
     clusterSummaryQuery.data?.siblingChatCount ?? 0,
     clusterSummaryQuery.data?.capturedSourceCount ?? 0,
   );
+  // Mirrors `EmailThreadNode`'s `canOpenThread` guard (email-thread-node.tsx:102)
+  // byte-for-byte — the popover's "Open thread →" link must not navigate to
+  // "#" while `threadCardQuery.data` is still pending (54-UI-REVIEW.md fix #2).
+  const canOpenThread = threadCardQuery.data !== undefined && threadCardQuery.data !== null;
 
   return (
     <Popover>
@@ -87,7 +91,7 @@ export function ThreadClusterIndicator({
         <button
           type="button"
           aria-label={`Linked thread: ${subject}`}
-          className="flex max-w-[160px] items-center gap-1 rounded-sm px-1 text-xs text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          className="flex max-w-[160px] items-center gap-1 rounded-sm px-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           <Mail className="size-3 shrink-0 text-graph-email" aria-hidden />
           <span className="min-w-0 truncate max-w-[72px] sm:max-w-[140px]">{subject}</span>
@@ -103,7 +107,11 @@ export function ThreadClusterIndicator({
                 ? hrefFor("email", threadCardQuery.data.latestMessageId)
                 : "#"
             }
-            className="text-xs text-muted-foreground hover:text-accent-foreground"
+            aria-disabled={!canOpenThread}
+            onClick={(event) => {
+              if (!canOpenThread) event.preventDefault();
+            }}
+            className={`flex h-7 w-fit items-center gap-1 rounded-md px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:h-11 ${canOpenThread ? "" : "pointer-events-none opacity-50"}`}
           >
             Open thread →
           </Link>
