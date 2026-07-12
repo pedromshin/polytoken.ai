@@ -17,6 +17,11 @@ Behaviors:
       entering the envelope (DoS bound, truncate_field convention).
   7.  content is capped, valid JSON (cap_tool_output convention, mirrors the
       other 3 real executors).
+  8.  REGRESSION: 5 realistic near-max-length results (2 truncated fields each,
+      unlike the other executors' 1) must still serialize to a VALID, gate-passing
+      JSON envelope -- proves the running envelope-size budget stops adding
+      results before cap_tool_output's own whole-string slice would ever need
+      to cut mid-JSON (found live during this plan's own network smoke test).
 """
 
 from __future__ import annotations
@@ -213,6 +218,41 @@ async def test_content_is_capped_and_valid_json() -> None:
     assert isinstance(parsed, dict)
     assert "results" in parsed
     assert len(result.content) <= MAX_TOOL_OUTPUT_CHARS + len(" …[truncated]")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_five_realistic_near_max_length_results_still_serialize_to_valid_gate_passing_json() -> None:
+    """Regression: unlike the other 3 executors (1 truncated field/result), web_search truncates
+    TWO fields (title + a real fetched-page snippet) per result -- at 5 results with near-max-length
+    fields the naive whole-envelope `cap_tool_output` slice would cut mid-JSON. The running
+    envelope-size budget must stop adding results before that happens, never producing invalid JSON.
+    """
+    urls = [
+        "https://93.184.216.34/page-a",
+        "https://1.1.1.1/page-b",
+        "https://8.8.8.8/page-c",
+        "https://8.8.4.4/page-d",
+        "https://9.9.9.9/page-e",
+    ]
+    long_title = "Realistic Long Page Title About A Topic " * 3
+    long_page = "<html><body><p>" + ("Real fetched page content sentence. " * 40) + "</p></body></html>"
+    hits = [SearchResult(title=long_title, url=url, snippet="provider snippet ignored") for url in urls]
+    provider = _make_provider(hits=hits)
+    fetch_page = _make_fetch_page(dict.fromkeys(urls, long_page))
+    executor = WebSearchExecutor(provider=provider, fetch_page=fetch_page)
+
+    result = await executor.execute(name="web_search", arguments={"query": "test"}, importer_id=_IMPORTER_ID)
+
+    assert result.is_error is False
+    # The critical assertion: this must not raise -- a mid-JSON truncation would fail json.loads.
+    envelope = json.loads(result.content)
+    assert isinstance(envelope["results"], list)
+    assert len(envelope["results"]) >= 1, "the budget must allow at least one real result through"
+    assert len(envelope["results"]) <= 5
+    gate = validate_tool_envelope(result.content)
+    assert gate.ok is True, f"5-result realistic envelope failed the gate: {gate.reason}"
+    assert len(result.content) <= MAX_TOOL_OUTPUT_CHARS
 
 
 @pytest.mark.unit
