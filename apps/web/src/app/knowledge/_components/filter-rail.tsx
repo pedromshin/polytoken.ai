@@ -21,8 +21,12 @@ import { Switch } from "@polytoken/ui/switch";
 // Constants
 // ---------------------------------------------------------------------------
 
-/** Node types displayed in the filter rail — order matches UI-SPEC. */
-const NODE_TYPE_ROWS = [
+/**
+ * Node types displayed in the filter rail — order matches UI-SPEC.
+ * Exported (53-06-PLAN.md Task 1) so `KnowledgeMobileList` reuses the EXACT
+ * facet data + dotClass recipe — no second vocabulary, no redesign.
+ */
+export const NODE_TYPE_ROWS = [
   {
     type: "entity_type" as const,
     label: "Entity Types",
