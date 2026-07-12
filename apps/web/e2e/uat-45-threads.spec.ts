@@ -34,7 +34,7 @@
 
 import path from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { config as loadDotenv } from "dotenv";
 
 import { seedAuthenticatedContext } from "./helpers/seed-session";
@@ -60,6 +60,22 @@ function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/**
+ * 53-03 (MOBL-02): `inbox-three-pane.tsx` now renders a SECOND, CSS-hidden
+ * mobile stack alongside the desktop three-pane — both trees mount into the
+ * DOM simultaneously (`hidden md:block` / `md:hidden`), only one is
+ * `display:none` per viewport. `page.getByRole(...)` locators already
+ * exclude `display:none` elements via the accessibility tree, but a plain
+ * tag/class-based locator like `page.locator("button")` does not — it
+ * matches BOTH trees' identical rows, breaking Playwright's strict-mode
+ * single-match requirement. Scope those locators to the desktop pane
+ * (Playwright's default viewport is >=768px, so the desktop tree is the
+ * one actually visible) so they keep resolving to exactly one element.
+ */
+function desktopPane(page: Page): Locator {
+  return page.locator('[class="hidden h-full md:block"]');
+}
+
 async function assertNotLoginUrl(page: Page): Promise<void> {
   await expect(page).not.toHaveURL(/\/login(\?|$)/);
 }
@@ -81,7 +97,9 @@ test.describe("UAT 45: thread-grouped inbox (seeded session, DB/DOM-verified)", 
     // with the collapsed summary row (it IS the latest member), so a
     // role="button" accessible-name query would match BOTH once expanded;
     // scoping to the literal `button` tag resolves ONLY the summary trigger.
-    const threadButton = page.locator("button").filter({ hasText: fixtures.threadLatestSubject });
+    const threadButton = desktopPane(page)
+      .locator("button")
+      .filter({ hasText: fixtures.threadLatestSubject });
     await expect(threadButton).toBeVisible({ timeout: 20_000 });
 
     // The collapsed summary row shows the LATEST member's subject + a count
@@ -118,7 +136,9 @@ test.describe("UAT 45: thread-grouped inbox (seeded session, DB/DOM-verified)", 
     // See 45.1's comment: scope to the literal `button` tag so this never
     // collides with the LATEST member's InboxRow (a `div[role=button]`) once
     // expanded — they share the same subject text.
-    const threadButton = page.locator("button").filter({ hasText: fixtures.threadLatestSubject });
+    const threadButton = desktopPane(page)
+      .locator("button")
+      .filter({ hasText: fixtures.threadLatestSubject });
     await expect(threadButton).toBeVisible({ timeout: 20_000 });
 
     // Collapsed by default: aria-expanded=false, chevron not rotated.
@@ -199,8 +219,12 @@ test.describe("UAT 45: thread-grouped inbox (seeded session, DB/DOM-verified)", 
     await page.goto("/");
     await assertNotLoginUrl(page);
 
-    // See 45.1's comment on why this is scoped to the literal `button` tag.
-    const threadButton = page.locator("button").filter({ hasText: fixtures.threadLatestSubject });
+    // See 45.1's comment on why this is scoped to the literal `button` tag
+    // (and desktopPane()'s doc comment on why it's ALSO scoped to the
+    // desktop pane, post-53-03).
+    const threadButton = desktopPane(page)
+      .locator("button")
+      .filter({ hasText: fixtures.threadLatestSubject });
     await expect(threadButton).toBeVisible({ timeout: 20_000 });
 
     // Badge variant="secondary" -> badgeVariants' secondary class includes
