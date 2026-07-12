@@ -182,6 +182,7 @@ function EditParamField({ field, value, error, onChange }: EditParamFieldProps):
       {field.kind === "string" && (
         <Input
           id={fieldId}
+          className="text-xs"
           value={value}
           maxLength={field.max}
           onChange={(event) => onChange(event.target.value)}
@@ -190,6 +191,7 @@ function EditParamField({ field, value, error, onChange }: EditParamFieldProps):
       {field.kind === "text" && (
         <Textarea
           id={fieldId}
+          className="text-xs"
           rows={3}
           value={value}
           maxLength={field.max}
@@ -198,7 +200,7 @@ function EditParamField({ field, value, error, onChange }: EditParamFieldProps):
       )}
       {field.kind === "enum" && (
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger id={fieldId} aria-label={label} className="h-9 w-full">
+          <SelectTrigger id={fieldId} aria-label={label} className="h-9 w-full text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -213,6 +215,7 @@ function EditParamField({ field, value, error, onChange }: EditParamFieldProps):
       {field.kind === "number" && (
         <Input
           id={fieldId}
+          className="text-xs"
           type="number"
           min={field.min}
           max={field.max}

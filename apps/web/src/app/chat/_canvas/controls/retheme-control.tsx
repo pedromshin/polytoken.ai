@@ -149,6 +149,7 @@ export function RethemeControl({
         )}
         <div className="space-y-1">
           <Textarea
+            className="text-xs"
             rows={3}
             maxLength={INSTRUCTION_MAX_LENGTH}
             readOnly={isPending}
