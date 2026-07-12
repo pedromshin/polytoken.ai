@@ -1091,23 +1091,32 @@ class RunChatTurn:
         """Re-read a web_search result server-side by its {toolUseId}:{index} id (Phase 54-03, T-54-03-01).
 
         Never trusts model-authored title/url/snippet text — only the id (a
-        lookup key into an ALREADY-persisted tool_invocation_result part)
-        comes from the model. A malformed id, an unresolvable toolUseId, an
-        out-of-range index, or a foreign (cross-conversation) result all
-        collapse into the SAME CONFIRM_ACTION_UNAVAILABLE_TEXT (T-54-03-03 —
-        no leak of which case). `retrievedAt` is stamped fresh at THIS
-        re-read (server time, never model-supplied).
+        lookup key into a server-recorded tool_invocation_result part) comes
+        from the model. The CURRENT turn's accumulated parts are scanned
+        FIRST — the designed flow is search-then-propose in ONE turn, and at
+        finalize time this turn's assistant message is not yet persisted
+        (found live 2026-07-12: the history-only lookup made every same-turn
+        capture collapse into 'unavailable', deadlocking CLUS-04 — prior-turn
+        refs are impossible too, since replay stand-ins omit tool ids).
+        Persisted history remains the fallback. A malformed id, an
+        unresolvable toolUseId, an out-of-range index, or a foreign
+        (cross-conversation) result all collapse into the SAME
+        CONFIRM_ACTION_UNAVAILABLE_TEXT (T-54-03-03 — no leak of which case).
+        `retrievedAt` is stamped fresh at THIS re-read (server time, never
+        model-supplied).
         """
         source: dict[str, object] | None = None
         ref = parse_source_capture_result_id(parsed["id"])
         if ref is not None:
             tool_use_id, index = ref
-            try:
-                history = await self._messages.list_active_context(conversation_id)
-            except Exception:  # fail-closed, never crash the turn on a DB hiccup
-                logger.warning("confirm_action_source_capture_lookup_failed", tool_id=tool_id)
-                history = []
-            source = _find_web_search_result(history, tool_use_id=tool_use_id, index=index)
+            source = _find_web_search_result_in_parts(cleared.parts, tool_use_id=tool_use_id, index=index)
+            if source is None:
+                try:
+                    history = await self._messages.list_active_context(conversation_id)
+                except Exception:  # fail-closed, never crash the turn on a DB hiccup
+                    logger.warning("confirm_action_source_capture_lookup_failed", tool_id=tool_id)
+                    history = []
+                source = _find_web_search_result(history, tool_use_id=tool_use_id, index=index)
 
         if source is None:
             logger.warning("confirm_action_source_capture_unavailable", tool_id=tool_id, suggestion_id=parsed["id"])
@@ -1741,40 +1750,50 @@ def _flush_text_buffer(state: _TurnState) -> _TurnState:
     return replace(state, parts=(*state.parts, {"type": "text", "text": state.text_buffer}), text_buffer="")
 
 
+def _find_web_search_result_in_parts(
+    parts: Sequence[dict[str, Any]], *, tool_use_id: str, index: int
+) -> dict[str, object] | None:
+    """Scan one sequence of canonical parts for the web_search result matching tool_use_id.
+
+    Pure w.r.t. its arguments (Phase 54-03, CLUS-04). Returns a
+    `{url, title, retrievedAt}` dict built from the SERVER-recorded result
+    content — never model free text (T-54-03-01). None (fail-closed) when no
+    matching part exists, the part's content isn't a string, or
+    `extract_web_search_result` can't resolve `index` inside it (out of
+    range / malformed).
+    """
+    for part in parts:
+        if (
+            part.get("type") == "tool_invocation_result"
+            and part.get("toolName") == _WEB_SEARCH_TOOL_NAME
+            and part.get("toolUseId") == tool_use_id
+        ):
+            content = part.get("content")
+            if not isinstance(content, str):
+                return None
+            entry = extract_web_search_result(content, index)
+            if entry is None:
+                return None
+            url = entry.get("url")
+            if not isinstance(url, str) or not url:
+                return None
+            title = entry.get("title")
+            return {
+                "url": url,
+                "title": title if isinstance(title, str) and title else url,
+                "retrievedAt": datetime.now(UTC).isoformat(),
+            }
+    return None
+
+
 def _find_web_search_result(
     history: Sequence[ChatMessage], *, tool_use_id: str, index: int
 ) -> dict[str, object] | None:
-    """Scan `history` for the persisted web_search tool_invocation_result part matching tool_use_id.
-
-    Pure w.r.t. its arguments (Phase 54-03, CLUS-04). Returns a
-    `{url, title, retrievedAt}` dict built from the ALREADY-server-persisted
-    result content — never model free text (T-54-03-01). None (fail-closed)
-    when no matching part exists in this conversation, the part's content
-    isn't a string, or `extract_web_search_result` can't resolve `index`
-    inside it (out of range / malformed).
-    """
+    """Scan persisted `history` messages for the web_search result matching tool_use_id."""
     for message in history:
-        for part in message.parts:
-            if (
-                part.get("type") == "tool_invocation_result"
-                and part.get("toolName") == _WEB_SEARCH_TOOL_NAME
-                and part.get("toolUseId") == tool_use_id
-            ):
-                content = part.get("content")
-                if not isinstance(content, str):
-                    return None
-                entry = extract_web_search_result(content, index)
-                if entry is None:
-                    return None
-                url = entry.get("url")
-                if not isinstance(url, str) or not url:
-                    return None
-                title = entry.get("title")
-                return {
-                    "url": url,
-                    "title": title if isinstance(title, str) and title else url,
-                    "retrievedAt": datetime.now(UTC).isoformat(),
-                }
+        found = _find_web_search_result_in_parts(message.parts, tool_use_id=tool_use_id, index=index)
+        if found is not None:
+            return found
     return None
 
 

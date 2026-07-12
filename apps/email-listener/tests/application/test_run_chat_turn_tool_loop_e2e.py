@@ -24,6 +24,7 @@ plan deviation note -- avoids cross-file test coupling).
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 from typing import Any
 
@@ -564,6 +565,68 @@ async def test_parallel_server_calls_beyond_per_round_cap_get_error_results() ->
         p for p in parts if p["type"] == "tool_invocation_result" and p["isError"] is True
     ]
     assert len(overflow_results) == 1
+
+
+class _FakeWebSearchExecutor:
+    """A web_search ToolExecutor double returning one envelope-valid result."""
+
+    async def execute(self, *, name: str, arguments: dict[str, Any], importer_id: str) -> ToolExecutionResult:
+        del name, arguments, importer_id
+        content = json.dumps(
+            {"mode": "web_search", "results": [{"title": "Levels.fyi AI Engineer", "url": "https://l.fyi/ai"}]}
+        )
+        return ToolExecutionResult(tool_use_id="ignored", content=content, is_error=False)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_same_turn_source_capture_resolves_current_round_result() -> None:
+    """A source_capture ref to THIS turn's own web_search call must resolve into a
+    confirm-action widget — not CONFIRM_ACTION_UNAVAILABLE_TEXT.
+
+    Live regression (2026-07-12, CLUS-04 deadlock): the finalize looked up the
+    {toolUseId}:{index} ref in PERSISTED history only, but the current turn's
+    assistant message is not persisted until after the finalize — so the exact
+    search-then-propose flow the tool description prescribes always collapsed
+    into 'unavailable'.
+    """
+    provider = _MultiRoundFakeChatProvider(
+        rounds=[
+            [
+                ToolCallDelta(tool_name="web_search", id="tool-ws", partial_json='{"query": "salaries"}'),
+                StreamEnd(stop_reason="tool_use"),
+            ],
+            [
+                ToolCallDelta(
+                    tool_name="emit_confirm_action",
+                    id="tool-ca",
+                    partial_json='{"suggestionRef": {"kind": "source_capture", "id": "tool-ws:0"}}',
+                ),
+                StreamEnd(stop_reason="end_turn"),
+            ],
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider, tool_executors={"web_search": _FakeWebSearchExecutor()})
+
+    events = [
+        event
+        async for event in use_case.run(
+            conversation_id=_CONVERSATION_ID, user_text="search and capture", model_id=_TOOL_ROUND_MODEL.id
+        )
+    ]
+
+    assert events[-1].type == "completed"
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    parts = next(m for m in messages.messages if m.role == "assistant").parts
+    widget_parts = [p for p in parts if p.get("type") == "interactive_widget"]
+    assert len(widget_parts) == 1, "the capture proposal must finalize into a confirm-action widget"
+    assert widget_parts[0]["widgetKind"] == "confirm_action"
+    declaration = json.dumps(widget_parts[0]["declaration"])
+    assert "https://l.fyi/ai" in declaration, "the declaration must carry the SERVER-recorded url"
+    assert not any(
+        p.get("type") == "text" and "no longer available" in p.get("text", "") for p in parts
+    ), "the same-turn ref must never collapse into CONFIRM_ACTION_UNAVAILABLE_TEXT"
 
 
 @pytest.mark.unit
