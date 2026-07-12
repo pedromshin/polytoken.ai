@@ -471,3 +471,19 @@ unresponsive, com.docker.service stopped — recovery needs elevation, so it's q
       first real-browser exercise of PANL-01..04.
    These are execution-environment re-runs/first-live-verifications only — no code
    changes pending from Plans 52-02 through 52-06 unless this pass finds a real bug.
+
+### §G item 6 — Phase-53 mobile-responsive live confirmation (added post-verification)
+
+With the stack up (§G.1-2), confirm on a real mobile viewport (DevTools device mode at
+360/390/414px widths, or a phone):
+- /chat renders the inline feed below 768px (NO canvas mounted), conversation rail opens as
+  a left Sheet, composer usable; desktop ≥768px unchanged (2D canvas)
+- /knowledge renders the node list + full-width detail Sheet below 768px (no graph mount);
+  desktop unchanged
+- Inbox collapses to single-pane master→detail with a working back bar; /emails/[id] panels
+  open via the two md:hidden toolbar triggers (Layers / Inspector sheets)
+- No horizontal overflow on login → inbox → thread → email detail → chat at 360px
+- Touch targets ≥44px (sidebar trigger, back bar, chip bar, panel-toolbar buttons under
+  pointer-coarse)
+Note: Playwright viewport specs were NOT authored (plans scoped them optional) — this item
+is the manual sweep; author specs later if you want the regression locked in CI.
