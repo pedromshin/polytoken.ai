@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: verifying
-last_updated: "2026-07-12T01:34:11.963Z"
-last_activity: 2026-07-12 -- Phase 52-05 executed (PANL-04 server side — one-shot Bedrock retheme resolution + resolveRetheme tRPC web-boundary gate, all green, no migration — see 52-05-SUMMARY.md)
+status: "52-03 executed — PANL-02 bounded param editor + server FOUND-6 gate: `panel-edit-schema.ts` (the one client/server whitelist, pure+DB-free) + `genui.applyPanelEdit` (`protectedProcedure`, `.mutation()`, re-validates `currentSpecJson` and the patched result via `SpecRootSchema.safeParse`) + `edit-params-control.tsx` (replaces Plan 52-02's inert skeleton — bounded field rows, save appends an `edit` version, server rejection banner preserves typed values, empty-whitelist root disables the button). 20 new api-client tests + 5 new web tests green (both TDD tasks genuinely RED-then-GREEN); full `_canvas` regression suite (20 files/171 tests) green; typecheck clean outside the pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/token-registration gates green. Zero new dependency, zero migration. See Phase 52 Plan 03 History below and `52-03-SUMMARY.md` for full detail. Phase 52 Plans 01/02/05 and Phase 51's 51-07 Docker-stack blocker are UNCHANGED this session — see their own History sections / SUMMARY files."
+last_updated: "2026-07-12T02:12:34.017Z"
+last_activity: 2026-07-11 -- Phase 52-03 executed (PANL-02 bounded param editor + server FOUND-6 gate — see 52-03-SUMMARY.md)
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 24
-  completed_plans: 20
+  completed_plans: 21
   percent: 33
 ---
 
@@ -29,10 +29,51 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 52 (Editable Genui Panels / Studio-on-Canvas) — Wave 1 plan 52-01 (Foundation substrate) EXECUTED; Plan 52-05 (PANL-04 server side) EXECUTED; Plan 52-02 (panel toolbar chrome + pack switch end-to-end) EXECUTED this session — 52-03/52-04/52-06 not yet started (52-06 depends on 52-05's tRPC procedure; 52-03/52-04 depend only on 52-01/52-02's contracts, independently startable). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
-Plan: Phase 52 — 3 of 6 have a SUMMARY.md (52-01, 52-02, 52-05). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
-Status: 52-02 executed — panel toolbar chrome + PANL-01 end-to-end: `PanelActionsToolbar` (`role="toolbar"` h-8 row, mutual-exclusion lock, generating-signal forwarding) mounted into `GenuiPanelNode` between the h-9 drag-handle row and `ScrollArea` (byte-unchanged drag-handle, `min-h-[272px]`, `GeneratingRing` shell); `PackSwitcher` delivers PANL-01 fully (optimistic apply, persist via `writeOverlay`/`scheduleSave`, revert-on-failure + `toast.error` with Retry, rehydrates on reload — proven by a seeded overlay themeing the panel with the correct `--primary` on first mount); 4 interface-first skeleton controls (edit/regenerate/re-theme/history) implement the full `PanelActionControlProps` contract, inert until Plans 52-03/52-04/52-06. `GenuiPanelNode` now resolves its ACTUAL rendered spec/pack via `resolveActivePanel` and wraps the genui_spec branch in `PanelThemeScope`. 7/7 new tests green; full `_canvas` regression suite (19 files/166 tests) green; typecheck clean outside the pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/token-registration gates green. Zero new dependency, zero migration. See Phase 52 Plan 02 History below and `52-02-SUMMARY.md` for full detail. Phase 52 Plans 01/05 and Phase 51's 51-07 Docker-stack blocker are UNCHANGED this session — see their own History sections / SUMMARY files.
-Last activity: 2026-07-11 -- Phase 52-02 executed (panel toolbar chrome + PANL-01 pack-switcher end-to-end, interface-first control skeletons — see 52-02-SUMMARY.md)
+Phase: 52 (Editable Genui Panels / Studio-on-Canvas) — Wave 1 plan 52-01 (Foundation substrate) EXECUTED; Plan 52-05 (PANL-04 server side) EXECUTED; Plan 52-02 (panel toolbar chrome + pack switch end-to-end) EXECUTED; Plan 52-03 (PANL-02 bounded param editor + server FOUND-6 gate) EXECUTED this session — 52-04/52-06 not yet started (52-06 depends on 52-05's tRPC procedure; 52-04 depends only on 52-01/52-02's contracts, independently startable). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
+Plan: Phase 52 — 4 of 6 have a SUMMARY.md (52-01, 52-02, 52-03, 52-05). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
+Status: 52-03 executed — PANL-02 bounded param editor + server FOUND-6 gate: `panel-edit-schema.ts` (the one client/server whitelist, pure+DB-free) + `genui.applyPanelEdit` (`protectedProcedure`, `.mutation()`, re-validates `currentSpecJson` and the patched result via `SpecRootSchema.safeParse`) + `edit-params-control.tsx` (replaces Plan 52-02's inert skeleton — bounded field rows, save appends an `edit` version, server rejection banner preserves typed values, empty-whitelist root disables the button). 20 new api-client tests + 5 new web tests green (both TDD tasks genuinely RED-then-GREEN); full `_canvas` regression suite (20 files/171 tests) green; typecheck clean outside the pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/token-registration gates green. Zero new dependency, zero migration. See Phase 52 Plan 03 History below and `52-03-SUMMARY.md` for full detail. Phase 52 Plans 01/02/05 and Phase 51's 51-07 Docker-stack blocker are UNCHANGED this session — see their own History sections / SUMMARY files.
+Last activity: 2026-07-11 -- Phase 52-03 executed (PANL-02 bounded param editor + server FOUND-6 gate — see 52-03-SUMMARY.md)
+
+## Phase 52 -- Editable Genui Panels / Studio-on-Canvas -- Plan 03 History -- PANL-02 bounded param editor + server FOUND-6 gate
+
+- **52-03 EXECUTED** (`4c4687d` test, `19001e0` feat, `fcf3d1b` test, `86e0648` feat, `66a57cd` feat):
+  Delivered PANL-02 end-to-end: bounded, schema-driven spec-parameter editing gated
+  server-side by the same untrusted-input pattern as FOUND-6. `panel-edit-schema.ts`
+  (pure, DB-free): `PANEL_EDIT_FIELDS` maps card/section/stack/grid root types to bounded
+  field descriptors; `PanelEditParamsSchema` (`.strict()`) is the union of every
+  whitelisted key; `applyWhitelistedParams` patches ONLY whitelisted root attrs
+  immutably then re-validates via `SpecRootSchema.safeParse` before returning `ok:true` —
+  a param not valid for the given root type is silently ignored, never applied.
+  `genui.applyPanelEdit` (`protectedProcedure`, `.mutation()`, no FastAPI call): parses +
+  re-validates `currentSpecJson`, applies the whitelist, re-validates the result; malformed
+  JSON / invalid base / a failed re-validation all degrade to the same friendly
+  `{ ok:false, reason }` with raw errors logged server-side only. `edit-params-control.tsx`
+  replaces Plan 52-02's inert skeleton: computes `editableFieldsFor(root.type)` from the
+  panel's active spec (an empty-whitelist root like `text` disables the button with "This
+  panel has no editable parameters"); renders one field row per 52-UI-SPEC's field-type
+  mapping seeded from the current value; Save calls `applyPanelEdit`, on success appends an
+  `edit` version via `appendVersion` and closes, on failure shows the exact banner copy
+  "Couldn't save these changes — check the highlighted fields." with typed values preserved
+  (no partial apply). Added `@polytoken/api-client`'s `./genui/panel-edit-schema` export
+  subpath (mirrors the existing `./chat-canvas` precedent) so client and server import the
+  SAME whitelist module. 20 api-client tests (13 schema + 7 procedure) + 5 web tests, all
+  green; both TDD tasks (Task 1 schema, Task 2 procedure) followed a genuine RED
+  (module-not-found / "No procedure found on path") then GREEN cycle; full `_canvas`
+  regression suite (20 files/171 tests) reconfirmed green; typecheck clean outside the
+  pre-existing `app/dev/design/` scratch exclusion; palette-ban/token-contrast/
+  token-registration gates green. 3 deviations auto-fixed (2 Rule 3 blocking: a stale
+  gitignored `packages/api-client/dist/index.d.ts` predating even 52-05's `resolveRetheme`
+  broke `apps/web`'s typecheck resolution for the new procedure until rebuilt via
+  `npm run build -w @polytoken/api-client`, and the new `./genui/panel-edit-schema` export
+  subpath itself was required since apps/web cannot deep-import router internals; 1 Rule 1
+  bug: `genui-panel-node-toolbar.test.tsx`'s `~/trpc/react` mock from Plan 52-02 needed
+  `genui.applyPanelEdit.useMutation` stubbed once the real, no-longer-inert
+  `EditParamsControl` mounted inside the toolbar it renders). PANL-02 marked Complete per
+  this plan's own frontmatter `requirements` field. Live-canvas confirmation (open a
+  card/grid panel, edit a param, save, confirm re-render) remains AUTHORED-BUT-NOT-RUN —
+  Docker/WSL down this session — queued to `MORNING-CHECKLIST.md` §G's existing
+  Phase-52-54 catch-all (no separate edit needed to that file). See `52-03-SUMMARY.md` for
+  full detail.
 
 ## Phase 52 -- Editable Genui Panels / Studio-on-Canvas -- Plan 02 History -- panel toolbar chrome + PANL-01 end-to-end
 
