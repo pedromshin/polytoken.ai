@@ -303,14 +303,14 @@ breakpoint decision); Phase 50 (Band 1 gate, inherited via Phase 51)
 2. Core flows (login → inbox → thread → email detail → chat) show no horizontal overflow on a mobile viewport
 3. Touch targets stay ≥44px on a mobile viewport even under denser style packs
 
-**Plans:** 4/6 plans executed
+**Plans:** 5/6 plans executed
 
 Plans:
 - [x] 53-01-PLAN.md — Foundation: useIsMobileViewport() hook + global mobile nav trigger (wave 1)
 - [x] 53-02-PLAN.md — Touch-target sweep: Phase-52 toolbar + KnowledgePreviewNode pointer-coarse: (wave 1)
 - [x] 53-03-PLAN.md — Inbox single-pane master→detail stack below md (wave 1)
 - [x] 53-04-PLAN.md — Email-detail CanvasShell Sheet-collapse below md (wave 1)
-- [ ] 53-05-PLAN.md — /chat inline feed: canvas never mounts + rail overlay Sheet (wave 2)
+- [x] 53-05-PLAN.md — /chat inline feed: canvas never mounts + rail overlay Sheet (wave 2)
 - [ ] 53-06-PLAN.md — /knowledge mobile list + full-width detail sheet (wave 2)
 
 **UI hint**: yes

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
 status: completed
-last_updated: "2026-07-12T05:42:13.000Z"
-last_activity: 2026-07-12 -- Phase 53-04 executed (email-detail CanvasShell Sheet-collapse below md — see 53-04-SUMMARY.md; Phase 53 now 4/6 plans complete; MOBL-02 Complete)
+last_updated: "2026-07-12T06:28:00.000Z"
+last_activity: 2026-07-12 -- Phase 53-05 executed (/chat inline feed below md — canvas island never mounts, rail becomes overlay Sheet — see 53-05-SUMMARY.md; Phase 53 now 5/6 plans complete)
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 30
-  completed_plans: 28
+  completed_plans: 29
   percent: 50
 ---
 
@@ -29,10 +29,82 @@ console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in
 
 ## Current Position
 
-Phase: 53 (Mobile-Responsive Answer) — 53-04 (email-detail `CanvasShell` Sheet-collapse below `md`) EXECUTED this session, Phase 53's fourth of 6 plans (Wave 1, `depends_on: []`). `CanvasShell`'s three persistent side panels (`LAYERS w-64`, `INSPECTOR w-72`, optional `SUMMARY w-72`) each gained `hidden md:flex md:flex-col` — none renders persistently below `md`; `CANVAS` is the sole persistent `flex-1` zone at every width (53-UI-SPEC §5, Judgment Call #7). Two new Sheets (`side="left"` Layers, `side="right"` Inspector+Summary) render the IDENTICAL slot nodes CanvasShell already receives — zero new data path. `CanvasToolbar` gained two OPTIONAL `md:hidden size-11` triggers (`Layers`/`PanelRight`, `aria-label="Show layers"`/`"Show inspector"`) in a refactored right-group wrapper (`ml-auto` moved from the Close button onto the wrapping div, behavior-preserving when the new props are omitted). Proven by a new 7-test `canvas-shell-mobile.test.tsx` (persistent-panel gating, trigger presence, Sheet-open-reveals-correct-content via `document.body` `[role="dialog"]` query, canvas always present, toolbar unchanged when props omitted). One found-live deviation, auto-fixed: `canvas-shell.tsx`/`canvas-toolbar.tsx` were the FIRST vitest suite to mount them directly, exposing the same missing `import * as React from "react"` gotcha 53-03 already documented and fixed for 5 other files — fixed identically here. `MOBL-02` is now marked Complete in REQUIREMENTS.md — this was the LAST of its three contributing plans (53-02/53-03/53-04). `email-detail.tsx` was NOT modified, per the plan's own instruction. Phase 52 (Editable Genui Panels / Studio-on-Canvas) remains COMPLETE at the plan level (6/6 SUMMARY.md) — live-canvas confirmation for the whole phase remains queued to MORNING-CHECKLIST.md SS G (Docker/FastAPI/Bedrock not concurrently available). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
-Plan: Phase 53 — 4 of 6 have a SUMMARY.md (53-01, 53-02, 53-03, 53-04). Phase 52 — 6 of 6 have a SUMMARY.md (52-01..52-06). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
-Status: 53-04 executed — Task 1: `canvas-shell.tsx`'s three persistent side-panel divs gated `hidden md:flex md:flex-col`; two new `Sheet`s (left Layers, right Inspector+Summary) render the same slot nodes below `md`; `canvas-toolbar.tsx`'s right group refactored into an `ml-auto` wrapping div with two new conditional `md:hidden size-11` Tooltip-wrapped icon buttons before the existing Close button. New `canvas-shell-mobile.test.tsx` (7 tests) green: persistent-panel `hidden md:flex` source assertion, trigger presence + `md:hidden`, Sheet-open reveals the correct slot content (scoped to the Radix-portaled `[role="dialog"]` in `document.body`, distinct from the always-present hidden persistent copy), canvas slot always present, toolbar behavior unchanged when the two new props are omitted. Full web suite reconfirmed green (58 files/388 tests, up from 57/381); typecheck clean outside the pre-existing `app/dev/design/**` exclusion; palette-ban/token-contrast/token-registration gates green. One Rule 3 auto-fix (see Current Position paragraph above and `53-04-SUMMARY.md`). `MOBL-02` marked Complete in REQUIREMENTS.md (last contributing plan). See Phase 53 Plan 04 History below and `53-04-SUMMARY.md` for full detail.
-Last activity: 2026-07-12 -- Phase 53-04 executed (email-detail CanvasShell Sheet-collapse below md — see 53-04-SUMMARY.md; Phase 53 now 4/6 plans complete; MOBL-02 Complete)
+Phase: 53 (Mobile-Responsive Answer) — 53-05 (`/chat` inline feed below `md`) EXECUTED this session, Phase 53's fifth of 6 plans (Wave 2, `depends_on: [53-01]`). `ConversationView` (page.tsx) reads `useIsMobileViewport()` and derives an `effectiveViewMode` that is force-coerced to `"chat"` below `md` regardless of the persisted/forced `viewMode` — the `<ChatCanvasIsland>` branch (the `dynamic(ssr:false)` React-Flow island) is never reached, so its dynamic import is never triggered, and `ChatCanvasViewToggle` is conditionally UNMOUNTED (not CSS-hidden) so there is no user-facing way to request canvas mode on a phone. The persisted `chat:canvas-view:{id}` value is still read on mount but never overwritten while mobile-forced. `ConversationRail` becomes a left overlay `Sheet` (`side="left"`, default `w-3/4 sm:max-w-sm`) below `md`, closed by default via a NEW `mobileOpen`/`onMobileOpenChange` boolean lifted to `ChatPage` — the existing top-bar `size-11` rail-toggle button flips BOTH `railCollapsed` (desktop) and `mobileRailOpen` (mobile) on every click, avoiding a third `useIsMobileViewport()` read (53-UI-SPEC's "only 2 consumers" budget). Selecting a conversation from inside the mobile Sheet closes it. Desktop (`>=md`) behavior is byte-identical — the `Collapsible` tree is wrapped `hidden md:block`, internals untouched. Proven by a new 12-test `chat-mobile-feed.test.tsx` (island-never-mounted-even-with-stored-canvas-preference, toggle-absent, docked-feed-renders, storage-read-not-written, desktop-regression pair, Sheet-closed-by-default, toggle-opens-Sheet, select-closes-Sheet, plus 2 source-string assertions). One found-live deviation, auto-fixed: this suite is the FIRST vitest suite to mount `ChatPage`'s full render tree directly, exposing the same missing `import * as React from "react"` gotcha 53-03/53-04 already documented — fixed identically across 10 files. `MOBL-01` remains Pending in REQUIREMENTS.md — this plan closes `/chat`'s half; `/knowledge`'s mobile list + detail sheet (Component Inventory §3) is still outstanding in a separate, not-yet-executed plan. Phase 52 (Editable Genui Panels / Studio-on-Canvas) remains COMPLETE at the plan level (6/6 SUMMARY.md) — live-canvas confirmation for the whole phase remains queued to MORNING-CHECKLIST.md SS G (Docker/FastAPI/Bedrock not concurrently available). Phase 51 (Total UI Re-skin) remains carried as a known blocker: 51-01..51-06 done, 51-07 Task 1 done+green, Tasks 2/3 (E2E regression, screenshot re-capture) BLOCKED pending a session where `docker info` succeeds — see Phase 51 Plan 07 History below.
+Plan: Phase 53 — 5 of 6 have a SUMMARY.md (53-01, 53-02, 53-03, 53-04, 53-05). Phase 52 — 6 of 6 have a SUMMARY.md (52-01..52-06). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
+Status: 53-05 executed — Task 1: `page.tsx`'s `ConversationView` gates `ChatCanvasIsland`/`ChatCanvasViewToggle`/`SaveStatusIndicator` on `useIsMobileViewport()`-derived `effectiveViewMode`. Task 2: `conversation-rail.tsx` gains a `renderRailBody()`-shared mobile `Sheet` (closed by default, `mobileOpen`/`onMobileOpenChange` lifted to `ChatPage`), desktop `Collapsible` wrapped `hidden md:block`. New `chat-mobile-feed.test.tsx` (12 tests) green across 6 describe blocks. Full web suite reconfirmed green (59 files/400 tests, up from 58/388); typecheck clean outside the pre-existing `app/dev/design/**` exclusion; palette-ban/token-contrast/token-registration gates green. One Rule 3 auto-fix spanning 10 files (see Current Position paragraph above and `53-05-SUMMARY.md`). See Phase 53 Plan 05 History below and `53-05-SUMMARY.md` for full detail.
+Last activity: 2026-07-12 -- Phase 53-05 executed (/chat inline feed below md — canvas island never mounts, rail becomes overlay Sheet — see 53-05-SUMMARY.md; Phase 53 now 5/6 plans complete)
+
+## Phase 53 -- Mobile-Responsive Answer -- Plan 05 History -- /chat inline feed below md
+
+- **53-05 EXECUTED** (`623950b` feat, `e89d038` feat):
+  `ConversationView` (page.tsx) reads `useIsMobileViewport()` and derives
+  an `effectiveViewMode` force-coerced to `"chat"` below `md` regardless
+  of the persisted/forced `viewMode` state (`readStoredViewMode` is still
+  READ on mount so returning to desktop restores the prior choice, but
+  never WRITTEN while mobile-forced — the only code path that calls
+  `writeStoredViewMode`, the toggle's own `onChange`, is unreachable below
+  `md`). `<ChatCanvasIsland>` (the `dynamic(ssr:false)` React-Flow island)
+  is never reached in the render tree below `md`, so its dynamic import
+  chunk is never requested — not merely hidden, its init cost is never
+  paid on a phone. `ChatCanvasViewToggle` is conditionally UNMOUNTED
+  (`{!isMobile && ...}`), not CSS-hidden with `hidden md:flex` — the
+  Chat/Canvas `TabsList` is provably absent from the DOM below `md`, not
+  just `display:none`. `ConversationRail` becomes a left overlay `Sheet`
+  (`side="left"`, default `w-3/4 sm:max-w-sm`, no override) below `md`,
+  closed by default via a NEW `mobileOpen`/`onMobileOpenChange` boolean —
+  SEPARATE from `collapsed` (which defaults rail-VISIBLE) — lifted to
+  `page.tsx`'s `ChatPage`. The existing top-bar `size-11` rail-toggle
+  button flips BOTH `railCollapsed` (desktop) and `mobileRailOpen`
+  (mobile) on every click, avoiding a third `useIsMobileViewport()` read
+  in `ChatPage` (53-UI-SPEC's "only 2 consumers this phase" budget stays
+  intact — `ChatCanvasIsland`'s host and `KnowledgeGraphIsland`'s host).
+  Selecting a conversation from inside the mobile Sheet closes it
+  (`handleMobileSelect` wraps `onSelect` with `onMobileOpenChange(false)`)
+  — otherwise the full-overlay Sheet would hide the very conversation
+  just chosen. A new `renderRailBody(handleSelect, wrapperClassName)`
+  closure is shared by both the desktop `Collapsible` (now wrapped
+  `hidden md:block`, internals byte-identical/untouched) and the mobile
+  `Sheet`, avoiding literal JSX duplication of the New-chat button +
+  `ConversationRow` list. New committed `chat-mobile-feed.test.tsx` (12
+  tests across 6 describe blocks) mounts the real `ChatPage` default
+  export (mocking `~/hooks/use-is-mobile-viewport` via a mutable `let` so
+  one file exercises both mobile/desktop cases, `../_canvas/chat-canvas-island`
+  as a spy, and `~/trpc/react`'s handful of direct query/mutation call
+  sites as plain stubs): island-never-mounted-even-with-stored-canvas-
+  preference, toggle-absent, docked-feed-renders, storage-read-not-
+  written, desktop-regression pair (toggle present + island still mounts
+  when hook mocked `false`), page.tsx source-import assertion, mobile
+  Sheet closed-by-default, toggle-opens-Sheet-revealing-content, select-
+  closes-Sheet, and 2 conversation-rail.tsx source assertions. One
+  found-live deviation, auto-fixed within Task 1 and carried into Task
+  2's own file: [Rule 3] `chat-mobile-feed.test.tsx` is the FIRST vitest
+  suite to mount `ChatPage`'s complete render tree directly (previously
+  only individual leaf hooks/components were unit-tested in isolation),
+  which exposed that 10 files (`page.tsx`, `conversation-rail.tsx`,
+  `conversation-row.tsx`, `delete-conversation-dialog.tsx`,
+  `chat-home-empty-state.tsx`, `composer.tsx`, `model-picker.tsx`,
+  `cost-meter.tsx`, `message-list.tsx`, `chat-canvas-view-toggle.tsx`)
+  were all missing the explicit `import * as React from "react"` vitest's
+  classic-runtime esbuild JSX transform requires — Next.js's SWC
+  automatic runtime tolerates its absence, so this was silently latent
+  until now; identical, already-documented gotcha 53-03/53-04 carry —
+  fixed identically in all 10 files, zero behavior change. Both task
+  commits are independently typecheck-clean and test-green at their own
+  boundary (Task 1's commit deliberately excludes `conversation-rail.tsx`'s
+  Sheet changes and `page.tsx`'s `mobileRailOpen` wiring, verified
+  standalone before committing; Task 2 adds exactly those hunks back plus
+  the 5 additional rail-Sheet tests). Full web test suite reconfirmed
+  green (59 files/400 tests, up from 58/388 at 53-04's close); typecheck
+  clean outside the pre-existing, documented `app/dev/design/**`
+  exclusion; palette-ban/token-contrast/token-registration gates green.
+  `MOBL-01` remains Pending in REQUIREMENTS.md — this plan closes
+  `/chat`'s half only; `/knowledge`'s mobile list + detail sheet
+  (Component Inventory §3) is still outstanding in a separate,
+  not-yet-executed plan. Live 360/768/1024 confirmation (feed below `md`,
+  canvas at/above `md`, rail overlay behavior) remains DEFERRED to
+  `.planning/phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`
+  §G, per this plan's own `<verification>` block — not faked as passed.
+  See `53-05-SUMMARY.md` for full detail.
 
 ## Phase 53 -- Mobile-Responsive Answer -- Plan 04 History -- Email-detail CanvasShell Sheet-collapse below md
 
