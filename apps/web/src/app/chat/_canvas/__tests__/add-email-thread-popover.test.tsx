@@ -49,6 +49,23 @@ if (typeof Element.prototype.scrollIntoView !== "function") {
   };
 }
 
+// jsdom does not implement ResizeObserver — cmdk's Command.List measures its
+// own height via ResizeObserver on mount (cmdk/dist/index.mjs), unconditionally.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class NoopResizeObserver implements ResizeObserver {
+    observe(): void {
+      /* no-op polyfill for cmdk in jsdom. */
+    }
+    unobserve(): void {
+      /* no-op polyfill for cmdk in jsdom. */
+    }
+    disconnect(): void {
+      /* no-op polyfill for cmdk in jsdom. */
+    }
+  }
+  globalThis.ResizeObserver = NoopResizeObserver as unknown as typeof ResizeObserver;
+}
+
 const THREAD_A: FakeThreadListItem = {
   key: "aaaaaaaa-0000-0000-0000-000000000001",
   threadId: "aaaaaaaa-0000-0000-0000-000000000001",

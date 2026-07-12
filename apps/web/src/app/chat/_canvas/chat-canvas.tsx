@@ -63,6 +63,7 @@ import type {
   ChatHistoryRow,
   ConversationController,
 } from "../_hooks/use-conversation-controller";
+import { AddEmailThreadPopover } from "./add-email-thread-popover";
 import { AddKnowledgePreviewPopover } from "./add-knowledge-preview-popover";
 import { CanvasEmptyState } from "./canvas-empty-state";
 import {
@@ -286,6 +287,15 @@ export interface ChatCanvasProps {
    * `SaveStatusIndicator` in the conversation toolbar's right zone,
    * 23-UI-SPEC.md) — optional so ChatCanvas stays usable standalone. */
   readonly onSaveStatusChange?: (status: SaveStatus) => void;
+  /**
+   * onOpenConversation (54-04, CLUS-01/CLUS-02) — threaded down to
+   * `CanvasPersistenceContext` so `EmailThreadNode`'s "Attach chat" action
+   * can switch the app to the newly created + thread-attached conversation
+   * (mirrors the rail's "New chat" open UX, ultimately page.tsx's
+   * `setSelectedId`). Optional so ChatCanvas stays usable standalone/in
+   * tests without a host wired for this yet.
+   */
+  readonly onOpenConversation?: (conversationId: string) => void;
 }
 
 export function ChatCanvas({
@@ -293,6 +303,7 @@ export function ChatCanvas({
   controller,
   historyRows,
   onSaveStatusChange,
+  onOpenConversation,
 }: ChatCanvasProps): React.ReactElement {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
@@ -324,8 +335,9 @@ export function ChatCanvas({
     () => ({
       scheduleSave: (onError) => persistence.scheduleSave(canvasStore, onError),
       conversationId,
+      onOpenConversation,
     }),
-    [persistence, canvasStore, conversationId],
+    [persistence, canvasStore, conversationId, onOpenConversation],
   );
 
   // Seed once restore resolves, then reconcile on every later historyRows
@@ -492,6 +504,42 @@ export function ChatCanvas({
         dragHandle: DRAG_HANDLE_SELECTOR,
         selected: true,
         data: { focusNodeId, ...(label ? { label } : {}) },
+      };
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [nodes, setNodes, persistence, canvasStore],
+  );
+
+  // CLUS-01: AddEmailThreadPopover's onAdd — materializes a new email-thread
+  // node near the current viewport center, selected, cascading away from any
+  // overlapping existing node — byte-identical placement mechanics to
+  // handleAddKnowledgePreview above (54-04-PLAN.md interfaces).
+  const handleAddEmailThread = useCallback(
+    (threadId: string) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodes.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, width: 320, height: 220 },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `email-thread:${crypto.randomUUID()}`,
+        type: "email-thread",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { threadId },
       };
       setNodes((prev) => [
         ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
@@ -744,6 +792,7 @@ export function ChatCanvas({
                     )}
                     <Panel position="top-right">
                       <div className="flex items-center gap-2">
+                        <AddEmailThreadPopover onAdd={handleAddEmailThread} />
                         <AddKnowledgePreviewPopover onAdd={handleAddKnowledgePreview} />
                         <Button
                           type="button"

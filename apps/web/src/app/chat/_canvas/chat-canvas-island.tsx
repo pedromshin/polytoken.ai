@@ -30,6 +30,9 @@ export interface ChatCanvasIslandProps {
   /** Threaded through to ChatCanvas — page.tsx mounts `SaveStatusIndicator`
    * in the conversation toolbar's right zone from this callback. */
   readonly onSaveStatusChange?: (status: SaveStatus) => void;
+  /** Threaded through to ChatCanvas (54-04, CLUS-01/CLUS-02) — see
+   * ChatCanvasProps.onOpenConversation's own doc comment. */
+  readonly onOpenConversation?: (conversationId: string) => void;
 }
 
 export function ChatCanvasIsland({
@@ -37,6 +40,7 @@ export function ChatCanvasIsland({
   controller,
   historyRows,
   onSaveStatusChange,
+  onOpenConversation,
 }: ChatCanvasIslandProps): React.ReactElement {
   return (
     <ChatCanvasDynamic
@@ -44,6 +48,7 @@ export function ChatCanvasIsland({
       controller={controller}
       historyRows={historyRows}
       onSaveStatusChange={onSaveStatusChange}
+      onOpenConversation={onOpenConversation}
     />
   );
 }

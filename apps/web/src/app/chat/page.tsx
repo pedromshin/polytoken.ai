@@ -37,6 +37,12 @@ interface ConversationViewProps {
    * so switching conversations never re-instantiates or re-downloads the
    * WebLLM engine (D-08). */
   readonly webllm: UseWebllmEngineResult;
+  /** CLUS-01/CLUS-02 (54-04): EmailThreadNode's "Attach chat" action creates
+   * + attaches a new conversation to the thread and needs to switch the app
+   * to it — mirrors the rail's own "New chat" open UX (handleNewChat below).
+   * Threaded through to ChatCanvasIsland -> ChatCanvas ->
+   * CanvasPersistenceContext. */
+  readonly onOpenConversation: (conversationId: string) => void;
 }
 
 /**
@@ -55,6 +61,7 @@ function ConversationView({
   conversationId,
   modelId,
   webllm,
+  onOpenConversation,
 }: ConversationViewProps): React.ReactElement {
   const controller = useConversationController({ conversationId, modelId, webllm });
   const [viewMode, setViewMode] = useState<ChatCanvasViewMode>(() =>
@@ -115,6 +122,7 @@ function ConversationView({
             controller={controller}
             historyRows={controller.historyRows}
             onSaveStatusChange={setCanvasSaveStatus}
+            onOpenConversation={onOpenConversation}
           />
         ) : (
           <div className="flex h-full min-h-0 flex-col">
@@ -180,6 +188,19 @@ export default function ChatPage(): React.ReactElement {
     createConversation.mutate({});
   }, [createConversation]);
 
+  // CLUS-01/CLUS-02 (54-04): EmailThreadNode's "Attach chat" action already
+  // created + attached the new conversation itself (chat.createConversation +
+  // chat.attachConversationToThread) — this just switches the visible
+  // conversation to it, mirroring handleNewChat's own onSuccess shape
+  // (invalidate the rail's list, then select).
+  const handleOpenConversation = useCallback(
+    (id: string) => {
+      void utils.chat.listConversations.invalidate();
+      setSelectedId(id);
+    },
+    [utils],
+  );
+
   // T-22-18-adjacent UX: de-select if the conversation currently open is the
   // one that just got hard-deleted (D-14), otherwise the main column would
   // keep pointing at a conversation id that no longer exists.
@@ -236,6 +257,7 @@ export default function ChatPage(): React.ReactElement {
               conversationId={selectedId}
               modelId={selectedConversation.modelId}
               webllm={webllm}
+              onOpenConversation={handleOpenConversation}
             />
           ) : selectedId ? (
             <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
