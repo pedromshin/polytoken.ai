@@ -52,3 +52,7 @@ apps/web/test-results/
 apps/web/playwright-report/
 
 .env*
+
+# Claude Code personal overrides
+.claude/settings.local.json
+apps/email-listener/listener-*.log

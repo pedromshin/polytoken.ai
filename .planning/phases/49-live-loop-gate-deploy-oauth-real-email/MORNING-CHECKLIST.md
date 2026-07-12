@@ -159,6 +159,13 @@ S3/SNS pipeline). No diff on the three existing rules (`agent-local`, `agent-sta
 
 ### B.2 Apply
 
+> **DONE 2026-07-12** (user-authorized "do this now"): fresh plan re-verified
+> `1 to add, 0 to change, 0 to destroy` (planfile apply — exactly the reviewed diff), applied,
+> and the live rule set confirmed via `aws ses describe-receipt-rule-set`: `forwarding-catchall`
+> is ACTIVE, enabled, recipients `magnitudetech.com.br`, positioned LAST after the three
+> exact-match rules (`agent-local`, `agent-staging`, `agent-prod`). B.3–B.6 below remain
+> user steps (need §A sign-in first).
+
 Run this on the machine holding the authoritative `infrastructure/aws/terraform.tfstate`
 (the same machine/session used for prior applies — local tfstate is not synced elsewhere):
 
@@ -239,6 +246,11 @@ Outcomes recorded in `49-HUMAN-UAT.md`.
 ---
 
 ## C. GitHub repo rename decision (LIVE-07)
+
+> **DECIDED 2026-07-12 — Option 2 (re-park).** No rename, no IAM apply; deploys unaffected.
+> Recorded in `EXTERNAL-IDENTITY-DECISIONS.md` (disposition table) and `49-HUMAN-UAT.md` item 3.
+> LIVE-07 is now 5/5 decided. Revisit whenever ready to do the rename + companion IAM apply
+> together.
 
 **The hazard:** `infrastructure/aws/iam.tf:110-131` grants GitHub Actions' OIDC deploy role via a
 trust condition matching `sub = repo:${var.github_repository}:*`, and
@@ -341,6 +353,12 @@ can't run until this is fixed.
    step is a native-path confirmation, not a re-verification of unknown state.)
 
 ### E.2 ECS deploy workflow coverage-gate decision
+
+> **DECIDED 2026-07-12 — option (a), documented ratchet.** `--cov-fail-under` 80 → 65 applied in
+> `apps/email-listener/pyproject.toml`; full suite re-run green at the new floor (1504 passed).
+> Step-up ladder (70 @ 72% / 75 @ 77% / 80 @ 82%, never lower further) tracked in
+> `.planning/todos/pending/2026-07-12-coverage-ratchet-step-up.md`. Recorded in
+> `49-HUMAN-UAT.md` item 4. ECS image deploys unblock on the next push.
 
 The ECS deploy workflow is red on **one** gate: pytest coverage 68.10% vs
 `--cov-fail-under=80` (`apps/email-listener/pyproject.toml:108`). All tests pass; ruff + mypy are

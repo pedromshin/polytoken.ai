@@ -18,15 +18,15 @@ result: [pending]
 
 ### 2. Forwarding gate — SES apply + Gmail handshake + real message (LIVE-04)
 expected: user reviews artifacts/forwarding-catchall-tfplan.txt (1 add/0 change/0 destroy) and runs `npm run infra:tf -- apply`; /settings/forwarding yields u-{token}@magnitudetech.com.br; Gmail verification code round-trips through the app inbox; a real forwarded message with attachment lands, threads group correctly, attachment stored (all confirmed by prod-DB queries, not logs)
-result: [pending]
+result: [partial — 2026-07-12: terraform apply DONE (user-authorized, fresh plan re-verified 1 add/0 change/0 destroy before apply; `forwarding-catchall` live in SES rule set, positioned after the 3 exact-match rules, enabled). Remaining user half: §B.3–B.6 (forwarding address, Gmail handshake, verification code, real test message) — needs §A sign-in first]
 
 ### 3. GitHub-rename decision (LIVE-07 final slice)
 expected: user chooses Option 1 (rename + companion IAM terraform apply in the same sitting) or Option 2 (re-park, documented) — MORNING-CHECKLIST.md §C
-result: [pending]
+result: passed — 2026-07-12: user chose **Option 2 (re-park)**. No rename, no IAM apply; deploys unaffected. Recorded in EXTERNAL-IDENTITY-DECISIONS.md (disposition table row updated to DECIDED — re-parked). LIVE-07 now 5/5 decided.
 
 ### 4. ECS deploy coverage-gate decision (LIVE-02 exception)
 expected: user decides: approve documented ratchet of --cov-fail-under (80 → 65 with step-ups tracked in .planning/todos) or hold ECS image deploys until coverage recovers; lowering it was policy-denied for the autonomous run
-result: [pending]
+result: passed — 2026-07-12: user approved **option (a), documented ratchet**. `--cov-fail-under` 80 → 65 applied in apps/email-listener/pyproject.toml with step-up ladder tracked in .planning/todos/pending/2026-07-12-coverage-ratchet-step-up.md (never lower further; step up at 72%/77%/82% coverage rungs)
 
 ### 5. Hosted DB password refresh (housekeeping)
 expected: .env.staging/.env.production POSTGRES_URL_NON_POOLING passwords refreshed from Supabase Dashboard → Database Settings; ten verify-00XX-live.ts scripts pass natively per host
