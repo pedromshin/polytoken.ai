@@ -81,6 +81,10 @@ const useQueriesMock = vi.fn((callback: (t: typeof FAKE_T) => unknown[]) => {
 // stubbed inert here for the same reason (covered by
 // regenerate-control.test.tsx), mirroring the SAME deviation pattern
 // 52-03-SUMMARY.md documented for `applyPanelEdit` above.
+//
+// 52-06-PLAN.md Task 1: RethemeControl (also mounted for real now) calls
+// `api.genui.resolveRetheme.useQuery()` — stubbed inert here for the same
+// reason (covered by retheme-control.test.tsx).
 vi.mock("~/trpc/react", () => ({
   api: {
     useQueries: (cb: (t: typeof FAKE_T) => unknown[]) => useQueriesMock(cb),
@@ -89,6 +93,9 @@ vi.mock("~/trpc/react", () => ({
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
       generate: {
+        useQuery: () => ({ refetch: () => Promise.resolve({ data: undefined }) }),
+      },
+      resolveRetheme: {
         useQuery: () => ({ refetch: () => Promise.resolve({ data: undefined }) }),
       },
     },

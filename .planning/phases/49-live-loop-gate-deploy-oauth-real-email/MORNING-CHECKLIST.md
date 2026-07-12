@@ -434,3 +434,40 @@ unresponsive, com.docker.service stopped — recovery needs elevation, so it's q
      `.planning/ui-reviews/2026-07-11T04-32-30-989Z/`
    These are execution-environment re-runs only — no code changes pending.
 4. Any Phase 52–54 items marked "queued to §G" in their SUMMARYs follow the same pattern.
+5. **Phase-52 live-canvas confirmation (Editable Genui Panels / Studio-on-Canvas,
+   PANL-01..04)** — added by Plan 52-06, consolidating the individual "queued to §G"
+   notes from 52-02/52-03/52-04/52-05/52-06's own SUMMARYs into ONE runsheet entry. Do
+   this after Docker/FastAPI/Bedrock (IAM role) are all reachable:
+   1. Bring the stack up (Section G.1-G.2 above), open a chat conversation that has at
+      least one genui-spec panel on the canvas.
+   2. On a REAL panel, manually verify all five PANL actions in order:
+      - **Pack switch (PANL-01):** switch the toolbar's style-pack `Select` — the panel
+        re-themes immediately; reload the page and confirm the choice persisted.
+      - **Param edit (PANL-02):** open the `SlidersHorizontal` popover, edit a
+        whitelisted field, Save — confirm the panel re-renders with the new value and a
+        real `genui.applyPanelEdit` round-trip (server-side `SpecRootSchema`
+        re-validation) actually ran.
+      - **Regenerate (PANL-03):** click the `RotateCw` button — confirm a real
+        `genui.generate` call (live Bedrock, not the mocked transport used in tonight's
+        unit tests) swaps the panel's content in place.
+      - **Version history + restore (PANL-03):** open the `History` popover, confirm
+        prior versions list with the correct icon/verb/relative-time, click "Restore
+        version" on one, confirm the panel content reverts and a NEW version was
+        appended (supersede-never-mutate — check nothing was deleted).
+      - **NL re-theme (PANL-04):** open the `Wand2` popover, type an instruction (e.g.
+        "make it feel more playful and colorful"), click "Apply look" — confirm a REAL
+        `genui.resolveRetheme` round-trip (live Bedrock forced-tool-use, the actual
+        `POST /v1/genui/retheme` FastAPI route Plan 52-05 verified via direct-adapter
+        smoke calls only, never through a running FastAPI server) resolves and the panel
+        visibly re-themes with the `toast.success("Panel re-themed")` confirmation.
+   3. **Screenshot-diff:** run `npm run screenshot:review` for the chat-canvas surface
+      and compare the fresh capture against the Phase-51 baseline
+      (`.planning/ui-reviews/2026-07-11T04-32-30-989Z/`) — confirm the new toolbar row +
+      3 popovers render as designed (52-UI-SPEC.md) with no unintended layout regression
+      on the rest of the panel/canvas chrome.
+   4. **Authored-but-unrun Playwright specs from Phase 52:** none — Phase 52 shipped
+      unit/component-level vitest coverage only (jsdom, mocked tRPC transport); no
+      Playwright E2E spec was authored this phase. This live-canvas confirmation is the
+      first real-browser exercise of PANL-01..04.
+   These are execution-environment re-runs/first-live-verifications only — no code
+   changes pending from Plans 52-02 through 52-06 unless this pass finds a real bug.
