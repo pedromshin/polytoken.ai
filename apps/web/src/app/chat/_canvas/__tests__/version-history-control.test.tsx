@@ -266,6 +266,47 @@ describe("VersionHistoryControl", () => {
   });
 
   // Test 5
+  it("a REAL async persist failure (writeOverlay's onSaveError callback, not a synchronous throw) fires the exact toast.error with Retry after the optimistic close", async () => {
+    let capturedOnError: (() => void) | undefined;
+    const scheduleSave = vi.fn((onError?: () => void) => {
+      capturedOnError = onError;
+    });
+    const { store, persistenceValue } = makeHarness(scheduleSave);
+    const container = await mount(renderControl(store, persistenceValue));
+    await openPopover(container);
+
+    const restoreButtons = Array.from(document.body.querySelectorAll("button")).filter(
+      (b) => b.textContent === "Restore version",
+    );
+    await act(async () => {
+      restoreButtons[0]?.click();
+    });
+
+    // Optimistic append + success toast + popover close land immediately
+    // (mirrors Test 3's happy path) — the write hasn't genuinely failed yet,
+    // it's just unconfirmed durable.
+    expect(toastSuccess).toHaveBeenCalledWith("Restored to an earlier version");
+    expect(toastError).not.toHaveBeenCalled();
+    expect(document.body.querySelector('[aria-label="Panel versions"]')).toBeNull();
+    expect(capturedOnError).toBeDefined();
+
+    // The REAL debounced save later fails (network hiccup) — writeOverlay's
+    // own onSaveError callback fires, asynchronously, well after the click.
+    await act(async () => {
+      capturedOnError?.();
+    });
+
+    expect(toastError).toHaveBeenCalledTimes(1);
+    const [message, options] = toastError.mock.calls[0] as [
+      string,
+      { action: { label: string; onClick: () => void } },
+    ];
+    expect(message).toBe("Couldn't restore that version — try again.");
+    expect(options.action.label).toBe("Retry");
+    expect(typeof options.action.onClick).toBe("function");
+  });
+
+  // Test 6
   it("the trigger is disabled while isLocked", async () => {
     const { store, persistenceValue } = makeHarness();
     const container = await mount(renderControl(store, persistenceValue, true));

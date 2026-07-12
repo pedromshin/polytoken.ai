@@ -189,6 +189,54 @@ describe("PackSwitcher", () => {
   });
 
   // Test 4
+  it("a REAL async persist failure (scheduleSave's onError callback, not a synchronous throw) reverts the Select and shows the toast", async () => {
+    let capturedOnError: (() => void) | undefined;
+    const scheduleSave = vi.fn((onError?: () => void) => {
+      capturedOnError = onError;
+    });
+    const { store, persistenceValue } = makeHarness(scheduleSave);
+    const container = await mount(
+      <CanvasStoreProvider store={store}>
+        <CanvasPersistenceProvider value={persistenceValue}>
+          <PackSwitcher
+            panelId="panel-a"
+            resolvedPackId="polytoken-teal"
+            isLocked={false}
+            onBusyChange={vi.fn()}
+          />
+        </CanvasPersistenceProvider>
+      </CanvasStoreProvider>,
+    );
+
+    await openSelect(container);
+    await act(async () => {
+      getOption("Brutalist").click();
+    });
+
+    // Optimistic apply lands immediately — no revert/toast yet, the write
+    // hasn't genuinely failed, it's just not confirmed durable.
+    expect(getTrigger(container).textContent).toBe("Brutalist");
+    expect(toastError).not.toHaveBeenCalled();
+    expect(capturedOnError).toBeDefined();
+
+    // The REAL debounced save later fails (network hiccup) — scheduleSave's
+    // own onError callback fires, asynchronously, well after the click.
+    await act(async () => {
+      capturedOnError?.();
+    });
+
+    expect(getTrigger(container).textContent).toBe("Nauta Teal");
+    expect(toastError).toHaveBeenCalledTimes(1);
+    const [message, options] = toastError.mock.calls[0] as [
+      string,
+      { action: { label: string; onClick: () => void } },
+    ];
+    expect(message).toBe("Couldn't switch style — try again.");
+    expect(options.action.label).toBe("Retry");
+    expect(typeof options.action.onClick).toBe("function");
+  });
+
+  // Test 5
   it("is disabled while isLocked", async () => {
     const { store, persistenceValue } = makeHarness(vi.fn());
     const container = await mount(
