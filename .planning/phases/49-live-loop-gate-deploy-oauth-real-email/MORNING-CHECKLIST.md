@@ -435,7 +435,7 @@ unresponsive, com.docker.service stopped — recovery needs elevation, so it's q
      green across 2 consecutive full-suite runs (32/32 passed both times). See
      `.planning/debug/resolved/e2e-regressions-51-07.md` for the full investigation trail and
      `51-07-SUMMARY.md`'s 2026-07-12 addendum for the roll-up. Commit `dec6402`.
-   - [ ] **Screenshot re-capture** — still open. `npm run screenshot:review` → fresh 16-surface
+   - [x] **Screenshot re-capture** — DONE 2026-07-12: fresh run (390 mobile + 1440 desktop) at .planning/ui-reviews/2026-07-12T18-11-34-334Z/, compare vs baseline 2026-07-11T04-32-30-989Z. Originally: `npm run screenshot:review` → fresh 16-surface
      run under `.planning/ui-reviews/<ts>/`, compare against before-baseline
      `.planning/ui-reviews/2026-07-11T04-32-30-989Z/`. This is an execution-environment re-run
      only — no code changes pending.
