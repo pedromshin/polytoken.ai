@@ -105,7 +105,7 @@ string (back-button labels, filter-chip labels, sheet headings) uses the existin
 |------|------|--------|-------------|
 | Label / meta | 12px (`text-xs`) | 400 (`font-normal`) | Filter-chip labels, back-button `aria-label`s (visually hidden where icon-only) |
 | Sheet/section heading | 12px (`text-xs`) | 600 (`font-semibold`) | Mobile filter-chip bar's implicit grouping (no visible heading needed — see Judgment Calls) |
-| Body | 14px (`text-sm`) | 400 | Reused verbatim from existing `InboxRow`/message-turn/node-detail-pane copy — no changes |
+| Body | 14px (`text-sm`) | 400 | Reused verbatim from existing `InboxRow`/message-turn/node-detail-pane copy — no changes. Line-height inherits unchanged from those source components (Tailwind `text-sm` default 20px / 1.43, as declared in 51-UI-SPEC's Typography table — `InboxRow` is the named exemplar this phase's new list rows mirror). |
 
 ---
 
@@ -213,6 +213,11 @@ New markup in `apps/web/src/app/layout.tsx`, inside `SidebarInset`, directly abo
 
 ### 2. `/chat` mobile feed (MOBL-01)
 
+**Primary visual anchor:** the message stream itself (`MessageList`'s `max-w-3xl` reading
+column with inline genui panels) — every piece of surrounding chrome (top toolbar, rail
+trigger, composer) stays neutral/secondary so the conversation content dominates the
+viewport.
+
 Below `md`:
 
 - **`ChatCanvasIsland` is never mounted.** `page.tsx`'s `ConversationView` reads
@@ -254,6 +259,10 @@ Below `md`:
 
 ### 3. `/knowledge` mobile list + detail sheet (MOBL-01)
 
+**Primary visual anchor:** the node list rows (`min-h-16`, `InboxRow`-idiom) — the
+filter-chip bar above them is deliberately compact/low-contrast at rest so the nodes
+themselves, not the filters, carry the screen.
+
 Below `md`, `knowledge/page.tsx` renders a NEW list presentation instead of
 `KnowledgeGraphIsland`'s `dynamic(ssr:false)` React Flow graph — gated by
 `useIsMobileViewport()` so the graph's mount cost is never paid on a phone (same pattern
@@ -277,7 +286,7 @@ bottom:
      {NODE_TYPE_ROWS.map(({ type, label, dotClass }) => (
        <button type="button" aria-pressed={visibleTypes.has(type)}
          className={cn(
-           "flex h-9 shrink-0 items-center gap-1.5 rounded-pill border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+           "flex h-9 shrink-0 items-center gap-2 rounded-pill border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
            visibleTypes.has(type)
              ? "border-primary/30 bg-primary/10 text-primary"
              : "border-border bg-muted/40 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -346,6 +355,11 @@ bottom:
   swaps in place, consistent with desktop's existing re-selection behavior.
 
 ### 4. Inbox single-pane master→detail (MOBL-02)
+
+**Primary visual anchor:** the message list (`InboxThreadGroup`/`InboxRow` rows,
+unchanged) in the list view, and `ReadingPreview`'s email content in the detail view —
+the segmented filter control and the back-affordance bar are secondary chrome that never
+competes with either.
 
 `inbox-three-pane.tsx`'s `ResizablePanelGroup` (`FiltersRail` | list | `ReadingPreview`)
 is desktop-only (`≥md`) via plain CSS — **no hook read needed here** (`ResizablePanelGroup`
