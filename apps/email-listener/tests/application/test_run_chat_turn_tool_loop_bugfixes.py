@@ -149,11 +149,15 @@ class FakeChatRunRepository:
 class FakeChatConversationRepository:
     """In-memory ChatConversationRepository test double — records touch() calls."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, owner: str | None = "user-owner-1") -> None:
         self.touches: list[dict[str, Any]] = []
+        self._owner = owner
 
     async def touch(self, *, conversation_id: str, model_id: str, title: str | None = None) -> None:
         self.touches.append({"conversation_id": conversation_id, "model_id": model_id, "title": title})
+
+    async def owner_user_id(self, conversation_id: str) -> str | None:
+        return self._owner
 
 
 class FakeChatProvider:
@@ -315,6 +319,57 @@ async def test_usage_delta_single_round_passthrough_no_regression() -> None:
     assert len(ledger.recorded) == 1
     assert ledger.recorded[0].input_tokens == 10
     assert ledger.recorded[0].output_tokens == 5
+
+
+# ---------------------------------------------------------------------------
+# chat_cost_ledger null user_id (23502) — the ledger row must carry the
+# conversation owner's user_id (migrations 0031-0033 made the column NOT NULL;
+# every server-locus insert failed silently until this fix)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_usage_event_carries_conversation_owner_user_id() -> None:
+    """The recorded UsageEvent must resolve user_id from the conversation owner."""
+    provider = FakeChatProvider(
+        [
+            UsageDelta(input_tokens=10, output_tokens=20),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    conversations = FakeChatConversationRepository(owner="user-owner-1")
+    use_case, fakes = _make_use_case(provider=provider, conversations=conversations)
+
+    async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id):
+        pass
+
+    ledger: FakeCostLedgerRepository = fakes["ledger"]
+    assert len(ledger.recorded) == 1
+    assert ledger.recorded[0].user_id == "user-owner-1"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_usage_event_owner_lookup_failure_never_breaks_the_turn() -> None:
+    """An owner_user_id lookup failure degrades to user_id=None — the turn still completes."""
+
+    class _RaisingConversations(FakeChatConversationRepository):
+        async def owner_user_id(self, conversation_id: str) -> str | None:
+            raise RuntimeError("boom")
+
+    provider = FakeChatProvider([StreamEnd(stop_reason="end_turn")])
+    use_case, fakes = _make_use_case(provider=provider, conversations=_RaisingConversations())
+
+    events = [
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id)
+    ]
+
+    assert events[-1].type == "completed"
+    ledger: FakeCostLedgerRepository = fakes["ledger"]
+    assert len(ledger.recorded) == 1
+    assert ledger.recorded[0].user_id is None
 
 
 # ---------------------------------------------------------------------------

@@ -35,6 +35,12 @@ class UsageEvent:
     ON DELETE SET NULL semantics). Browser-executed models
     (execution_locus='browser') record real token counts with cost_usd =
     Decimal("0") — usage stays observable even though it is free.
+
+    user_id is the conversation OWNER (chat_cost_ledger.user_id, NOT NULL since
+    migration 0033) — resolved by the caller from the conversation row, not the
+    HTTP session, so importer/agent-triggered turns are attributed too. Typed
+    optional only so the record() best-effort contract holds when the lookup
+    fails; a None here means the insert will be rejected (23502) and logged.
     """
 
     importer_id: str
@@ -45,6 +51,7 @@ class UsageEvent:
     cost_usd: Decimal
     conversation_id: str | None = None
     run_id: str | None = None
+    user_id: str | None = None
 
 
 class CostLedgerRepository(Protocol):

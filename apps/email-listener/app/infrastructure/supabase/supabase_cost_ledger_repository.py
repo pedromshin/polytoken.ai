@@ -39,6 +39,7 @@ def _to_row(event: UsageEvent) -> dict[str, Any]:
     return {
         "conversation_id": event.conversation_id,
         "run_id": event.run_id,
+        "user_id": event.user_id,
         "importer_id": event.importer_id,
         "model_id": event.model_id,
         "execution_locus": event.execution_locus,

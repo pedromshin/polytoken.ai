@@ -192,9 +192,11 @@ class ChatConversationRepository(Protocol):
         """Return the owning user_id for conversation_id, or None if the row does not exist.
 
         Single-column read on chat_conversations.user_id (NOT NULL, migrations
-        0031-0033) — never a join. Used exclusively by the presentation-layer
-        fail-closed ownership gate; the domain/application layers never call
-        this directly.
+        0031-0033) — never a join. Two sanctioned callers: the presentation-
+        layer fail-closed ownership gate (assert_conversation_owned in
+        chat_stream.py), and RunChatTurn's terminal usage-recording path,
+        which attributes the chat_cost_ledger row to the conversation owner
+        (that table's user_id is also NOT NULL since 0033).
         """
         ...
 

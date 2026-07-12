@@ -43,6 +43,7 @@ _SAMPLE_EVENT = UsageEvent(
     cost_usd=Decimal("0.005280"),
     conversation_id="00000000-0000-0000-0004-000000000001",
     run_id="00000000-0000-0000-0005-000000000001",
+    user_id="00000000-0000-0000-0006-000000000001",
 )
 
 
@@ -114,6 +115,7 @@ def test_record_calls_insert_with_mapped_columns() -> None:
 
     assert insert_call_args["conversation_id"] == _SAMPLE_EVENT.conversation_id
     assert insert_call_args["run_id"] == _SAMPLE_EVENT.run_id
+    assert insert_call_args["user_id"] == _SAMPLE_EVENT.user_id
     assert insert_call_args["importer_id"] == _SAMPLE_EVENT.importer_id
     assert insert_call_args["model_id"] == _SAMPLE_EVENT.model_id
     assert insert_call_args["execution_locus"] == "server"

@@ -1247,6 +1247,16 @@ class RunChatTurn:
         cost = self._breaker.estimate_turn_cost(
             model=model, prompt_tokens_est=finalized.input_tokens, max_output_tokens=finalized.output_tokens
         )
+        # chat_cost_ledger.user_id is NOT NULL (0033) — attribute the row to the
+        # conversation OWNER (authoritative for every entrypoint, including
+        # non-HTTP callers). Best-effort like record() itself: a lookup failure
+        # degrades to None (insert rejected + logged) and NEVER breaks the
+        # terminal path.
+        try:
+            owner_user_id = await self._conversations.owner_user_id(conversation_id)
+        except Exception:
+            logger.warning("cost_ledger_owner_lookup_failed", conversation_id=conversation_id)
+            owner_user_id = None
         await self._ledger.record(
             UsageEvent(
                 importer_id=importer_id,
@@ -1257,6 +1267,7 @@ class RunChatTurn:
                 cost_usd=cost,
                 conversation_id=conversation_id,
                 run_id=run.id,
+                user_id=owner_user_id,
             )
         )
         await self._runs.finish_run(run_id=run.id, status=run_status)
