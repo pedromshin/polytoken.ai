@@ -202,10 +202,7 @@ async def test_cache_control_on_system_prompt(
 
     # System must be a list-of-blocks (cache_control requires block format)
     assert isinstance(system, list), "System must be list-of-blocks for cache_control"
-    has_ephemeral = any(
-        isinstance(b, dict) and b.get("cache_control", {}).get("type") == "ephemeral"
-        for b in system
-    )
+    has_ephemeral = any(isinstance(b, dict) and b.get("cache_control", {}).get("type") == "ephemeral" for b in system)
     assert has_ephemeral, "At least one system block must have cache_control.type=ephemeral (D-21)"
 
 
@@ -581,13 +578,9 @@ async def test_pack_token_table_not_in_system_prompt(
     call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
     system_blocks: list[dict[str, Any]] = call_kwargs["system"]
 
-    system_text = " ".join(
-        b.get("text", "") if isinstance(b, dict) else str(b) for b in system_blocks
-    )
+    system_text = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in system_blocks)
     # The active pack identifier must NOT appear in the static system prompt
-    assert "polytoken-teal" not in system_text, (
-        "Pack token table must not contaminate system prompt (COST-01/T-17-21)"
-    )
+    assert "polytoken-teal" not in system_text, "Pack token table must not contaminate system prompt (COST-01/T-17-21)"
 
 
 @pytest.mark.unit
@@ -690,9 +683,7 @@ def test_system_prompt_teaches_dataref_state_binding() -> None:
 
     assert "dataref" in text_lower, "System prompt must mention dataRef binding"
     assert "list" in text_lower, "System prompt must name list as a state-bound node type"
-    assert "conditional" in text_lower, (
-        "System prompt must name conditional as a state-bound node type"
-    )
+    assert "conditional" in text_lower, "System prompt must name conditional as a state-bound node type"
     assert "{{" in text, "System prompt must show the forbidden {{mustache}} example"
     assert "never" in text_lower or "not interpolat" in text_lower, (
         "System prompt must explicitly forbid mustache placeholders in text content"
@@ -723,6 +714,4 @@ async def test_empty_retrieval_no_exemplar_section(
     user_content = str(messages[0]["content"])
 
     # No exemplar ids should appear when retrieval is empty
-    assert "dashboard-saas" not in user_content, (
-        "Empty retrieval must not inject any exemplar data"
-    )
+    assert "dashboard-saas" not in user_content, "Empty retrieval must not inject any exemplar data"

@@ -217,9 +217,7 @@ def test_anchor_edge_carries_provenance_and_tier() -> None:
         )
     )
 
-    anchor_calls = [
-        c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("relation_type") == "evidenced_by"
-    ]
+    anchor_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("relation_type") == "evidenced_by"]
     assert len(anchor_calls) == 1
     anchor_kwargs = anchor_calls[0].kwargs
     assert anchor_kwargs["tier"] == "EXTRACTED"
@@ -331,9 +329,7 @@ def test_page_missing_does_not_raise_and_still_writes_anchor_edge() -> None:
         )
     )
 
-    anchor_calls = [
-        c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("relation_type") == "evidenced_by"
-    ]
+    anchor_calls = [c for c in knowledge.insert_edge.await_args_list if c.kwargs.get("relation_type") == "evidenced_by"]
     assert len(anchor_calls) == 1
     provenance = anchor_calls[0].kwargs["provenance"]
     assert provenance["tokens"] == []
@@ -353,7 +349,9 @@ def test_no_duplicate_anchor_edge_across_first_then_reconfirm_sequence() -> None
 
     # First confirm: no active node yet.
     components1, knowledge1, entity_instances1 = _make_ports(component=component, page=page, active_node=None)
-    service1 = KnowledgeSynthesizerService(components=components1, knowledge=knowledge1, entity_instances=entity_instances1)
+    service1 = KnowledgeSynthesizerService(
+        components=components1, knowledge=knowledge1, entity_instances=entity_instances1
+    )
     asyncio.run(
         service1.synthesize_from_confirmation(
             component_id=_COMP_ID,
@@ -371,7 +369,9 @@ def test_no_duplicate_anchor_edge_across_first_then_reconfirm_sequence() -> None
     components2, knowledge2, entity_instances2 = _make_ports(
         component=component, page=page, active_node={"id": _NODE_ID}
     )
-    service2 = KnowledgeSynthesizerService(components=components2, knowledge=knowledge2, entity_instances=entity_instances2)
+    service2 = KnowledgeSynthesizerService(
+        components=components2, knowledge=knowledge2, entity_instances=entity_instances2
+    )
     asyncio.run(
         service2.synthesize_from_confirmation(
             component_id=_COMP_ID,

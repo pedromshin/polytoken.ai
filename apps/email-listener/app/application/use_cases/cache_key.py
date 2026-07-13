@@ -166,9 +166,7 @@ def compute_cache_key(
     context_descriptor = f"{importer_id or _SYSTEM_IMPORTER}|{catalog_id}"
     pack_descriptor = style_pack_id if style_pack_id is not None else _NO_PACK_SENTINEL
 
-    payload = _FIELD_SEP.join(
-        [canonical, shape_hash, registry_version, context_descriptor, pack_descriptor]
-    )
+    payload = _FIELD_SEP.join([canonical, shape_hash, registry_version, context_descriptor, pack_descriptor])
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

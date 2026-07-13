@@ -178,9 +178,7 @@ class FakeChatRunRepository:
     async def create_run(self, *, conversation_id: str, agent_id: str, model_id: str) -> Any:
         from app.domain.ports.chat_repositories import ChatRun
 
-        self.create_run_calls.append(
-            {"conversation_id": conversation_id, "agent_id": agent_id, "model_id": model_id}
-        )
+        self.create_run_calls.append({"conversation_id": conversation_id, "agent_id": agent_id, "model_id": model_id})
         self._next_run_id += 1
         run_id = f"run-{self._next_run_id}"
         self.runs[run_id] = {
@@ -190,7 +188,9 @@ class FakeChatRunRepository:
             "status": "running",
         }
         self._seq_by_run[run_id] = 0
-        return ChatRun(id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running")
+        return ChatRun(
+            id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running"
+        )
 
     async def append_event(self, *, run_id: str, event_type: str, data: dict[str, Any]) -> ChatRunEvent:
         seq = self._seq_by_run.get(run_id, 0)
@@ -474,9 +474,9 @@ async def test_two_server_tool_calls_in_one_stream_both_execute() -> None:
     result_ids = [p["toolUseId"] for p in parts if p["type"] == "tool_invocation_result"]
     assert invocation_ids == ["tool-1", "tool-2"], "both calls must be recorded, in emission order"
     assert result_ids == ["tool-1", "tool-2"], "both calls must produce results"
-    assert not any(
-        p.get("type") == "genui_spec" for p in parts
-    ), "a server-tool call must NEVER be mangled into a genui_spec part"
+    assert not any(p.get("type") == "genui_spec" for p in parts), (
+        "a server-tool call must NEVER be mangled into a genui_spec part"
+    )
 
     assert len(provider.stream_calls) == 2
     round_two_messages = provider.stream_calls[1]["messages"]
@@ -552,18 +552,14 @@ async def test_parallel_server_calls_beyond_per_round_cap_get_error_results() ->
     assert counting_executor.call_count == MAX_SERVER_CALLS_PER_ROUND, "overflow calls must NOT execute"
 
     round_two_messages = provider.stream_calls[1]["messages"]
-    tool_result_blocks = [
-        b for b in round_two_messages[-1]["content"] if b.get("type") == "tool_result"
-    ]
+    tool_result_blocks = [b for b in round_two_messages[-1]["content"] if b.get("type") == "tool_result"]
     assert len(tool_result_blocks) == n_calls, "EVERY tool_use still needs a tool_result (API contract)"
     overflow_block = tool_result_blocks[-1]
     assert overflow_block["is_error"] is True
 
     messages: FakeChatMessageRepository = fakes["messages"]
     parts = next(m for m in messages.messages if m.role == "assistant").parts
-    overflow_results = [
-        p for p in parts if p["type"] == "tool_invocation_result" and p["isError"] is True
-    ]
+    overflow_results = [p for p in parts if p["type"] == "tool_invocation_result" and p["isError"] is True]
     assert len(overflow_results) == 1
 
 
@@ -624,9 +620,9 @@ async def test_same_turn_source_capture_resolves_current_round_result() -> None:
     assert widget_parts[0]["widgetKind"] == "confirm_action"
     declaration = json.dumps(widget_parts[0]["declaration"])
     assert "https://l.fyi/ai" in declaration, "the declaration must carry the SERVER-recorded url"
-    assert not any(
-        p.get("type") == "text" and "no longer available" in p.get("text", "") for p in parts
-    ), "the same-turn ref must never collapse into CONFIRM_ACTION_UNAVAILABLE_TEXT"
+    assert not any(p.get("type") == "text" and "no longer available" in p.get("text", "") for p in parts), (
+        "the same-turn ref must never collapse into CONFIRM_ACTION_UNAVAILABLE_TEXT"
+    )
 
 
 @pytest.mark.unit
@@ -696,9 +692,9 @@ async def test_source_capture_with_bad_id_and_no_search_stays_unavailable() -> N
     messages: FakeChatMessageRepository = fakes["messages"]
     parts = next(m for m in messages.messages if m.role == "assistant").parts
     assert not any(p.get("type") == "interactive_widget" for p in parts)
-    assert any(
-        p.get("type") == "text" and "no longer available" in p.get("text", "") for p in parts
-    ), "no same-turn search means the ref must stay unavailable"
+    assert any(p.get("type") == "text" and "no longer available" in p.get("text", "") for p in parts), (
+        "no same-turn search means the ref must stay unavailable"
+    )
 
 
 @pytest.mark.unit
@@ -709,8 +705,12 @@ async def test_final_round_offers_no_server_tools_and_carries_answer_nudge() -> 
     burning the cap on another lookup (live 2026-07-12: every research turn ended
     capped with no answer)."""
     provider = _MultiRoundFakeChatProvider(
-        rounds=[[ToolCallDelta(tool_name="echo", id="tool-x", partial_json='{"q": "again"}'),
-                 StreamEnd(stop_reason="tool_use")]]
+        rounds=[
+            [
+                ToolCallDelta(tool_name="echo", id="tool-x", partial_json='{"q": "again"}'),
+                StreamEnd(stop_reason="tool_use"),
+            ]
+        ]
     )
     counting_executor = _CountingEchoToolExecutor()
     use_case, _fakes = _make_use_case(provider=provider, tool_executors={"echo": counting_executor})
@@ -738,9 +738,9 @@ async def test_final_round_offers_no_server_tools_and_carries_answer_nudge() -> 
     assert final_feedback["role"] == "user"
     assert final_feedback["content"][-1] == {"type": "text", "text": FINAL_ROUND_NUDGE_TEXT}
     earlier_feedback = provider.stream_calls[1]["messages"][-1]
-    assert all(
-        block.get("text") != FINAL_ROUND_NUDGE_TEXT for block in earlier_feedback["content"]
-    ), "earlier rounds must NOT carry the nudge"
+    assert all(block.get("text") != FINAL_ROUND_NUDGE_TEXT for block in earlier_feedback["content"]), (
+        "earlier rounds must NOT carry the nudge"
+    )
 
 
 @pytest.mark.unit
@@ -784,14 +784,11 @@ async def test_genui_spec_lead_part_replayed_as_text_stand_in_never_raw() -> Non
 
     round_two_messages = provider.stream_calls[1]["messages"]
     assistant_blocks = [
-        block
-        for message in round_two_messages
-        if message["role"] == "assistant"
-        for block in message["content"]
+        block for message in round_two_messages if message["role"] == "assistant" for block in message["content"]
     ]
-    assert all(
-        block.get("type") != "genui_spec" for block in assistant_blocks
-    ), "a raw genui_spec block must NEVER reach the provider (Anthropic rejects unknown content tags)"
+    assert all(block.get("type") != "genui_spec" for block in assistant_blocks), (
+        "a raw genui_spec block must NEVER reach the provider (Anthropic rejects unknown content tags)"
+    )
     stand_ins = [
         block
         for block in assistant_blocks
@@ -822,7 +819,8 @@ async def test_server_tool_forced_error_result_does_not_raise_and_completes() ->
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "completed"
@@ -844,7 +842,8 @@ async def test_server_tool_execution_exception_becomes_error_result_loop_continu
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"raiser": _RaisingToolExecutor()})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "completed", "an executor exception must never raise out of the loop"
@@ -870,7 +869,8 @@ async def test_server_tool_execution_timeout_becomes_error_result(monkeypatch: p
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "completed"
@@ -901,7 +901,8 @@ async def test_breaker_rechecked_at_round_boundary_cost_caps_before_next_round()
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()}, breaker=breaker)
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "cost_capped"
@@ -938,7 +939,8 @@ async def test_round_scoped_cap_distinct_from_per_turn_cap_aborts_at_round_bound
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()}, breaker=breaker)
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "cost_capped"
@@ -974,7 +976,8 @@ async def test_mid_round_text_cost_cap_aborts_with_visible_partial_text() -> Non
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()}, breaker=breaker)
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "cost_capped"
@@ -986,7 +989,9 @@ async def test_mid_round_text_cost_cap_aborts_with_visible_partial_text() -> Non
     assert all("never reached" not in p.get("text", "") for p in assistant_messages[-1].parts)
 
     assert breaker.should_abort_round_calls == 2
-    assert len(provider.stream_calls) == 2, "round 2's OWN stream DID start (distinguishes this from the round-boundary test)"
+    assert len(provider.stream_calls) == 2, (
+        "round 2's OWN stream DID start (distinguishes this from the round-boundary test)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1028,7 +1033,8 @@ async def test_round_cap_exhaustion_appends_visible_text_and_completes() -> None
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": counting_executor})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "completed", "exhaustion must finish 'completed', never a bare 'stopped'"
@@ -1159,7 +1165,8 @@ async def test_server_tool_error_round_mirror_event_matches_persisted_error_resu
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     server_tool_result_event = next(e for e in events if e.type == "server_tool_result")
@@ -1181,12 +1188,15 @@ async def test_server_tool_error_round_mirror_event_matches_persisted_error_resu
 @pytest.mark.asyncio
 async def test_single_round_text_only_turn_unregressed_by_round_loop() -> None:
     provider = _MultiRoundFakeChatProvider(
-        rounds=[[TextDelta(text="Hello!"), UsageDelta(input_tokens=4, output_tokens=2), StreamEnd(stop_reason="end_turn")]]
+        rounds=[
+            [TextDelta(text="Hello!"), UsageDelta(input_tokens=4, output_tokens=2), StreamEnd(stop_reason="end_turn")]
+        ]
     )
     use_case, fakes = _make_use_case(provider=provider, tool_executors={"echo": EchoToolExecutor()})
 
     events = [
-        event async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
+        event
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="hi", model_id=_TOOL_ROUND_MODEL.id)
     ]
 
     assert events[-1].type == "completed"

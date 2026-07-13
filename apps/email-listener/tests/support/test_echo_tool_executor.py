@@ -49,9 +49,7 @@ async def test_echo_forced_error_returns_is_error_true() -> None:
 @pytest.mark.asyncio
 async def test_echo_output_is_capped() -> None:
     executor = EchoToolExecutor()
-    result = await executor.execute(
-        name="echo", arguments={"payload": "x" * 5000}, importer_id=_IMPORTER_ID
-    )
+    result = await executor.execute(name="echo", arguments={"payload": "x" * 5000}, importer_id=_IMPORTER_ID)
     assert len(result.content) <= MAX_TOOL_OUTPUT_CHARS + len(" …[truncated]")
     assert result.content.endswith("…[truncated]")
 

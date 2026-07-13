@@ -230,10 +230,7 @@ async def test_cache_control_on_system_prompt(
     call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
     system = call_kwargs.get("system")
     assert isinstance(system, list), "System must be list-of-blocks for cache_control"
-    has_ephemeral = any(
-        isinstance(b, dict) and b.get("cache_control", {}).get("type") == "ephemeral"
-        for b in system
-    )
+    has_ephemeral = any(isinstance(b, dict) and b.get("cache_control", {}).get("type") == "ephemeral" for b in system)
     assert has_ephemeral, "At least one system block must have cache_control.type=ephemeral (D-21)"
 
 

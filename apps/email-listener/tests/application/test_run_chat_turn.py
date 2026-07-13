@@ -141,8 +141,7 @@ class FakeChatMessageRepository:
 
     async def mark_status(self, message_id: str, status: str) -> None:
         self.messages = [
-            m if m.id != message_id else ChatMessage(**{**m.__dict__, "status": status})
-            for m in self.messages
+            m if m.id != message_id else ChatMessage(**{**m.__dict__, "status": status}) for m in self.messages
         ]
 
     async def set_sibling_inactive(self, sibling_group_id: str) -> None:
@@ -166,9 +165,16 @@ class FakeChatRunRepository:
 
         self._next_run_id += 1
         run_id = f"run-{self._next_run_id}"
-        self.runs[run_id] = {"conversation_id": conversation_id, "agent_id": agent_id, "model_id": model_id, "status": "running"}
+        self.runs[run_id] = {
+            "conversation_id": conversation_id,
+            "agent_id": agent_id,
+            "model_id": model_id,
+            "status": "running",
+        }
         self._seq_by_run[run_id] = 0
-        return ChatRun(id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running")
+        return ChatRun(
+            id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running"
+        )
 
     async def append_event(self, *, run_id: str, event_type: str, data: dict[str, Any]) -> ChatRunEvent:
         seq = self._seq_by_run.get(run_id, 0)
@@ -383,9 +389,7 @@ async def test_pre_turn_block_yields_single_cost_capped_event_no_provider_call()
 
     events = [
         event
-        async for event in use_case.run(
-            conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id
-        )
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_SERVER_MODEL.id)
     ]
 
     assert len(events) == 1
@@ -438,10 +442,7 @@ async def test_history_excludes_inactive_siblings() -> None:
 
     sent_messages = provider.stream_calls[0]["messages"]
     sent_texts = [
-        part["text"]
-        for message in sent_messages
-        for part in message["content"]
-        if part.get("type") == "text"
+        part["text"] for message in sent_messages for part in message["content"] if part.get("type") == "text"
     ]
     assert "OLD retired answer" not in sent_texts
     assert "NEW active answer" in sent_texts
@@ -468,9 +469,7 @@ async def test_history_trimmed_to_context_budget() -> None:
     provider = FakeChatProvider([StreamEnd(stop_reason="end_turn")])
     use_case, _fakes = _make_use_case(provider=provider, messages=messages)
 
-    async for _ in use_case.run(
-        conversation_id=_CONVERSATION_ID, user_text="short", model_id=_SMALL_CONTEXT_MODEL.id
-    ):
+    async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="short", model_id=_SMALL_CONTEXT_MODEL.id):
         pass
 
     sent_messages = provider.stream_calls[0]["messages"]

@@ -83,6 +83,4 @@ async def promote_edge(
         logger.warning("promote_edge_rejected", edge_id=str(edge_id), reason=exc.reason)
         raise HTTPException(status_code=409, detail=_NOT_PROMOTABLE_DETAIL) from exc
 
-    return ApiResponse.ok(
-        PromoteEdgeView(edge_id=str(result["edge_id"]), tier=str(result["tier"]))
-    )
+    return ApiResponse.ok(PromoteEdgeView(edge_id=str(result["edge_id"]), tier=str(result["tier"])))

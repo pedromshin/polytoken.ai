@@ -87,10 +87,7 @@ def _assert_bedrock_input_schema(schema: Any, schema_path: Path) -> None:
     surface as an opaque Bedrock 400 inside the request path.
     """
     if not isinstance(schema, dict):
-        raise RuntimeError(
-            f"GenUI spec schema at {schema_path} must be a JSON object, "
-            f"got {type(schema).__name__}."
-        )
+        raise RuntimeError(f"GenUI spec schema at {schema_path} must be a JSON object, got {type(schema).__name__}.")
     root_type = schema.get("type")
     if root_type != "object":
         raise RuntimeError(

@@ -225,7 +225,9 @@ async def test_is_stale_false_when_active_and_no_newer_turn() -> None:
 async def test_supersede_pending_updates_every_pending_row_in_conversation() -> None:
     """Phase 24-04 (D-02): the conditional UPDATE carries BOTH eq("conversation_id", ...) AND
     eq("state", "pending") — mirrors try_submit's own CAS idiom."""
-    widget_table = _make_table(execute_data=[_interaction_row(state="superseded"), _interaction_row(id="int-2", state="superseded")])
+    widget_table = _make_table(
+        execute_data=[_interaction_row(state="superseded"), _interaction_row(id="int-2", state="superseded")]
+    )
     client = _make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 

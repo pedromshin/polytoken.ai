@@ -126,28 +126,23 @@ def _build_system_blocks() -> list[dict[str, Any]]:
 # prompt-assembly detail, not an identity contract.
 _PACK_PERSONALITIES: Mapping[str, str] = {
     "polytoken-teal": (
-        "Default brand palette — dark teal primary, clean light surface. "
-        "Professional, calm, trustworthy."
+        "Default brand palette — dark teal primary, clean light surface. Professional, calm, trustworthy."
     ),
     "linear-clean": (
-        "Monochrome precision-SaaS — slate tones, tight radius. "
-        "Engineered, minimal, no-nonsense clarity."
+        "Monochrome precision-SaaS — slate tones, tight radius. Engineered, minimal, no-nonsense clarity."
     ),
     "warm-editorial": (
-        "Editorial warmth — amber primary, sand surface, serif typography. "
-        "Human, inviting, magazine-like."
+        "Editorial warmth — amber primary, sand surface, serif typography. Human, inviting, magazine-like."
     ),
     "brutalist": (
         "Bold high-contrast brutalism — pure black primary, zero radius, "
         "monospace type. Stark, raw, unapologetically bold."
     ),
     "corporate-saas": (
-        "Enterprise trust palette — confident blue, conservative corners. "
-        "Formal, dependable, boardroom-ready."
+        "Enterprise trust palette — confident blue, conservative corners. Formal, dependable, boardroom-ready."
     ),
     "playful-rounded": (
-        "Friendly and vibrant — purple primary, high radius, warm shadows. "
-        "Playful, energetic, approachable."
+        "Friendly and vibrant — purple primary, high radius, warm shadows. Playful, energetic, approachable."
     ),
 }
 

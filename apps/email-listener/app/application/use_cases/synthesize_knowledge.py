@@ -176,9 +176,7 @@ class KnowledgeSynthesizerService:
         # suggestions alongside the fresh EXTRACTED set.
 
         # INFERRED: unconfirmed entity components co-occurring in the same email.
-        unconfirmed = await self._entity_instances.find_unconfirmed_entity_components_for_email(
-            component.email_id
-        )
+        unconfirmed = await self._entity_instances.find_unconfirmed_entity_components_for_email(component.email_id)
         for other in unconfirmed:
             if other.id == component_id:
                 continue

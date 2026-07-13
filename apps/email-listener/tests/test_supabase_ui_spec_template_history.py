@@ -397,9 +397,7 @@ def test_list_recent_skips_importer_id_filter_when_none() -> None:
     asyncio.run(repo.list_recent(limit=10, offset=0, importer_id=None))
 
     importer_calls = [c for c in eq_calls if c[0] == "importer_id"]
-    assert not importer_calls, (
-        f"Expected NO eq('importer_id', ...) when None, got: {importer_calls}"
-    )
+    assert not importer_calls, f"Expected NO eq('importer_id', ...) when None, got: {importer_calls}"
 
 
 # ---------------------------------------------------------------------------
@@ -485,9 +483,7 @@ def test_find_by_id_handles_spec_json_as_string() -> None:
     result = asyncio.run(repo.find_by_id(_SAMPLE_ID))
 
     assert result is not None
-    assert result.spec_json == _SAMPLE_SPEC_JSON, (
-        "spec_json returned as string must be parsed to dict (WR-02)"
-    )
+    assert result.spec_json == _SAMPLE_SPEC_JSON, "spec_json returned as string must be parsed to dict (WR-02)"
 
 
 # ---------------------------------------------------------------------------

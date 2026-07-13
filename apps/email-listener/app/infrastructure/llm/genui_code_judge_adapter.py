@@ -49,8 +49,7 @@ _PICK_TOOL_NAME = "pick_best_design"
 _PICK_BEST_DESIGN_TOOL: dict[str, Any] = {
     "name": _PICK_TOOL_NAME,
     "description": (
-        "Return the 0-based index of the single best candidate design. "
-        "Respond ONLY via this tool — no prose."
+        "Return the 0-based index of the single best candidate design. Respond ONLY via this tool — no prose."
     ),
     "input_schema": {
         "type": "object",
@@ -210,7 +209,5 @@ def _build_user_content(*, intent_summary: str, candidates: list[str]) -> str:
     for i, code in enumerate(candidates):
         truncated = code[:_CANDIDATE_CHAR_LIMIT]
         parts.append(f"--- CANDIDATE {i} ---\n{truncated}")
-    parts.append(
-        f"\nPick the best of the {len(candidates)} candidates (0-based) and call pick_best_design."
-    )
+    parts.append(f"\nPick the best of the {len(candidates)} candidates (0-based) and call pick_best_design.")
     return "\n\n".join(parts)

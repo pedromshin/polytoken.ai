@@ -145,9 +145,7 @@ class LookupEntityExecutor:
 
         envelope = {
             "results": [dataclasses.asdict(result) for result in results],
-            "citations": [
-                citation_to_dict(build_citation("entity", result.entity_instance_id)) for result in results
-            ],
+            "citations": [citation_to_dict(build_citation("entity", result.entity_instance_id)) for result in results],
         }
         content = cap_tool_output(json.dumps(envelope, separators=(",", ":")))
         return ToolExecutionResult(tool_use_id="", content=content, is_error=False)

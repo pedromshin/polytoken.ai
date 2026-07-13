@@ -498,9 +498,9 @@ def test_entity_instance_repo_find_confirmed_entity_components_for_email_filters
     eq_calls = [str(c) for c in chain.eq.call_args_list]
     assert any("email_id" in c for c in eq_calls), f"email_id filter missing: {eq_calls}"
     assert any("role" in c and "entity" in c for c in eq_calls), f"role='entity' filter missing: {eq_calls}"
-    assert any(
-        "extraction_status" in c and "confirmed" in c for c in eq_calls
-    ), f"extraction_status='confirmed' filter missing: {eq_calls}"
+    assert any("extraction_status" in c and "confirmed" in c for c in eq_calls), (
+        f"extraction_status='confirmed' filter missing: {eq_calls}"
+    )
     assert len(result) == 1
     assert result[0].id == "comp-002"
 
@@ -555,9 +555,9 @@ def test_entity_instance_repo_find_unconfirmed_entity_components_for_email_filte
     neq_calls = [str(c) for c in chain.neq.call_args_list]
     assert any("email_id" in c for c in eq_calls), f"email_id filter missing: {eq_calls}"
     assert any("role" in c and "entity" in c for c in eq_calls), f"role='entity' filter missing: {eq_calls}"
-    assert any(
-        "extraction_status" in c and "confirmed" in c for c in neq_calls
-    ), f"extraction_status neq 'confirmed' filter missing: {neq_calls}"
+    assert any("extraction_status" in c and "confirmed" in c for c in neq_calls), (
+        f"extraction_status neq 'confirmed' filter missing: {neq_calls}"
+    )
     assert len(result) == 1
     assert result[0].id == "comp-002"
 
@@ -584,9 +584,7 @@ def test_entity_instance_repo_find_unselected_candidate_instances_for_component_
 
     eq_calls = [str(c) for c in link_chain.eq.call_args_list]
     assert any("component_id" in c for c in eq_calls), f"component_id filter missing: {eq_calls}"
-    assert any(
-        "was_selected" in c and "False" in c for c in eq_calls
-    ), f"was_selected=False filter missing: {eq_calls}"
+    assert any("was_selected" in c and "False" in c for c in eq_calls), f"was_selected=False filter missing: {eq_calls}"
     assert len(result) == 1
     assert result[0].id == "ei-001"
 

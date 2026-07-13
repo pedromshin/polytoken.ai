@@ -104,9 +104,7 @@ def aggregate_all_packs(
 
     # Cross-pack mean distinctiveness (from all reports with a distinctiveness value)
     distinctiveness_values = [
-        r.distinctiveness
-        for r in prompt_reports
-        if getattr(r, "distinctiveness", None) is not None
+        r.distinctiveness for r in prompt_reports if getattr(r, "distinctiveness", None) is not None
     ]
     if distinctiveness_values:
         result["cross_pack_mean_distinctiveness"] = sum(distinctiveness_values) / len(distinctiveness_values)
@@ -187,7 +185,9 @@ async def _eval_prompt(
             # Build sub_scores for aggregate
             sub_scores: list[CriterionResult] = [vs, cp, ay]
             if on_intent_score is not None:
-                sub_scores.append(CriterionResult(name="on-intent", score=on_intent_score, passed=on_intent_score >= 0.5))
+                sub_scores.append(
+                    CriterionResult(name="on-intent", score=on_intent_score, passed=on_intent_score >= 0.5)
+                )
 
             overall = aggregate(sub_scores)
 
@@ -342,14 +342,12 @@ def _parse_args() -> argparse.Namespace:
         type=str,
         default=None,
         metavar="PACK_ID",
-        help="Run eval with a specific style pack (e.g. polytoken-teal). "
-        "Mutually exclusive with --all-packs.",
+        help="Run eval with a specific style pack (e.g. polytoken-teal). Mutually exclusive with --all-packs.",
     )
     pack_group.add_argument(
         "--all-packs",
         action="store_true",
-        help="Run eval over all 6 style packs and aggregate (D-19). "
-        "Mutually exclusive with --style-pack.",
+        help="Run eval over all 6 style packs and aggregate (D-19). Mutually exclusive with --style-pack.",
     )
     return parser.parse_args()
 

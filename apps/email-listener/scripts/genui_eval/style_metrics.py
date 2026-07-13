@@ -400,9 +400,7 @@ def retrieval_overlap_ratio(
         return 0.0
 
     # Collect all node types present in the spec
-    node_types: frozenset[str] = frozenset(
-        t.lower() for t in _collect_node_types(root)
-    )
+    node_types: frozenset[str] = frozenset(t.lower() for t in _collect_node_types(root))
 
     referenced = 0
     for rid in retrieved_ids:

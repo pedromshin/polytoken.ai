@@ -207,9 +207,7 @@ class SubmitWidgetInteraction:
             turn_index=turn_index,
         )
 
-        return self._continuation_runner.continue_after_widget(
-            conversation_id=conversation_id, model_id=model_id
-        )
+        return self._continuation_runner.continue_after_widget(conversation_id=conversation_id, model_id=model_id)
 
     async def submit(
         self,
@@ -241,9 +239,7 @@ class SubmitWidgetInteraction:
         history = await self._messages.list_active_context(conversation_id)
         return max((m.turn_index for m in history), default=-1) + 1
 
-    async def _reject_if_confirm_action_edge_stale(
-        self, interaction: WidgetInteraction
-    ) -> dict[str, object] | None:
+    async def _reject_if_confirm_action_edge_stale(self, interaction: WidgetInteraction) -> dict[str, object] | None:
         """CONF-02: re-check the referenced edge's LIVE tier before any mutation.
 
         No-op (returns None) unless `widget_kind == "confirm_action"` AND the

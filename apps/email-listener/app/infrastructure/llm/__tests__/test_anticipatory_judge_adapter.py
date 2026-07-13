@@ -101,7 +101,9 @@ async def test_forced_score_appropriateness_tool_temperature_zero(
 ) -> None:
     mock_bedrock_client.messages.create.return_value = _make_score_response(0.9)
 
-    await judge.score(proposed_prompt_text="Want me to build on that?", rationale="idle after genui", context_summary="x")
+    await judge.score(
+        proposed_prompt_text="Want me to build on that?", rationale="idle after genui", context_summary="x"
+    )
 
     call_kwargs = mock_bedrock_client.messages.create.call_args.kwargs
     assert call_kwargs["tool_choice"]["type"] == "tool"
@@ -234,9 +236,7 @@ async def test_usage_is_read_and_logged_on_success(
     judge: BedrockAppropriatenessJudgeAdapter,
     mock_bedrock_client: MagicMock,
 ) -> None:
-    mock_bedrock_client.messages.create.return_value = _make_score_response(
-        0.8, input_tokens=321, output_tokens=17
-    )
+    mock_bedrock_client.messages.create.return_value = _make_score_response(0.8, input_tokens=321, output_tokens=17)
 
     with patch("app.infrastructure.llm.anticipatory_judge_adapter.logger") as mock_logger:
         await judge.score(proposed_prompt_text="x", rationale="y", context_summary="z")

@@ -69,18 +69,12 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
     for label, key in criteria:
         b_val = baseline.get(key)
         c_val = candidate.get(key)
-        lines.append(
-            f"| {label} | {_format_score(b_val)} | {_format_score(c_val)} | {_delta_str(b_val, c_val)} |"
-        )
+        lines.append(f"| {label} | {_format_score(b_val)} | {_format_score(c_val)} | {_delta_str(b_val, c_val)} |")
 
     # D-09 / D-18: a11y HARD-regression flag — any negative a11y delta is blocking
     b_a11y = baseline.get("mean_a11y")
     c_a11y = candidate.get("mean_a11y")
-    a11y_hard_regression = (
-        b_a11y is not None
-        and c_a11y is not None
-        and (c_a11y - b_a11y) < 0.0
-    )
+    a11y_hard_regression = b_a11y is not None and c_a11y is not None and (c_a11y - b_a11y) < 0.0
 
     if a11y_hard_regression and b_a11y is not None and c_a11y is not None:
         a11y_delta = c_a11y - b_a11y
@@ -88,8 +82,7 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
             "",
             "## A11Y HARD REGRESSION DETECTED",
             "",
-            f"> **HARD FAIL**: a11y regressed by {a11y_delta:+.3f} "
-            f"(baseline {b_a11y:.3f} -> candidate {c_a11y:.3f}).",
+            f"> **HARD FAIL**: a11y regressed by {a11y_delta:+.3f} (baseline {b_a11y:.3f} -> candidate {c_a11y:.3f}).",
             "> Any negative a11y delta is a blocking failure (D-09).",
             "> Do NOT merge until a11y is restored to baseline level or above.",
             "",
@@ -101,10 +94,7 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
         ("distinctiveness", "mean_distinctiveness"),
         ("retrieval overlap", "mean_retrieval_overlap"),
     ]
-    has_style_data = any(
-        baseline.get(key) is not None or candidate.get(key) is not None
-        for _, key in style_keys
-    )
+    has_style_data = any(baseline.get(key) is not None or candidate.get(key) is not None for _, key in style_keys)
 
     if has_style_data:
         lines += [
@@ -118,18 +108,13 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
             b_val = baseline.get(key)
             c_val = candidate.get(key)
             lines.append(
-                f"| {label_str} | {_format_score(b_val)} | {_format_score(c_val)}"
-                f" | {_delta_str(b_val, c_val)} |"
+                f"| {label_str} | {_format_score(b_val)} | {_format_score(c_val)} | {_delta_str(b_val, c_val)} |"
             )
         lines.append("")
 
     # Per-prompt regression table
-    baseline_by_id: dict[str, dict[str, Any]] = {
-        pr["prompt_id"]: pr for pr in baseline.get("prompt_reports", [])
-    }
-    candidate_by_id: dict[str, dict[str, Any]] = {
-        pr["prompt_id"]: pr for pr in candidate.get("prompt_reports", [])
-    }
+    baseline_by_id: dict[str, dict[str, Any]] = {pr["prompt_id"]: pr for pr in baseline.get("prompt_reports", [])}
+    candidate_by_id: dict[str, dict[str, Any]] = {pr["prompt_id"]: pr for pr in candidate.get("prompt_reports", [])}
 
     all_ids = sorted(set(baseline_by_id) | set(candidate_by_id))
     regressions: list[tuple[str, float, float, float]] = []
@@ -167,7 +152,10 @@ def compare(baseline: dict[str, Any], candidate: dict[str, Any]) -> str:
 def main() -> None:
     """CLI entry point: compare two report JSON files and print Markdown to stdout."""
     if len(sys.argv) != 3:
-        print("Usage: uv run python -m scripts.genui_eval.compare_reports <baseline.json> <candidate.json>", file=sys.stderr)
+        print(
+            "Usage: uv run python -m scripts.genui_eval.compare_reports <baseline.json> <candidate.json>",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     baseline_path = Path(sys.argv[1])

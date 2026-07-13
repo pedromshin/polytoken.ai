@@ -50,8 +50,8 @@ def test_canonicalize_intent_nfc_normalization_makes_equivalent_unicode_equal() 
     import unicodedata
 
     # 'é' can be represented as pre-composed NFC (U+00E9) or decomposed NFD (e + U+0301).
-    nfc_form = unicodedata.normalize("NFC", "café")   # NFD: 'e' + combining acute
-    nfd_form = "café"                                   # NFC: pre-composed
+    nfc_form = unicodedata.normalize("NFC", "café")  # NFD: 'e' + combining acute
+    nfd_form = "café"  # NFC: pre-composed
     # After NFC normalization both should canonicalize identically.
     assert canonicalize_intent(nfc_form) == canonicalize_intent(nfd_form)
 
@@ -278,9 +278,7 @@ def test_style_pack_ids_contains_expected_packs() -> None:
         "corporate-saas",
         "playful-rounded",
     }
-    assert set(STYLE_PACK_IDS) == expected, (
-        f"STYLE_PACK_IDS mismatch. Expected: {expected}, Got: {set(STYLE_PACK_IDS)}"
-    )
+    assert set(STYLE_PACK_IDS) == expected, f"STYLE_PACK_IDS mismatch. Expected: {expected}, Got: {set(STYLE_PACK_IDS)}"
 
 
 @pytest.mark.unit

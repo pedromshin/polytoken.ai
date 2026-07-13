@@ -62,7 +62,9 @@ _SAMPLE_DDG_HTML_ABSOLUTE_HREF = """
 """
 
 
-def _mock_client(*, text: str = "", status_error: Exception | None = None, request_error: Exception | None = None) -> AsyncMock:
+def _mock_client(
+    *, text: str = "", status_error: Exception | None = None, request_error: Exception | None = None
+) -> AsyncMock:
     client = AsyncMock(spec=httpx.AsyncClient)
     if request_error is not None:
         client.get.side_effect = request_error
@@ -86,8 +88,16 @@ async def test_search_parses_ddg_html_into_search_results() -> None:
     results = await provider.search(query="python programming language", limit=5)
 
     assert results == [
-        SearchResult(title="Welcome to Python.org", url="https://www.python.org/", snippet="Python is a versatile and easy-to-learn language."),
-        SearchResult(title="Python 3 Documentation", url="https://docs.python.org/3/", snippet="The official Python 3 documentation."),
+        SearchResult(
+            title="Welcome to Python.org",
+            url="https://www.python.org/",
+            snippet="Python is a versatile and easy-to-learn language.",
+        ),
+        SearchResult(
+            title="Python 3 Documentation",
+            url="https://docs.python.org/3/",
+            snippet="The official Python 3 documentation.",
+        ),
         SearchResult(title="Python Wiki", url="https://wiki.python.org/moin/", snippet="Community wiki for Python."),
     ]
     client.get.assert_awaited_once()
@@ -110,7 +120,9 @@ async def test_search_caps_results_at_limit() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_search_degrades_to_empty_list_on_http_status_error() -> None:
-    client = _mock_client(text="", status_error=httpx.HTTPStatusError("boom", request=MagicMock(), response=MagicMock()))
+    client = _mock_client(
+        text="", status_error=httpx.HTTPStatusError("boom", request=MagicMock(), response=MagicMock())
+    )
     provider = DuckDuckGoSearchProvider(client=client)
 
     results = await provider.search(query="anything", limit=5)
@@ -148,4 +160,6 @@ async def test_search_passes_through_an_already_absolute_href_unchanged() -> Non
 
     results = await provider.search(query="direct", limit=5)
 
-    assert results == [SearchResult(title="Direct Example", url="https://example.com/direct", snippet="A direct, unwrapped href.")]
+    assert results == [
+        SearchResult(title="Direct Example", url="https://example.com/direct", snippet="A direct, unwrapped href.")
+    ]

@@ -128,7 +128,9 @@ def _make_executor(
     retrieval = _FakeRetrieval(examples_by_type)
 
     entity_types_repo = AsyncMock()
-    entity_types_repo.list_active.return_value = entity_types if entity_types is not None else [_entity_type(_ENTITY_TYPE_A)]
+    entity_types_repo.list_active.return_value = (
+        entity_types if entity_types is not None else [_entity_type(_ENTITY_TYPE_A)]
+    )
 
     components_repo = AsyncMock()
     components_map = components_by_id or {}
@@ -186,13 +188,17 @@ async def test_happy_path_merges_dedupes_ranks_and_caps_at_five_emails() -> None
         emails_by_id=emails_by_id,
     )
 
-    result = await executor.execute(name="search_emails", arguments={"query": "container booking"}, importer_id=_IMPORTER_ID)
+    result = await executor.execute(
+        name="search_emails", arguments={"query": "container booking"}, importer_id=_IMPORTER_ID
+    )
 
     assert result.is_error is False
     envelope = json.loads(result.content)
     results = envelope["results"]
     ids = [r["email_id"] for r in results]
-    assert ids == ["email-5", "email-1", "email-4", "email-6", "email-2"], "ranked desc, dedup keeps highest, capped at 5"
+    assert ids == ["email-5", "email-1", "email-4", "email-6", "email-2"], (
+        "ranked desc, dedup keeps highest, capped at 5"
+    )
     assert len(results) == 5
     assert "email-3" not in ids, "lowest-scoring 6th distinct email must be dropped by the top-5 cap"
     entity_types_repo.list_active.assert_awaited_once_with(_IMPORTER_ID)

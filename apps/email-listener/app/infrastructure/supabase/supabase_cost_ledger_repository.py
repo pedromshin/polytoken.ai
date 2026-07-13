@@ -111,20 +111,19 @@ class SupabaseCostLedgerRepository:
     async def sum_for_conversation(self, conversation_id: str) -> Decimal:
         """Total cost_usd for a conversation (per-session cap check). Propagates errors."""
         result = await asyncio.to_thread(
-            lambda: self._client.table(_TABLE)
-            .select("cost_usd")
-            .eq("conversation_id", conversation_id)
-            .execute()
+            lambda: self._client.table(_TABLE).select("cost_usd").eq("conversation_id", conversation_id).execute()
         )
         return _sum_cost_column(result.data)
 
     async def sum_for_importer_day(self, importer_id: str, day: date) -> Decimal:
         """Total cost_usd for an importer on a given UTC day (per-day cap check). Propagates errors."""
         result = await asyncio.to_thread(
-            lambda: self._client.table(_TABLE)
-            .select("cost_usd")
-            .eq("importer_id", importer_id)
-            .gte("created_at", _day_start_utc(day))
-            .execute()
+            lambda: (
+                self._client.table(_TABLE)
+                .select("cost_usd")
+                .eq("importer_id", importer_id)
+                .gte("created_at", _day_start_utc(day))
+                .execute()
+            )
         )
         return _sum_cost_column(result.data)

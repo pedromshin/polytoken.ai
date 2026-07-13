@@ -38,9 +38,7 @@ class AppropriatenessJudge(Protocol):
     mirrored here).
     """
 
-    async def score(
-        self, *, proposed_prompt_text: str, rationale: str, context_summary: str
-    ) -> AppropriatenessScore:
+    async def score(self, *, proposed_prompt_text: str, rationale: str, context_summary: str) -> AppropriatenessScore:
         """Score how appropriate it is to show this candidate right now.
 
         Args:

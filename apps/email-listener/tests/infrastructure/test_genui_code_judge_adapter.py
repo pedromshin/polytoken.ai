@@ -220,9 +220,7 @@ async def test_rank_captures_real_usage_on_success(
     mock_bedrock_client: MagicMock,
 ) -> None:
     """A successful ranking call surfaces the REAL input/output tokens (D-22), not 0."""
-    mock_bedrock_client.messages.create.return_value = _make_pick_response(
-        1, input_tokens=321, output_tokens=17
-    )
+    mock_bedrock_client.messages.create.return_value = _make_pick_response(1, input_tokens=321, output_tokens=17)
 
     result = await judge.rank(intent_summary="x", candidates=_CANDIDATES)
 

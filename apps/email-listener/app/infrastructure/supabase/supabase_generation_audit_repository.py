@@ -70,9 +70,7 @@ class SupabaseGenerationAuditRepository:
         """
         row = _to_row(event)
         try:
-            await asyncio.to_thread(
-                lambda: self._client.table(_TABLE).insert(row).execute()
-            )
+            await asyncio.to_thread(lambda: self._client.table(_TABLE).insert(row).execute())
         except Exception:
             logger.exception(
                 "generation_audit_record_failed",

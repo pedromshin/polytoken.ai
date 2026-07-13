@@ -93,9 +93,7 @@ def test_generate_missing_intent_returns_422(client: TestClient) -> None:
 
 
 @pytest.mark.unit
-def test_generate_missing_raw_content_is_accepted_intent_only(
-    client: TestClient, mock_use_case: MagicMock
-) -> None:
+def test_generate_missing_raw_content_is_accepted_intent_only(client: TestClient, mock_use_case: MagicMock) -> None:
     """raw_content is optional (default=""); omitting it enables intent-only generation (CR-01)."""
     resp = client.post(
         "/v1/genui/generate",
@@ -157,9 +155,7 @@ def test_generate_returns_fallback_spec_when_use_case_returns_fallback(
     mock_use_case: MagicMock,
 ) -> None:
     """When the use case returns SAFE_FALLBACK_SPEC, the endpoint returns it in data.spec."""
-    mock_use_case.execute = AsyncMock(
-        return_value=GenerateUiSpecResult(spec=SAFE_FALLBACK_SPEC)
-    )
+    mock_use_case.execute = AsyncMock(return_value=GenerateUiSpecResult(spec=SAFE_FALLBACK_SPEC))
     resp = client.post(
         "/v1/genui/generate",
         json={
@@ -181,9 +177,7 @@ def test_generate_response_includes_outcome_and_cache_hit(
 ) -> None:
     """D-05.1: the 200 response body must include data.outcome and data.cache_hit (GenerateUiSpecView)."""
     valid_spec = {"v": 1, "root": {"type": "card", "title": "Test"}}
-    mock_use_case.execute = AsyncMock(
-        return_value=GenerateUiSpecResult(spec=valid_spec, cache_hit=True, outcome="ok")
-    )
+    mock_use_case.execute = AsyncMock(return_value=GenerateUiSpecResult(spec=valid_spec, cache_hit=True, outcome="ok"))
     resp = client.post(
         "/v1/genui/generate",
         json={

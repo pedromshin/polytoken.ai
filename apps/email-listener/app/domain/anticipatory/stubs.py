@@ -34,9 +34,7 @@ class StubAppropriatenessJudge(AppropriatenessJudge):
     reason: str = "stub_pass"
     script: list[AppropriatenessScore] = field(default_factory=list)
 
-    async def score(
-        self, *, proposed_prompt_text: str, rationale: str, context_summary: str
-    ) -> AppropriatenessScore:
+    async def score(self, *, proposed_prompt_text: str, rationale: str, context_summary: str) -> AppropriatenessScore:
         del proposed_prompt_text, rationale, context_summary  # stub ignores call inputs
         if self.script:
             return self.script.pop(0)

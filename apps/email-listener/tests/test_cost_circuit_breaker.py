@@ -122,9 +122,7 @@ def test_estimate_turn_cost_uses_registry_pricing() -> None:
     """estimate = (prompt_tokens*price_in + max_output*price_out) / 1e6."""
     breaker = _make_breaker()
 
-    estimate = breaker.estimate_turn_cost(
-        model=_SERVER_MODEL, prompt_tokens_est=100_000, max_output_tokens=10_000
-    )
+    estimate = breaker.estimate_turn_cost(model=_SERVER_MODEL, prompt_tokens_est=100_000, max_output_tokens=10_000)
 
     expected = (Decimal(100_000) * Decimal("3.0") + Decimal(10_000) * Decimal("15.0")) / Decimal(1_000_000)
     assert estimate == expected

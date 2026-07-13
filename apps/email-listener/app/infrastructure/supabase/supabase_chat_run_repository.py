@@ -54,9 +54,7 @@ class SupabaseChatRunRepository:
             status="running",
         )
 
-    async def append_event(
-        self, *, run_id: str, event_type: ChatRunEventType, data: dict[str, Any]
-    ) -> ChatRunEvent:
+    async def append_event(self, *, run_id: str, event_type: ChatRunEventType, data: dict[str, Any]) -> ChatRunEvent:
         next_seq = await asyncio.to_thread(self._next_seq, run_id)
         row: dict[str, Any] = {"run_id": run_id, "seq": next_seq, "type": event_type, "data": data}
         result = await asyncio.to_thread(lambda: self._client.table(_EVENTS_TABLE).insert(row).execute())

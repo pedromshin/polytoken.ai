@@ -131,13 +131,7 @@ class SupabaseUiSpecTemplateRepository:
         """
         row = _to_row(template)
         try:
-            await asyncio.to_thread(
-                lambda: (
-                    self._client.table(_TABLE)
-                    .upsert(row, on_conflict="cache_key")
-                    .execute()
-                )
-            )
+            await asyncio.to_thread(lambda: self._client.table(_TABLE).upsert(row, on_conflict="cache_key").execute())
         except Exception:
             logger.exception(
                 "genui_template_persist_failed",
@@ -169,13 +163,7 @@ class SupabaseUiSpecTemplateRepository:
         try:
             # Step 1: read current use_count
             select_resp = await asyncio.to_thread(
-                lambda: (
-                    self._client.table(_TABLE)
-                    .select("use_count")
-                    .eq("id", template_id)
-                    .limit(1)
-                    .execute()
-                )
+                lambda: self._client.table(_TABLE).select("use_count").eq("id", template_id).limit(1).execute()
             )
             rows = cast("list[dict[str, Any]]", select_resp.data or [])
             if not rows:
@@ -234,6 +222,7 @@ class SupabaseUiSpecTemplateRepository:
         summary_cols = "id, intent_text, created_at, registry_version, use_count, validation_status"
 
         try:
+
             def _query() -> Any:
                 q = self._client.table(_TABLE).select(summary_cols)
                 if importer_id is not None:
@@ -277,18 +266,10 @@ class SupabaseUiSpecTemplateRepository:
         Offloads blocking supabase-py call to asyncio.to_thread() (WR-06).
         WR-02: handles spec_json returned as str or dict.
         """
-        detail_cols = (
-            "id, intent_text, created_at, registry_version, use_count, validation_status, spec_json"
-        )
+        detail_cols = "id, intent_text, created_at, registry_version, use_count, validation_status, spec_json"
         try:
             response = await asyncio.to_thread(
-                lambda: (
-                    self._client.table(_TABLE)
-                    .select(detail_cols)
-                    .eq("id", template_id)
-                    .limit(1)
-                    .execute()
-                )
+                lambda: self._client.table(_TABLE).select(detail_cols).eq("id", template_id).limit(1).execute()
             )
             rows = cast("list[dict[str, Any]]", response.data or [])
             if not rows:

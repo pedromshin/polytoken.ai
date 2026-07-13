@@ -81,8 +81,7 @@ def detect_idle_after_genui(
         trigger_id="idle_after_genui",
         proposed_prompt_text="Want me to build on that, or try something different?",
         rationale=(
-            f"No activity for {idle_seconds:.0f}s after a settled genui turn "
-            f"(threshold {idle_threshold_seconds:.0f}s)."
+            f"No activity for {idle_seconds:.0f}s after a settled genui turn (threshold {idle_threshold_seconds:.0f}s)."
         ),
         source_refs=(SourceStateRef(kind="run_event", ref_id=message_id),),
     )

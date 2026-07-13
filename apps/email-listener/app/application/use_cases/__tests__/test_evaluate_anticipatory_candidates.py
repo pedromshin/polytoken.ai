@@ -140,7 +140,9 @@ async def test_independence_same_candidate_three_outcomes() -> None:
     snapshot = idle_after_genui_snapshot()
 
     shown_result = await _evaluate(
-        EvaluateAnticipatoryCandidates(judge=StubAppropriatenessJudge(score_value=0.9), cap_store=FakeAnticipatoryCapStore()),
+        EvaluateAnticipatoryCandidates(
+            judge=StubAppropriatenessJudge(score_value=0.9), cap_store=FakeAnticipatoryCapStore()
+        ),
         snapshot,
     )
     assert [e.type for e in shown_result.events] == ["proposed", "shown"]
@@ -154,7 +156,9 @@ async def test_independence_same_candidate_three_outcomes() -> None:
     assert [e.type for e in cap_result.events] == ["proposed", "suppressed_by_cap"]
 
     eval_result = await _evaluate(
-        EvaluateAnticipatoryCandidates(judge=StubAppropriatenessJudge(score_value=0.3), cap_store=FakeAnticipatoryCapStore()),
+        EvaluateAnticipatoryCandidates(
+            judge=StubAppropriatenessJudge(score_value=0.3), cap_store=FakeAnticipatoryCapStore()
+        ),
         snapshot,
     )
     assert [e.type for e in eval_result.events] == ["proposed", "suppressed_by_eval"]

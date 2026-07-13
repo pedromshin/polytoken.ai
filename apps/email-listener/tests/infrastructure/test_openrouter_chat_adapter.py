@@ -137,16 +137,8 @@ async def test_tool_call_delta_parsed_from_sse() -> None:
                     }
                 ]
             },
-            {
-                "choices": [
-                    {"index": 0, "delta": {"tool_calls": [{"index": 0, "function": {"arguments": '{"root":'}}]}}
-                ]
-            },
-            {
-                "choices": [
-                    {"index": 0, "delta": {"tool_calls": [{"index": 0, "function": {"arguments": '"card"}'}}]}}
-                ]
-            },
+            {"choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "function": {"arguments": '{"root":'}}]}}]},
+            {"choices": [{"index": 0, "delta": {"tool_calls": [{"index": 0, "function": {"arguments": '"card"}'}}]}}]},
         ]
     )
     http_client = _mock_client(200, body)

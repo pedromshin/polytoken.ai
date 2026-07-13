@@ -78,7 +78,9 @@ def test_fixtures_load_with_required_shape_and_canary_marker() -> None:
     }
     for fixture in fixtures:
         assert {"name", "pageHtml", "expectedBehavior"} <= fixture.keys()
-        assert extract_canary(fixture["pageHtml"]) is not None, f"fixture {fixture['name']!r} has no [CANARY:...] marker"
+        assert extract_canary(fixture["pageHtml"]) is not None, (
+            f"fixture {fixture['name']!r} has no [CANARY:...] marker"
+        )
 
 
 @pytest.mark.unit

@@ -175,7 +175,9 @@ class _FakeChatRunRepository:
             "status": "running",
         }
         self._seq_by_run[run_id] = 0
-        return ChatRun(id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running")
+        return ChatRun(
+            id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running"
+        )
 
     async def append_event(self, *, run_id: str, event_type: str, data: dict[str, Any]) -> ChatRunEvent:
         seq = self._seq_by_run.get(run_id, 0)

@@ -104,9 +104,7 @@ def test_guard_rejects_non_dict_schema() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_artifacts_dir_prefers_env_override(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_artifacts_dir_prefers_env_override(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """GENUI_ARTIFACTS_DIR (set in the Dockerfile) takes precedence over the host walk-up."""
     monkeypatch.setenv("GENUI_ARTIFACTS_DIR", str(tmp_path))
     assert _get_artifacts_dir() == tmp_path
@@ -121,9 +119,7 @@ def test_artifacts_dir_host_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
     assert resolved.parent.parent.name == "packages"
 
 
-def test_load_spec_schema_via_env_override_container_layout(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_load_spec_schema_via_env_override_container_layout(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Container path: the schema loads + passes the guard when read via GENUI_ARTIFACTS_DIR."""
     # Resolve the committed artifact via the host fallback, copy it into a flat
     # tmp dir (mirroring /app/genui-artifacts), then load through the env-override

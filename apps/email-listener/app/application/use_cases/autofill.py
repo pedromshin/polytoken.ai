@@ -263,9 +263,7 @@ class AutofillUseCase:
         if self._retrieval_events is None:
             return
 
-        seed_hits = tuple(
-            {"id": ex.component_id, "score": ex.score} for ex in retrieved
-        )
+        seed_hits = tuple({"id": ex.component_id, "score": ex.score} for ex in retrieved)
         aliases = entity_context.get("aliases") if entity_context else None
         identifiers = entity_context.get("identifiers") if entity_context else None
         injected_entity_instance_id = (

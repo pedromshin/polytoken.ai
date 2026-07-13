@@ -209,9 +209,7 @@ async def test_tool_choice_never_forced_when_tools_empty(
     mock_bedrock_client: MagicMock,
 ) -> None:
     """When tools=[] the adapter must not force tool_choice, and must not even pass `tools` (D-02)."""
-    mock_bedrock_client.messages.stream = MagicMock(
-        return_value=_FakeBedrockStream(_make_final_message(10, 5))
-    )
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
 
     await _collect(
         adapter.stream(
@@ -234,9 +232,7 @@ async def test_tool_choice_still_not_forced_when_tools_present(
     mock_bedrock_client: MagicMock,
 ) -> None:
     """Even when tools are provided, tool_choice must stay unset (the agent decides, D-02)."""
-    mock_bedrock_client.messages.stream = MagicMock(
-        return_value=_FakeBedrockStream(_make_final_message(10, 5))
-    )
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
 
     await _collect(
         adapter.stream(
@@ -288,9 +284,7 @@ async def test_exception_before_any_event_yields_only_stream_end_error(
     adapter: BedrockChatAdapter,
     mock_bedrock_client: MagicMock,
 ) -> None:
-    mock_bedrock_client.messages.stream = MagicMock(
-        return_value=_FakeBedrockStream(raise_exc=TimeoutError())
-    )
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(raise_exc=TimeoutError()))
 
     deltas = await _collect(
         adapter.stream(

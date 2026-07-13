@@ -198,8 +198,12 @@ async def _search_emails_happy_content() -> str:
     entity_types_repo.list_active.return_value = [entity_type]
 
     examples = [
-        RetrievedExample(component_id="cmp-1", content_text="ignored", extracted_fields={"booking_ref": "BOOK1"}, score=0.9),
-        RetrievedExample(component_id="cmp-2", content_text="ignored", extracted_fields={"booking_ref": "BOOK2"}, score=0.5),
+        RetrievedExample(
+            component_id="cmp-1", content_text="ignored", extracted_fields={"booking_ref": "BOOK1"}, score=0.9
+        ),
+        RetrievedExample(
+            component_id="cmp-2", content_text="ignored", extracted_fields={"booking_ref": "BOOK2"}, score=0.5
+        ),
     ]
 
     components_by_id = {
@@ -261,7 +265,9 @@ async def _search_knowledge_happy_content() -> str:
 
     executor = SearchKnowledgeExecutor(knowledge=knowledge, embedder=embedder)
     result = await executor.execute(
-        name=SEARCH_KNOWLEDGE_TOOL_NAME, arguments={"mode": "search", "query": "booking terms"}, importer_id=_IMPORTER_ID
+        name=SEARCH_KNOWLEDGE_TOOL_NAME,
+        arguments={"mode": "search", "query": "booking terms"},
+        importer_id=_IMPORTER_ID,
     )
     assert result.is_error is False
     envelope = json.loads(result.content)

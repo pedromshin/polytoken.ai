@@ -172,9 +172,7 @@ class FakeEntityInstanceRepository:
     async def find_selected_instance_for_component(self, component_id: str) -> EntityInstance | None:
         return self._instance
 
-    async def find_unselected_candidate_instances_for_component(
-        self, component_id: str
-    ) -> list[EntityInstance]:
+    async def find_unselected_candidate_instances_for_component(self, component_id: str) -> list[EntityInstance]:
         return []
 
 
@@ -217,9 +215,7 @@ def test_execute_saves_exactly_one_retrieval_event_few_shot_case() -> None:
         retrieval_events=retrieval_events,
     )
 
-    asyncio.run(
-        use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID)
-    )
+    asyncio.run(use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID))
 
     retrieval_events.save.assert_awaited_once()
     event = retrieval_events.save.await_args.args[0]
@@ -245,9 +241,7 @@ def test_execute_seed_hits_carry_per_example_score() -> None:
         retrieval_events=retrieval_events,
     )
 
-    asyncio.run(
-        use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID)
-    )
+    asyncio.run(use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID))
 
     event = retrieval_events.save.await_args.args[0]
     assert len(event.seed_hits) == 1
@@ -264,9 +258,7 @@ def test_execute_cold_start_zero_counts() -> None:
         retrieval_events=retrieval_events,
     )
 
-    asyncio.run(
-        use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID)
-    )
+    asyncio.run(use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID))
 
     retrieval_events.save.assert_awaited_once()
     event = retrieval_events.save.await_args.args[0]
@@ -288,9 +280,7 @@ def test_execute_instrumentation_failure_never_breaks_autofill() -> None:
         retrieval_events=retrieval_events,
     )
 
-    result = asyncio.run(
-        use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID)
-    )
+    result = asyncio.run(use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID))
 
     assert result.extracted_fields == {"vendor_name": "Acme"}
     retrieval_events.save.assert_awaited_once()
@@ -304,9 +294,7 @@ def test_execute_no_retrieval_events_port_is_a_noop() -> None:
         retrieval_events=None,
     )
 
-    result = asyncio.run(
-        use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID)
-    )
+    result = asyncio.run(use_case.execute(component_id="comp-001", entity_type_slug="invoice", importer_id=IMPORTER_ID))
 
     assert result.extracted_fields == {"vendor_name": "Acme"}
 

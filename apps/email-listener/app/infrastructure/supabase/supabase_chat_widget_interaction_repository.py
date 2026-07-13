@@ -109,13 +109,7 @@ class SupabaseChatWidgetInteractionRepository:
 
     async def get(self, interaction_id: str) -> WidgetInteraction | None:
         result = await asyncio.to_thread(
-            lambda: (
-                self._client.table(_TABLE)
-                .select("*")
-                .eq("id", interaction_id)
-                .limit(1)
-                .execute()
-            )
+            lambda: self._client.table(_TABLE).select("*").eq("id", interaction_id).limit(1).execute()
         )
         rows = result.data or []
         if not rows:

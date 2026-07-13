@@ -400,7 +400,9 @@ async def test_forged_extra_result_field_rejected_by_schema_before_resolution() 
 @pytest.mark.asyncio
 async def test_conflict_when_try_submit_returns_false() -> None:
     interaction = _interaction()
-    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False, try_submit_result=False)
+    widget_interactions = FakeChatWidgetInteractionRepository(
+        interaction=interaction, stale=False, try_submit_result=False
+    )
     use_case, messages, runner = _make_use_case(widget_interactions=widget_interactions)
 
     with pytest.raises(WidgetSubmitRejected) as exc_info:
@@ -424,11 +426,15 @@ async def test_conflict_when_try_submit_returns_false() -> None:
 @pytest.mark.asyncio
 async def test_valid_submit_inserts_interaction_result_and_yields_continuation_events() -> None:
     interaction = _interaction()
-    widget_interactions = FakeChatWidgetInteractionRepository(interaction=interaction, stale=False, try_submit_result=True)
+    widget_interactions = FakeChatWidgetInteractionRepository(
+        interaction=interaction, stale=False, try_submit_result=True
+    )
     messages = FakeChatMessageRepository(existing=[_seed_message(turn_index=2)])
     events = [ChatRunEvent(type="started", data={}), ChatRunEvent(type="completed", data={})]
     runner = FakeContinuationRunner(events)
-    use_case, messages, runner = _make_use_case(widget_interactions=widget_interactions, messages=messages, runner=runner)
+    use_case, messages, runner = _make_use_case(
+        widget_interactions=widget_interactions, messages=messages, runner=runner
+    )
 
     yielded = [
         event

@@ -74,9 +74,7 @@ def mock_quarantine() -> MagicMock:
 @pytest.fixture
 def mock_generator() -> MagicMock:
     generator = MagicMock()
-    generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
-    )
+    generator.generate = AsyncMock(return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False))
     return generator
 
 
@@ -105,8 +103,7 @@ def _make_retrieval_result(
     if item_ids is None:
         item_ids = ["card", "grid"]
     items = tuple(
-        RetrievedItem(id=item_id, kind="component", score=0.8, payload={"type": item_id})
-        for item_id in item_ids
+        RetrievedItem(id=item_id, kind="component", score=0.8, payload={"type": item_id}) for item_id in item_ids
     )
     return RetrievalResult(items=items)
 
@@ -205,9 +202,7 @@ async def test_execute_returns_spec_and_metadata(
 ) -> None:
     """execute() returns GenerateUiSpecResult with the spec dict."""
     expected_spec = _valid_spec()
-    mock_generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=expected_spec, attempts=1, escalated=False)
-    )
+    mock_generator.generate = AsyncMock(return_value=GeneratorResult(spec=expected_spec, attempts=1, escalated=False))
 
     result = await use_case.execute(
         intent="Test",
@@ -262,9 +257,7 @@ async def test_audit_event_outcome_ok_on_valid_spec(
     mock_generator: MagicMock,
 ) -> None:
     """GenerationEvent.outcome must be 'ok' when generator returns a valid spec."""
-    mock_generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
-    )
+    mock_generator.generate = AsyncMock(return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False))
 
     await use_case.execute(
         intent="Show details",
@@ -383,9 +376,7 @@ async def test_audit_event_tokens_reflect_quarantine_extraction(
     mock_quarantine: MagicMock,
 ) -> None:
     """GenerationEvent token counts must reflect the quarantine extraction usage."""
-    mock_quarantine.extract = AsyncMock(
-        return_value=_make_extraction(input_tokens=100, output_tokens=50)
-    )
+    mock_quarantine.extract = AsyncMock(return_value=_make_extraction(input_tokens=100, output_tokens=50))
 
     await use_case.execute(
         intent="Test",
@@ -432,9 +423,7 @@ async def test_cache_hit_skips_quarantine_generator_and_audit(
 ) -> None:
     """D-02/D-03: Cache hit must skip quarantine, generator, and audit entirely (zero-Bedrock-on-hit)."""
     cached_spec = {"v": 1, "root": {"type": "card", "title": "Cached Card"}}
-    mock_templates.find_by_cache_key = AsyncMock(
-        return_value=CachedTemplate(id="cached-id-123", spec_json=cached_spec)
-    )
+    mock_templates.find_by_cache_key = AsyncMock(return_value=CachedTemplate(id="cached-id-123", spec_json=cached_spec))
     use_case = GenerateUiSpecUseCase(
         quarantine=mock_quarantine,
         generator=mock_generator,
@@ -467,9 +456,7 @@ async def test_cache_hit_increments_use_count(
 ) -> None:
     """D-03: On cache hit, increment_use_count is called with the template id."""
     cached_spec = {"v": 1, "root": {"type": "card", "title": "Hit"}}
-    mock_templates.find_by_cache_key = AsyncMock(
-        return_value=CachedTemplate(id="tmpl-abc", spec_json=cached_spec)
-    )
+    mock_templates.find_by_cache_key = AsyncMock(return_value=CachedTemplate(id="tmpl-abc", spec_json=cached_spec))
     use_case = GenerateUiSpecUseCase(
         quarantine=mock_quarantine,
         generator=mock_generator,
@@ -519,9 +506,7 @@ async def test_persist_called_after_validated_spec(
     mock_generator: MagicMock,
 ) -> None:
     """D-11: persist is called when outcome != 'fallback' (validated spec)."""
-    mock_generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
-    )
+    mock_generator.generate = AsyncMock(return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False))
 
     await use_case.execute(
         intent="Show details",
@@ -628,9 +613,7 @@ async def test_persist_error_is_swallowed(
     mock_generator: MagicMock,
 ) -> None:
     """D-17: persist failure must be swallowed — execute() must not raise."""
-    mock_generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
-    )
+    mock_generator.generate = AsyncMock(return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False))
     mock_templates.persist = AsyncMock(side_effect=RuntimeError("DB down"))
 
     # Must not raise — persist is best-effort (D-17)
@@ -659,9 +642,7 @@ async def test_cache_hit_outcome_is_ok(
 ) -> None:
     """D-05.2: cache hit must set outcome='ok' (cached spec is pre-validated, never a fallback)."""
     cached_spec = {"v": 1, "root": {"type": "card", "title": "Cached"}}
-    mock_templates.find_by_cache_key = AsyncMock(
-        return_value=CachedTemplate(id="tmpl-x", spec_json=cached_spec)
-    )
+    mock_templates.find_by_cache_key = AsyncMock(return_value=CachedTemplate(id="tmpl-x", spec_json=cached_spec))
     use_case = GenerateUiSpecUseCase(
         quarantine=mock_quarantine,
         generator=mock_generator,
@@ -688,9 +669,7 @@ async def test_cold_ok_outcome(
     mock_generator: MagicMock,
 ) -> None:
     """D-05.2: cold path with is_fallback=False, escalated=False => outcome='ok', cache_hit=False."""
-    mock_generator.generate = AsyncMock(
-        return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False)
-    )
+    mock_generator.generate = AsyncMock(return_value=GeneratorResult(spec=_valid_spec(), attempts=1, escalated=False))
 
     result = await use_case.execute(
         intent="Show details",
@@ -823,9 +802,7 @@ async def test_two_packs_yield_two_distinct_cache_keys(
 
     # Two distinct cache keys must have been used
     assert len(key_calls) == 2
-    assert key_calls[0] != key_calls[1], (
-        "Different style_pack_ids must produce different cache keys (T-17-20/D-08)"
-    )
+    assert key_calls[0] != key_calls[1], "Different style_pack_ids must produce different cache keys (T-17-20/D-08)"
 
 
 @pytest.mark.unit
@@ -965,9 +942,7 @@ async def test_cache_hit_still_short_circuits_with_pack(
 ) -> None:
     """Phase-14 semantics preserved: cache HIT skips retrieval, generate, and audit."""
     cached_spec = {"v": 1, "root": {"type": "card", "title": "Cached"}}
-    mock_templates.find_by_cache_key = AsyncMock(
-        return_value=CachedTemplate(id="tmpl-hit", spec_json=cached_spec)
-    )
+    mock_templates.find_by_cache_key = AsyncMock(return_value=CachedTemplate(id="tmpl-hit", spec_json=cached_spec))
     uc = GenerateUiSpecUseCase(
         quarantine=mock_quarantine,
         generator=mock_generator,

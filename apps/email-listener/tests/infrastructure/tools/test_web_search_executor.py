@@ -265,5 +265,7 @@ def test_build_web_search_tool_is_bedrock_valid_and_never_exposes_a_model_author
     assert schema["type"] == "object"
     assert schema["additionalProperties"] is False
     assert schema["required"] == ["query"]
-    assert "limit" not in schema["properties"], "top-N must be a hardcoded server constant, never a model-settable property"
+    assert "limit" not in schema["properties"], (
+        "top-N must be a hardcoded server constant, never a model-settable property"
+    )
     assert schema["properties"]["query"]["maxLength"] <= 200

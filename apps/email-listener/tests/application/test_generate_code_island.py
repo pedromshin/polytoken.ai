@@ -71,9 +71,7 @@ def mock_quarantine() -> MagicMock:
 def mock_code_generator() -> MagicMock:
     generator = MagicMock()
     generator.generate = AsyncMock(
-        return_value=CodeGeneratorResult(
-            code=_VALID_CODE, language="javascript", attempts=1, escalated=False
-        )
+        return_value=CodeGeneratorResult(code=_VALID_CODE, language="javascript", attempts=1, escalated=False)
     )
     return generator
 

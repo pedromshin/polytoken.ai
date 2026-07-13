@@ -122,7 +122,9 @@ def _valid_body(**overrides: Any) -> dict[str, Any]:
 
 
 @pytest.mark.unit
-def test_valid_submit_streams_continuation_events(client: TestClient, fake_use_case: _FakeSubmitWidgetInteraction) -> None:
+def test_valid_submit_streams_continuation_events(
+    client: TestClient, fake_use_case: _FakeSubmitWidgetInteraction
+) -> None:
     resp = client.post("/v1/chat/widget/submit", json=_valid_body())
 
     assert resp.status_code == 200

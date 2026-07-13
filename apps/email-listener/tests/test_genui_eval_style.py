@@ -414,12 +414,7 @@ class TestStyleMetricsPurityGuard:
         """style_metrics.py must not import anthropic."""
         from pathlib import Path
 
-        metrics_path = (
-            Path(__file__).parent.parent
-            / "scripts"
-            / "genui_eval"
-            / "style_metrics.py"
-        )
+        metrics_path = Path(__file__).parent.parent / "scripts" / "genui_eval" / "style_metrics.py"
         source = metrics_path.read_text(encoding="utf-8")
         assert "anthropic" not in source, "style_metrics.py must not import anthropic"
         assert "boto3" not in source, "style_metrics.py must not import boto3"
@@ -757,9 +752,7 @@ class TestAllPacksAggregation:
         from scripts.genui_eval.report import PromptReport
         from scripts.genui_eval.run_eval import aggregate_all_packs
 
-        def _make_pr_with_spec(
-            prompt_id: str, pack_id: str, spec_token: str
-        ) -> PromptReport:
+        def _make_pr_with_spec(prompt_id: str, pack_id: str, spec_token: str) -> PromptReport:
             return PromptReport(
                 prompt_id=prompt_id,
                 prompt=f"prompt-{prompt_id}",

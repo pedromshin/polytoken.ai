@@ -236,14 +236,14 @@ class GenerateUiSpecUseCase:
             spec_node_count, spec_depth = _count_spec_nodes(gen_result.spec)
             template = TemplateToPersist(
                 cache_key=cache_key,
-                intent_text=canonical_intent,        # WR-03: reuse pre-computed value
-                data_shape_hash=data_shape_hash,     # WR-03: reuse pre-computed value
+                intent_text=canonical_intent,  # WR-03: reuse pre-computed value
+                data_shape_hash=data_shape_hash,  # WR-03: reuse pre-computed value
                 registry_version=registry_version,
                 catalog_id=catalog_id,
                 spec_json=gen_result.spec,
                 validation_status="validated",
-                spec_node_count=spec_node_count,     # WR-04: populate metadata columns
-                spec_depth=spec_depth,               # WR-04: populate metadata columns
+                spec_node_count=spec_node_count,  # WR-04: populate metadata columns
+                spec_depth=spec_depth,  # WR-04: populate metadata columns
                 importer_id=importer_id,
             )
             try:

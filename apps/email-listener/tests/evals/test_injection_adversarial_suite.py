@@ -135,7 +135,9 @@ async def test_extracted_seeded_fixture_surfaces_and_passes_envelope_gate(fixtur
         f"fixture {fixture['name']!r}'s legitimate EXTRACTED text did not surface -- the suite is over-blocking"
     )
     gate = validate_tool_envelope(result.content)
-    assert gate.ok is True, f"fixture {fixture['name']!r}'s legitimate EXTRACTED envelope failed the gate: {gate.reason}"
+    assert gate.ok is True, (
+        f"fixture {fixture['name']!r}'s legitimate EXTRACTED envelope failed the gate: {gate.reason}"
+    )
 
 
 @pytest.mark.unit

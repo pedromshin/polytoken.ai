@@ -147,9 +147,7 @@ def test_history_list_passes_importer_id_to_repo(client: TestClient, mock_repo: 
 
 
 @pytest.mark.unit
-def test_history_list_omits_importer_id_when_not_provided(
-    client: TestClient, mock_repo: MagicMock
-) -> None:
+def test_history_list_omits_importer_id_when_not_provided(client: TestClient, mock_repo: MagicMock) -> None:
     """GET /v1/genui/history passes importer_id=None when query param is absent."""
     client.get("/v1/genui/history")
 
@@ -164,9 +162,7 @@ def test_history_list_omits_importer_id_when_not_provided(
 
 
 @pytest.mark.unit
-def test_history_list_returns_empty_list_when_no_rows(
-    client: TestClient, mock_repo: MagicMock
-) -> None:
+def test_history_list_returns_empty_list_when_no_rows(client: TestClient, mock_repo: MagicMock) -> None:
     """GET /v1/genui/history returns empty list data when repo returns []."""
     mock_repo.list_recent = AsyncMock(return_value=[])
 
@@ -184,9 +180,7 @@ def test_history_list_returns_empty_list_when_no_rows(
 
 
 @pytest.mark.unit
-def test_history_detail_returns_200_with_spec_json(
-    client: TestClient, mock_repo: MagicMock
-) -> None:
+def test_history_detail_returns_200_with_spec_json(client: TestClient, mock_repo: MagicMock) -> None:
     """GET /v1/genui/history/{id} returns 200 with ApiResponse wrapping HistoryDetailView."""
     resp = client.get(f"/v1/genui/history/{_SAMPLE_ID}")
 
@@ -206,9 +200,7 @@ def test_history_detail_returns_200_with_spec_json(
 
 
 @pytest.mark.unit
-def test_history_detail_returns_404_when_not_found(
-    client: TestClient, mock_repo: MagicMock
-) -> None:
+def test_history_detail_returns_404_when_not_found(client: TestClient, mock_repo: MagicMock) -> None:
     """GET /v1/genui/history/{id} returns 404 when the repo returns None (D-15)."""
     mock_repo.find_by_id = AsyncMock(return_value=None)
 
@@ -244,17 +236,13 @@ def test_history_detail_calls_repo_find_by_id(client: TestClient, mock_repo: Mag
 
 
 @pytest.mark.unit
-def test_history_list_row_does_not_expose_spec_json(
-    client: TestClient, mock_repo: MagicMock
-) -> None:
+def test_history_list_row_does_not_expose_spec_json(client: TestClient, mock_repo: MagicMock) -> None:
     """GET /v1/genui/history response rows must NOT include spec_json (D-14 lightweight list)."""
     resp = client.get("/v1/genui/history")
 
     assert resp.status_code == 200
     row = resp.json()["data"][0]
-    assert "spec_json" not in row, (
-        "History list rows must not expose spec_json — use detail endpoint instead (D-14)"
-    )
+    assert "spec_json" not in row, "History list rows must not expose spec_json — use detail endpoint instead (D-14)"
 
 
 # ---------------------------------------------------------------------------

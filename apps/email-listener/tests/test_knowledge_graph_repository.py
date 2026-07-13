@@ -351,7 +351,11 @@ def test_promote_edge_returns_false_when_cas_matches_no_row() -> None:
     updated = asyncio.run(
         repo.promote_edge(
             edge_id="edge-001",
-            promotion={"promoted_at": "2026-07-07T00:00:00+00:00", "from_tier": "INFERRED", "mechanism": "human_promote"},
+            promotion={
+                "promoted_at": "2026-07-07T00:00:00+00:00",
+                "from_tier": "INFERRED",
+                "mechanism": "human_promote",
+            },
         )
     )
 
@@ -441,9 +445,7 @@ def test_search_nodes_vector_failure_degrades_to_trgm_only() -> None:
     client = _make_rpc_client_mock(_rpc_side_effect)
     repo = SupabaseKnowledgeGraphRepository(client)
 
-    result = asyncio.run(
-        repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc")
-    )
+    result = asyncio.run(repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc"))
 
     assert [row["id"] for row in result] == ["node-1"]
 
@@ -461,9 +463,7 @@ def test_search_nodes_trgm_failure_degrades_to_vector_only() -> None:
     client = _make_rpc_client_mock(_rpc_side_effect)
     repo = SupabaseKnowledgeGraphRepository(client)
 
-    result = asyncio.run(
-        repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc")
-    )
+    result = asyncio.run(repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc"))
 
     assert [row["id"] for row in result] == ["node-1"]
 
@@ -475,9 +475,7 @@ def test_search_nodes_both_arms_empty_returns_empty_list() -> None:
     client = _make_rpc_client_mock(_rpc_side_effect)
     repo = SupabaseKnowledgeGraphRepository(client)
 
-    result = asyncio.run(
-        repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc")
-    )
+    result = asyncio.run(repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc"))
 
     assert result == []
 
@@ -511,9 +509,7 @@ def test_search_nodes_respects_limit_keeping_highest_rrf_scored_rows() -> None:
     client = _make_rpc_client_mock(_rpc_side_effect)
     repo = SupabaseKnowledgeGraphRepository(client)
 
-    result = asyncio.run(
-        repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc", limit=5)
-    )
+    result = asyncio.run(repo.search_nodes(query_text="acme", query_embedding=[0.1], importer_id="imp-abc", limit=5))
 
     assert len(result) == 5
     ids = {row["id"] for row in result}
@@ -667,9 +663,7 @@ def test_expand_neighbours_fails_closed_on_unknown_seed() -> None:
 
 def test_expand_neighbours_fails_closed_on_inactive_seed() -> None:
     seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-abc", "is_active": False}}
-    client, _seed, edges_double, view_double = _make_expand_client(
-        seed_rows=seed_rows, edges_by_node={}, view_rows={}
-    )
+    client, _seed, edges_double, view_double = _make_expand_client(seed_rows=seed_rows, edges_by_node={}, view_rows={})
     repo = SupabaseKnowledgeGraphRepository(client)
 
     result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))
@@ -681,9 +675,7 @@ def test_expand_neighbours_fails_closed_on_inactive_seed() -> None:
 
 def test_expand_neighbours_fails_closed_on_cross_tenant_seed() -> None:
     seed_rows = {"node-1": {"id": "node-1", "importer_id": "imp-other", "is_active": True}}
-    client, _seed, edges_double, view_double = _make_expand_client(
-        seed_rows=seed_rows, edges_by_node={}, view_rows={}
-    )
+    client, _seed, edges_double, view_double = _make_expand_client(seed_rows=seed_rows, edges_by_node={}, view_rows={})
     repo = SupabaseKnowledgeGraphRepository(client)
 
     result = asyncio.run(repo.expand_neighbours(node_id="node-1", importer_id="imp-abc"))

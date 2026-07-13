@@ -97,10 +97,7 @@ class GenerateUiSpecRequest(BaseModel):
     def validate_style_pack_id(cls, v: str | None) -> str | None:
         """Reject unknown style_pack_id values (T-17-04: spoofing guard)."""
         if v is not None and v not in STYLE_PACK_IDS:
-            raise ValueError(
-                f"Unknown style_pack_id '{v}'. "
-                f"Must be one of: {', '.join(STYLE_PACK_IDS)}"
-            )
+            raise ValueError(f"Unknown style_pack_id '{v}'. Must be one of: {', '.join(STYLE_PACK_IDS)}")
         return v
 
 
@@ -122,8 +119,7 @@ class RethemeRequest(BaseModel):
         min_length=1,
         max_length=280,
         description=(
-            "Free-text NL instruction describing the desired look "
-            "(e.g. 'make it more playful and colorful')."
+            "Free-text NL instruction describing the desired look (e.g. 'make it more playful and colorful')."
         ),
     )
     current_style_pack_id: str | None = Field(

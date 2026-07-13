@@ -225,9 +225,7 @@ def test_regenerate_rejects_invalid_assistant_message_id(client: TestClient) -> 
 
 
 @pytest.mark.unit
-def test_stream_requires_api_key_when_configured(
-    monkeypatch: pytest.MonkeyPatch, fake_agent: _FakeRunChatTurn
-) -> None:
+def test_stream_requires_api_key_when_configured(monkeypatch: pytest.MonkeyPatch, fake_agent: _FakeRunChatTurn) -> None:
     """With an API key configured (staging), a request without X-API-Key is rejected --
     fail-closed, no stream body (dependencies run before the endpoint/StreamingResponse)."""
     from app.settings import Environment, get_settings

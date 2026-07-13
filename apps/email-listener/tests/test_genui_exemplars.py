@@ -34,9 +34,7 @@ NO_PLACEHOLDER_PHRASES: tuple[str, ...] = (
     "sample content",
 )
 
-CORE_CATEGORIES: frozenset[str] = frozenset(
-    {"dashboard", "profile", "pricing", "feed", "landing"}
-)
+CORE_CATEGORIES: frozenset[str] = frozenset({"dashboard", "profile", "pricing", "feed", "landing"})
 
 
 class TestExemplarDTO:
@@ -130,10 +128,7 @@ class TestLoadExemplars:
         result = load_exemplars()
         found_categories = {ex.category for ex in result}
         missing = CORE_CATEGORIES - found_categories
-        assert not missing, (
-            f"Missing exemplars for core categories: {missing}. "
-            f"Found categories: {found_categories}"
-        )
+        assert not missing, f"Missing exemplars for core categories: {missing}. Found categories: {found_categories}"
 
     def test_exemplar_ids_are_unique(self) -> None:
         from app.infrastructure.llm.genui_exemplars import load_exemplars
@@ -149,22 +144,17 @@ class TestLoadExemplars:
         _kebab_pattern = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
         result = load_exemplars()
         for ex in result:
-            assert _kebab_pattern.match(ex.id), (
-                f"Exemplar id '{ex.id}' is not lowercase kebab-case"
-            )
+            assert _kebab_pattern.match(ex.id), f"Exemplar id '{ex.id}' is not lowercase kebab-case"
 
     def test_exemplar_categories_from_known_set(self) -> None:
         """Exemplar categories must be from the fixed known set."""
         from app.infrastructure.llm.genui_exemplars import load_exemplars
 
-        allowed_categories: frozenset[str] = frozenset(
-            {"dashboard", "profile", "pricing", "feed", "landing"}
-        )
+        allowed_categories: frozenset[str] = frozenset({"dashboard", "profile", "pricing", "feed", "landing"})
         result = load_exemplars()
         for ex in result:
             assert ex.category in allowed_categories, (
-                f"Exemplar '{ex.id}' has unknown category '{ex.category}'. "
-                f"Allowed: {allowed_categories}"
+                f"Exemplar '{ex.id}' has unknown category '{ex.category}'. Allowed: {allowed_categories}"
             )
 
     def test_exemplar_tags_non_empty(self) -> None:
@@ -204,15 +194,10 @@ class TestExemplarSchemaValidation:
         for ex in exemplars:
             validation_errors = list(validator.iter_errors(ex.spec))
             if validation_errors:
-                errors_by_id[ex.id] = [
-                    f"{e.json_path}: {e.message}" for e in validation_errors
-                ]
+                errors_by_id[ex.id] = [f"{e.json_path}: {e.message}" for e in validation_errors]
 
-        assert not errors_by_id, (
-            "Schema validation failed for exemplar(s):\n"
-            + "\n".join(
-                f"  [{eid}]: {errs}" for eid, errs in errors_by_id.items()
-            )
+        assert not errors_by_id, "Schema validation failed for exemplar(s):\n" + "\n".join(
+            f"  [{eid}]: {errs}" for eid, errs in errors_by_id.items()
         )
 
     def test_exemplar_schema_import_available(self) -> None:
@@ -247,13 +232,10 @@ class TestNoPlaceholderPhrases:
             all_text = " ".join(self._extract_all_strings(ex.spec)).lower()
             for phrase in NO_PLACEHOLDER_PHRASES:
                 if phrase in all_text:
-                    violations.append(
-                        f"Exemplar '{ex.id}' contains placeholder phrase: '{phrase}'"
-                    )
+                    violations.append(f"Exemplar '{ex.id}' contains placeholder phrase: '{phrase}'")
 
-        assert not violations, (
-            "Exemplar quality gate failed — placeholder phrases found:\n"
-            + "\n".join(f"  {v}" for v in violations)
+        assert not violations, "Exemplar quality gate failed — placeholder phrases found:\n" + "\n".join(
+            f"  {v}" for v in violations
         )
 
     def test_no_placeholder_in_exemplar_ids(self) -> None:
@@ -264,6 +246,4 @@ class TestNoPlaceholderPhrases:
         for ex in exemplars:
             id_lower = ex.id.lower()
             for phrase in ("placeholder", "todo", "stub", "fake", "dummy", "test"):
-                assert phrase not in id_lower, (
-                    f"Exemplar id '{ex.id}' contains placeholder pattern '{phrase}'"
-                )
+                assert phrase not in id_lower, f"Exemplar id '{ex.id}' contains placeholder pattern '{phrase}'"

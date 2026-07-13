@@ -265,9 +265,7 @@ def _build_exemplar_section(retrieval: RetrievalResult) -> str:
     Returns:
         A structured text section to append to initial_user_content.
     """
-    exemplar_items = [
-        item for item in retrieval.items if item.kind in ("exemplar", "template")
-    ]
+    exemplar_items = [item for item in retrieval.items if item.kind in ("exemplar", "template")]
     if not exemplar_items:
         return ""
 
@@ -447,8 +445,7 @@ class GenuiGeneratorAdapter:
             ensure_ascii=False,
         )
         initial_user_content = (
-            f"<DATA_SECTION>{data_section}</DATA_SECTION>\n\n"
-            "Generate a SpecRoot JSON using the emit_ui_spec tool."
+            f"<DATA_SECTION>{data_section}</DATA_SECTION>\n\nGenerate a SpecRoot JSON using the emit_ui_spec tool."
         )
 
         # Inject pack token table into DYNAMIC user turn (COST-01 / T-17-21 — NOT system)

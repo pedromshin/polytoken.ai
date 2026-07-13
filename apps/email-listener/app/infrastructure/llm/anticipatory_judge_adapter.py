@@ -106,9 +106,7 @@ class BedrockAppropriatenessJudgeAdapter(AppropriatenessJudge):
         self._timeout_seconds = timeout_seconds
         self._threshold = threshold
 
-    async def score(
-        self, *, proposed_prompt_text: str, rationale: str, context_summary: str
-    ) -> AppropriatenessScore:
+    async def score(self, *, proposed_prompt_text: str, rationale: str, context_summary: str) -> AppropriatenessScore:
         """Score a candidate 0-1; on ANY error/timeout/invalid output, SUPPRESS (D-07).
 
         Never raises — the gate-chain use case can always call this safely.

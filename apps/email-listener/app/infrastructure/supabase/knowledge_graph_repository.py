@@ -74,9 +74,7 @@ def _clamp_depth(max_depth: int) -> int:
     return max_depth
 
 
-def _filter_edges_to_node_set(
-    edges: Iterable[dict[str, Any]], kept_ids: set[str]
-) -> list[dict[str, Any]]:
+def _filter_edges_to_node_set(edges: Iterable[dict[str, Any]], kept_ids: set[str]) -> list[dict[str, Any]]:
     """Keep only edges whose source_node_id AND target_ref_id (when non-null) are both in kept_ids.
 
     Mirrors expand.ts's final scopedEdges filter / capBudget's edge-drop step
@@ -214,7 +212,9 @@ class SupabaseKnowledgeGraphRepository:
             .eq("scope", scope)
             .eq("is_active", True)
         )
-        query = query.eq("scope_ref_id", scope_ref_id) if scope_ref_id is not None else query.is_("scope_ref_id", "null")
+        query = (
+            query.eq("scope_ref_id", scope_ref_id) if scope_ref_id is not None else query.is_("scope_ref_id", "null")
+        )
         result = query.execute()
         if not result.data:
             return None

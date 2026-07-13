@@ -248,18 +248,12 @@ def a11y(
                 return CriterionResult(name="a11y", score=0.0, passed=False)
 
     all_nodes = _collect_all_nodes(root)
-    relevant: list[dict[str, Any]] = [
-        n for n in all_nodes if n.get("type") in _A11Y_REQUIRED_PROPS
-    ]
+    relevant: list[dict[str, Any]] = [n for n in all_nodes if n.get("type") in _A11Y_REQUIRED_PROPS]
 
     if not relevant:
         return CriterionResult(name="a11y", score=1.0, passed=True)
 
-    passing = sum(
-        1
-        for node in relevant
-        if node.get(_A11Y_REQUIRED_PROPS[node["type"]]) is not None
-    )
+    passing = sum(1 for node in relevant if node.get(_A11Y_REQUIRED_PROPS[node["type"]]) is not None)
     score = passing / len(relevant)
     passed = score == 1.0
     return CriterionResult(name="a11y", score=score, passed=passed)

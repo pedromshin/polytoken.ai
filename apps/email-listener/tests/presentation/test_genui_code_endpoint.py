@@ -51,9 +51,7 @@ def _make_app_with_mock_use_case(use_case: GenerateCodeIslandUseCase) -> FastAPI
 def mock_use_case() -> MagicMock:
     uc = MagicMock(spec=GenerateCodeIslandUseCase)
     uc.execute = AsyncMock(
-        return_value=GenerateCodeIslandResult(
-            code=_VALID_CODE, language="javascript", outcome="ok", attempts=1
-        )
+        return_value=GenerateCodeIslandResult(code=_VALID_CODE, language="javascript", outcome="ok", attempts=1)
     )
     return uc
 
@@ -123,9 +121,7 @@ def test_generate_empty_intent_returns_422(client: TestClient) -> None:
 
 
 @pytest.mark.unit
-def test_generate_missing_raw_content_is_accepted_intent_only(
-    client: TestClient, mock_use_case: MagicMock
-) -> None:
+def test_generate_missing_raw_content_is_accepted_intent_only(client: TestClient, mock_use_case: MagicMock) -> None:
     """raw_content is optional (default=""); omitting it is accepted (intent-only)."""
     resp = client.post(
         "/v1/genui/code-island/generate",
@@ -139,9 +135,7 @@ def test_generate_missing_raw_content_is_accepted_intent_only(
 
 
 @pytest.mark.unit
-def test_generate_surfaces_fallback_code(
-    client: TestClient, mock_use_case: MagicMock
-) -> None:
+def test_generate_surfaces_fallback_code(client: TestClient, mock_use_case: MagicMock) -> None:
     """When the use case returns SAFE_FALLBACK_CODE, the endpoint returns it in data.code."""
     mock_use_case.execute = AsyncMock(
         return_value=GenerateCodeIslandResult(

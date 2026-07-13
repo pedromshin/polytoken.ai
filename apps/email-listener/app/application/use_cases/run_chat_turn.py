@@ -153,9 +153,7 @@ _AGENT_ID = "chat-agent-v1"
 _WEB_SEARCH_TOOL_NAME = "web_search"
 
 # D-01: minimal neutral persona — no product identity yet.
-_SYSTEM_PROMPT = (
-    "You are a helpful, neutral AI assistant. Respond clearly and concisely to the user's requests."
-)
+_SYSTEM_PROMPT = "You are a helpful, neutral AI assistant. Respond clearly and concisely to the user's requests."
 
 _TITLE_SNIPPET_MAX_LEN = 60
 
@@ -502,8 +500,7 @@ class RunChatTurn:
         prior_history = [
             m
             for m in history
-            if m.turn_index < target.turn_index
-            or (m.turn_index == target.turn_index and m.role == "user")
+            if m.turn_index < target.turn_index or (m.turn_index == target.turn_index and m.role == "user")
         ]
         next_version = target.version + 1
 
@@ -989,7 +986,9 @@ class RunChatTurn:
             sibling_group_id=sibling_group_id,
             version=version,
         )
-        yield await self._emit(run.id, "usage", {"input_tokens": state.input_tokens, "output_tokens": state.output_tokens})
+        yield await self._emit(
+            run.id, "usage", {"input_tokens": state.input_tokens, "output_tokens": state.output_tokens}
+        )
         yield await self._emit(run.id, "completed", {})
 
         title = _title_snippet(user_text) if is_first_turn else None
@@ -1583,9 +1582,7 @@ class RunChatTurn:
 
             if call_index >= MAX_SERVER_CALLS_PER_ROUND:
                 logger.warning("server_tool_call_overflow_skipped", tool_id=tool_id, tool_name=tool_name)
-                result = ToolExecutionResult(
-                    tool_use_id=tool_id, content=PARALLEL_CALL_OVERFLOW_TEXT, is_error=True
-                )
+                result = ToolExecutionResult(tool_use_id=tool_id, content=PARALLEL_CALL_OVERFLOW_TEXT, is_error=True)
             else:
                 executor = self._tool_executors[tool_name]
                 try:
@@ -1598,9 +1595,7 @@ class RunChatTurn:
                     result = ToolExecutionResult(tool_use_id=tool_id, content=_TOOL_TIMEOUT_TEXT, is_error=True)
                 except Exception:  # an executor MUST NEVER raise out of the loop (port contract)
                     logger.warning("server_tool_execution_failed", tool_id=tool_id, tool_name=tool_name)
-                    result = ToolExecutionResult(
-                        tool_use_id=tool_id, content=_TOOL_EXECUTION_ERROR_TEXT, is_error=True
-                    )
+                    result = ToolExecutionResult(tool_use_id=tool_id, content=_TOOL_EXECUTION_ERROR_TEXT, is_error=True)
 
             # Phase 38 (QUAR-01): the ONE wiring point in the round loop -- every
             # registered executor's non-error output is validated against the
@@ -1652,12 +1647,15 @@ class RunChatTurn:
             # tool_invocation_result part client-side without a "flash" on
             # terminal chat.getHistory refetch.
             events.append(
-                ChatRunEvent(type="server_tool_result", data={
-                    "tool_name": tool_name,
-                    "id": tool_id,
-                    "content": tool_result_delta.content,
-                    "isError": tool_result_delta.is_error,
-                })
+                ChatRunEvent(
+                    type="server_tool_result",
+                    data={
+                        "tool_name": tool_name,
+                        "id": tool_id,
+                        "content": tool_result_delta.content,
+                        "isError": tool_result_delta.is_error,
+                    },
+                )
             )
 
         # T-34-01: a round is the same spend commitment as continuing to
@@ -1677,8 +1675,7 @@ class RunChatTurn:
             return _ServerRoundResult(state=state, events=tuple(events), provider_messages=None)
 
         tool_use_blocks = [
-            {"type": "tool_use", "id": call["id"], "name": call["name"], "input": call["arguments"]}
-            for call in calls
+            {"type": "tool_use", "id": call["id"], "name": call["name"], "input": call["arguments"]} for call in calls
         ]
         # this_round_lead_parts are CANONICAL parts (text | genui_spec |
         # interactive_widget ...), not Anthropic content blocks — a genui_spec
@@ -1814,9 +1811,7 @@ def _find_web_search_result(
     return None
 
 
-def _find_latest_web_search_result_by_index(
-    parts: Sequence[dict[str, Any]], *, index: int
-) -> dict[str, object] | None:
+def _find_latest_web_search_result_by_index(parts: Sequence[dict[str, Any]], *, index: int) -> dict[str, object] | None:
     """Resolve `index` against the MOST RECENT web_search result in this turn's parts.
 
     The exact-toolUseId fallback for model-mistranscribed ids (see
@@ -1901,9 +1896,7 @@ def _finalize_state(state: _TurnState, *, server_tool_names: Collection[str] = (
     """
     state, _tool_result_event = _finalize_pending_tool(state, server_tool_names=server_tool_names)
     if state.queued_server_calls:
-        not_executed = tuple(
-            {"type": "text", "text": SERVER_CALL_NOT_EXECUTED_TEXT} for _ in state.queued_server_calls
-        )
+        not_executed = tuple({"type": "text", "text": SERVER_CALL_NOT_EXECUTED_TEXT} for _ in state.queued_server_calls)
         state = replace(state, parts=(*state.parts, *not_executed), queued_server_calls=())
     return _flush_text_buffer(state)
 
@@ -1956,9 +1949,7 @@ def _provider_content_blocks(parts: Sequence[dict[str, Any]]) -> list[dict[str, 
             args_json = json.dumps(part.get("arguments", {}), ensure_ascii=False)
             blocks.append({"type": "text", "text": f"[dispatched tool {part.get('toolName')}: {args_json}]"})
         elif part_type == "tool_invocation_result":
-            blocks.append(
-                {"type": "text", "text": f"[tool {part.get('toolName')} result: {part.get('content', '')}]"}
-            )
+            blocks.append({"type": "text", "text": f"[tool {part.get('toolName')} result: {part.get('content', '')}]"})
         else:
             blocks.append(part)
     return blocks

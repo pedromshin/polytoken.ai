@@ -158,13 +158,7 @@ class TestRetrievalProviderProtocol:
         """The port module must import only stdlib/typing — lint-imports clean."""
         from pathlib import Path
 
-        port_path = (
-            Path(__file__).parent.parent
-            / "app"
-            / "domain"
-            / "ports"
-            / "retrieval_provider.py"
-        )
+        port_path = Path(__file__).parent.parent / "app" / "domain" / "ports" / "retrieval_provider.py"
         source = port_path.read_text(encoding="utf-8")
         # Should not import from app.infrastructure or anything non-stdlib
         assert "from app.infrastructure" not in source
@@ -187,18 +181,14 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="a sales dashboard with KPIs", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="a sales dashboard with KPIs", top_k=5))
         assert isinstance(result, RetrievalResult)
 
     def test_retrieve_items_sorted_descending_score(self) -> None:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="a sales dashboard with KPIs", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="a sales dashboard with KPIs", top_k=5))
         scores = [item.score for item in result.items]
         assert scores == sorted(scores, reverse=True)
 
@@ -206,9 +196,7 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="anything", top_k=3)
-        )
+        result = asyncio.run(provider.retrieve(intent="anything", top_k=3))
         assert len(result.items) <= 3
 
     def test_dashboard_intent_ranks_dashboard_exemplar_high(self) -> None:
@@ -216,9 +204,7 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="a sales dashboard with KPIs and metrics", top_k=10)
-        )
+        result = asyncio.run(provider.retrieve(intent="a sales dashboard with KPIs and metrics", top_k=10))
         assert len(result.items) > 0
 
         # Check that a dashboard exemplar or dashboard-related item appears in results
@@ -227,8 +213,7 @@ class TestLexicalRetrievalProviderBehavior:
         # The top items should include something dashboard-related (exemplar or grid/card/table component)
         top_ids_lower = [i.lower() for i in ids[:5]]
         has_dashboard_related = any(
-            "dashboard" in i or "grid" in i or "table" in i or "card" in i
-            for i in top_ids_lower
+            "dashboard" in i or "grid" in i or "table" in i or "card" in i for i in top_ids_lower
         )
         assert has_dashboard_related, f"Expected dashboard-related items in top 5, got: {ids[:5]}"
 
@@ -237,12 +222,8 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result_a = asyncio.run(
-            provider.retrieve(intent="a sales dashboard with KPIs", top_k=5)
-        )
-        result_b = asyncio.run(
-            provider.retrieve(intent="a sales dashboard with KPIs", top_k=5)
-        )
+        result_a = asyncio.run(provider.retrieve(intent="a sales dashboard with KPIs", top_k=5))
+        result_b = asyncio.run(provider.retrieve(intent="a sales dashboard with KPIs", top_k=5))
         assert result_a.retrieved_ids == result_b.retrieved_ids
         assert [i.score for i in result_a.items] == [i.score for i in result_b.items]
 
@@ -252,9 +233,7 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="", top_k=5))
         assert isinstance(result, RetrievalResult)
 
     def test_garbage_intent_does_not_crash(self) -> None:
@@ -263,9 +242,7 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="xyzzy-1234-!@#$", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="xyzzy-1234-!@#$", top_k=5))
         assert isinstance(result, RetrievalResult)
 
     def test_provider_no_network_call_catalog_exemplar_arm(self) -> None:
@@ -277,9 +254,7 @@ class TestLexicalRetrievalProviderBehavior:
         provider = LexicalRetrievalProvider()
 
         # Can retrieve without any DB/Bedrock injection
-        result = asyncio.run(
-            provider.retrieve(intent="a profile page", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="a profile page", top_k=5))
         assert isinstance(result, RetrievalResult)
 
     def test_retrieved_ids_non_empty_for_valid_intent(self) -> None:
@@ -287,9 +262,7 @@ class TestLexicalRetrievalProviderBehavior:
         from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
 
         provider = LexicalRetrievalProvider()
-        result = asyncio.run(
-            provider.retrieve(intent="pricing page with tiers and a CTA button", top_k=5)
-        )
+        result = asyncio.run(provider.retrieve(intent="pricing page with tiers and a CTA button", top_k=5))
         assert len(result.items) > 0
         assert len(result.retrieved_ids) == len(result.items)
 

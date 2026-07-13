@@ -197,8 +197,12 @@ def write_report(report: EvalReport, *, out_dir: Path | None = None) -> tuple[Pa
         "mean_a11y": round(report.mean_a11y, 4),
         # Additive style aggregates (D-15, WR-01): required by compare_reports.py
         "mean_brand_score": round(report.mean_brand_score, 4) if report.mean_brand_score is not None else None,
-        "mean_distinctiveness": round(report.mean_distinctiveness, 4) if report.mean_distinctiveness is not None else None,
-        "mean_retrieval_overlap": round(report.mean_retrieval_overlap, 4) if report.mean_retrieval_overlap is not None else None,
+        "mean_distinctiveness": round(report.mean_distinctiveness, 4)
+        if report.mean_distinctiveness is not None
+        else None,
+        "mean_retrieval_overlap": round(report.mean_retrieval_overlap, 4)
+        if report.mean_retrieval_overlap is not None
+        else None,
         "prompt_reports": [asdict(pr) for pr in report.prompt_reports],
     }
     json_path.write_text(json.dumps(report_dict, indent=2), encoding="utf-8")

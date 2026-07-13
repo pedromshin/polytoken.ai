@@ -266,9 +266,13 @@ def test_find_by_cache_key_filters_eq_calls_directly() -> None:
         eq_calls.append(args)
         inner_eq = MagicMock()
         inner_eq.eq = MagicMock(side_effect=_track_eq)
-        inner_eq.limit = MagicMock(return_value=MagicMock(execute=MagicMock(
-            return_value=MagicMock(data=[{"id": _SAMPLE_TEMPLATE_ID, "spec_json": _SAMPLE_SPEC_JSON}])
-        )))
+        inner_eq.limit = MagicMock(
+            return_value=MagicMock(
+                execute=MagicMock(
+                    return_value=MagicMock(data=[{"id": _SAMPLE_TEMPLATE_ID, "spec_json": _SAMPLE_SPEC_JSON}])
+                )
+            )
+        )
         return inner_eq
 
     select_mock = MagicMock()
@@ -309,9 +313,7 @@ def test_persist_calls_upsert_with_on_conflict() -> None:
     if not kwargs:
         # call_args may be a Call object — inspect keyword args
         kwargs = table_mock.upsert.call_args.kwargs if hasattr(table_mock.upsert.call_args, "kwargs") else {}
-    assert kwargs.get("on_conflict") == "cache_key", (
-        f"Expected on_conflict='cache_key', got: {kwargs}"
-    )
+    assert kwargs.get("on_conflict") == "cache_key", f"Expected on_conflict='cache_key', got: {kwargs}"
 
 
 # ---------------------------------------------------------------------------
@@ -397,9 +399,7 @@ def test_increment_use_count_starts_from_zero_when_use_count_is_null() -> None:
 
     assert table_mock.update.called
     payload: dict[str, Any] = table_mock.update.call_args[0][0]
-    assert payload.get("use_count") == 1, (
-        f"Expected use_count=1 when NULL → treated as 0, got: {payload}"
-    )
+    assert payload.get("use_count") == 1, f"Expected use_count=1 when NULL → treated as 0, got: {payload}"
 
 
 # ---------------------------------------------------------------------------
@@ -419,9 +419,7 @@ def test_find_by_cache_key_handles_spec_json_as_string() -> None:
     result = asyncio.run(repo.find_by_cache_key(_SAMPLE_CACHE_KEY))
 
     assert result is not None
-    assert result.spec_json == _SAMPLE_SPEC_JSON, (
-        "spec_json returned as string must be parsed to a dict (WR-02)"
-    )
+    assert result.spec_json == _SAMPLE_SPEC_JSON, "spec_json returned as string must be parsed to a dict (WR-02)"
 
 
 def test_find_by_cache_key_handles_spec_json_as_dict() -> None:

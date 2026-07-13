@@ -163,9 +163,13 @@ class EvaluateAnticipatoryCandidates:
                 continue
 
             # Both gates independently passed -> shown (D-11 handoff point).
-            await self._cap_store.record_shown(conversation_id=snapshot.conversation_id, at_epoch_s=snapshot.now_epoch_s)
+            await self._cap_store.record_shown(
+                conversation_id=snapshot.conversation_id, at_epoch_s=snapshot.now_epoch_s
+            )
             events.append(
-                self._emit(AnticipatoryLifecycleEvent(type="shown", data={**_candidate_data(candidate), "score": score.score}))
+                self._emit(
+                    AnticipatoryLifecycleEvent(type="shown", data={**_candidate_data(candidate), "score": score.score})
+                )
             )
             shown.append(candidate)
 

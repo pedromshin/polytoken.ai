@@ -23,7 +23,9 @@ _EDGE_ID = "edge-001"
 _WIDGET_INTERACTION_ID = "wi-1"
 
 
-def _handler(promote_result: dict[str, object] | None = None, *, side_effect: Exception | None = None) -> tuple[KnowledgeEdgeTierPromotionHandler, AsyncMock]:
+def _handler(
+    promote_result: dict[str, object] | None = None, *, side_effect: Exception | None = None
+) -> tuple[KnowledgeEdgeTierPromotionHandler, AsyncMock]:
     promote_edge = AsyncMock()
     if side_effect is not None:
         promote_edge.execute.side_effect = side_effect

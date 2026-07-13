@@ -190,7 +190,18 @@ async def test_entity_type_enum_is_constrained(
     allowed_values = entity_type_prop["enum"]
 
     # Must include all component type slugs from genui-prompt.json
-    expected_slugs = {"text", "badge", "button", "card", "key-value-list", "separator", "alert", "table", "stack", "grid"}
+    expected_slugs = {
+        "text",
+        "badge",
+        "button",
+        "card",
+        "key-value-list",
+        "separator",
+        "alert",
+        "table",
+        "stack",
+        "grid",
+    }
     for slug in expected_slugs:
         assert slug in allowed_values, f"'{slug}' must be in entity_type enum"
 
@@ -265,8 +276,17 @@ async def test_injection_shaped_value_treated_as_data(
     # The result is just a data structure — no instructions executed
     assert isinstance(result, QuarantineExtraction)
     assert result.entity_type in {
-        "text", "badge", "button", "card", "key-value-list",
-        "separator", "alert", "table", "stack", "grid", "unknown",
+        "text",
+        "badge",
+        "button",
+        "card",
+        "key-value-list",
+        "separator",
+        "alert",
+        "table",
+        "stack",
+        "grid",
+        "unknown",
     }, "entity_type must be from the allowed enum"
 
 

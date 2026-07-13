@@ -89,9 +89,7 @@ def test_parse_confirm_action_call_empty_id() -> None:
 
 
 def test_parse_confirm_action_call_non_string_rationale_ignored() -> None:
-    raw = json.dumps(
-        {"suggestionRef": {"kind": "knowledge_edge_tier_promotion", "id": "edge-1"}, "rationale": 42}
-    )
+    raw = json.dumps({"suggestionRef": {"kind": "knowledge_edge_tier_promotion", "id": "edge-1"}, "rationale": 42})
     parsed = parse_confirm_action_call(raw)
     assert parsed == {"kind": "knowledge_edge_tier_promotion", "id": "edge-1", "rationale": None}
 
