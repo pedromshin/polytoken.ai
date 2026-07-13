@@ -58,6 +58,7 @@ Never raises past `execute()`.
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 import structlog
@@ -241,9 +242,15 @@ class SourceCaptureHandler:
         title_raw = source_payload.get("title")
         title = title_raw if isinstance(title_raw, str) and title_raw else url
         retrieved_at = source_payload.get("retrievedAt")
+        # knowledge_nodes.scope_ref_id is a uuid COLUMN (migration 0006) — a
+        # raw url string 22P02s against real Postgres (found live 2026-07-12).
+        # uuid5(NAMESPACE_URL, url) is deterministic, so the same url always
+        # keys the same node (supersede-never-mutate dedupe preserved); the
+        # human-readable url stays in content and in the edge provenance.
+        url_key = str(uuid.uuid5(uuid.NAMESPACE_URL, url))
 
         try:
-            existing = await self._knowledge_graph.find_active_node(importer_id, _SOURCE_CAPTURE_SCOPE, url)
+            existing = await self._knowledge_graph.find_active_node(importer_id, _SOURCE_CAPTURE_SCOPE, url_key)
             if existing is not None:
                 node_id = str(existing.get("id"))
             else:
@@ -252,7 +259,7 @@ class SourceCaptureHandler:
                     title=title,
                     content=url,
                     scope=_SOURCE_CAPTURE_SCOPE,
-                    scope_ref_id=url,
+                    scope_ref_id=url_key,
                     scope_ref_type=_SOURCE_CAPTURE_SCOPE_REF_TYPE,
                     source=_SOURCE_CAPTURE_SOURCE,
                     tier=_SOURCE_CAPTURE_TIER,

@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import uuid
 from decimal import Decimal
 from typing import Any
 
@@ -112,7 +113,11 @@ def test_confirm_with_valid_payload_upserts_inferred_node_and_edge_with_provenan
     assert upsert_call["source"] == "web_search_capture"
     assert upsert_call["scope"] == "importer_global"
     assert upsert_call["scope_ref_type"] == "web_source"
-    assert upsert_call["scope_ref_id"] == _URL
+    # scope_ref_id is a uuid COLUMN (migration 0006) — a raw url string 22P02s
+    # against real Postgres (found live 2026-07-12). The deterministic
+    # uuid5(NAMESPACE_URL, url) keys the same url to the same node.
+    assert upsert_call["scope_ref_id"] == str(uuid.uuid5(uuid.NAMESPACE_URL, _URL))
+    assert upsert_call["content"] == _URL, "the real url string lives in content"
     assert upsert_call["title"] == "An Article"
 
     assert len(knowledge.insert_edge_calls) == 1
@@ -283,9 +288,10 @@ def test_cross_tenant_capture_scoped_by_the_exact_importer_id_passed() -> None:
 
     assert tenant_a["node_id"] != tenant_b["node_id"], "tenants must never share a captured node"
     assert len(knowledge.upsert_node_calls) == 2
+    url_key = str(uuid.uuid5(uuid.NAMESPACE_URL, _URL))
     assert knowledge.find_active_node_calls == [
-        (_IMPORTER_ID, "importer_global", _URL),
-        (_OTHER_IMPORTER_ID, "importer_global", _URL),
+        (_IMPORTER_ID, "importer_global", url_key),
+        (_OTHER_IMPORTER_ID, "importer_global", url_key),
     ]
 
 
