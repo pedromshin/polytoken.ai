@@ -358,7 +358,15 @@ can't run until this is fixed.
 > `apps/email-listener/pyproject.toml`; full suite re-run green at the new floor (1504 passed).
 > Step-up ladder (70 @ 72% / 75 @ 77% / 80 @ 82%, never lower further) tracked in
 > `.planning/todos/pending/2026-07-12-coverage-ratchet-step-up.md`. Recorded in
-> `49-HUMAN-UAT.md` item 4. ECS image deploys unblock on the next push.
+> `49-HUMAN-UAT.md` item 4.
+>
+> **RESOLVED END-TO-END 2026-07-13:** the ratchet exposed a SECOND, hidden deploy blocker —
+> prod tasks crashed at import (`ModuleNotFoundError: jsonschema`; requirements.txt had
+> drifted from pyproject — the Docker image installs only requirements.txt) and the ECS
+> circuit breaker rolled back every rollout. Fixed + guarded
+> (`tests/test_requirements_sync.py`), plus the repo-wide ruff-format drift and a bandit
+> B105 false positive that kept CI red. As of `bbef5d8`: **CI green, prod ECS deploy green,
+> service steady on the new image, ALB /health 200.** LIVE-02 is now fully satisfied.
 
 The ECS deploy workflow is red on **one** gate: pytest coverage 68.10% vs
 `--cov-fail-under=80` (`apps/email-listener/pyproject.toml:108`). All tests pass; ruff + mypy are
