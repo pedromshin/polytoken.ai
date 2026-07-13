@@ -85,9 +85,13 @@ const BANNER_DISMISSED_KEY = "nauta.knowledge.taxonomy-banner-dismissed";
 /** Instance count threshold below which instances are automatically shown. */
 const AUTO_SHOW_INSTANCES_THRESHOLD = 50;
 
+// knowledge_node is visible by default since Phase 54 (CLUS-04): captured web
+// sources land as knowledge_nodes, and a user who just confirmed a capture
+// must find it here without knowing about the filter rail.
 const DEFAULT_VISIBLE_TYPES = new Set<NodeTypeKey>([
   "entity_type",
   "entity_type_field",
+  "knowledge_node",
 ]);
 
 // ---------------------------------------------------------------------------

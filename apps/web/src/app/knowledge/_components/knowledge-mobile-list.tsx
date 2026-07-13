@@ -48,6 +48,7 @@ import { NodeDetailPane, type SelectedNode } from "./node-detail-pane";
 const DEFAULT_VISIBLE_TYPES = new Set<NodeTypeKey>([
   "entity_type",
   "entity_type_field",
+  "knowledge_node",
 ]);
 
 // ---------------------------------------------------------------------------
