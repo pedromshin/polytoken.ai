@@ -145,4 +145,36 @@ describe("token family registration (guards the unregistered-utility bug class)"
     expectPresent(themeTokens, "radius-xl");
     expectPresent(themeTokens, "radius-2xl");
   });
+
+  it("registers the D-58-01 type scale + serif role (59-02-PLAN.md Task 1)", () => {
+    // The serif is law 2's home -- a real token role, not an ad-hoc class.
+    expectPresent(themeTokens, "font-serif");
+    // A <=7-step designed scale (interfaces §A), each size paired with its
+    // own line-height -- both halves of the pair must be registered, or a
+    // consumer's `text-lg` renders the right size with the wrong leading.
+    const textScaleSteps = ["2xs", "xs", "sm", "base", "lg", "xl"];
+    for (const step of textScaleSteps) {
+      expectPresent(themeTokens, `text-${step}`);
+      expectPresent(themeTokens, `text-${step}--line-height`);
+    }
+  });
+
+  it("registers the density/spacing rhythm + card/frame radii (59-02-PLAN.md Task 1)", () => {
+    const spacingSteps = [
+      "control-x",
+      "control-y",
+      "control-sm-x",
+      "control-sm-y",
+      "chip-x",
+      "chip-y",
+      "row-x",
+      "row-y",
+      "panel",
+    ];
+    for (const step of spacingSteps) {
+      expectPresent(themeTokens, `spacing-${step}`);
+    }
+    expectPresent(themeTokens, "radius-card");
+    expectPresent(themeTokens, "radius-frame");
+  });
 });
