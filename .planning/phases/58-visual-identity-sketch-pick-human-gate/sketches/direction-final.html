@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>polytoken — Provenance × Meaningful Colour (light + dark)</title>
+<!--
+  DIRECTION FINAL — "PROVENANCE × MEANINGFUL COLOUR"
+  User-directed synthesis: A won; C's colour philosophy + warm-graphite ground adopted.
+  ─────────────────────────────────────────────────────────────────────────────
+  > "i liked a best but also liked c color concept. we will want light and dark
+  >  theme and liked the idea of using colors meaningfully datafully"
+
+  FROM A (the base):
+    · The PROVENANCE thesis — every fact has a source.
+    · The provenance mark: an OCR-token-polygon-derived box on every extracted fact.
+      SOLID border + wash = Confirmed. DASHED border = Suggested. Same mark on inbox
+      chips, cited spans in chat answers, table values, entity rows, map labels.
+    · The typographic split: CHROME SPEAKS SANS, EVIDENCE SPEAKS SERIF. Verified by
+      enumerating all 86 serif elements at runtime: every one is the user's own
+      material (mail, saved sources, values pulled out of them). Nothing polytoken
+      says in its own voice wears the serif — not even this page's own manifesto.
+    · Tabular numerals on every amount and date. Warm archival-paper light ground.
+    · Calm registry rhythm: flat surfaces, hairline rules, zero shadow anywhere.
+
+  FROM C (philosophy + one ground only — NOT its type, density, or tier meter):
+    · Colour is earned, never decorative. Chrome is monochrome.
+    · Its warm-graphite (umber-tinted, never pure black) ground = the DARK theme.
+
+  THE COLOUR LAW — the user's "meaningfully/datafully", enforced:
+    verdigris   = Confirmed / a human verified this
+    pencil-amber= Suggested / the machine thinks so, you haven't said yet
+    madder      = irreversible. NOTHING else may wear it.
+    everything else is INK. Buttons, links, nav, selection, focus rings carry NO hue —
+    they work in weight, rule, underline, fill and elevation. A's quiet blue accent
+    (#35516B) is REMOVED; entity-type hues are REMOVED and re-encoded as SHAPE.
+    No additional hue was needed. See the "The Colour Law" section for the ladder.
+
+  BOTH THEMES ARE FIRST-CLASS. oklch throughout, shaped like apps/web/src/app/globals.css
+  (:root + :root[data-theme="dark"] overrides) so this ports to real tokens.
+  The semantic hues hold hue+chroma CONSTANT across themes — only lightness moves.
+  Every value below was computed and contrast-verified, not eyeballed.
+
+  CHANEL RULE (removed before finishing): the entity-type shape in the "What I found
+  in this email" pane and in the detail-pane type badge. The word "person"/"Supplier"
+  sits right next to it — the glyph was repeating it. Removing it also killed a real
+  defect: "date" has no shape of its own (the filter rail types only five things), so
+  it had borrowed the document triangle and was quietly saying the wrong thing. Type
+  shapes now appear only where there is no room for a word — the filter rail and the
+  canvas nodes. Also cut: the filled well behind the attachment row (the clip says it).
+-->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&display=swap" rel="stylesheet">
+<script>
+  /* Set the theme before first paint: stored choice wins, else the OS preference. */
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('pt-theme'); } catch (e) {}
+    var t = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+  /* ══ TOKENS ════════════════════════════════════════════════════════════
+     LIGHT — A's warm archival paper. A gray-green undertone (hue ~97-124),
+     deliberately NOT cream: cream + serif is the AI-default this must avoid. */
+  :root{
+    /* ground ladder */
+    --shelf:oklch(92.4% 0.014 97.5);    /* archive shelf  — page ground        */
+    --leaf:oklch(95.1% 0.011 95.2);     /* record leaf    — panel / card       */
+    --bright:oklch(98.2% 0.007 97.4);   /* fresh leaf     — elevated, selected */
+    --shade:oklch(89.9% 0.016 99.0);    /* shelf shadow   — hover wells, fills */
+    --rule:oklch(82.1% 0.021 100.6);    /* ledger rule    — structural         */
+    --rule-hi:oklch(74.0% 0.022 100.6); /* ledger rule    — hover border       */
+    --hair:oklch(88.3% 0.018 99.6);     /* ledger hairline— soft dividers      */
+    /* ink ladder — every one of these is AA on every ground above */
+    --ink:oklch(26.7% 0.015 124.2);     /* iron-gall ink  — primary text       */
+    --faded:oklch(46.6% 0.021 124.4);   /* faded ink      — secondary text     */
+    --pencil:oklch(51.0% 0.022 119.2);  /* pencil         — muted metadata     */
+    /* ── EARNED COLOUR ── hue + chroma are LOCKED across themes. Only L moves. */
+    --conf:oklch(49.0% 0.068 176.3);            /* verdigris   — CONFIRMED     */
+    --conf-wash:oklch(49.0% 0.068 176.3 / .10);
+    --conf-line:oklch(49.0% 0.068 176.3 / .38);
+    --sugg:oklch(50.5% 0.080 78.7);             /* pencil-amber— SUGGESTED     */
+    --sugg-wash:oklch(50.5% 0.080 78.7 / .10);
+    --sugg-line:oklch(50.5% 0.080 78.7 / .50);
+    --bad:oklch(49.4% 0.126 32.4);              /* madder      — IRREVERSIBLE  */
+    --bad-hi:oklch(43.0% 0.126 32.4);
+    /* ink alphas — chrome's ONLY interactive currency. No hue lives here. */
+    --ink-05:oklch(26.7% 0.015 124.2 / .05);
+    --ink-08:oklch(26.7% 0.015 124.2 / .08);
+    --ink-14:oklch(26.7% 0.015 124.2 / .14);
+    --edge:oklch(26.7% 0.015 124.2 / .38);
+    --grid:oklch(26.7% 0.015 124.2 / .10);
+    --fill-hi:oklch(20.0% 0.015 124.2); /* an ink fill's hover */
+    --on-fill:oklch(98.2% 0.007 97.4);  /* text on an ink or madder fill */
+    --shimmer:oklch(92.8% 0.012 97.4);
+    /* type */
+    --sans:"Archivo",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --r-ctl:8px; --r-card:10px; --r-frame:12px;
+  }
+  /* DARK — C's warm graphite. Umber-tinted (hue ~59-83), clearly not pure black.
+     Note the semantic hues below: identical C and H to :root, lightness only. */
+  :root[data-theme="dark"]{
+    --shelf:oklch(19.9% 0.009 59.1);
+    --leaf:oklch(22.2% 0.011 60.9);
+    --bright:oklch(26.5% 0.015 76.2);
+    --shade:oklch(31.3% 0.016 75.0);
+    --rule:oklch(38.8% 0.026 78.8);
+    --rule-hi:oklch(46.0% 0.026 78.8);
+    --hair:oklch(32.6% 0.017 70.9);
+    --ink:oklch(92.4% 0.019 83.1);
+    --faded:oklch(75.2% 0.024 78.2);
+    --pencil:oklch(65.0% 0.025 78.1);
+    --conf:oklch(78.0% 0.068 176.3);            /* same C .068, same H 176.3 */
+    --conf-wash:oklch(78.0% 0.068 176.3 / .14);
+    --conf-line:oklch(78.0% 0.068 176.3 / .45);
+    --sugg:oklch(78.5% 0.080 78.7);             /* same C .080, same H 78.7  */
+    --sugg-wash:oklch(78.5% 0.080 78.7 / .14);
+    --sugg-line:oklch(78.5% 0.080 78.7 / .55);
+    --bad:oklch(70.0% 0.126 32.4);              /* same C .126, same H 32.4  */
+    --bad-hi:oklch(76.0% 0.126 32.4);
+    --ink-05:oklch(92.4% 0.019 83.1 / .05);
+    --ink-08:oklch(92.4% 0.019 83.1 / .08);
+    --ink-14:oklch(92.4% 0.019 83.1 / .16);
+    --edge:oklch(92.4% 0.019 83.1 / .32);
+    --grid:oklch(92.4% 0.019 83.1 / .08);
+    --fill-hi:oklch(98.0% 0.019 83.1);
+    --on-fill:oklch(19.9% 0.009 59.1);
+    --shimmer:oklch(36.0% 0.016 75.0);
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--shelf); color:var(--ink);
+    font:400 14px/1.55 var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    padding-top:46px;
+  }
+  ::selection{background:var(--ink-14)}
+  /* THE LAW, first application: a link is ink + a rule under it. Never a hue. */
+  a{color:var(--ink);text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:2px}
+  a:hover{text-decoration-color:var(--ink)}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  :is(a,button,input):focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+  svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .serif{font-family:var(--serif)}
+  .num{font-variant-numeric:tabular-nums lining-nums}
+
+  /* ── fixed top bar ──────────────────────────────────────── */
+  .topbar{
+    position:fixed;inset:0 0 auto 0;height:46px;z-index:50;
+    display:flex;align-items:center;gap:14px;padding:0 24px;
+    background:var(--bright);border-bottom:1px solid var(--rule);
+  }
+  /* The mark is the provenance mark itself: one solid box, one dashed box.
+     It is CHROME, so under the law it is monochrome — it shows the SHAPE of
+     the tier language (solid vs dashed), never spends the tier colour on a logo. */
+  .dirmark{display:inline-flex;gap:3px;align-items:center}
+  .dirmark i{width:9px;height:9px;border-radius:2px;display:block}
+  .dirmark i:first-child{background:var(--ink)}
+  .dirmark i:last-child{border:1px dashed var(--faded)}
+  .topbar .wm{font-weight:600;font-size:13.5px}
+  .topbar .dir{font-size:13px;color:var(--faded)}
+  .topnav{margin-left:auto;display:flex;gap:4px;align-items:center}
+  .topnav a{font-size:12.5px;padding:5px 10px;border-radius:6px;color:var(--faded);text-decoration:none}
+  .topnav a:hover{background:var(--ink-08);color:var(--ink)}
+  .themebtn{
+    display:inline-flex;align-items:center;gap:6px;margin-left:10px;
+    font-size:12.5px;font-weight:600;color:var(--ink);
+    background:var(--leaf);border:1px solid var(--rule);
+    border-radius:var(--r-ctl);padding:5px 10px;line-height:1.2;
+  }
+  .themebtn:hover{background:var(--shade);border-color:var(--rule-hi)}
+  .themebtn svg{width:14px;height:14px}
+  .themebtn .l-sun,:root[data-theme="dark"] .themebtn .l-moon{display:none}
+  :root[data-theme="dark"] .themebtn .l-sun{display:inline-flex;align-items:center;gap:6px}
+  .themebtn .l-moon{display:inline-flex;align-items:center;gap:6px}
+
+  /* ── section shells ─────────────────────────────────────── */
+  main{max-width:1400px;margin:0 auto;padding:0 24px 96px}
+  section{scroll-margin-top:64px;padding-top:56px}
+  .rulehead{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+  .rulehead h1{font-size:15px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+  .rulehead::after{content:"";flex:1;border-top:1px solid var(--rule);transform:translateY(-4px)}
+
+  /* app frame + global nav rail */
+  .frame{
+    display:flex;align-items:stretch;overflow:hidden;
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-frame);
+  }
+  .navrail{
+    width:64px;flex:none;display:flex;flex-direction:column;align-items:center;
+    padding:14px 0 12px;gap:6px;background:var(--bright);border-right:1px solid var(--hair);
+  }
+  .brand{color:var(--ink);margin-bottom:10px}  /* mark is currentColor-driven, never hardcoded */
+  .brand svg{width:26px;height:26px;display:block}
+  .nitem{
+    width:52px;padding:7px 0 6px;border-radius:8px;display:flex;flex-direction:column;
+    align-items:center;gap:3px;color:var(--faded);font-size:10px;line-height:1;
+  }
+  .nitem:hover{background:var(--ink-08);color:var(--ink)}
+  .nitem.on{background:var(--shade);color:var(--ink);font-weight:600}
+  .avatar{
+    margin-top:auto;width:28px;height:28px;border-radius:50%;
+    background:var(--shade);border:1px solid var(--rule);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--faded);
+  }
+
+  /* ── provenance mark (the signature) ────────────────────── */
+  .pm{
+    font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;
+    border-radius:3px;padding:0 .22em;margin:0 .04em;
+  }
+  .pm.c{background:var(--conf-wash);border:1px solid var(--conf-line);color:var(--conf)}
+  .pm.s{background:var(--sugg-wash);border:1px dashed var(--sugg-line);color:var(--sugg)}
+
+  /* entity chips — OCR-box rectangles, not pills */
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{
+    display:inline-flex;align-items:baseline;gap:4px;max-width:100%;
+    font-size:11.5px;line-height:1;padding:4px 7px;border-radius:4px;white-space:nowrap;
+  }
+  .chip .cv{font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;font-size:12px}
+  .chip .ct{font-size:10.5px;opacity:.75}
+  .chip.c{background:var(--conf-wash);border:1px solid var(--conf-line);color:var(--conf)}
+  .chip.s{background:var(--sugg-wash);border:1px dashed var(--sugg-line);color:var(--sugg)}
+  .chip.c:hover{background:var(--conf-line)}
+  .chip.s:hover{background:var(--sugg-wash);border-color:var(--sugg)}
+  .chip.neutral{background:var(--bright);border:1px solid var(--rule);color:var(--ink)}
+  .chip.neutral:hover{background:var(--shade)}
+
+  /* badges */
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    line-height:1;padding:3px 7px;border-radius:4px;white-space:nowrap;
+  }
+  .badge .sw{width:7px;height:7px;border-radius:1.5px;display:block}
+  .badge.c{color:var(--conf);background:var(--conf-wash);border:1px solid var(--conf-line)}
+  .badge.c .sw{background:var(--conf)}
+  .badge.s{color:var(--sugg);background:var(--sugg-wash);border:1px dashed var(--sugg-line)}
+  .badge.s .sw{border:1px dashed var(--sugg)}
+  /* entity TYPE is not a tier — it gets no hue. It gets a shape (see .tshape). */
+  .badge.type{color:var(--faded);background:var(--shade);border:1px solid var(--rule)}
+
+  /* ── entity-type = SHAPE, not colour ────────────────────────
+     A spent five hues on supplier/person/amount/document/email. Under the law
+     those hues are removed: type is encoded in the silhouette instead. This is
+     strictly better — it survives colour-blindness and greyscale print, and it
+     leaves the whole colour budget to the thing that actually needs it: tier.
+     Drawn in --faded, not --ink: the shape is a quiet type marker, and full ink
+     made it the loudest thing on the canvas — out-shouting the tier colour it is
+     supposed to defer to. Caught by rendering: the ink dots led the eye. */
+  .tshape{width:10px;height:10px;flex:none;background:var(--faded);display:block}
+  .tshape.sup{border-radius:2px}                                  /* square   */
+  .tshape.per{border-radius:50%}                                  /* circle   */
+  .tshape.amt{width:9px;height:9px;border-radius:1px;transform:rotate(45deg)} /* diamond */
+  .tshape.doc{clip-path:polygon(50% 0,100% 100%,0 100%)}          /* triangle */
+  .tshape.eml{background:transparent;border:1.5px solid var(--pencil);border-radius:50%} /* hollow */
+
+  /* buttons — the radical part: an action with no hue at all. */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;
+    padding:7px 14px;border-radius:var(--r-ctl);line-height:1.2;white-space:nowrap;
+  }
+  .btn.primary{background:var(--ink);color:var(--on-fill)}   /* ink fill = the loudest thing on the page */
+  .btn.primary:hover{background:var(--fill-hi)}
+  .btn.ghost{background:var(--bright);border:1px solid var(--rule);color:var(--ink)}
+  .btn.ghost:hover{background:var(--shade);border-color:var(--rule-hi)}
+  .btn.danger{background:var(--bad);color:var(--on-fill)}    /* the one hue chrome may wear — and only here */
+  .btn.danger:hover{background:var(--bad-hi)}
+  .btn.block{width:100%;justify-content:center}
+  .btn.sm{font-size:12px;padding:6px 11px}
+  .tbtn{
+    font-size:12.5px;font-weight:600;color:var(--ink);padding:2px 4px;border-radius:4px;
+    text-decoration:underline;text-decoration-color:var(--rule);text-underline-offset:2px;
+  }
+  .tbtn:hover{background:var(--ink-08);text-decoration-color:var(--ink)}
+  .tbtn.quiet{color:var(--faded);font-weight:400}
+  .tbtn.quiet:hover{background:var(--ink-05)}
+  .xbtn{color:var(--pencil);font-size:14px;line-height:1;padding:2px 5px;border-radius:4px}
+  .xbtn:hover{color:var(--ink);background:var(--ink-08)}
+
+  /* ══ SCREEN 1 · INBOX ═══════════════════════════════════ */
+  #inbox .frame{height:860px}
+  .filters{
+    width:200px;flex:none;display:flex;flex-direction:column;gap:2px;
+    padding:16px 12px;border-right:1px solid var(--hair);
+  }
+  .paneh{
+    font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--pencil);padding:0 8px;margin-bottom:8px;
+  }
+  .fitem{font-size:13px;text-align:left;padding:6px 9px;border-radius:6px;color:var(--faded)}
+  .fitem:hover{background:var(--ink-05);color:var(--ink)}
+  .fitem.on{background:var(--shade);color:var(--ink);font-weight:600}
+  .fhint{
+    margin-top:16px;padding:10px 9px 0;border-top:1px solid var(--hair);
+    font-size:12px;line-height:1.55;color:var(--pencil);
+  }
+  .threads{
+    width:376px;flex:none;display:flex;flex-direction:column;
+    border-right:1px solid var(--hair);overflow-y:auto;
+  }
+  .lhead{
+    display:flex;align-items:center;gap:8px;padding:16px 16px 12px;
+    position:sticky;top:0;background:var(--leaf);border-bottom:1px solid var(--hair);z-index:2;
+  }
+  .lhead h2{font-size:15px;font-weight:600}
+  .count{
+    font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;
+    background:var(--bright);border:1px solid var(--rule);color:var(--faded);
+    font-variant-numeric:tabular-nums;
+  }
+  .row{padding:12px 16px 13px;border-bottom:1px solid var(--hair);cursor:pointer}
+  .row:hover{background:var(--ink-05)}
+  .row .rh{display:flex;align-items:center;gap:7px}
+  .sender{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row time{margin-left:auto;flex:none;font-size:11.5px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .chev{color:var(--pencil);display:flex}
+  .chev svg{width:13px;height:13px}
+  .mcount{
+    font-size:10.5px;font-weight:600;color:var(--faded);background:var(--shade);
+    border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums;
+  }
+  .subj{
+    font-family:var(--serif);font-size:14px;margin-top:3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .snip{
+    font-family:var(--serif);font-size:12.5px;color:var(--faded);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .row .chips{margin-top:8px}
+  /* unread: an INK dot + weight. A used a blue dot; the law removed the blue and
+     nothing was lost — weight was already carrying most of the signal. */
+  .row.unread .sender::before{
+    content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--ink);margin-right:6px;vertical-align:1px;
+  }
+  .row.unread .subj{font-weight:600}
+  .row.sel{background:var(--bright);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .row.sel:hover{background:var(--bright)}
+  /* Chanel rule: the filled well behind this row is REMOVED — the clip says it. */
+  .attach{
+    display:inline-flex;align-items:center;gap:5px;margin-top:7px;
+    font-size:11.5px;color:var(--pencil);
+  }
+  .attach svg{width:12px;height:12px}
+  .members{margin:10px 0 0 6px;padding-left:12px;border-left:1px solid var(--rule)}
+  .member{padding:8px 8px 9px;border-radius:6px}
+  .member + .member{margin-top:2px}
+  .member .mh{display:flex;align-items:baseline;gap:8px}
+  .member .mh span{font-size:12.5px;font-weight:600}
+  .member .mh time{margin-left:auto;font-size:11px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .member.msel{background:var(--shade);border:1px solid var(--rule)}
+  .member .chips{margin-top:7px}
+  .msnip{
+    font-family:var(--serif);font-size:12px;color:var(--faded);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .loadmore{padding:12px 16px 16px}
+  .reading{flex:1;min-width:0;padding:22px 26px;overflow-y:auto}
+  .rp-head{display:flex;align-items:flex-start;gap:16px}
+  .rp-head h2{font-family:var(--serif);font-size:19px;font-weight:600;line-height:1.3;flex:1;min-width:0}
+  .rp-meta{
+    margin-top:10px;padding-bottom:14px;border-bottom:1px solid var(--hair);
+    font-size:12.5px;color:var(--faded);
+  }
+  .rp-body{font-family:var(--serif);font-size:15.5px;line-height:1.7;margin-top:18px;max-width:56ch}
+  .rp-body p + p{margin-top:14px}
+  .entities{
+    width:288px;flex:none;border-left:1px solid var(--hair);
+    padding:22px 18px;display:flex;flex-direction:column;background:var(--leaf);
+  }
+  .entities h3{font-size:13px;font-weight:600;margin-bottom:14px}
+  .ent{padding:9px 0;border-bottom:1px solid var(--hair)}
+  .ent .e1{display:flex;align-items:center;gap:8px}
+  .ent .ev{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ent .e1 .badge{margin-left:auto;flex:none}
+  /* CHANEL RULE: the type shape was here too, next to the word "person". The word
+     was already doing the job, and "date" has no shape of its own (the filter rail
+     only types five things) — so it was borrowing the document triangle and quietly
+     lying. Removed. Shapes now live only where there is no room for a word: the
+     filter rail and the canvas nodes. */
+  .ent .et{font-size:11px;color:var(--pencil);margin-top:3px}
+  .ent-actions{display:flex;gap:8px;margin-top:7px}
+  .flink{display:block;font-size:12.5px;font-weight:600;margin-top:auto;padding-top:16px}
+
+  /* ══ SCREEN 2 · CHAT + CANVAS ═══════════════════════════ */
+  #chat .frame{height:680px}
+  .convrail{
+    width:208px;flex:none;padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+    border-right:1px solid var(--hair);
+  }
+  .newchat{
+    display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--ink);
+    padding:7px 9px;border-radius:6px;margin-bottom:10px;text-align:left;
+    border:1px solid var(--rule);background:var(--bright);
+  }
+  .newchat:hover{background:var(--shade);border-color:var(--rule-hi)}
+  .citem{
+    font-size:12.5px;text-align:left;padding:7px 9px;border-radius:6px;color:var(--faded);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .citem:hover{background:var(--ink-05);color:var(--ink)}
+  .citem.on{background:var(--shade);color:var(--ink);font-weight:600}
+  .chatcol{
+    width:388px;flex:none;display:flex;flex-direction:column;
+    background:var(--bright);border-right:1px solid var(--hair);
+  }
+  .turns{flex:1;overflow-y:auto;padding:20px 18px;display:flex;flex-direction:column;gap:16px}
+  .uturn{
+    align-self:flex-end;max-width:85%;background:var(--shade);
+    border-radius:12px;padding:9px 13px;font-size:13.5px;line-height:1.55;
+  }
+  .aturn{font-size:13.5px;line-height:1.65}
+  .aturn p + p{margin-top:8px}
+  .tool{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--pencil);margin-bottom:7px}
+  .tool svg{width:13px;height:13px}
+  .srcchip{
+    display:inline-flex;align-items:center;gap:6px;max-width:100%;
+    font-size:12px;padding:5px 9px;border-radius:4px;margin-bottom:9px;
+    background:var(--leaf);border:1px solid var(--rule);color:var(--ink);cursor:pointer;
+    text-decoration:none;
+  }
+  .srcchip:hover{background:var(--shade);border-color:var(--rule-hi)}
+  .srcchip svg{width:13px;height:13px;color:var(--faded)}
+  .srcchip .st{font-family:var(--serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .composer{display:flex;gap:8px;padding:14px 16px;border-top:1px solid var(--hair)}
+  .composer input{
+    flex:1;min-width:0;font:400 13px/1.4 var(--sans);color:var(--ink);
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-ctl);
+    padding:9px 12px;
+  }
+  .composer input::placeholder{color:var(--pencil)}
+  .composer input:focus{outline:2px solid var(--ink);outline-offset:1px}
+  .send{
+    flex:none;width:36px;height:36px;border-radius:var(--r-ctl);
+    background:var(--ink);color:var(--on-fill);display:flex;align-items:center;justify-content:center;
+  }
+  .send:hover{background:var(--fill-hi)}
+  .canvaswrap{flex:1;min-width:0;position:relative;overflow:auto}
+  /* ban #12 exception: this surface IS a canvas, so a grid is the working
+     surface, not decoration. */
+  .board{
+    position:relative;width:700px;height:640px;
+    background-image:radial-gradient(var(--grid) 1px,transparent 1px);
+    background-size:22px 22px;
+  }
+  .savestatus{
+    position:absolute;top:12px;right:14px;z-index:3;
+    display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--pencil);
+    background:var(--leaf);padding:4px 9px;border-radius:5px;
+  }
+  .savestatus svg{width:12px;height:12px;color:var(--pencil)}
+  .edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .e-neutral{stroke:var(--edge);stroke-width:1.5;fill:none}
+  .e-joint{fill:var(--edge)}
+  .e-conf{stroke:var(--conf-line);stroke-width:1.5;fill:none}
+  .e-sugg{stroke:var(--sugg-line);stroke-width:1.5;stroke-dasharray:4 4;fill:none}
+  .edgelabel{
+    position:absolute;transform:translate(-50%,-50%);z-index:2;
+    font-size:10.5px;color:var(--faded);background:var(--leaf);
+    padding:1px 6px;border-radius:3px;white-space:nowrap;
+  }
+  .card{
+    position:absolute;z-index:2;background:var(--bright);
+    border:1px solid var(--rule);border-radius:var(--r-card);
+    display:flex;flex-direction:column;
+  }
+  .card:hover{border-color:var(--rule-hi)}
+  .ch{display:flex;align-items:center;gap:7px;padding:9px 10px 8px;border-bottom:1px solid var(--hair)}
+  .ch svg{width:13px;height:13px;color:var(--faded)}
+  .ch .ct2{
+    flex:1;min-width:0;font-family:var(--serif);font-size:12.5px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .cbody{padding:10px 12px 11px}
+  .cap{font-size:10.5px;color:var(--pencil);margin-bottom:2px}
+  .parts{font-size:11.5px;color:var(--faded)}
+  .csnip{font-family:var(--serif);font-size:12px;line-height:1.55;color:var(--ink);margin-top:6px}
+  .cf{display:flex;gap:10px;padding:8px 12px 10px;border-top:1px solid var(--hair)}
+  .urlline{font-size:11px;color:var(--pencil);margin-top:5px;font-variant-numeric:tabular-nums}
+  table.qt{border-collapse:collapse;width:100%;margin-top:8px}
+  .qt th,.qt td{
+    text-align:left;padding:5px 8px;border-bottom:1px solid var(--hair);
+    font-size:11.5px;line-height:1.35;vertical-align:top;
+  }
+  .qt thead th{font-weight:600;font-size:11px;color:var(--faded);border-bottom:1px solid var(--rule)}
+  .qt tbody th{font-weight:400;color:var(--faded);white-space:nowrap}
+  .qt td{font-family:var(--serif);font-size:12px;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+  .qt tbody tr:last-child :is(td,th){border-bottom:none}
+
+  /* ══ SCREEN 3 · KNOWLEDGE ═══════════════════════════════ */
+  #knowledge .frame{height:660px}
+  .krail{
+    width:236px;flex:none;padding:16px 14px;display:flex;flex-direction:column;
+    border-right:1px solid var(--hair);
+  }
+  .krow{
+    display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 6px;
+    border-radius:6px;cursor:pointer;
+  }
+  .krow:hover{background:var(--ink-05)}
+  .cb{
+    width:14px;height:14px;flex:none;border-radius:3px;background:var(--bright);
+    border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;
+  }
+  .cb.on{background:var(--ink);border-color:var(--ink)}
+  .cb.on svg{width:9px;height:9px;color:var(--on-fill);stroke-width:2.6}
+  .krow.off{color:var(--pencil)}
+  .krow.off .tshape{background:var(--pencil)}
+  .ksep{border:none;border-top:1px solid var(--hair);margin:12px 2px}
+  .swrow{display:flex;align-items:flex-start;gap:9px;padding:2px 6px}
+  .switch{
+    width:32px;height:18px;flex:none;border-radius:9px;background:var(--rule);
+    position:relative;margin-top:2px;
+  }
+  .switch.on{background:var(--ink)}
+  .switch .knob{
+    position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:var(--bright);
+  }
+  .switch.on .knob{left:auto;right:2px;background:var(--on-fill)}
+  .swlabel{font-size:13px;line-height:1.35}
+  .swsub{font-size:11.5px;color:var(--pencil);margin-top:2px}
+  .kcount{
+    margin-top:auto;padding:12px 6px 0;border-top:1px solid var(--hair);
+    font-size:11.5px;color:var(--pencil);font-variant-numeric:tabular-nums;
+  }
+  .kcanvas{flex:1;min-width:0;position:relative;overflow:auto}
+  .kboard{
+    position:relative;min-width:640px;width:100%;height:100%;
+    background-image:radial-gradient(var(--grid) 1px,transparent 1px);
+    background-size:22px 22px;
+  }
+  .seg{
+    position:absolute;top:12px;left:14px;z-index:4;display:inline-flex;gap:2px;
+    background:var(--shade);border-radius:var(--r-ctl);padding:3px;
+  }
+  .seg button{font-size:12px;color:var(--faded);padding:4px 10px;border-radius:6px;white-space:nowrap}
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{background:var(--bright);border:1px solid var(--hair);color:var(--ink);font-weight:600;padding:3px 9px}
+  .legend{
+    position:absolute;bottom:12px;left:14px;z-index:4;display:flex;gap:12px;
+    background:var(--leaf);border:1px solid var(--hair);border-radius:6px;
+    padding:6px 11px;font-size:11.5px;color:var(--faded);flex-wrap:wrap;
+  }
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend .sw{width:8px;height:8px;border-radius:2px;display:block}
+  .legend .sw.c{background:var(--conf)}
+  .legend .sw.s{border:1px dashed var(--sugg)}
+  .legend .sw.u{background:var(--pencil);opacity:.4}
+  .legend .lsep{width:1px;height:12px;background:var(--rule);display:block}
+  .legend .tshape{background:var(--faded)}
+  .node{
+    position:absolute;transform:translate(-50%,-50%);z-index:3;
+    display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
+  }
+  /* the dot is TYPE (shape, monochrome). the label mark is TIER (colour). */
+  .node .tshape{width:12px;height:12px}
+  .node .tshape.amt{width:11px;height:11px}
+  .nlabel{
+    font-family:var(--serif);font-size:12.5px;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums lining-nums;
+    border-radius:3px;padding:2px 5px;background:var(--leaf);
+    border:1px solid var(--conf-line);color:var(--conf);
+  }
+  .node.sug .nlabel{border:1px dashed var(--sugg-line);color:var(--sugg)}
+  .node:hover .nlabel{background:var(--bright)}
+  /* Selection = corner brackets, in ink (no hue). They hug the LABEL, not the
+     node box: the node is a centred column, so brackets on its bounding box
+     floated out beside the dot and read as stray marks. Verified by rendering. */
+  .node.selnode .nlabel{position:relative;background:var(--bright);font-weight:600}
+  .node.selnode .nlabel::before,.node.selnode .nlabel::after{
+    content:"";position:absolute;width:8px;height:8px;border-color:var(--ink);border-style:solid;
+  }
+  .node.selnode .nlabel::before{top:-4px;left:-4px;border-width:1.5px 0 0 1.5px}
+  .node.selnode .nlabel::after{bottom:-4px;right:-4px;border-width:0 1.5px 1.5px 0}
+  .kdetail{
+    width:312px;flex:none;border-left:1px solid var(--hair);
+    padding:20px 18px;display:flex;flex-direction:column;background:var(--leaf);overflow-y:auto;
+  }
+  .kd-head{display:flex;align-items:flex-start;gap:10px}
+  .kd-head h3{font-family:var(--serif);font-size:18px;font-weight:600;flex:1;min-width:0}
+  .kd-badges{display:flex;gap:6px;margin-top:9px;align-items:center}
+  .kd-prov{font-size:12px;color:var(--pencil);margin:16px 0 6px}
+  .kd-mail{display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--hair)}
+  .kd-mail .ms{
+    flex:1;min-width:0;font-family:var(--serif);font-size:12.5px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .kd-mail time{flex:none;font-size:11px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .kd-rows{margin-top:14px}
+  .kd-rows>div{display:flex;gap:10px;padding:5px 0;font-size:12.5px}
+  .kd-rows dt{width:74px;flex:none;color:var(--pencil)}
+  .kd-rows dd{
+    font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .kd-sug{
+    margin-top:16px;padding:12px;border:1px dashed var(--sugg-line);
+    border-radius:var(--r-card);background:var(--sugg-wash);
+  }
+  .kd-sug .cap{margin-bottom:6px}
+  .sugrow{font-size:12.5px;line-height:1.5}
+  .kd-sug .btns{display:flex;align-items:center;gap:10px;margin-top:11px}
+
+  /* ══ SCREEN 4 · COMPONENTS ══════════════════════════════ */
+  .compgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .cell{
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-card);
+    padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0;
+  }
+  .cell>h4{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--pencil)}
+  .c6{grid-column:span 6}.c4{grid-column:span 4}.c3{grid-column:span 3}.c2{grid-column:span 2}
+  .cellrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .field label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+  .field input{
+    width:100%;font:400 13px/1.4 var(--sans);color:var(--ink);
+    background:var(--bright);border:1px solid var(--rule);border-radius:var(--r-ctl);
+    padding:8px 11px;
+  }
+  .field input:hover{border-color:var(--rule-hi)}
+  .field input:focus{outline:2px solid var(--ink);outline-offset:1px}
+  .toast{
+    display:flex;align-items:flex-start;gap:9px;max-width:360px;
+    background:var(--bright);border:1px solid var(--rule);border-radius:var(--r-card);
+    padding:11px 13px;font-size:13px;line-height:1.45;
+  }
+  .toast svg{width:15px;height:15px;margin-top:1px;color:var(--faded)}
+  .toast .tbtn{margin-left:auto;flex:none}
+  .empty{
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;
+    padding:22px 16px;
+  }
+  .empty svg{width:26px;height:26px;color:var(--pencil);stroke-width:1.4}
+  .empty h5{font-size:14.5px;font-weight:600}
+  .empty p{font-size:12.5px;color:var(--faded);max-width:30ch}
+  .empty .btn{margin-top:4px}
+  .skel{display:flex;flex-direction:column;gap:8px}
+  .skel i{
+    display:block;height:10px;border-radius:4px;background:var(--shade);
+    background-image:linear-gradient(90deg,var(--shade) 0%,var(--shimmer) 45%,var(--shade) 90%);
+    background-size:200% 100%;animation:shimmer 1.4s linear infinite;
+  }
+  .skel i:nth-child(1){width:100%}.skel i:nth-child(2){width:84%}.skel i:nth-child(3){width:58%}
+  @keyframes shimmer{from{background-position:120% 0}to{background-position:-80% 0}}
+  .spinrow{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--faded)}
+  .spinner{
+    width:16px;height:16px;flex:none;border-radius:50%;
+    border:2px solid var(--rule);border-top-color:var(--ink);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  /* the proof specimen: four states, no hue anywhere in them */
+  .states{display:flex;flex-wrap:wrap;gap:8px}
+  .stateitem{
+    display:flex;flex-direction:column;gap:5px;align-items:flex-start;
+    font-size:10.5px;color:var(--pencil);
+  }
+  .srow{
+    display:flex;align-items:center;gap:7px;width:150px;
+    font-size:12.5px;padding:7px 9px;border-radius:6px;color:var(--faded);
+    border:1px solid transparent;
+  }
+  .srow.rest{background:var(--bright);border-color:var(--rule)}
+  .srow.hov{background:var(--shade);border-color:var(--rule-hi);color:var(--ink)}
+  .srow.selm{background:var(--shade);border-color:var(--rule);color:var(--ink);font-weight:600}
+  .srow.foc{background:var(--bright);border-color:var(--rule);outline:2px solid var(--ink);outline-offset:2px}
+
+  /* ══ SCREEN 5 · THE COLOUR LAW ══════════════════════════ */
+  .lawgrid{display:grid;grid-template-columns:340px 1fr;gap:14px;align-items:start}
+  .lawpanel{
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-card);padding:20px;
+  }
+  /* Deliberately NOT serif, though it is the one place on the page that would
+     most enjoy being serif. Enumerated every serif element at runtime: 86 of
+     them — subjects, bodies, snippets, chip values, provenance marks, entity
+     labels, table values, saved-source titles. All 86 are the user's own
+     material: what arrived in their mail, what they saved, and the values
+     pulled out of it. Nothing polytoken says in its own voice is set in serif.
+     That makes serif a signal a user can actually learn — and one exception is
+     all it takes to make it unlearnable. So the manifesto speaks sans, like the
+     rest of the chrome. It is the law obeying itself. */
+  .lawlede{
+    font-size:19px;line-height:1.3;font-weight:600;letter-spacing:-.01em;margin-bottom:10px;
+  }
+  .lawbody{font-size:13px;line-height:1.6;color:var(--faded)}
+  .lawlist{list-style:none;margin-top:16px;display:flex;flex-direction:column;gap:0}
+  .lawlist li{
+    display:flex;gap:10px;align-items:flex-start;font-size:12.5px;line-height:1.5;
+    padding:10px 0;border-top:1px solid var(--hair);
+  }
+  .lawlist b{font-weight:600;color:var(--ink)}
+  .lawlist span.tx{color:var(--faded);min-width:0}
+  .lawsw{width:12px;height:12px;border-radius:3px;flex:none;margin-top:3px}
+  .lawnote{
+    margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);
+    font-size:12.5px;line-height:1.6;color:var(--faded);
+  }
+  .lawnote b{color:var(--ink)}
+  table.ladder{border-collapse:collapse;width:100%}
+  .ladder th,.ladder td{
+    text-align:left;padding:9px 10px;border-bottom:1px solid var(--hair);
+    font-size:12px;line-height:1.45;vertical-align:top;
+  }
+  .ladder thead th{
+    font-weight:600;font-size:11px;color:var(--pencil);border-bottom:1px solid var(--rule);
+    letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;
+  }
+  .ladder .lgroup th{
+    font-size:11.5px;font-weight:600;color:var(--ink);background:var(--shade);
+    border-bottom:1px solid var(--rule);letter-spacing:0;text-transform:none;
+  }
+  .ladder td.sw{width:34px;padding-right:0}
+  .ladder td.sw i{
+    display:block;width:24px;height:24px;border-radius:4px;border:1px solid var(--ink-14);
+  }
+  .ladder .tok{font-weight:600;color:var(--ink);white-space:nowrap}
+  .ladder .ok{
+    display:block;font-size:10.5px;color:var(--pencil);margin-top:3px;
+    font-variant-numeric:tabular-nums;white-space:nowrap;
+  }
+  .ladder td.means{color:var(--faded)}
+  .ladder td.where{color:var(--pencil);font-size:11.5px}
+  .ratios{
+    margin-top:14px;background:var(--leaf);border:1px solid var(--rule);
+    border-radius:var(--r-card);padding:16px 18px;
+  }
+  .ratios h4{font-size:12.5px;font-weight:600;margin-bottom:4px}
+  .ratios .rsub{font-size:11.5px;color:var(--pencil);margin-bottom:12px}
+  table.rt{border-collapse:collapse;width:100%}
+  .rt th,.rt td{
+    text-align:left;padding:5px 10px 5px 0;font-size:12px;
+    font-variant-numeric:tabular-nums lining-nums;
+  }
+  .rt thead th{font-size:10.5px;font-weight:600;color:var(--pencil);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--hair);padding-bottom:6px}
+  .rt tbody th{font-weight:400;color:var(--faded);white-space:nowrap}
+  .rt td{color:var(--ink);font-weight:600}
+  .rt td.pass::after{content:" AA";font-size:9.5px;font-weight:600;color:var(--pencil)}
+
+  /* ── 1024px guard ───────────────────────────────────────── */
+  @media (max-width:1120px){
+    main{padding:0 16px 72px}
+    .navrail{width:56px}
+    .filters{width:156px}
+    .threads{width:308px}
+    .entities{width:238px;padding:18px 14px}
+    .convrail{width:184px}
+    .chatcol{width:336px}
+    .krail{width:204px}
+    .kdetail{width:266px;padding:16px 14px}
+    .c6{grid-column:span 12}.c4{grid-column:span 6}.c3{grid-column:span 6}.c2{grid-column:span 6}
+    /* inbox: four panes no longer fit without crushing the reading measure —
+       collapse the "what I found" rail so .reading's flex:1 gets its width
+       back and the serif subject line regains a normal measure. Carried
+       forward from direction-a.html (the 1024px bug the sketch review found). */
+    #inbox .entities{display:none}
+    /* the law: keep BOTH columns — stacking would run the panel's prose out to a
+       ~140-character measure, which is its own readability bug. Narrow the panel
+       and drop the ladder's "Allowed on" column instead; the ladder still fits. */
+    .lawgrid{grid-template-columns:262px 1fr}
+    .ladder td.where,.ladder th.where{display:none}
+    .lawpanel{padding:16px}
+    .lawlede{font-size:18px}
+  }
+
+  /* ── reduced motion ─────────────────────────────────────── */
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+    <symbol id="i-know" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="9" r="2.6"/><circle cx="10" cy="18" r="2.6"/><path d="M8.4 7.1 15.5 8.4M7 8.4l2.2 7.2M16.4 11.2l-4.8 5.2"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 9h18M3 15h18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <span class="dirmark" aria-hidden="true"><i></i><i></i></span>
+  <span class="wm">polytoken</span>
+  <span class="dir">Provenance &times; Meaningful Colour</span>
+  <nav class="topnav">
+    <a href="#inbox">Inbox</a>
+    <a href="#chat">Chat &amp; Canvas</a>
+    <a href="#knowledge">Knowledge</a>
+    <a href="#components">Components</a>
+    <a href="#law">The Colour Law</a>
+    <button class="themebtn" id="themeBtn" aria-label="Switch to dark theme">
+      <span class="l-moon"><svg class="i"><use href="#i-moon"/></svg>Dark</span>
+      <span class="l-sun"><svg class="i"><use href="#i-sun"/></svg>Light</span>
+    </button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════════════ SCREEN 1 · INBOX ══════════════════ -->
+<section id="inbox">
+  <div class="rulehead"><h1>Inbox</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem on"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="filters">
+      <div class="paneh">Filters</div>
+      <button class="fitem on">All</button>
+      <button class="fitem">Unread</button>
+      <button class="fitem">With entities</button>
+      <p class="fhint">Forward anything to pedro@in.polytoken.ai — I&rsquo;ll read it and pull out what matters.</p>
+    </aside>
+
+    <div class="threads">
+      <div class="lhead"><h2>Inbox</h2><span class="count num">7</span></div>
+
+      <!-- 1 · selected, expanded thread -->
+      <article class="row sel">
+        <div class="rh">
+          <span class="chev"><svg class="i"><use href="#i-chev"/></svg></span>
+          <span class="sender">Rafael Lima</span>
+          <span class="mcount">3</span>
+          <time>Ter 14:32</time>
+        </div>
+        <div class="subj">Cotação frete SP → POA — Lote 88</div>
+        <div class="snip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07)…</div>
+        <div class="members">
+          <div class="member msel">
+            <div class="mh"><span>Rafael Lima</span><time>Ter 14:32</time></div>
+            <div class="chips">
+              <span class="chip c"><span class="cv">Acme Freight</span><span class="ct">· supplier</span></span>
+              <span class="chip c"><span class="cv">R$ 4.820,00</span><span class="ct">· amount</span></span>
+              <span class="chip s"><span class="cv">18 Jul</span><span class="ct">· date</span></span>
+            </div>
+          </div>
+          <div class="member">
+            <div class="mh"><span>Rafael Lima</span><time>Seg 10:12</time></div>
+            <div class="msnip">Segue proposta inicial: R$ 5.150,00, coleta em 5 dias úteis.</div>
+          </div>
+          <div class="member">
+            <div class="mh"><span>Pedro Shin</span><time>Sex 17:03</time></div>
+            <div class="msnip">Rafael, preciso de cotação para o Lote 88 até quarta.</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2 · unread -->
+      <article class="row unread">
+        <div class="rh"><span class="sender">Marina Costa</span><time>Ter 11:05</time></div>
+        <div class="subj">Proposta comercial — Embalagens Rio Claro</div>
+        <div class="snip">Conforme conversamos, segue nossa proposta para o contrato anual…</div>
+        <div class="chips">
+          <span class="chip s"><span class="cv">Embalagens Rio Claro</span><span class="ct">· supplier</span></span>
+          <span class="chip s"><span class="cv">Marina Costa</span><span class="ct">· person</span></span>
+        </div>
+      </article>
+
+      <!-- 3 -->
+      <article class="row">
+        <div class="rh"><span class="sender">Papelaria Vitória</span><time>Ter 09:14</time></div>
+        <div class="subj">NF-e 3412 — Papelaria Vitória Ltda</div>
+        <div class="snip">Segue em anexo a Nota Fiscal Eletrônica referente ao pedido #2210.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Papelaria Vitória</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">NF-e 3412</span><span class="ct">· document</span></span>
+          <span class="chip c"><span class="cv">R$ 1.284,50</span><span class="ct">· amount</span></span>
+        </div>
+      </article>
+
+      <!-- 4 -->
+      <article class="row">
+        <div class="rh"><span class="sender">LATAM Airlines</span><time>Seg 18:47</time></div>
+        <div class="subj">Booking confirmed — GRU → REC, 22 Jul</div>
+        <div class="snip">Your booking XKJ9PW is confirmed. Check-in opens 48h before departure.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">LATAM Airlines</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">XKJ9PW</span><span class="ct">· document</span></span>
+          <span class="chip c"><span class="cv">22 Jul</span><span class="ct">· date</span></span>
+        </div>
+      </article>
+
+      <!-- 5 · attachment -->
+      <article class="row">
+        <div class="rh"><span class="sender">Conta Azul</span><time>Seg 08:30</time></div>
+        <div class="subj">Recibo #8817 — Plano anual</div>
+        <div class="snip">Obrigado! Seu pagamento foi confirmado. Recibo em anexo.</div>
+        <span class="attach"><svg class="i"><use href="#i-clip"/></svg>recibo-8817.pdf</span>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Conta Azul</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">R$ 948,00</span><span class="ct">· amount</span></span>
+          <span class="chip s"><span class="cv">Recibo #8817</span><span class="ct">· document</span></span>
+        </div>
+      </article>
+
+      <!-- 6 -->
+      <article class="row">
+        <div class="rh"><span class="sender">Banco Itaú</span><time>Sex 16:20</time></div>
+        <div class="subj">Extrato mensal — Junho 2026</div>
+        <div class="snip">Seu extrato consolidado de junho já está disponível.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Banco Itaú</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">Extrato Jun/2026</span><span class="ct">· document</span></span>
+        </div>
+      </article>
+
+      <!-- 7 · no chips -->
+      <article class="row">
+        <div class="rh"><span class="sender">Filipe Deschamps</span><time>Qui 07:58</time></div>
+        <div class="subj">☕ Edição #1.204 — IA, chips e Selic</div>
+        <div class="snip">Bom dia! Hoje: data centers no Nordeste, Selic parada e um bug de 30 anos.</div>
+      </article>
+
+      <div class="loadmore"><button class="btn ghost block">Load more</button></div>
+    </div>
+
+    <div class="reading">
+      <div class="rp-head">
+        <h2>Cotação frete SP → POA — Lote 88</h2>
+        <button class="btn ghost">Open email →</button>
+      </div>
+      <div class="rp-meta">From: Rafael Lima &lt;rafael@acmefreight.com.br&gt; · To: pedro@in.polytoken.ai</div>
+      <div class="rp-body">
+        <p>Oi Pedro, tudo bem?</p>
+        <p>Consigo fechar em <span class="pm c">R$ 4.820,00</span> com coleta na sexta (<span class="pm s">18/07</span>) e entrega em Porto Alegre na quarta seguinte (23/07). Inclui seguro e rastreio. Se confirmar até amanhã, seguro esse valor.</p>
+        <p>Abraço,<br>Rafael Lima — <span class="pm c">Acme Freight</span></p>
+      </div>
+    </div>
+
+    <aside class="entities">
+      <h3>What I found in this email</h3>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">Rafael Lima</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">person</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">Acme Freight</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">supplier</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">R$ 4.820,00</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">amount</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm s ev">18 Jul 2026</span><span class="badge s"><span class="sw"></span>Suggested</span></div>
+        <div class="et">date</div>
+        <div class="ent-actions">
+          <button class="tbtn">Confirm</button>
+          <button class="tbtn quiet">Dismiss</button>
+        </div>
+      </div>
+      <a class="flink" href="#knowledge">See it all in your knowledge →</a>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ═══════════════ SCREEN 2 · CHAT + CANVAS ═══════════════ -->
+<section id="chat">
+  <div class="rulehead"><h1>Chat &amp; Canvas</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem on"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="convrail">
+      <button class="newchat"><svg class="i"><use href="#i-plus"/></svg>New chat</button>
+      <button class="citem on">Freight quote — Lote 88</button>
+      <button class="citem">June spending recap</button>
+      <button class="citem">Flight to Recife</button>
+    </aside>
+
+    <div class="chatcol">
+      <div class="turns">
+        <div class="uturn">What did Acme Freight quote for Lote 88, and how does it compare to the other quotes I got?</div>
+        <div class="aturn">
+          <div class="tool"><svg class="i"><use href="#i-search"/></svg>Searched your mail — 3 results</div>
+          <a class="srcchip"><svg class="i"><use href="#i-mail"/></svg><span class="st">Cotação frete SP → POA — Lote 88</span></a>
+          <p>Acme Freight came back at <strong class="pm c num">R$ 4.820,00</strong> — pickup Friday 18 Jul, delivery in Porto Alegre on Wednesday 23 Jul, insurance and tracking included. You also have Transportes Andrade at <span class="pm c num">R$ 5.310,00</span> and Rodocargo at <span class="pm c num">R$ 4.590,00</span>, but Rodocargo doesn&rsquo;t include insurance. Acme is the only one holding its price — until tomorrow.</p>
+        </div>
+        <div class="uturn">Put them side by side for me.</div>
+        <div class="aturn"><p>Here you go — I&rsquo;ve laid the three quotes out on your canvas.</p></div>
+      </div>
+      <div class="composer">
+        <input type="text" placeholder="Ask me anything — I&rsquo;ll check your mail first.">
+        <button class="send" aria-label="Send message"><svg class="i"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+
+    <div class="canvaswrap">
+      <div class="savestatus"><svg class="i"><use href="#i-check"/></svg>Saved just now</div>
+      <div class="board">
+        <svg class="edges" aria-hidden="true">
+          <path class="e-neutral" d="M420,110 Q300,290 8,272"/>
+          <circle class="e-joint" cx="420" cy="110" r="3"/>
+          <circle class="e-joint" cx="8" cy="272" r="3"/>
+          <line class="e-neutral" x1="336" y1="322" x2="170" y2="206"/>
+          <circle class="e-joint" cx="336" cy="322" r="3"/>
+          <circle class="e-joint" cx="170" cy="206" r="3"/>
+        </svg>
+        <span class="edgelabel" style="left:190px;top:262px">in this chat</span>
+
+        <!-- 1 · email-thread card -->
+        <div class="card" style="left:24px;top:44px;width:290px">
+          <div class="ch"><svg class="i"><use href="#i-mail"/></svg><span class="ct2">Cotação frete SP → POA — Lote 88</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="parts">Rafael Lima, you · 3 messages</div>
+            <div class="csnip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte…</div>
+          </div>
+          <div class="cf"><button class="tbtn">Open thread →</button><button class="tbtn">Attach chat</button></div>
+        </div>
+
+        <!-- 3 · source card (web) -->
+        <div class="card" style="left:404px;top:36px;width:272px">
+          <div class="ch"><svg class="i"><use href="#i-globe"/></svg><span class="ct2">Tabela Nacional de Fretes — atualização julho 2026</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="urlline">gov.br/antt/tabela-de-fretes</div>
+            <div class="cap">Saved from the web</div>
+          </div>
+        </div>
+
+        <!-- 4 · source card (web) -->
+        <div class="card" style="left:428px;top:196px;width:248px">
+          <div class="ch"><svg class="i"><use href="#i-globe"/></svg><span class="ct2">Como negociar frete com seguro incluído</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="urlline">blog.contaazul.com/negociar-frete</div>
+            <div class="cap">Saved from the web</div>
+          </div>
+        </div>
+
+        <!-- 2 · generated table panel -->
+        <div class="card" style="left:96px;top:322px;width:492px">
+          <div class="ch"><svg class="i"><use href="#i-table"/></svg><span class="ct2">Freight quotes — Lote 88</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="cap">From turn 2</div>
+            <table class="qt">
+              <thead><tr><th></th><th>Acme Freight</th><th>Transportes Andrade</th><th>Rodocargo</th></tr></thead>
+              <tbody>
+                <tr><th>Price</th><td><span class="pm c">R$ 4.820,00</span></td><td>R$ 5.310,00</td><td>R$ 4.590,00</td></tr>
+                <tr><th>Pickup</th><td>Sex 18 Jul</td><td>Ter 22 Jul</td><td>Sex 18 Jul</td></tr>
+                <tr><th>Delivery</th><td>Qua 23 Jul</td><td>Sex 25 Jul</td><td>Seg 28 Jul</td></tr>
+                <tr><th>Insurance</th><td>Included</td><td>Included</td><td>Not included</td></tr>
+                <tr><th>Price held until</th><td>Qua 15 Jul</td><td>—</td><td>Sáb 19 Jul</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════ SCREEN 3 · KNOWLEDGE ═══════════════ -->
+<section id="knowledge">
+  <div class="rulehead"><h1>Knowledge</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem on"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="krail">
+      <div class="paneh">Show</div>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tshape sup"></span>Suppliers</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tshape per"></span>People</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tshape amt"></span>Amounts</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tshape doc"></span>Documents</label>
+      <label class="krow off"><span class="cb"></span><span class="tshape eml"></span>Emails</label>
+      <hr class="ksep">
+      <div class="swrow">
+        <span class="switch on"><span class="knob"></span></span>
+        <span class="swlabel">Show suggested connections
+          <span class="swsub">I&rsquo;ll mark anything I&rsquo;m not sure about.</span>
+        </span>
+      </div>
+      <div class="kcount">9 entities · 6 connections · from 14 emails</div>
+    </aside>
+
+    <div class="kcanvas">
+      <div class="kboard">
+        <div class="seg" role="group">
+          <button>Confirmed only</button>
+          <button class="on">+ Suggested</button>
+          <button>Everything</button>
+        </div>
+
+        <svg class="edges" aria-hidden="true">
+          <!-- confirmed: solid verdigris -->
+          <line class="e-conf" x1="14%" y1="150" x2="32%" y2="260"/>
+          <line class="e-conf" x1="32%" y1="260" x2="52%" y2="170"/>
+          <line class="e-conf" x1="18%" y1="430" x2="38%" y2="500"/>
+          <!-- suggested: dashed pencil-amber -->
+          <line class="e-sugg" x1="88%" y1="196" x2="72%" y2="106"/>
+          <line class="e-sugg" x1="84%" y1="396" x2="68%" y2="266"/>
+          <line class="e-sugg" x1="68%" y1="266" x2="52%" y2="170"/>
+        </svg>
+        <span class="edgelabel" style="left:23%;top:205px">works at</span>
+        <span class="edgelabel" style="left:42%;top:215px">quoted</span>
+        <span class="edgelabel" style="left:28%;top:465px">issued</span>
+        <span class="edgelabel" style="left:80%;top:151px">works at</span>
+        <span class="edgelabel" style="left:76%;top:331px">similar to</span>
+        <span class="edgelabel" style="left:60%;top:218px">quoted</span>
+
+        <div class="node selnode" style="left:32%;top:260px"><span class="tshape sup"></span><span class="nlabel">Acme Freight</span></div>
+        <div class="node" style="left:68%;top:266px"><span class="tshape sup"></span><span class="nlabel">Transportes Andrade</span></div>
+        <div class="node sug" style="left:84%;top:396px"><span class="tshape sup"></span><span class="nlabel">Rodocargo</span></div>
+        <div class="node sug" style="left:72%;top:106px"><span class="tshape sup"></span><span class="nlabel">Embalagens Rio Claro</span></div>
+        <div class="node" style="left:18%;top:430px"><span class="tshape sup"></span><span class="nlabel">Papelaria Vitória</span></div>
+        <div class="node" style="left:14%;top:150px"><span class="tshape per"></span><span class="nlabel">Rafael Lima</span></div>
+        <div class="node sug" style="left:88%;top:196px"><span class="tshape per"></span><span class="nlabel">Marina Costa</span></div>
+        <div class="node" style="left:52%;top:170px"><span class="tshape amt"></span><span class="nlabel num">R$ 4.820,00</span></div>
+        <div class="node" style="left:38%;top:500px"><span class="tshape doc"></span><span class="nlabel">NF-e 3412</span></div>
+
+        <div class="legend">
+          <span><i class="sw c"></i>Confirmed</span>
+          <span><i class="sw s"></i>Suggested</span>
+          <span><i class="sw u"></i>Uncertain</span>
+          <i class="lsep"></i>
+          <span><i class="tshape sup"></i>Supplier</span>
+          <span><i class="tshape per"></i>Person</span>
+          <span><i class="tshape amt"></i>Amount</span>
+          <span><i class="tshape doc"></i>Document</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="kdetail">
+      <div class="kd-head"><h3>Acme Freight</h3><button class="xbtn" aria-label="Close">×</button></div>
+      <div class="kd-badges">
+        <span class="badge type">Supplier</span>
+        <span class="badge c"><span class="sw"></span>Confirmed</span>
+      </div>
+      <div class="kd-prov">from 3 emails</div>
+      <div class="kd-mail"><span class="ms">Cotação frete SP → POA — Lote 88</span><time>Ter 14:32</time></div>
+      <div class="kd-mail"><span class="ms">Re: Lote 88</span><time>Seg 10:12</time></div>
+      <div class="kd-mail"><span class="ms">Tabela de preços 2026</span><time>12 Jun</time></div>
+      <dl class="kd-rows">
+        <div><dt>Contact</dt><dd>rafael@acmefreight.com.br</dd></div>
+        <div><dt>First seen</dt><dd>12 Jun 2026</dd></div>
+        <div><dt>Last seen</dt><dd>Ter 14:32</dd></div>
+      </dl>
+      <div class="kd-sug">
+        <div class="cap">I think this connects to:</div>
+        <div class="sugrow"><span class="pm s">Transportes Andrade</span> — quoted the same shipment</div>
+        <div class="btns">
+          <button class="btn primary sm">Promote to confirmed</button>
+          <button class="tbtn quiet">Dismiss</button>
+        </div>
+      </div>
+      <a class="flink">Open entity →</a>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ═════════════════ SCREEN 4 · COMPONENTS ═══════════════ -->
+<section id="components">
+  <div class="rulehead"><h1>Components</h1></div>
+  <div class="compgrid">
+
+    <div class="cell c4">
+      <h4>Buttons</h4>
+      <div class="cellrow">
+        <button class="btn primary">Promote to confirmed</button>
+        <button class="btn ghost">Open thread</button>
+        <button class="btn danger">Delete conversation</button>
+      </div>
+    </div>
+
+    <div class="cell c3">
+      <h4>Input</h4>
+      <div class="field">
+        <label for="chatname">Chat name</label>
+        <input id="chatname" type="text" value="Freight quote — Lote 88">
+      </div>
+    </div>
+
+    <div class="cell c3">
+      <h4>Entity chips</h4>
+      <div class="cellrow">
+        <span class="chip c"><span class="cv">Acme Freight</span><span class="ct">· supplier</span></span>
+        <span class="chip s"><span class="cv">Marina Costa</span><span class="ct">· person</span></span>
+      </div>
+    </div>
+
+    <div class="cell c2">
+      <h4>Badges</h4>
+      <div class="cellrow">
+        <span class="badge c"><span class="sw"></span>Confirmed</span>
+        <span class="badge s"><span class="sw"></span>Suggested</span>
+      </div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Toasts</h4>
+      <div class="toast ok"><svg class="i"><use href="#i-checkc"/></svg>On it — reprocessing this email</div>
+      <div class="toast err"><svg class="i"><use href="#i-alert"/></svg>Couldn&rsquo;t attach a chat to this thread — try again.<button class="tbtn">Retry</button></div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Empty state</h4>
+      <div class="empty">
+        <svg class="i"><use href="#i-chat"/></svg>
+        <h5>Ask me anything</h5>
+        <p>I&rsquo;ll stream the answer back — sometimes with interactive panels built right in.</p>
+        <button class="btn primary sm">New chat</button>
+      </div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Loading state</h4>
+      <div class="skel"><i></i><i></i><i></i></div>
+      <div class="spinrow"><span class="spinner"></span>Searching your mail…</div>
+    </div>
+
+    <div class="cell c6">
+      <h4>States — no hue in any of them</h4>
+      <div class="states">
+        <div class="stateitem">Rest<span class="srow rest"><svg class="i"><use href="#i-mail"/></svg>Freight quote</span></div>
+        <div class="stateitem">Hover<span class="srow hov"><svg class="i"><use href="#i-mail"/></svg>Freight quote</span></div>
+        <div class="stateitem">Selected<span class="srow selm"><svg class="i"><use href="#i-mail"/></svg>Freight quote</span></div>
+        <div class="stateitem">Focus<span class="srow foc"><svg class="i"><use href="#i-mail"/></svg>Freight quote</span></div>
+      </div>
+    </div>
+
+    <div class="cell c6">
+      <h4>Entity type — shape, never hue</h4>
+      <div class="cellrow" style="gap:18px">
+        <span class="ent-legend" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--faded)"><i class="tshape sup"></i>Supplier</span>
+        <span class="ent-legend" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--faded)"><i class="tshape per"></i>Person</span>
+        <span class="ent-legend" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--faded)"><i class="tshape amt"></i>Amount</span>
+        <span class="ent-legend" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--faded)"><i class="tshape doc"></i>Document</span>
+        <span class="ent-legend" style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--faded)"><i class="tshape eml"></i>Email</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ═════════════════ SCREEN 5 · THE COLOUR LAW ════════════ -->
+<section id="law">
+  <div class="rulehead"><h1>The Colour Law</h1></div>
+  <div class="lawgrid">
+
+    <div class="lawpanel">
+      <p class="lawlede">Colour is earned, never decorative.</p>
+      <p class="lawbody">
+        Chrome is monochrome. A hue appears only where it carries a fact about your
+        mail — and each hue means exactly one thing, in both themes.
+      </p>
+      <ul class="lawlist">
+        <!-- these swatches track the ACTIVE theme: the statement of the law should
+             show the law as it currently stands. The ladder opposite is the place
+             that shows both themes side by side. -->
+        <li>
+          <span class="lawsw" style="background:var(--conf)"></span>
+          <span class="tx"><b>Verdigris — confirmed.</b> You, or another person, verified this.</span>
+        </li>
+        <li>
+          <span class="lawsw" style="background:var(--sugg)"></span>
+          <span class="tx"><b>Pencil-amber — suggested.</b> I think so; you haven&rsquo;t said yet.</span>
+        </li>
+        <li>
+          <span class="lawsw" style="background:var(--bad)"></span>
+          <span class="tx"><b>Madder — irreversible.</b> It earns its colour by meaning the thing cannot be undone. Nothing else may wear it — not an error, not a warning.</span>
+        </li>
+        <li>
+          <span class="lawsw" style="background:var(--ink)"></span>
+          <span class="tx"><b>Everything else — ink.</b> Buttons, links, nav, selected rows, focus rings. They work in weight, rule, underline and fill. Look at the States row above: none of it carries a hue, and none of it needs one.</span>
+        </li>
+      </ul>
+      <div class="lawnote">
+        <b>What the discipline costs.</b> An ink-filled button is now the heaviest
+        object on the page — heavier than a verdigris mark. Put two of them in one
+        pane and they will out-shout the data they sit next to. So the rule has a
+        second half: <b>one filled button per pane</b>, everything else ghost or
+        text. That constraint is real, and it is the price of keeping the colour
+        budget for your mail. Entity type paid a smaller price: it lost its five
+        hues and became five shapes — which turned out better, because a shape
+        still reads in greyscale and to a colour-blind eye.
+      </div>
+    </div>
+
+    <div>
+      <table class="ladder">
+        <thead>
+          <tr>
+            <th colspan="2">Light&nbsp;/&nbsp;Dark</th>
+            <th>Token</th>
+            <th>What it means</th>
+            <th class="where">Allowed on</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="lgroup"><th colspan="5">Earned colour — hue and chroma are locked across themes; only lightness moves</th></tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(49% .068 176.3)"></i></td>
+            <td class="sw"><i style="background:oklch(78% .068 176.3)"></i></td>
+            <td><span class="tok">--conf</span><span class="ok">L 49.0% → 78.0% · C .068 · H 176.3</span></td>
+            <td class="means">Confirmed. A human stands behind this fact.</td>
+            <td class="where">Solid provenance mark, chips, badges, confirmed connections, legend.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(50.5% .08 78.7)"></i></td>
+            <td class="sw"><i style="background:oklch(78.5% .08 78.7)"></i></td>
+            <td><span class="tok">--sugg</span><span class="ok">L 50.5% → 78.5% · C .080 · H 78.7</span></td>
+            <td class="means">Suggested. I inferred it; nobody has confirmed it.</td>
+            <td class="where">Dashed provenance mark, chips, badges, suggested connections, the promote block.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(49.4% .126 32.4)"></i></td>
+            <td class="sw"><i style="background:oklch(70% .126 32.4)"></i></td>
+            <td><span class="tok">--bad</span><span class="ok">L 49.4% → 70.0% · C .126 · H 32.4</span></td>
+            <td class="means">Irreversible. This cannot be undone.</td>
+            <td class="where">Destructive buttons only. Never errors, never warnings.</td>
+          </tr>
+
+          <tr class="lgroup"><th colspan="5">Ink — chrome's entire vocabulary. No hue, ever.</th></tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(26.7% .015 124.2)"></i></td>
+            <td class="sw"><i style="background:oklch(92.4% .019 83.1)"></i></td>
+            <td><span class="tok">--ink</span><span class="ok">L 26.7% → 92.4%</span></td>
+            <td class="means">Primary text. Also every action, selection and focus ring.</td>
+            <td class="where">Body text, filled buttons, unread dot, checkbox and switch fills, focus outline.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(46.6% .021 124.4)"></i></td>
+            <td class="sw"><i style="background:oklch(75.2% .024 78.2)"></i></td>
+            <td><span class="tok">--faded</span><span class="ok">L 46.6% → 75.2%</span></td>
+            <td class="means">Secondary text — present, not competing.</td>
+            <td class="where">Snippets, meta lines, inactive nav, icons.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(51% .022 119.2)"></i></td>
+            <td class="sw"><i style="background:oklch(65% .025 78.1)"></i></td>
+            <td><span class="tok">--pencil</span><span class="ok">L 51.0% → 65.0%</span></td>
+            <td class="means">Muted metadata, and &ldquo;Uncertain&rdquo;.</td>
+            <td class="where">Timestamps, captions, rail hints, placeholder text.</td>
+          </tr>
+
+          <tr class="lgroup"><th colspan="5">Ground — light is A's archival paper (hue ~97); dark is C's warm graphite (hue ~60-76)</th></tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(92.4% .014 97.5)"></i></td>
+            <td class="sw"><i style="background:oklch(19.9% .009 59.1)"></i></td>
+            <td><span class="tok">--shelf</span><span class="ok">L 92.4% → 19.9%</span></td>
+            <td class="means">The page itself. Never white, never black.</td>
+            <td class="where">Body ground behind every frame.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(95.1% .011 95.2)"></i></td>
+            <td class="sw"><i style="background:oklch(22.2% .011 60.9)"></i></td>
+            <td><span class="tok">--leaf</span><span class="ok">L 95.1% → 22.2%</span></td>
+            <td class="means">A panel — one step above the page.</td>
+            <td class="where">Frames, rails, detail panes, component cells.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(98.2% .007 97.4)"></i></td>
+            <td class="sw"><i style="background:oklch(26.5% .015 76.2)"></i></td>
+            <td><span class="tok">--bright</span><span class="ok">L 98.2% → 26.5%</span></td>
+            <td class="means">Elevated — the sheet you are working on.</td>
+            <td class="where">Selected rows, canvas cards, inputs, the top bar.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(89.9% .016 99)"></i></td>
+            <td class="sw"><i style="background:oklch(31.3% .016 75)"></i></td>
+            <td><span class="tok">--shade</span><span class="ok">L 89.9% → 31.3%</span></td>
+            <td class="means">A well — pressed into the page.</td>
+            <td class="where">Hover fills, selected nav, user turns, skeletons.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(82.1% .021 100.6)"></i></td>
+            <td class="sw"><i style="background:oklch(38.8% .026 78.8)"></i></td>
+            <td><span class="tok">--rule</span><span class="ok">L 82.1% → 38.8%</span></td>
+            <td class="means">A structural boundary.</td>
+            <td class="where">Frame and card borders, section rules.</td>
+          </tr>
+          <tr>
+            <td class="sw"><i style="background:oklch(88.3% .018 99.6)"></i></td>
+            <td class="sw"><i style="background:oklch(32.6% .017 70.9)"></i></td>
+            <td><span class="tok">--hair</span><span class="ok">L 88.3% → 32.6%</span></td>
+            <td class="means">A divider, not a boundary.</td>
+            <td class="where">Row separators, pane splits.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="ratios">
+        <h4>Measured contrast — WCAG AA on both themes</h4>
+        <p class="rsub">
+          Computed from the oklch values above, not estimated. Normal text needs 4.5:1.
+          Text ratios are against <span class="tok">--leaf</span>, the panel the text
+          actually sits on. The tier rows are the honest worst case: the tier colour as
+          text <em>on its own wash</em>, which is where it really lives.
+        </p>
+        <table class="rt">
+          <thead><tr><th>Token on --leaf</th><th>Light</th><th>Dark</th></tr></thead>
+          <tbody>
+            <tr><th>--ink</th><td class="pass">13.15</td><td class="pass">13.78</td></tr>
+            <tr><th>--faded</th><td class="pass">5.98</td><td class="pass">7.80</td></tr>
+            <tr><th>--pencil</th><td class="pass">4.95</td><td class="pass">5.33</td></tr>
+            <tr><th>--conf</th><td class="pass">5.24</td><td class="pass">8.88</td></tr>
+            <tr><th>--sugg</th><td class="pass">5.15</td><td class="pass">8.71</td></tr>
+            <tr><th>--bad</th><td class="pass">5.67</td><td class="pass">6.13</td></tr>
+            <tr><th>--conf on --conf-wash</th><td class="pass">4.59</td><td class="pass">6.72</td></tr>
+            <tr><th>--sugg on --sugg-wash</th><td class="pass">4.52</td><td class="pass">6.59</td></tr>
+            <tr><th>--on-fill on --ink (button)</th><td class="pass">14.40</td><td class="pass">14.50</td></tr>
+            <tr><th>--on-fill on --bad (button)</th><td class="pass">6.21</td><td class="pass">6.46</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<script>
+  (function () {
+    var btn = document.getElementById('themeBtn');
+    var read = function () {
+      return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    };
+    // `persist` is false on first paint: honouring the OS preference must not
+    // silently harden into a stored choice the user never made.
+    window.__setTheme = function (t, persist) {
+      document.documentElement.setAttribute('data-theme', t);
+      if (persist) { try { localStorage.setItem('pt-theme', t); } catch (e) {} }
+      btn.setAttribute('aria-label', t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+    };
+    window.__setTheme(read(), false);
+    btn.addEventListener('click', function () {
+      window.__setTheme(read() === 'dark' ? 'light' : 'dark', true);
+    });
+  })();
+</script>
+</body>
+</html>
