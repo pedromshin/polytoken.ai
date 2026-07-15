@@ -34,10 +34,13 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import * as schema from "./schema";
 import { ChatConversations } from "./schema/chat-conversations";
+import { ChatMessages } from "./schema/chat-messages";
+import { ChatSourceLedger } from "./schema/chat-source-ledger";
 import { EmailComponents } from "./schema/components";
 import { Emails } from "./schema/emails";
 import { ForwardingAddresses } from "./schema/forwarding-addresses";
 import { Importers } from "./schema/importers";
+import { KnowledgeNodes } from "./schema/knowledge-nodes";
 import { Threads } from "./schema/threads";
 
 /** The Drizzle handle every ownership function accepts as its first parameter. */
@@ -207,5 +210,110 @@ export async function assertForwardingAddressOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("forwarding_address", addressId);
+  }
+}
+
+/**
+ * ContextEdgeSourceRef — the discriminated union chat_context_edges.sourceRef
+ * holds (Phase 56, RCNV-04). The AUTHORITATIVE shape lives in the doc comment
+ * on `./schema/chat-context-edges.ts` — this type mirrors it exactly so
+ * `assertSourceRefOwnership` stays structurally aligned with the Zod boundary
+ * (`packages/api-client/src/router/chat/context-edges.ts`'s
+ * `contextEdgeSourceRefSchema`) without either module importing the other.
+ */
+export type ContextEdgeSourceRef =
+  | { readonly type: "source_ledger"; readonly ledgerId: string }
+  | { readonly type: "knowledge_node"; readonly nodeId: string }
+  | {
+      readonly type: "genui_panel";
+      readonly messageId: string;
+      readonly partIndex: number;
+    }
+  | { readonly type: "email_thread"; readonly threadId: string };
+
+/**
+ * assertSourceRefOwnership — the WRITE-TIME cross-tenant gate for RCNV-04
+ * (Phase 56 Plan 03, T-56-03-01 — "Landmine 2"). Dispatches per
+ * `sourceRef.type` to resolve the OWNING user of the resource a
+ * `chat_context_edges` row would point at, and throws the same
+ * `OwnershipError` shape every sibling assert* throws on a foreign or
+ * missing resource — fail-closed, no signal distinguishing "doesn't exist"
+ * from "not yours" (T-44-02-01's convention, extended here).
+ *
+ * CALLS an existing helper where one exists (`email_thread` delegates
+ * directly to `assertThreadOwnership`) and otherwise does a single
+ * parameterized join to the resource's owning `user_id` — never reimplements
+ * `assertConversationOwnership`/`assertThreadOwnership`'s own logic. Per
+ * Decision D-56-A (56-03-PLAN.md), this performs OWNERSHIP resolution ONLY —
+ * no `knowledge_nodes.tier` check — an explicit user-drawn edge injects
+ * regardless of trust tier; only `list_injectable_edges` (automatic
+ * injection) gates on tier.
+ *
+ * Callers MUST gate on `chat_context_edges`/`chat_source_ledger` table
+ * existence (migration 0037, `tableColumnExists`) BEFORE calling this for a
+ * `source_ledger`-typed sourceRef — both tables land in the same migration,
+ * so a `createContextEdge` caller that has already confirmed
+ * `chat_context_edges` exists may safely assume `chat_source_ledger` does
+ * too (56-01-SUMMARY.md: "Both new tables in ONE combined generate pass").
+ */
+export async function assertSourceRefOwnership(
+  db: OwnershipDb,
+  userId: string,
+  sourceRef: ContextEdgeSourceRef,
+): Promise<void> {
+  switch (sourceRef.type) {
+    case "email_thread":
+      return assertThreadOwnership(db, sourceRef.threadId, userId);
+
+    case "knowledge_node": {
+      const rows = await db
+        .select({ userId: Importers.userId })
+        .from(KnowledgeNodes)
+        .innerJoin(Importers, eq(Importers.id, KnowledgeNodes.importerId))
+        .where(eq(KnowledgeNodes.id, sourceRef.nodeId))
+        .limit(1);
+
+      const row = rows[0];
+      if (!row || row.userId !== userId) {
+        throw new OwnershipError("knowledge_node", sourceRef.nodeId);
+      }
+      return;
+    }
+
+    case "source_ledger": {
+      const rows = await db
+        .select({ userId: ChatConversations.userId })
+        .from(ChatSourceLedger)
+        .innerJoin(
+          ChatConversations,
+          eq(ChatConversations.id, ChatSourceLedger.conversationId),
+        )
+        .where(eq(ChatSourceLedger.id, sourceRef.ledgerId))
+        .limit(1);
+
+      const row = rows[0];
+      if (!row || row.userId !== userId) {
+        throw new OwnershipError("source_ledger", sourceRef.ledgerId);
+      }
+      return;
+    }
+
+    case "genui_panel": {
+      const rows = await db
+        .select({ userId: ChatConversations.userId })
+        .from(ChatMessages)
+        .innerJoin(
+          ChatConversations,
+          eq(ChatConversations.id, ChatMessages.conversationId),
+        )
+        .where(eq(ChatMessages.id, sourceRef.messageId))
+        .limit(1);
+
+      const row = rows[0];
+      if (!row || row.userId !== userId) {
+        throw new OwnershipError("genui_panel", sourceRef.messageId);
+      }
+      return;
+    }
   }
 }
