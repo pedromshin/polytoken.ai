@@ -1,0 +1,2457 @@
+{
+  "generated": "2026-07-15",
+  "tokens": [
+    {
+      "name": "background",
+      "light": "oklch(100% 0 0)",
+      "dark": "oklch(14.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "foreground",
+      "light": "oklch(14.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "card",
+      "light": "oklch(100% 0 0)",
+      "dark": "oklch(14.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "card-foreground",
+      "light": "oklch(14.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "popover",
+      "light": "oklch(100% 0 0)",
+      "dark": "oklch(14.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "popover-foreground",
+      "light": "oklch(14.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "primary",
+      "light": "oklch(38.9% 0.053 173.7)",
+      "dark": "oklch(38.9% 0.053 173.7)",
+      "group": "semantic"
+    },
+    {
+      "name": "primary-foreground",
+      "light": "oklch(98.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "semantic"
+    },
+    {
+      "name": "secondary",
+      "light": "oklch(95.2% 0.003 178.7)",
+      "dark": "oklch(30.5% 0.011 177.8)",
+      "group": "semantic"
+    },
+    {
+      "name": "secondary-foreground",
+      "light": "oklch(22.9% 0.004 178.3)",
+      "dark": "oklch(97.8% 0.002 178.7)",
+      "group": "semantic"
+    },
+    {
+      "name": "muted",
+      "light": "oklch(96.5% 0.002 178.7)",
+      "dark": "oklch(27.4% 0.007 178)",
+      "group": "semantic"
+    },
+    {
+      "name": "muted-foreground",
+      "light": "oklch(53.2% 0.014 178)",
+      "dark": "oklch(73.2% 0.013 178.3)",
+      "group": "semantic"
+    },
+    {
+      "name": "accent",
+      "light": "oklch(95.8% 0.003 178.7)",
+      "dark": "oklch(30.6% 0.015 177.2)",
+      "group": "semantic"
+    },
+    {
+      "name": "accent-foreground",
+      "light": "oklch(24.1% 0.006 178.1)",
+      "dark": "oklch(97.8% 0.001 178.7)",
+      "group": "semantic"
+    },
+    {
+      "name": "destructive",
+      "light": "oklch(63.7% 0.208 25.3)",
+      "dark": "oklch(39.6% 0.133 25.7)",
+      "group": "semantic"
+    },
+    {
+      "name": "destructive-foreground",
+      "light": "oklch(98.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "semantic"
+    },
+    {
+      "name": "success",
+      "light": "oklch(52.3% 0.136 149.9)",
+      "dark": "oklch(44.7% 0.11 150.8)",
+      "group": "other"
+    },
+    {
+      "name": "success-foreground",
+      "light": "oklch(98.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "other"
+    },
+    {
+      "name": "border",
+      "light": "oklch(92.2% 0 0)",
+      "dark": "oklch(26.9% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "input",
+      "light": "oklch(92.2% 0 0)",
+      "dark": "oklch(26.9% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "ring",
+      "light": "oklch(14.5% 0 0)",
+      "dark": "oklch(87% 0 0)",
+      "group": "surface"
+    },
+    {
+      "name": "chart-1",
+      "light": "oklch(38.9% 0.053 173.7)",
+      "dark": "oklch(72.2% 0.11 172.7)",
+      "group": "chart"
+    },
+    {
+      "name": "chart-2",
+      "light": "oklch(58.4% 0.088 177.5)",
+      "dark": "oklch(80.9% 0.088 179.7)",
+      "group": "chart"
+    },
+    {
+      "name": "chart-3",
+      "light": "oklch(65.6% 0.086 198.4)",
+      "dark": "oklch(83.6% 0.057 198.8)",
+      "group": "chart"
+    },
+    {
+      "name": "chart-4",
+      "light": "oklch(69.6% 0.092 162.5)",
+      "dark": "oklch(87% 0.044 165.5)",
+      "group": "chart"
+    },
+    {
+      "name": "chart-5",
+      "light": "oklch(44.4% 0.054 223.8)",
+      "dark": "oklch(70.9% 0.079 223.4)",
+      "group": "chart"
+    },
+    {
+      "name": "radius",
+      "light": "0.5rem",
+      "dark": null,
+      "group": "radius"
+    },
+    {
+      "name": "radius-xl",
+      "light": "calc(var(--radius) + 4px)",
+      "dark": null,
+      "group": "radius"
+    },
+    {
+      "name": "radius-2xl",
+      "light": "calc(var(--radius) + 8px)",
+      "dark": null,
+      "group": "radius"
+    },
+    {
+      "name": "radius-pill",
+      "light": "9999px",
+      "dark": "9999px",
+      "group": "radius"
+    },
+    {
+      "name": "font-code",
+      "light": "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+      "dark": "ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace",
+      "group": "other"
+    },
+    {
+      "name": "tier-extracted",
+      "light": "oklch(51.8% 0.078 191.8)",
+      "dark": "oklch(47.8% 0.074 191.7)",
+      "group": "other"
+    },
+    {
+      "name": "tier-extracted-foreground",
+      "light": "oklch(98.5% 0 0)",
+      "dark": "oklch(98.5% 0 0)",
+      "group": "other"
+    },
+    {
+      "name": "tier-inferred",
+      "light": "oklch(90.5% 0.023 276.9)",
+      "dark": "oklch(27.5% 0.036 275.1)",
+      "group": "other"
+    },
+    {
+      "name": "tier-inferred-foreground",
+      "light": "oklch(33.9% 0.094 272)",
+      "dark": "oklch(88.6% 0.028 276.8)",
+      "group": "other"
+    },
+    {
+      "name": "graph-entity",
+      "light": "oklch(54.2% 0.245 293)",
+      "dark": "oklch(54.2% 0.245 293)",
+      "group": "other"
+    },
+    {
+      "name": "graph-entity-foreground",
+      "light": "oklch(100% 0 0)",
+      "dark": "oklch(100% 0 0)",
+      "group": "other"
+    },
+    {
+      "name": "graph-email-component",
+      "light": "oklch(77% 0.165 70.6)",
+      "dark": "oklch(77% 0.165 70.6)",
+      "group": "other"
+    },
+    {
+      "name": "graph-email-component-foreground",
+      "light": "oklch(21.5% 0.009 48.3)",
+      "dark": "oklch(21.5% 0.009 48.3)",
+      "group": "other"
+    },
+    {
+      "name": "graph-email",
+      "light": "oklch(71% 0.035 256.8)",
+      "dark": "oklch(40.5% 0.034 256.8)",
+      "group": "other"
+    },
+    {
+      "name": "graph-email-foreground",
+      "light": "oklch(26% 0.024 256.8)",
+      "dark": "oklch(93.6% 0.006 256.7)",
+      "group": "other"
+    },
+    {
+      "name": "sidebar-background",
+      "light": "var(--background)",
+      "dark": "var(--background)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-foreground",
+      "light": "var(--foreground)",
+      "dark": "var(--foreground)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-primary",
+      "light": "var(--primary)",
+      "dark": "var(--primary)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-primary-foreground",
+      "light": "var(--primary-foreground)",
+      "dark": "var(--primary-foreground)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-accent",
+      "light": "var(--accent)",
+      "dark": "var(--accent)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-accent-foreground",
+      "light": "var(--accent-foreground)",
+      "dark": "var(--accent-foreground)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-border",
+      "light": "var(--border)",
+      "dark": "var(--border)",
+      "group": "sidebar"
+    },
+    {
+      "name": "sidebar-ring",
+      "light": "var(--primary)",
+      "dark": "var(--primary)",
+      "group": "sidebar"
+    },
+    {
+      "name": "elevation-1",
+      "light": "0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent),\n      0 1px 2px 0 oklch(29% 0.027 175.8 / 0.06)",
+      "dark": "0 0 0 1px var(--border), 0 1px 2px 0 oklch(0% 0 0 / 0.24)",
+      "group": "other"
+    },
+    {
+      "name": "elevation-2",
+      "light": "0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent),\n      0 2px 4px 0 oklch(29% 0.027 175.8 / 0.08),\n      0 1px 2px -1px oklch(29% 0.027 175.8 / 0.04)",
+      "dark": "0 0 0 1px var(--border), 0 2px 4px 0 oklch(0% 0 0 / 0.32),\n      0 1px 2px -1px oklch(0% 0 0 / 0.2)",
+      "group": "other"
+    },
+    {
+      "name": "elevation-3",
+      "light": "0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent),\n      0 4px 8px 0 oklch(29% 0.027 175.8 / 0.1),\n      0 2px 4px -2px oklch(29% 0.027 175.8 / 0.06)",
+      "dark": "0 0 0 1px var(--border), 0 4px 8px 0 oklch(0% 0 0 / 0.4),\n      0 2px 4px -2px oklch(0% 0 0 / 0.24)",
+      "group": "other"
+    }
+  ],
+  "animations": [
+    {
+      "utility": "animate-accordion-down",
+      "value": "accordion-down 0.2s ease-out"
+    },
+    {
+      "utility": "animate-accordion-up",
+      "value": "accordion-up 0.2s ease-out"
+    },
+    {
+      "utility": "animate-marquee",
+      "value": "marquee var(--duration) infinite linear"
+    },
+    {
+      "utility": "animate-marquee-vertical",
+      "value": "marquee-vertical var(--duration) linear infinite"
+    },
+    {
+      "utility": "animate-shimmer-slide",
+      "value": "shimmer-slide var(--speed) ease-in-out infinite alternate"
+    },
+    {
+      "utility": "animate-spin-around",
+      "value": "spin-around calc(var(--speed) * 2) infinite linear"
+    },
+    {
+      "utility": "animate-shine",
+      "value": "shine var(--duration) infinite linear"
+    },
+    {
+      "utility": "animate-blink-cursor",
+      "value": "blink-cursor 1.2s step-end infinite"
+    }
+  ],
+  "components": [
+    {
+      "slug": "accordion",
+      "importPath": "@polytoken/ui/accordion",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted"
+      ]
+    },
+    {
+      "slug": "alert",
+      "importPath": "@polytoken/ui/alert",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [
+        {
+          "group": "variant",
+          "options": [
+            "default",
+            "destructive"
+          ]
+        }
+      ],
+      "tokenRefs": [
+        "foreground",
+        "background",
+        "destructive"
+      ]
+    },
+    {
+      "slug": "alert-dialog",
+      "importPath": "@polytoken/ui/alert-dialog",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "background",
+        "muted"
+      ]
+    },
+    {
+      "slug": "animated-beam",
+      "importPath": "@polytoken/ui/animated-beam",
+      "origin": "magicui",
+      "exports": [
+        "AnimatedBeam"
+      ],
+      "interfaces": [
+        {
+          "name": "AnimatedBeamProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "containerRef",
+              "optional": false,
+              "type": "RefObject<HTMLElement | null> // Container ref"
+            },
+            {
+              "name": "fromRef",
+              "optional": false,
+              "type": "RefObject<HTMLElement | null>"
+            },
+            {
+              "name": "toRef",
+              "optional": false,
+              "type": "RefObject<HTMLElement | null>"
+            },
+            {
+              "name": "curvature",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "reverse",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "pathColor",
+              "optional": true,
+              "type": "string",
+              "default": "gray"
+            },
+            {
+              "name": "pathWidth",
+              "optional": true,
+              "type": "number",
+              "default": "2"
+            },
+            {
+              "name": "pathOpacity",
+              "optional": true,
+              "type": "number",
+              "default": "0.2"
+            },
+            {
+              "name": "gradientStartColor",
+              "optional": true,
+              "type": "string",
+              "default": "#ffaa40"
+            },
+            {
+              "name": "gradientStopColor",
+              "optional": true,
+              "type": "string",
+              "default": "#9c40ff"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "default": "5"
+            },
+            {
+              "name": "repeat",
+              "optional": true,
+              "type": "number",
+              "default": "Infinity"
+            },
+            {
+              "name": "repeatDelay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "startXOffset",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "startYOffset",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "endXOffset",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "endYOffset",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "animated-list",
+      "importPath": "@polytoken/ui/animated-list",
+      "origin": "magicui",
+      "exports": [
+        "AnimatedListItem",
+        "AnimatedList"
+      ],
+      "interfaces": [
+        {
+          "name": "AnimatedListProps",
+          "extends": "ComponentPropsWithoutRef<\"div\">",
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "React.ReactNode"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "avatar",
+      "importPath": "@polytoken/ui/avatar",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted"
+      ]
+    },
+    {
+      "slug": "avatar-stack",
+      "importPath": "@polytoken/ui/avatar-stack",
+      "origin": "kibo",
+      "exports": [
+        "AvatarStack"
+      ],
+      "interfaces": [
+        {
+          "name": "AvatarStackProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "animate",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "size",
+              "optional": true,
+              "type": "number",
+              "default": "40"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "badge",
+      "importPath": "@polytoken/ui/badge",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [
+        {
+          "group": "variant",
+          "options": [
+            "default",
+            "secondary",
+            "destructive",
+            "outline"
+          ]
+        }
+      ],
+      "tokenRefs": [
+        "ring",
+        "primary",
+        "secondary",
+        "destructive",
+        "foreground"
+      ]
+    },
+    {
+      "slug": "blur-fade",
+      "importPath": "@polytoken/ui/blur-fade",
+      "origin": "magicui",
+      "exports": [
+        "BlurFade"
+      ],
+      "interfaces": [
+        {
+          "name": "BlurFadeProps",
+          "extends": "MotionProps",
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "React.ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "variant",
+              "optional": true,
+              "type": "{"
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "default": "0.4"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "offset",
+              "optional": true,
+              "type": "number",
+              "default": "6"
+            },
+            {
+              "name": "direction",
+              "optional": true,
+              "type": "\"up\" | \"down\" | \"left\" | \"right\"",
+              "default": "down"
+            },
+            {
+              "name": "inView",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "inViewMargin",
+              "optional": true,
+              "type": "MarginType",
+              "default": "-50px"
+            },
+            {
+              "name": "blur",
+              "optional": true,
+              "type": "string",
+              "default": "6px"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "border-beam",
+      "importPath": "@polytoken/ui/border-beam",
+      "origin": "magicui",
+      "exports": [
+        "BorderBeam"
+      ],
+      "interfaces": [
+        {
+          "name": "BorderBeamProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "size",
+              "optional": true,
+              "type": "number",
+              "default": "50"
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "default": "6"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "colorFrom",
+              "optional": true,
+              "type": "string",
+              "default": "#ffaa40"
+            },
+            {
+              "name": "colorTo",
+              "optional": true,
+              "type": "string",
+              "default": "#9c40ff"
+            },
+            {
+              "name": "transition",
+              "optional": true,
+              "type": "Transition"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "style",
+              "optional": true,
+              "type": "React.CSSProperties"
+            },
+            {
+              "name": "reverse",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "initialOffset",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "borderWidth",
+              "optional": true,
+              "type": "number",
+              "default": "1"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "breadcrumb",
+      "importPath": "@polytoken/ui/breadcrumb",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted",
+        "foreground"
+      ]
+    },
+    {
+      "slug": "button",
+      "importPath": "@polytoken/ui/button",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [
+        {
+          "name": "ButtonProps",
+          "extends": "React.ButtonHTMLAttributes<HTMLButtonElement>,\n    VariantProps<typeof buttonVariants>",
+          "props": [
+            {
+              "name": "asChild",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        }
+      ],
+      "variants": [
+        {
+          "group": "variant",
+          "options": [
+            "default",
+            "destructive",
+            "outline",
+            "secondary",
+            "ghost",
+            "link"
+          ]
+        },
+        {
+          "group": "size",
+          "options": [
+            "default",
+            "sm",
+            "lg",
+            "icon"
+          ]
+        }
+      ],
+      "tokenRefs": [
+        "ring",
+        "primary",
+        "destructive",
+        "input",
+        "background",
+        "accent",
+        "secondary"
+      ]
+    },
+    {
+      "slug": "calendar",
+      "importPath": "@polytoken/ui/calendar",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "accent",
+        "primary",
+        "muted"
+      ]
+    },
+    {
+      "slug": "card",
+      "importPath": "@polytoken/ui/card",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "card",
+        "muted"
+      ]
+    },
+    {
+      "slug": "chart",
+      "importPath": "@polytoken/ui/chart",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [
+        {
+          "name": "ChartContextProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "config",
+              "optional": false,
+              "type": "ChartConfig"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "muted",
+        "border",
+        "background",
+        "foreground"
+      ]
+    },
+    {
+      "slug": "checkbox",
+      "importPath": "@polytoken/ui/checkbox",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "primary",
+        "ring"
+      ]
+    },
+    {
+      "slug": "code-block",
+      "importPath": "@polytoken/ui/code-block",
+      "origin": "kibo",
+      "exports": [
+        "CodeBlock",
+        "CodeBlockHeader",
+        "CodeBlockFiles",
+        "CodeBlockFilename",
+        "CodeBlockSelect",
+        "CodeBlockSelectTrigger",
+        "CodeBlockSelectValue",
+        "CodeBlockSelectContent",
+        "CodeBlockSelectItem",
+        "CodeBlockCopyButton",
+        "CodeBlockBody",
+        "CodeBlockItem",
+        "CodeBlockContent"
+      ],
+      "interfaces": [
+        {
+          "name": "CodeBlockProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "type": "(value: string) => void"
+            },
+            {
+              "name": "data",
+              "optional": false,
+              "type": "CodeBlockData[]"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockFilesProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "(item: CodeBlockData) => ReactNode"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockFilenameProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "icon",
+              "optional": true,
+              "type": "IconType"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockSelectContentProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "(item: CodeBlockData) => ReactNode"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockCopyButtonProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "onCopy",
+              "optional": true,
+              "type": "() => void"
+            },
+            {
+              "name": "onError",
+              "optional": true,
+              "type": "(error: Error) => void"
+            },
+            {
+              "name": "timeout",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockBodyProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": false,
+              "type": "(item: CodeBlockData) => ReactNode"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockItemProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "lineNumbers",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "CodeBlockContentProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "themes",
+              "optional": true,
+              "type": "CodeOptionsMultipleThemes[\"themes\"]"
+            },
+            {
+              "name": "language",
+              "optional": true,
+              "type": "BundledLanguage"
+            },
+            {
+              "name": "syntaxHighlighting",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "muted",
+        "background",
+        "secondary"
+      ]
+    },
+    {
+      "slug": "code-block-server",
+      "importPath": "@polytoken/ui/code-block-server",
+      "origin": "kibo",
+      "exports": [
+        "CodeBlockContent"
+      ],
+      "interfaces": [
+        {
+          "name": "CodeBlockContentProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "themes",
+              "optional": true,
+              "type": "CodeOptionsMultipleThemes[\"themes\"]"
+            },
+            {
+              "name": "language",
+              "optional": true,
+              "type": "BundledLanguage"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "syntaxHighlighting",
+              "optional": true,
+              "type": "boolean",
+              "default": "true"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "collapsible",
+      "importPath": "@polytoken/ui/collapsible",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "command",
+      "importPath": "@polytoken/ui/command",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "popover",
+        "muted",
+        "foreground",
+        "border",
+        "accent"
+      ]
+    },
+    {
+      "slug": "confetti",
+      "importPath": "@polytoken/ui/confetti",
+      "origin": "magicui",
+      "exports": [
+        "Confetti",
+        "ConfettiButton"
+      ],
+      "interfaces": [
+        {
+          "name": "Props",
+          "extends": null,
+          "props": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "ConfettiOptions"
+            },
+            {
+              "name": "globalOptions",
+              "optional": true,
+              "type": "ConfettiGlobalOptions"
+            },
+            {
+              "name": "manualstart",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            }
+          ]
+        },
+        {
+          "name": "ConfettiButtonProps",
+          "extends": "React.ComponentProps<\"button\">",
+          "props": [
+            {
+              "name": "options",
+              "optional": true,
+              "type": "ConfettiOptions &"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "dialog",
+      "importPath": "@polytoken/ui/dialog",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "background",
+        "ring",
+        "accent",
+        "muted"
+      ]
+    },
+    {
+      "slug": "dialog-stack",
+      "importPath": "@polytoken/ui/dialog-stack",
+      "origin": "kibo",
+      "exports": [
+        "DialogStack",
+        "DialogStackTrigger",
+        "DialogStackOverlay",
+        "DialogStackBody",
+        "DialogStackContent",
+        "DialogStackTitle",
+        "DialogStackDescription",
+        "DialogStackHeader",
+        "DialogStackFooter",
+        "DialogStackNext",
+        "DialogStackPrevious"
+      ],
+      "interfaces": [
+        {
+          "name": "DialogStackChildProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "index",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "name": "DialogStackProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "open",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "clickable",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "type": "(open: boolean) => void"
+            },
+            {
+              "name": "defaultOpen",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            }
+          ]
+        },
+        {
+          "name": "DialogStackTriggerProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "asChild",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "DialogStackContentProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "index",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "offset",
+              "optional": true,
+              "type": "number"
+            }
+          ]
+        },
+        {
+          "name": "DialogStackNextProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "asChild",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        },
+        {
+          "name": "DialogStackPreviousProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "asChild",
+              "optional": true,
+              "type": "boolean"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "ring",
+        "primary",
+        "background",
+        "muted"
+      ]
+    },
+    {
+      "slug": "dot-pattern",
+      "importPath": "@polytoken/ui/dot-pattern",
+      "origin": "magicui",
+      "exports": [
+        "DotPattern"
+      ],
+      "interfaces": [
+        {
+          "name": "DotPatternProps",
+          "extends": "React.SVGProps<SVGSVGElement>",
+          "props": [
+            {
+              "name": "width",
+              "optional": true,
+              "type": "number",
+              "default": "16"
+            },
+            {
+              "name": "height",
+              "optional": true,
+              "type": "number",
+              "default": "16"
+            },
+            {
+              "name": "x",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "y",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "cx",
+              "optional": true,
+              "type": "number",
+              "default": "1"
+            },
+            {
+              "name": "cy",
+              "optional": true,
+              "type": "number",
+              "default": "1"
+            },
+            {
+              "name": "cr",
+              "optional": true,
+              "type": "number",
+              "default": "1"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "glow",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "dropdown-menu",
+      "importPath": "@polytoken/ui/dropdown-menu",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "accent",
+        "popover",
+        "muted"
+      ]
+    },
+    {
+      "slug": "dropzone",
+      "importPath": "@polytoken/ui/dropzone",
+      "origin": "kibo",
+      "exports": [
+        "Dropzone",
+        "DropzoneContent",
+        "DropzoneEmptyState"
+      ],
+      "interfaces": [
+        {
+          "name": "DropzoneProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "src",
+              "optional": true,
+              "type": "File[]"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "onDrop",
+              "optional": true,
+              "type": "("
+            },
+            {
+              "name": "acceptedFiles",
+              "optional": false,
+              "type": "File[],"
+            },
+            {
+              "name": "fileRejections",
+              "optional": false,
+              "type": "FileRejection[],"
+            },
+            {
+              "name": "event",
+              "optional": false,
+              "type": "DropEvent"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            }
+          ]
+        },
+        {
+          "name": "DropzoneContentProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "name": "DropzoneEmptyStateProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "ring",
+        "muted"
+      ]
+    },
+    {
+      "slug": "form",
+      "importPath": "@polytoken/ui/form",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "destructive",
+        "muted"
+      ]
+    },
+    {
+      "slug": "input",
+      "importPath": "@polytoken/ui/input",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "input",
+        "muted",
+        "ring"
+      ]
+    },
+    {
+      "slug": "label",
+      "importPath": "@polytoken/ui/label",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "magic-card",
+      "importPath": "@polytoken/ui/magic-card",
+      "origin": "magicui",
+      "exports": [
+        "MagicCard"
+      ],
+      "interfaces": [
+        {
+          "name": "MagicCardBaseProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "children",
+              "optional": true,
+              "type": "React.ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "gradientSize",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "gradientFrom",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "gradientTo",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        },
+        {
+          "name": "MagicCardGradientProps",
+          "extends": "MagicCardBaseProps",
+          "props": [
+            {
+              "name": "mode",
+              "optional": true,
+              "type": "\"gradient\""
+            },
+            {
+              "name": "gradientColor",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "gradientOpacity",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "glowFrom",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "glowTo",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "glowAngle",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "glowSize",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "glowBlur",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "glowOpacity",
+              "optional": true,
+              "type": "never"
+            }
+          ]
+        },
+        {
+          "name": "MagicCardOrbProps",
+          "extends": "MagicCardBaseProps",
+          "props": [
+            {
+              "name": "mode",
+              "optional": false,
+              "type": "\"orb\""
+            },
+            {
+              "name": "glowFrom",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "glowTo",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "glowAngle",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "glowSize",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "glowBlur",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "glowOpacity",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "gradientColor",
+              "optional": true,
+              "type": "never"
+            },
+            {
+              "name": "gradientOpacity",
+              "optional": true,
+              "type": "never"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "background"
+      ]
+    },
+    {
+      "slug": "marquee",
+      "importPath": "@polytoken/ui/marquee",
+      "origin": "magicui",
+      "exports": [
+        "Marquee"
+      ],
+      "interfaces": [
+        {
+          "name": "MarqueeProps",
+          "extends": "ComponentPropsWithoutRef<\"div\">",
+          "props": [
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "reverse",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "pauseOnHover",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "children",
+              "optional": false,
+              "type": "React.ReactNode"
+            },
+            {
+              "name": "vertical",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "repeat",
+              "optional": true,
+              "type": "number",
+              "default": "4"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "number-ticker",
+      "importPath": "@polytoken/ui/number-ticker",
+      "origin": "magicui",
+      "exports": [
+        "NumberTicker"
+      ],
+      "interfaces": [
+        {
+          "name": "NumberTickerProps",
+          "extends": "ComponentPropsWithoutRef<\"span\">",
+          "props": [
+            {
+              "name": "value",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "startValue",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "direction",
+              "optional": true,
+              "type": "\"up\" | \"down\"",
+              "default": "up"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "decimalPlaces",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "popover",
+      "importPath": "@polytoken/ui/popover",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "popover"
+      ]
+    },
+    {
+      "slug": "progress",
+      "importPath": "@polytoken/ui/progress",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "primary"
+      ]
+    },
+    {
+      "slug": "radio-group",
+      "importPath": "@polytoken/ui/radio-group",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "primary",
+        "ring"
+      ]
+    },
+    {
+      "slug": "rating",
+      "importPath": "@polytoken/ui/rating",
+      "origin": "shadcn-core",
+      "exports": [
+        "RatingButton",
+        "Rating"
+      ],
+      "interfaces": [
+        {
+          "name": "RatingButtonProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "index",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "icon",
+              "optional": true,
+              "type": "ReactElement<LucideProps>"
+            }
+          ]
+        },
+        {
+          "name": "RatingProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "defaultValue",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "value",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "onChange",
+              "optional": true,
+              "type": "("
+            },
+            {
+              "name": "event",
+              "optional": false,
+              "type": "MouseEvent<HTMLButtonElement> | KeyboardEvent<HTMLButtonElement>,"
+            },
+            {
+              "name": "value",
+              "optional": false,
+              "type": "number"
+            },
+            {
+              "name": "onValueChange",
+              "optional": true,
+              "type": "(value: number) => void"
+            },
+            {
+              "name": "readOnly",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "ring"
+      ]
+    },
+    {
+      "slug": "relative-time",
+      "importPath": "@polytoken/ui/relative-time",
+      "origin": "kibo",
+      "exports": [
+        "RelativeTime",
+        "RelativeTimeZone",
+        "RelativeTimeZoneDisplay",
+        "RelativeTimeZoneDate",
+        "RelativeTimeZoneLabel"
+      ],
+      "interfaces": [
+        {
+          "name": "RelativeTimeProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "time",
+              "optional": true,
+              "type": "Date"
+            },
+            {
+              "name": "defaultTime",
+              "optional": true,
+              "type": "Date",
+              "default": "new"
+            },
+            {
+              "name": "onTimeChange",
+              "optional": true,
+              "type": "(time: Date) => void"
+            },
+            {
+              "name": "dateFormatOptions",
+              "optional": true,
+              "type": "Intl.DateTimeFormatOptions"
+            },
+            {
+              "name": "timeFormatOptions",
+              "optional": true,
+              "type": "Intl.DateTimeFormatOptions"
+            }
+          ]
+        },
+        {
+          "name": "RelativeTimeZoneProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "zone",
+              "optional": false,
+              "type": "string"
+            },
+            {
+              "name": "dateFormatOptions",
+              "optional": true,
+              "type": "Intl.DateTimeFormatOptions"
+            },
+            {
+              "name": "timeFormatOptions",
+              "optional": true,
+              "type": "Intl.DateTimeFormatOptions"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "muted",
+        "secondary"
+      ]
+    },
+    {
+      "slug": "resizable",
+      "importPath": "@polytoken/ui/resizable",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "border",
+        "ring"
+      ]
+    },
+    {
+      "slug": "scroll-area",
+      "importPath": "@polytoken/ui/scroll-area",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "border"
+      ]
+    },
+    {
+      "slug": "select",
+      "importPath": "@polytoken/ui/select",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "input",
+        "muted",
+        "ring",
+        "popover",
+        "accent"
+      ]
+    },
+    {
+      "slug": "separator",
+      "importPath": "@polytoken/ui/separator",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "border"
+      ]
+    },
+    {
+      "slug": "sheet",
+      "importPath": "@polytoken/ui/sheet",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [
+        {
+          "group": "side",
+          "options": [
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ]
+        }
+      ],
+      "tokenRefs": [
+        "background",
+        "ring",
+        "secondary",
+        "foreground",
+        "muted"
+      ]
+    },
+    {
+      "slug": "shimmer-button",
+      "importPath": "@polytoken/ui/shimmer-button",
+      "origin": "magicui",
+      "exports": [
+        "ShimmerButton"
+      ],
+      "interfaces": [
+        {
+          "name": "ShimmerButtonProps",
+          "extends": "ComponentPropsWithoutRef<\"button\">",
+          "props": [
+            {
+              "name": "shimmerColor",
+              "optional": true,
+              "type": "string",
+              "default": "#ffffff"
+            },
+            {
+              "name": "shimmerSize",
+              "optional": true,
+              "type": "string",
+              "default": "0.05em"
+            },
+            {
+              "name": "borderRadius",
+              "optional": true,
+              "type": "string",
+              "default": "100px"
+            },
+            {
+              "name": "shimmerDuration",
+              "optional": true,
+              "type": "string",
+              "default": "3s"
+            },
+            {
+              "name": "background",
+              "optional": true,
+              "type": "string",
+              "default": "rgba(0, 0, 0, 1)"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "type": "React.ReactNode"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "shine-border",
+      "importPath": "@polytoken/ui/shine-border",
+      "origin": "magicui",
+      "exports": [
+        "ShineBorder"
+      ],
+      "interfaces": [
+        {
+          "name": "ShineBorderProps",
+          "extends": "React.HTMLAttributes<HTMLDivElement>",
+          "props": [
+            {
+              "name": "borderWidth",
+              "optional": true,
+              "type": "number",
+              "default": "1"
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "default": "14"
+            },
+            {
+              "name": "shineColor",
+              "optional": true,
+              "type": "string | string[]",
+              "default": "#000000"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "sidebar",
+      "importPath": "@polytoken/ui/sidebar",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [
+        {
+          "group": "variant",
+          "options": [
+            "default",
+            "outline"
+          ]
+        },
+        {
+          "group": "size",
+          "options": [
+            "default",
+            "sm",
+            "lg"
+          ]
+        }
+      ],
+      "tokenRefs": [
+        "sidebar",
+        "background"
+      ]
+    },
+    {
+      "slug": "skeleton",
+      "importPath": "@polytoken/ui/skeleton",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted"
+      ]
+    },
+    {
+      "slug": "sonner",
+      "importPath": "@polytoken/ui/sonner",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "background",
+        "foreground",
+        "border",
+        "muted",
+        "primary"
+      ]
+    },
+    {
+      "slug": "spinner",
+      "importPath": "@polytoken/ui/spinner",
+      "origin": "kibo",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "switch",
+      "importPath": "@polytoken/ui/switch",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "ring",
+        "primary",
+        "input",
+        "background"
+      ]
+    },
+    {
+      "slug": "table",
+      "importPath": "@polytoken/ui/table",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted"
+      ]
+    },
+    {
+      "slug": "tabs",
+      "importPath": "@polytoken/ui/tabs",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "muted",
+        "ring",
+        "background",
+        "foreground"
+      ]
+    },
+    {
+      "slug": "tags",
+      "importPath": "@polytoken/ui/tags",
+      "origin": "kibo",
+      "exports": [
+        "Tags",
+        "TagsTrigger",
+        "TagsValue",
+        "TagsContent",
+        "TagsInput",
+        "TagsList",
+        "TagsEmpty",
+        "TagsGroup",
+        "TagsItem"
+      ],
+      "interfaces": [
+        {
+          "name": "TagsProps",
+          "extends": null,
+          "props": [
+            {
+              "name": "value",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "setValue",
+              "optional": true,
+              "type": "(value: string) => void"
+            },
+            {
+              "name": "open",
+              "optional": true,
+              "type": "boolean"
+            },
+            {
+              "name": "onOpenChange",
+              "optional": true,
+              "type": "(open: boolean) => void"
+            },
+            {
+              "name": "children",
+              "optional": true,
+              "type": "ReactNode"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": [
+        "muted"
+      ]
+    },
+    {
+      "slug": "textarea",
+      "importPath": "@polytoken/ui/textarea",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "input",
+        "muted",
+        "ring"
+      ]
+    },
+    {
+      "slug": "theme",
+      "importPath": "@polytoken/ui/theme",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": []
+    },
+    {
+      "slug": "tooltip",
+      "importPath": "@polytoken/ui/tooltip",
+      "origin": "shadcn-core",
+      "exports": [],
+      "interfaces": [],
+      "variants": [],
+      "tokenRefs": [
+        "primary"
+      ]
+    },
+    {
+      "slug": "typing-animation",
+      "importPath": "@polytoken/ui/typing-animation",
+      "origin": "magicui",
+      "exports": [
+        "TypingAnimation"
+      ],
+      "interfaces": [
+        {
+          "name": "TypingAnimationProps",
+          "extends": "Omit<MotionProps, \"children\">",
+          "props": [
+            {
+              "name": "children",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "words",
+              "optional": true,
+              "type": "string[]"
+            },
+            {
+              "name": "className",
+              "optional": true,
+              "type": "string"
+            },
+            {
+              "name": "duration",
+              "optional": true,
+              "type": "number",
+              "default": "100"
+            },
+            {
+              "name": "typeSpeed",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "deleteSpeed",
+              "optional": true,
+              "type": "number"
+            },
+            {
+              "name": "delay",
+              "optional": true,
+              "type": "number",
+              "default": "0"
+            },
+            {
+              "name": "pauseDelay",
+              "optional": true,
+              "type": "number",
+              "default": "1000"
+            },
+            {
+              "name": "loop",
+              "optional": true,
+              "type": "boolean",
+              "default": "false"
+            },
+            {
+              "name": "as",
+              "optional": true,
+              "type": "MotionElementType"
+            },
+            {
+              "name": "startOnView",
+              "optional": true,
+              "type": "boolean",
+              "default": "true"
+            },
+            {
+              "name": "showCursor",
+              "optional": true,
+              "type": "boolean",
+              "default": "true"
+            },
+            {
+              "name": "blinkCursor",
+              "optional": true,
+              "type": "boolean",
+              "default": "true"
+            },
+            {
+              "name": "cursorStyle",
+              "optional": true,
+              "type": "\"line\" | \"block\" | \"underscore\"",
+              "default": "line"
+            }
+          ]
+        }
+      ],
+      "variants": [],
+      "tokenRefs": []
+    }
+  ],
+  "suites": [
+    {
+      "slug": "spreadsheet-grid",
+      "importPath": "@polytoken/ui/spreadsheet-grid",
+      "exports": [
+        "type",
+        "SpreadsheetGrid",
+        "ColumnHeaderMenu",
+        "type",
+        "AddColumnDialog",
+        "type",
+        "ConditionalFormattingDialog",
+        "type",
+        "buildColumnDefs",
+        "validateCellValue",
+        "type",
+        "DateCellRenderer",
+        "NumberCellRenderer",
+        "BooleanCellRenderer",
+        "UrlCellRenderer",
+        "ArrayCellRenderer",
+        "useConditionalFormatting",
+        "type",
+        "useRangeSelection",
+        "type",
+        "useGridClipboard",
+        "type",
+        "useGridFind",
+        "type",
+        "TextCellEditor",
+        "NumberCellEditor",
+        "DateCellEditor",
+        "BooleanCellEditor",
+        "SelectCellEditor",
+        "JsonCellEditor",
+        "ArrayCellEditor"
+      ]
+    }
+  ]
+}
