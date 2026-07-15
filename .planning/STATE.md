@@ -55,6 +55,35 @@ full web vitest suite green (64/64, 464/464). STCK-01 now complete.
 
 Progress: [███░░░░░░░] 29%
 
+## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 04 History -- React 18->19 core bump + six low-risk dependency bumps
+
+- **55-04 EXECUTED** (`6e35e53` feat, `4d4f881` fix — STATE.md "Current Position" above
+  intentionally left untouched by this entry per the additive-only discipline established by
+  56-01's own precedent, since Wave 5/6 of this same phase may run concurrently):
+  Bumped `apps/web`/`packages/ui` to React 19 (`^19.2.7`) plus the six low-risk runtime deps
+  (vaul, sonner, react-hook-form, next-themes, lucide-react, tailwind-merge). Widened
+  `packages/ui`'s peerDependencies to `^18.3.1 || ^19.0.0`. `react-day-picker`/
+  `react-resizable-panels` confirmed untouched, deferred to 55-05 per plan. Revalidation surfaced
+  more than the plan's own blast-radius model predicted: `packages/genui` (a dependent of
+  `@polytoken/ui`, not in this plan's declared files) was still pinned to React 18 and had to be
+  bumped in lockstep to fix duplicate-`@types/react` type errors across `packages/ui`; React 19's
+  dropped global `JSX` namespace and stricter `cloneElement` typing needed 6 call-site fixes; and
+  most significantly, npm's default hoisting kept a stale `react@18.3.1` at the workspace root
+  (satisfying `react-day-picker`/`react-resizable-panels`'s still-18-capped peer ranges) while
+  nesting fresh `19.2.7` copies only inside the three workspaces with a direct dependency —
+  producing two live React instances tree-wide and ~145 vitest failures. Fixed via a root
+  `package.json` `overrides` pin plus a full lockfile regeneration (the override alone was not
+  honored against the pre-existing lockfile under incremental `npm install`). Post-fix: zero
+  `18.3.1` instances anywhere in the tree; `npm run test -w @polytoken/web` back to the exact
+  55-03 baseline (64/64 files, 464/464 tests); typecheck clean for web/ui/genui; `web:build`
+  20/20 routes; E2E — both live-DB-backed specs pass once the FastAPI listener is started as a
+  one-time recovery attempt (killed afterward); 3 apparently-new E2E failures individually
+  reproduced as flaky-pass-in-isolation; the 1 remaining deterministic E2E/screenshot failure is
+  the pre-existing sidebar pointer-events bug already root-caused in 55-02's `deferred-items.md`
+  (2 new occurrences logged there, zero `sidebar.tsx` changes in this plan). `STCK-02` left
+  Pending in REQUIREMENTS.md — not fully satisfiable until 55-05's react-day-picker/
+  react-resizable-panels majors land. See `55-04-SUMMARY.md` for full detail.
+
 ## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 01 History -- chat_source_ledger + chat_context_edges Drizzle schema + migration 0037
 
 - **56-01 EXECUTED** (`2a3a766` feat, `a6e6e22` feat, `895253e` feat — executed
