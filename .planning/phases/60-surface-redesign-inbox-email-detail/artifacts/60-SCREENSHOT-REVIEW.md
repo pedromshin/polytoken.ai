@@ -44,6 +44,48 @@ The stack is up and healthy. Client JS is not executing, deterministically. Evid
 rules out the innocent explanation, and it is why the gap below is stated as a fact rather than a
 suspicion.
 
+### Root cause — found, and it is a trap in our own plans
+
+`apps/web/.next` contains **production-build artifacts sitting on top of a live dev server's
+build directory**:
+
+| Artifact | Kind | mtime |
+|---|---|---|
+| `.next/BUILD_ID` | production build only | **19:40:46** |
+| `.next/required-server-files.json` | production build only | **19:40:46** |
+| `.next/prerender-manifest.json` | production build only | **19:40:52** |
+| `.next/export-marker.json` | production build only | **19:40:52** |
+| `.next/server/pages/_document.js` — *the file in the runtime error's require stack* | production build | **19:40:24** |
+| `.next/static/development` | dev server | (coexisting) |
+
+**`next build` ran at ~19:40 into the same `.next` the running `next dev` was serving from.** It
+overwrote the dev server's server chunks with production output; the dev server kept its old module
+graph in memory and now requires `./383.js`, which no longer exists in the shape it expects. That
+is the whole failure, and it explains every symptom above — including why a *Pages-Router*
+`_document.js` exists in an App-Router app (`next build` emits one; `next dev` does not use it).
+
+This predates this session (first capture: 19:51; my first probe: ~19:47).
+
+**The mechanism is not the two-dev-servers hypothesis.** It is
+**`npm run build:local` executed while a dev server is running** — and that command is mandated by
+the `<verification>` section of *this plan and every other plan in Phases 59-63*:
+
+> `cd apps/web && npm run build:local` succeeds.
+
+`next build` and `next dev` share `apps/web/.next` by default. So the standing verification
+instruction **silently destroys the running dev server every time it is followed**, and the damage
+only becomes visible the next time somebody tries to look at the app — which is exactly this plan.
+60-06 ran `build:local` and reported it green; it was green, and it also corrupted the server.
+
+**Recommendation (backlog):** either run `build:local` with a separate build dir
+(`distDir`/`NEXT_DIST_DIR`) so it cannot collide, or make the verification line state that the dev
+server must be stopped first and `.next` wiped after. This has now cost one full verification leg.
+
+**This plan therefore did NOT run `npm run build:local`** — deliberately. It changes only markdown
+(no source file), so the build's outcome cannot differ from 60-06's green result, and running it
+would have re-corrupted the very `.next` the re-run below needs. Skipping it is the finding, not an
+omission.
+
 I recovered the CSS chunk (#1) non-destructively — `touch apps/web/src/app/globals.css` forced an
 HMR recompile and `layout.css` returned **200 / 152 KB**, containing the genuine Phase-59 ladder
 (`oklch` ×75, `--ink` ×35, `--conf` ×21, `--sugg` ×15, `pmark`). That is why the frames below are
@@ -150,8 +192,10 @@ survive. It remains open and untested.
 
 ## Defects found, for the backlog
 
-1. **The dev server's `.next` is corrupt (environment, blocking).** Not a code defect and not
-   Phase 60's. Recovery is in "What is blocking" below.
+1. **`npm run build:local` corrupts a running dev server's `.next` — and our own plans mandate it.**
+   Root-caused above with mtimes. This is the highest-value item here: it is a standing instruction
+   in every Phase 59-63 plan's `<verification>` block, it fails silently, and it cost this leg.
+   Fix by giving the build its own `distDir`, or by requiring the dev server be stopped first.
 2. **The harness cannot capture dark mode at all — a real coverage hole.** `screenshot-review.spec.ts`
    varies exactly two axes: `BASE_SURFACES` × `VIEWPORTS {mobile 390, desktop 1440}`. There is no
    theme axis. `globals.css` ships a full `.dark` block (line 625) whose hue+chroma are deliberately
@@ -201,3 +245,111 @@ criterion 4.
   palette/type/density changes are Phase 59, correctly landed.
 - **Phase 60's code is not implicated in any of this.** The corruption is in the build directory,
   not the source: the same source builds clean (`npm run build:local`), and the gates are green.
+
+---
+
+# FOLLOW-UP — the re-run after the root cause was fixed
+
+**Date:** 2026-07-15, later the same evening
+**Added by:** the orchestrating session, after 60-07 handed back the diagnosis above.
+**RUN_DIR:** `.planning/ui-reviews/2026-07-15T23-24-42-309Z/` (16 PNGs + index.md — a complete run)
+
+Everything above this line stands. It was an accurate report of a genuinely broken server, and its
+mtime forensics are what made the fix possible. This section records what changed after the fix,
+not a correction of the analysis.
+
+## The root cause was confirmed independently, then fixed
+
+The diagnosis above was verified before acting on it:
+
+| Evidence | Stamp | Meaning |
+|---|---|---|
+| `.next/BUILD_ID`, `prerender-manifest.json`, `required-server-files.json` | 19:40 | `next build` (production) output |
+| `.next/server/pages/_document.js` | 19:40 | a **Pages-Router** file inside an App-Router app |
+| `.next/static/development/` | 19:50 | the dev server still writing alongside it |
+
+Culprit pinned: **60-06's Task 3 committed at 19:41, and its `<verification>` block runs
+`npm run build:local`.** The corruption is stamped 19:40 — the build, one minute before the commit.
+
+**Fixed in `7df5ad2`:** `build:local` now sets `NEXT_DIST_DIR=.next-verify` via dotenv-cli's `-v`
+(no new dependency) and `next.config.mjs` reads it. Verified by *reproducing the corrupting action*:
+`build:local` against a live dev server now leaves `.next/BUILD_ID` and `.next/server/pages/_document.js`
+absent, lands its output in `.next-verify`, and the server keeps serving (`/login` 200, `/` 307).
+
+Note: `.next/prerender-manifest.json` still exists during dev — that is a 354-byte stub `next dev`
+writes itself (empty routes, mtime *precedes* the build). It is not contamination. The true
+discriminators are `BUILD_ID` and the Pages-Router `_document.js`.
+
+## Criterion 4: now PROVEN for both redesigned surfaces, in both themes
+
+Server rebuilt clean, harness re-run. The app hydrates: the theme toggle renders, rows render.
+
+### inbox — PASS
+Four panes (sidebar / filters / threads / reading). Serif subjects and snippets on warm paper;
+sans sender names; no stock shadcn blue anywhere. **Sidebar renders at full width** — `db8da42`
+confirmed in a real capture.
+
+### emails/[id] — PASS (was "runtime error overlay, zero design signal")
+Renders fully. The subject is **serif** (law 2). The `parsed` status is a quiet outline marker,
+**not madder** — 60-06's `parseStatusVariant` removal, confirmed live. Every empty state is
+law-clean ("No regions yet", "Select a region", "Nothing extracted yet"). No madder on the surface.
+
+### The colour law — PROVEN LIVE, in both themes
+
+The earlier run showed no tier chips. **That was a harness artifact, not the UI.** The harness
+screenshots immediately and captures rows *before* their async entity data arrives. Re-probed with
+`networkidle` + settle:
+
+| Theme | measured `body.bg` | 58-IDENTITY `--shelf` | `pmark` chips |
+|---|---|---|---|
+| light | `oklch(0.924 0.014 97.5)` | `oklch(92.4% .014 97.5)` | 4 |
+| dark | `oklch(0.199 0.009 59.1)` | `oklch(19.9% .009 59.1)` | 4 |
+
+Both themes resolve **exactly** to the locked ladder. The provenance chip renders as specified:
+serif value, subordinate `· type` word, verdigris `pmark-confirmed` wash. Evidence:
+`.planning/ui-reviews/dark-probe/inbox-{light,dark}-settled.png`.
+
+**Dark mode had never been captured before this run** despite the user's pick explicitly requiring
+it ("we will want light and dark theme") and Phase 59 porting a full `.dark` block. It works, and
+it is arguably the stronger of the two themes.
+
+### login / chat / knowledge / studio / forwarding — NO REGRESSION
+Layout and hierarchy pixel-stable. Palette/type/density shifts are Phase 59 landing, not regressions
+(see the baseline correction above — both prior runs predate Phase 59's `globals.css` rewrite, so
+there is no post-59/pre-60 baseline and a pixel diff would be meaningless).
+
+## The one thing still genuinely unproven
+
+**The tier ladder's *other* rungs.** All 4 chips are `confirmed` (verdigris). The seeded fixture
+(`e2e/helpers/screenshot-fixtures.ts`) inserts only `threads` and `emails` — **zero entities, zero
+extractions, zero regions**. So:
+
+- **pencil-amber `--sugg` has never rendered.** Its light value has 0.02 of AA headroom (4.52 vs
+  4.50) — the tightest number in the whole identity, and it is unverified on real pixels.
+- The region overlays (solid=confirmed / dashed=suggested, role-by-geometry) have no regions to draw.
+- `/emails/[id]`'s extraction registry renders only its empty state.
+
+This traces directly to the v1.9 debt the user declined to fold in **twice**: LIVE-04 (§B.3-6, real
+email) means **no real message has ever run through extraction**. REQUIREMENTS.md predicted exactly
+this: *"Consequence: inbox/canvas redesigned against seeded fixtures."* The prediction landed.
+
+## Not a bug: the "N" badge occluding "Sign out"
+
+A dark circular badge sits over "Sign out" in the bottom-left of every surface. It is the **Next.js
+dev-tools indicator**, not app chrome — `sign-out-button.tsx` contains no avatar, and the badge is
+identical and corner-pinned on all 16 captures. Dev-only; absent in production. It does confound
+every screenshot review, which is worth knowing before someone files it as a bug (I nearly did).
+
+## For the backlog
+
+- **999.22 — CONFIRMED and FIXED** (`7df5ad2`). Root cause was real and was in our own plans.
+- **999.23 — the harness has no theme axis.** Still open. The probe above proves the approach works:
+  `emulateMedia({colorScheme})` + `localStorage.theme` + toggling `.dark`. Phase 61 should fold a
+  theme axis into `screenshot-review.spec.ts`.
+- **999.24 (NEW) — the harness captures before async data lands.** It screenshots immediately, so
+  entity chips are missing from every capture. This nearly produced a false "the redesign has no
+  tier chips" verdict. Needs a settle/wait before `screenshot()`.
+- **999.25 (NEW) — the screenshot fixture seeds no extractions.** The colour law's `suggested` rung,
+  the region overlays, and the extraction registry cannot be visually verified by any capture until
+  the fixture seeds entities/regions, or LIVE-04 lands a real message.
+- **999.21 — still unassessed.** Not dismissed as "pre-existing" a fourth time on no evidence.
