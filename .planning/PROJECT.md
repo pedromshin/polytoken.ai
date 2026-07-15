@@ -224,6 +224,58 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
+## Current Milestone: v1.10 Product Design & Research Canvas
+
+**Goal:** polytoken stops looking experimental and starts working the way the user described it —
+a *designed* product whose research canvas collects sources without ceremony, lets the user select
+a personal canon, and treats canvas edges as context.
+
+**Why now (and why not v2.0):** ENDGAME-PLAN.md §5 sequenced v2.0 Local Agent Platform next, but
+that plan locked 2026-07-10 and two user findings postdate it — 999.18 (2026-07-12: *"the whole UI
+is still ugly/experimental, not a production UI — not just tokens and colors"*) and 999.19
+(2026-07-12: the target workflow in the user's own words, which states outright that the UI rebuild
+should **design** these surfaces, not retrofit them). Building v2.0's directory/browser panels onto
+an unfinished register would repeat the mistake one epoch later. v2.0 keeps its number and follows
+this milestone.
+
+**Target features (five dependency-ordered bands):**
+- **Band 1 — Platform (999.12, unparked):** Tailwind 3.4 → v4 (`@theme`/oklch), React 18 → 19,
+  revalidate every vendored `packages/ui` component, settle the Radix-vs-Base-UI stance. Unparked
+  deliberately: a real palette rebuild on HSL would have to be redone at the v4 migration, and v4
+  unlocks direct `shadcn add @kibo-ui/…` installs in place of vendor-and-adapt.
+- **Band 2 — Visual identity (BLOCKING HUMAN GATE):** sketch distinct visual directions on real
+  polytoken screens → **the user picks one** → palette/type/spacing/signature designed, not
+  defaulted. Nothing cascades before the pick.
+- **Band 3 — Surfaces:** per-surface UX redesign (inbox, chat+canvas, knowledge, email detail,
+  studio, settings, login) — layout, hierarchy, information density, interactions — plus
+  production-grade empty/loading/error states everywhere, plus 999.17 (panel chrome unreachable
+  on mobile).
+- **Band 4 — Research canvas (999.19, built not just designed):** per-conversation source ledger,
+  auto-collected source nodes on canvas (no capture ceremony — today's CLUS-04 per-turn confirm
+  widget is the explicit anti-goal), canon-selection UX over the existing promotion gate, and
+  **edges-as-context** (connecting source/table/panel nodes to a chat node injects them as that
+  chat's context — architecturally significant; canvas sharedState was explicitly NOT the linkage
+  store per D-54), plus source-grounded presentation panels.
+- **Band 5 — Email learning loop (999.19 step 1):** the user corrects what each email is; the
+  system learns from those corrections over time. Extends the suggest-only entity-resolution
+  stance — **never auto-decide**.
+
+**Key context:**
+- **The taste gate is the point.** 999.18 scope item (d) requires a design-review loop with the
+  user on real screens BEFORE cascading, because v1.9's autonomous-overnight approach cannot make
+  taste decisions. Band 2 is a hard human gate; every later band cascades from the locked choice.
+  Nine milestones of capability, zero of design — measurement enforced hygiene (WCAG gates, palette
+  bans) and hygiene passed every time while the product looked unfinished.
+- **v1.9's live legs stay owed.** LIVE-03 (§A OAuth), LIVE-04 (§B.3–6 real email), CLUS-07 (§H)
+  were explicitly left as v1.9 debt at this milestone's opening (user decision 2026-07-14, second
+  time asked). Consequence carried knowingly: the inbox and canvas get redesigned against seeded
+  fixtures, and the Band-5 email loop is built without a real inbound message ever having landed.
+  Runsheet remains `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
+- **Regression rails already exist** from v1.9: the 16-surface screenshot harness
+  (`npm run screenshot:review`), the committed `palette-ban.test.ts` gate, WCAG-AA contrast +
+  token-registration gates, and a 32/32 E2E suite. The rebuild runs against these.
+- Phase numbering continues at **55**.
+
 ## v1.9 Milestone Detail (SHIPPED 2026-07-14 — archived: milestones/v1.9-ROADMAP.md)
 
 **Goal (as written at open):** polytoken becomes a *used* product — the live loop closes on the
@@ -583,12 +635,24 @@ milestone's own unmet acceptance criteria, not new scope. Runsheet:
 - [ ] **LIVE-04** — the user's real email actually flowing in (§B.3–6: copy the `u-{token}@` address, Gmail forwarding handshake, real message w/ attachment, prod-DB verify). SES rule already applied.
 - [ ] **CLUS-07** — the six-leg cluster scenario proven live on the real inbox (§H). *This was v1.9's declared acceptance bar.* Blocked only by the two above.
 
-**Next milestone — not yet scoped (`/gsd:new-milestone` formalizes requirements):**
+**v1.10 Product Design & Research Canvas — current scope** (REQ-IDs formalized in REQUIREMENTS.md):
 
-- [ ] **999.18 — full production UI/UX rebuild (HIGH PRIORITY, user-raised):** real visual identity (palette/type/spacing/signature — designed, not defaulted), per-surface UX redesign (inbox, chat+canvas, knowledge, email detail, studio, settings, login), production-grade empty/loading/error states everywhere, and a design-review loop with the user on real screens BEFORE cascading. v1.9's autonomous approach cannot make taste decisions.
-- [ ] **999.19 — frictionless research canvas (user's production vision, shapes E4/E5):** sources auto-related to research without capture ceremony, user-selected personal canon, canvas edges-as-context (source/table nodes → new chats), presentation-grade panels; email loop learns from manual corrections.
-- [ ] **v2.0 Local Agent Platform (E4+E5+E6 merged):** daemon + ONE permission model + generalized ToolExecutor; watched folders → directory panels with Claude-Code-class attached chats (fs/terminal/git); browser panel CDP-first; tool registry as per-user allowlist; `/gsd:secure-phase` on every daemon phase.
-- [ ] **999.17** — editable-panel chrome unreachable on mobile; docked/mobile transcript ignores panel overlays (v1.9 cross-phase trade-off).
+- [ ] **Band 1 — Platform:** Tailwind v4 (`@theme`/oklch) + React 19 migration, vendored `packages/ui` revalidated, Radix-vs-Base-UI stance settled (999.12 unparked)
+- [ ] **Band 2 — Visual identity (BLOCKING GATE):** distinct directions sketched on real screens, user picks one, palette/type/spacing/signature designed not defaulted (999.18a)
+- [ ] **Band 3 — Surfaces:** per-surface UX redesign of inbox, chat+canvas, knowledge, email detail, studio, settings, login + production empty/loading/error states + 999.17 (999.18b/c)
+- [ ] **Band 4 — Research canvas:** auto-collected source ledger + canvas source nodes (no capture ceremony), canon-selection UX, edges-as-context, source-grounded presentation panels (999.19 steps 2–5)
+- [ ] **Band 5 — Email learning loop:** learn-from-corrections over the suggest-only stance, never auto-decide (999.19 step 1)
+
+**Carried v1.9 debt — user-only actions, no development work, declined twice (2026-07-14):**
+
+- [ ] **LIVE-03** — Google OAuth live on the deployed app (§A)
+- [ ] **LIVE-04** — the user's real email actually flowing in (§B.3–6)
+- [ ] **CLUS-07** — the six-leg cluster scenario on the real inbox (§H). *Was v1.9's declared acceptance bar.*
+
+**Next epoch (after v1.10):**
+
+- [ ] **v2.0 Local Agent Platform (E4+E5+E6 merged):** daemon + ONE permission model + generalized ToolExecutor; watched folders → directory panels with Claude-Code-class attached chats (fs/terminal/git); browser panel CDP-first; tool registry as per-user allowlist; `/gsd:secure-phase` on every daemon phase. Plan of record: ENDGAME-PLAN.md §3.
+- [ ] **999.20 — deep nauta purge in live state:** migration 0037 for `entity_instances.nauta_id` (lockstep with drizzle + Python domain/repo + tests), the AWS `nauta-services-*` resources (re-parked Hazard A/B/C — the S3 bucket holds real inbound email), local directory rename.
 
 ### Out of Scope
 

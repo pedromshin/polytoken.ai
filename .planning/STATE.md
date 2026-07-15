@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.9
-milestone_name: Cloud Workspace
-status: shipped
-shipped: 2026-07-14
-last_updated: "2026-07-14T00:00:00.000Z"
-last_activity: 2026-07-14 -- v1.9 Cloud Workspace ARCHIVED via /gsd:complete-milestone. 24/27 requirements; LIVE-03/LIVE-04/CLUS-07 deferred as accepted tech debt by explicit user decision at the gate (audit verdict was gaps_found). See Deferred Items -> v1.9.
+milestone: v1.10
+milestone_name: Product Design & Research Canvas
+status: planning
+last_updated: "2026-07-15T02:52:50.339Z"
+last_activity: 2026-07-15
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 37
-  completed_plans: 36
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # State
@@ -29,6 +28,7 @@ the user actually lives in.
 1. **The v1.9 live legs are still owed** — §A OAuth, §B.3–6 forwarding, §H CLUS-07, all in
    `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`. Deferred as accepted
    tech debt at the v1.9 close, overriding the standing rule. No development work required.
+
 2. **Backlog 999.18 — FULL production UI/UX rebuild (HIGH PRIORITY, user's verdict on the live
    app):** "the whole UI is still ugly/experimental, not a production UI — not just tokens and
    colors." v1.9's Phase 51 was scoped as token-hygiene only; no phase has ever done real visual
@@ -44,12 +44,10 @@ user has touched the capability live.
 
 ## Current Position
 
-Phase: 54 (Email-Cluster Workflow E3) — 54-07 (MORNING-CHECKLIST.md §H, the CLUS-07 live-acceptance runsheet) EXECUTED this session, Wave 4 (`depends_on: [54-01, 54-02, 54-03, 54-04, 54-05, 54-06]`, `requirements: [CLUS-07]`). Task 1: appended a 6-subsection `## H.` section to `.planning/phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md` (207 lines) — H.1 Prerequisites (§A OAuth, §B forwarding with a REAL thread, §G stack-up + Bedrock, migration 0036 applied, `WEB_SEARCH_TOOL_ENABLED=True` shipped-state confirmation); H.2 exact migration-0036 apply commands (`npm run db:migrate`/`db:migrate:staging`/`db:migrate:prod`) PLUS a fully-worked Supabase Dashboard SQL Editor fallback (the real path that applied 0021-0035 tonight per `artifacts/migration-verification.md`, since `.env.staging`/`.env.production` passwords are documented-stale) — including a precomputed, verified-exact `sha256` hash and journal timestamp for the `INSERT INTO drizzle."__drizzle_migrations"` bookkeeping row; H.3 Claude's read-only resume-signal DB verification; H.4 the six-leg scenario walkthrough (pick real thread -> Attach chat -> web research with thread context -> capture source -> promote -> new chat sees cluster context), each leg referencing the REAL shipped UI labels (grepped from source: "Add thread", "Attach chat", `aria-label="Linked thread: {subject}"`) with its own DB-verify query; H.5 the explicit acceptance bar + the "CLUS-07 verified" resume phrase; H.6 a cross-reference note superseding the six individual "queued to §H" deferrals in `54-01-SUMMARY.md` through `54-06-SUMMARY.md`. No step in §H is marked passed/checked (confirmed via a 0-count `[x]` scan within the section) — doc-only, the scenario stays user-executed live in the morning, never faked tonight. CLUS-07 intentionally NOT marked complete in `REQUIREMENTS.md` (stays Pending until the user's live "CLUS-07 verified" resume signal). Phase 54 is now 7/7 plans with a SUMMARY.md — PHASE COMPLETE (plan-wise; CLUS-07 itself is the milestone's live acceptance gate, pending the user's morning session). See Phase 54 Plan 07 History below and `54-07-SUMMARY.md` for full detail.
-
-Prior: 54-06 (ThreadClusterIndicator + chat.clusterSummary + web_search tool-round copy, CLUS-02/CLUS-06/CLUS-03 UI) EXECUTED, Wave 3 (`depends_on: [54-01]`, `requirements: [CLUS-02, CLUS-06, CLUS-03]`). Real ownership-scoped sibling-chat/captured-source counts via `chat.clusterSummary`, surfaced through `ThreadClusterIndicator` in the chat header (additive-only), plus the `web_search` tool-round copy-map entries. Full detail in `54-06-SUMMARY.md` and Phase 54 Plan 06 History below.
-Plan: Phase 54 — 7 of 7 have a SUMMARY.md (54-01..54-07) — PHASE COMPLETE (plan-wise; CLUS-07 live-acceptance gate itself pending the user's morning §H session). Phase 53 — 6 of 6 have a SUMMARY.md (53-01..53-06) — PHASE COMPLETE. Phase 52 — 6 of 6 have a SUMMARY.md (52-01..52-06). Phase 51 — 7 of 7 have a SUMMARY.md; 51-07's own SUMMARY documents its blocked tasks honestly — RE-RUN 51-07 Tasks 2/3 once `docker info` succeeds before treating Phase 51 as fully closed.
-Status: 54-07 executed — MORNING-CHECKLIST.md §H (the CLUS-07 live-acceptance runsheet) is now complete: prerequisites, exact migration-0036 apply commands (native + Dashboard fallback), the six-leg scenario walkthrough with real UI labels and DB-verify queries per leg, and the acceptance bar. Phase 54 (Email-Cluster Workflow E3) is now fully executed, 7/7 plans. CLUS-01..CLUS-06 Complete in REQUIREMENTS.md; CLUS-07 stays Pending until the user runs §H live and replies "CLUS-07 verified". See Phase 54 Plan 07 History below and `54-07-SUMMARY.md` for full detail.
-Last activity: 2026-07-12 -- Phase 54-07 executed (MORNING-CHECKLIST.md sect:H CLUS-07 live-acceptance runsheet -- doc-only, never faked -- see 54-07-SUMMARY.md; Phase 54 now 7/7 plans complete, PHASE COMPLETE)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-07-15 — Milestone v1.10 started
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
