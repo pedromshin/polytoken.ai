@@ -13,8 +13,12 @@ description: Polytoken web design system — token source, @polytoken/ui convent
 - Primitives: **Radix** (`@radix-ui/react-*`) — DECIDED, documented in
   [`docs/design/radix-vs-base-ui.md`](../../../docs/design/radix-vs-base-ui.md) (STCK-03).
   Upstream shadcn defaults to Base UI since July 2026, but its own changelog states Radix is
-  not deprecated; pin every non-interactive `shadcn init`/`add` to the Radix track with
-  `-b radix`. Diff any payload before vendoring regardless.
+  not deprecated. `-b radix` is `shadcn init`-only (verified: no `--base` flag exists on
+  `add` in the installed CLI) — never re-run `init` against this repo's `components.json`
+  without it. This repo's existing `style: "new-york"` already pins canonical `@shadcn` `add`
+  calls to Radix with no flag needed (verified live). Third-party registries (`@kibo-ui`,
+  `@magicui`, `@coss`) have no Radix/Base-UI toggle at all — diff any payload before vendoring
+  regardless.
 - Third-party registry payloads are increasingly Tailwind v4-native (`@theme`, oklch) — this
   is now this repo's own shape too, so a v4/oklch payload usually needs **no adaptation**
   (see STCK-04 proof: a direct `shadcn add @kibo-ui/rating` install required zero v3/Base-UI
@@ -60,9 +64,10 @@ blank (v4 shape, per shadcn v4 docs: "For Tailwind CSS v4, leave this blank"). R
 from `packages/ui/`.
 
 - Discover: catalog first (above); fall back to `npx shadcn@latest search @kibo-ui -q <term>`
-- Inspect: `npx shadcn@latest add -b radix <item> --dry-run --view`
-  (import rewriting to `@polytoken/ui` conventions is correct in the payload;
-  `-b radix` pins the Radix track per `docs/design/radix-vs-base-ui.md`, STCK-03)
+- Inspect: `npx shadcn@latest add <item> --dry-run --view`
+  (import rewriting to `@polytoken/ui` conventions is correct in the payload; `-b`/`--base` is
+  `init`-only in the installed CLI — there is no per-`add` override, see
+  `docs/design/radix-vs-base-ui.md` §4)
 - Diff vendored components against canonical: `npx shadcn@latest diff <name>`
 - **DO NOT run plain `add`** — it resolves the write path through the package
   `exports` map and targets `src/index.ts/<name>.tsx` (broken). Instead:
@@ -72,11 +77,11 @@ from `packages/ui/`.
      (STCK-04 proof: the payload's classes, imports (`@polytoken/ui` convention
      already matched), and Radix-based runtime hook all landed unmodified). Only
      adapt if the payload assumes a different token/class shape than this repo's.
-  3. Confirm the payload resolved a Radix (not Base UI) primitive when the
-     registry offers both — pass `-b radix` at inspect time (above) so this is
-     already handled; if a component is Base-UI-only, treat that as the
-     re-evaluation trigger in `docs/design/radix-vs-base-ui.md`, not a silent
-     exception.
+  3. Confirm the payload's own primitive import is Radix (`@shadcn` items: this repo's
+     `style: "new-york"` already pins that with no flag needed, verified live; third-party
+     registries have no toggle — read the payload's own imports at `--dry-run --view` time).
+     If a needed component is Base-UI-only, treat that as the re-evaluation trigger in
+     `docs/design/radix-vs-base-ui.md`, not a silent exception.
   4. Add runtime deps to `packages/ui/package.json` (check first — a dep may
      already be present, e.g. `@radix-ui/react-use-controllable-state` was
      already installed for `relative-time`/`dialog-stack`/`code-block`); `npm

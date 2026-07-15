@@ -49,22 +49,38 @@ shadcn's own July 2026 changelog is explicit that this is not a deprecation:
 
 ## 4. The pin mechanism
 
-Pin the Radix track explicitly wherever the shadcn CLI runs non-interactively (CI, overnight/agent
-sessions, this plan's own STCK-04 install) via the `-b radix` flag:
+**Verified live against the installed CLI (`shadcn@4.13.0`) — `-b`/`--base <base>` is an
+`init`-time-only flag; it does not exist on `add`** (`npx shadcn@latest add --help` lists no
+`-b`/`--base` option; attempting `add -b radix <item>` fails with `error: unknown option '-b'`).
+The mechanism is therefore two-layered:
+
+**(a) Project scaffold time — `init`:**
 
 ```bash
 npx shadcn@latest init -b radix
-npx shadcn@latest add -b radix <item>
 ```
 
-`-b radix` overrides the CLI's own interactive-prompt default (which now points at Base UI) and
-forces registry resolution onto the Radix-compatible variant of a component, when the registry ships
-both. This repo's `packages/ui/components.json` does not need a persistent config flag for this — the
-CLI flag is supplied per-invocation, and the documented vendor-and-adapt workflow (see
-`.claude/skills/polytoken-design-system/SKILL.md`) already requires a human/agent to inspect every
-payload via `--dry-run --view` before it lands, which is the natural place to also confirm the
-resolved payload used Radix (or, if a component is Base-UI-only, to trigger the re-evaluation trigger
-below rather than silently vendoring a mismatched primitive).
+Pins a *new* project's `components.json` to the Radix track at scaffold time. Not relevant to
+this already-initialized repo unless `components.json` is ever regenerated from scratch.
+
+**(b) This repo, today — the existing `components.json`'s `style: "new-york"` already pins the
+Radix track for every canonical `@shadcn` registry item**, verified live: `npx shadcn@latest add
+@shadcn/button --dry-run --view` and `@shadcn/dialog` both resolve `import { Slot } from
+"radix-ui"` / `import { Dialog as DialogPrimitive } from "radix-ui"` — the Radix-based
+primitives — with **no flag needed**, because `"new-york"` is the pre-Base-UI-split style key.
+**The actionable rule: never re-run `shadcn init` against this repo's `components.json`** (it
+would re-prompt/re-default and could silently flip the style/base pin) — if a from-scratch
+regeneration is ever genuinely needed, pass `-b radix` at that `init` call.
+
+**(c) Third-party registries (`@kibo-ui`, `@magicui`, `@coss`) are unaffected by either
+mechanism** — their payload is whatever that registry serves; there is no Radix/Base-UI toggle
+to request. The documented vendor-and-adapt workflow's `--dry-run --view` inspection step (see
+`.claude/skills/polytoken-design-system/SKILL.md`) is therefore the only real verification point
+for these registries: confirm the payload's own primitive imports before vendoring (or, if a
+needed component is Base-UI-only, treat that as the re-evaluation trigger below rather than a
+silent exception). STCK-04's `@kibo-ui/rating` proof payload was checked this way and resolved
+to `@radix-ui/react-use-controllable-state` — Radix, unprompted, because that is what kibo-ui's
+own registry happened to ship for this component.
 
 ## 5. Re-evaluation trigger
 

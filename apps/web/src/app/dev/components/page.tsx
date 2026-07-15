@@ -19,6 +19,7 @@ import { DotPattern } from "@polytoken/ui/dot-pattern";
 import { MagicCard } from "@polytoken/ui/magic-card";
 import { Marquee } from "@polytoken/ui/marquee";
 import { NumberTicker } from "@polytoken/ui/number-ticker";
+import { Rating, RatingButton } from "@polytoken/ui/rating";
 import { ShimmerButton } from "@polytoken/ui/shimmer-button";
 import { ShineBorder } from "@polytoken/ui/shine-border";
 import { Spinner } from "@polytoken/ui/spinner";
@@ -172,6 +173,14 @@ const DevComponentsPage = () => {
             </Avatar>
           ))}
         </AvatarStack>
+      </Section>
+
+      <Section title="rating (@kibo-ui, STCK-04 registry-install proof)">
+        <Rating defaultValue={3} data-testid="rating">
+          {Array.from({ length: 5 }, (_, i) => (
+            <RatingButton key={i} />
+          ))}
+        </Rating>
       </Section>
     </main>
   );
