@@ -12,7 +12,8 @@
 - ✅ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — SHIPPED 2026-07-10. Atomic internal rename nauta → polytoken, Google OAuth + sessions (Supabase Auth), enforced per-user tenancy (app-boundary primary + RLS defense-in-depth, adversarially gated), email threads at ingest + personal-forwarding seam, hygiene folds + decision-ready v1.8 dossier. Archived: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) · Audit: [milestones/v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md).
 - ✅ **v1.8 — Polytoken Re-skin — Brand & Design-System Foundation** (Phases 47–48; scope cut) — SHIPPED 2026-07-10. Polytoken brand identity (voice, logo, guide; naming USER-LOCKED to polytoken/polytoken.ai) + Playwright/screenshot verification toolchain, and token-system extensions on the EXTENDED v1.4 token system (pill radius, success color, code typography, tier-ladder + graph node/edge-type tokens, hover/active convention, breakpoint decision). Opened as Phases 47–51; user-directed scope cut ended it at Phase 48 with 12/12 in-scope requirements — RSKN/MOBL/PANL (11 requirements) moved to v1.9 per [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md). Archived: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) · Audit: [milestones/v1.8-MILESTONE-AUDIT.md](milestones/v1.8-MILESTONE-AUDIT.md).
 - ✅ **v1.9 — Cloud Workspace** (Phases 49–54) — SHIPPED 2026-07-14. The E3 email-cluster workflow (thread cards on the chat canvas, thread-bound chats, a real `web_search` executor, captured sources → INFERRED nodes → promote-to-global, accumulating cluster context) on a fully re-skinned, mobile-responsive, live-deployed product with editable genui panels. 24/27 requirements. **Caveat:** shipped with its three live-acceptance legs unexecuted — LIVE-03 (OAuth live), LIVE-04 (real email flowing), CLUS-07 (the six-leg scenario on the real inbox, *the declared acceptance bar*) — accepted as tech debt by explicit user decision at the gate, overriding the milestone's own standing rule. All three are user-only actions with code/infra/runsheets complete; see [phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md](phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md) §A → §B.3–6 → §H. Archived: [milestones/v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md) · Requirements: [milestones/v1.9-REQUIREMENTS.md](milestones/v1.9-REQUIREMENTS.md) · Audit: [milestones/v1.9-MILESTONE-AUDIT.md](milestones/v1.9-MILESTONE-AUDIT.md).
-- 📋 **Next milestone** — not yet opened. Two live candidates: **backlog 999.18** (full production UI/UX rebuild — the user's post-v1.9 verdict, HIGH PRIORITY) and **v2.0 Local Agent Platform** (E4+E5+E6 merged, the mapped next epoch). Run `/gsd:new-milestone` to open one.
+- 🚧 **v1.10 — Product Design & Research Canvas** (Phases 55–63) — IN PROGRESS (roadmap opened 2026-07-15). A user-picked visual identity (not autonomous), per-surface UX redesign on that identity, a frictionless research canvas (auto-collected sources, user canon, edges-as-context), and an email learning loop — sequenced around a BLOCKING HUMAN GATE at the visual-identity pick (Phase 58) so nothing visual cascades before the user has chosen. See detail below. Requirements: [REQUIREMENTS.md](REQUIREMENTS.md).
+- 📋 **Next epoch** — **v2.0 Local Agent Platform** (E4+E5+E6 merged) follows v1.10. ENDGAME-PLAN.md §5 originally sequenced it right after v1.9, but two post-lock findings (999.18, 999.19) inserted v1.10 first — see PROJECT.md → Current Milestone "Why now (and why not v2.0)".
 
 ## Phases
 
@@ -22,10 +23,15 @@
   informal Phase 21 quality-verification effort is recorded in STATE.md history but was never a
   numbered roadmap phase). v1.3 ran Phases 22–25. v1.4 ran Phases 26–28. v1.5 ran Phases 29–32.
   v1.6 ran Phases 33–41. v1.7 ran Phases 42–46. v1.8 ran Phases 47–48 (scope cut; opened as
-  47–51). **v1.9 runs Phases 49–54** — the ex-49/50/51 seed specs (goal/success-criteria text)
+  47–51). v1.9 ran Phases 49–54 — the ex-49/50/51 seed specs (goal/success-criteria text)
   carried forward onto the new Phases 51–53; the actual numbers were reassigned so the Band 1
   Live-Loop Gate could take 49–50 (ENDGAME-PLAN.md §2's hard ordering constraint: Band 1 gates
-  every Band 2/3 phase).
+  every Band 2/3 phase). **v1.10 runs Phases 55–63** — Phase 55 is the platform migration; Phases
+  56–57 are the two palette-independent backend tracks (research-canvas backend, email learning
+  loop), both parallel-safe with Phase 55 and with each other; Phase 58 is the BLOCKING HUMAN GATE
+  (visual-identity pick); Phase 59 realizes the locked identity as a designed token set; Phases
+  60–62 redesign every surface on it; Phase 63 lands the research canvas's visual layer last
+  (it needs both the locked identity and the Phase-56 backend).
 
 - Decimal phases (e.g. 49.1): urgent insertions via `/gsd:phase insert`, executed between the
   surrounding integers.
@@ -101,7 +107,7 @@ stays gated behind the retrieval-miss-rate artifact (`packages/db/scripts/retrie
 - [x] **Phase 34: Tool-Loop Mechanics (stub/echo executor)** - Chat agent runs a bounded (≤4-round) mid-turn tool loop against a stub/echo `ToolExecutor`, proving the round mechanics and fixing 2 latent bugs, before any real tool exists (completed 2026-07-08)
 - [x] **Phase 35: Cost + Eval Scaffolding** - A per-round cost ceiling with fail-closed abort semantics is enforced on the FOUND-3 ledger, and retrieval-quality/citation-faithfulness/injection-resistance become measurable Phase-16 harness dimensions — both built against Phase 34's stub (completed 2026-07-08)
 - [x] **Phase 36: Thin-Wrapper Tools** - User can ask about a known entity or find related emails from chat via `lookup_entity`/`search_emails`, thin wrappers over existing repos with zero new backend (completed 2026-07-08)
-- [x] **Phase 37: Knowledge Search + Python Read-Side** - User can search or expand the knowledge graph from chat via `search_knowledge`, backed by a NEW Python `KnowledgeGraphRepository` + a DB-level `extracted_only` view — built but not yet exposed to users (completed 2026-07-09)
+- [x] **Phase 37: Knowledge Search + Python Read-Side** - User can search or expand the knowledge graph from chat via `search_knowledge`, backed by a NEW Python `KnowledgeGraphRepository` + a DB-level `extracted_only` view (completed 2026-07-09)
 - [x] **Phase 38: Quarantine + Adversarial Eval** - Every wired `ToolExecutor` structurally enforces tier-filtered envelopes, proven against an adversarial fixture suite + live-model harness; `search_knowledge` becomes safely user-facing (completed 2026-07-09)
 - [x] **Phase 39: Tool-Round UI + Citation Chips** - `/chat` visibly surfaces in-progress tool rounds and renders citation chips through one shared `<ProvenanceLink>` primitive (completed 2026-07-09)
 - [x] **Phase 40: Confirm-Action Widgets** - Agent can end a turn with a confirm-action widget letting a human promote/reject a knowledge suggestion, over the existing Phase-24 CAS spine, with an edge-tier staleness re-check (completed 2026-07-09)
@@ -174,12 +180,240 @@ STATE.md → Deferred Items → v1.9.
 
 </details>
 
+## v1.10 — Product Design & Research Canvas (Phases 55–63) — CURRENT
+
+**Goal:** polytoken stops looking experimental and starts working the way the user described it —
+a *designed* product whose research canvas collects sources without ceremony, lets the user select
+a personal canon, and treats canvas edges as context. Plan of record: PROJECT.md → Current
+Milestone.
+
+**Why now (and why not v2.0 next):** two findings postdate ENDGAME-PLAN.md's 2026-07-10 lock —
+backlog 999.18 (*"the whole UI is still ugly/experimental, not a production UI — not just tokens
+and colors"*) and 999.19 (the user's own words for the target research-canvas workflow) — and both
+argue design-before-more-surfaces. v1.10 inserts ahead of the originally-next v2.0 Local Agent
+Platform, which keeps its number and follows this milestone.
+
+**Ordering (hard constraint — this milestone's defining rule):** Phase 58 is a BLOCKING HUMAN GATE.
+No SURF-* phase (60–62) and no visual research-canvas work (Phase 63) is planned or executed before
+the user has picked a visual direction in Phase 58 — per 999.18(d), autonomous-overnight runs
+cannot make taste decisions, and that is exactly what produced "the whole UI is still ugly" after
+v1.9. Everything palette-independent runs BEFORE the gate so an overnight run can do maximum work
+first: Phase 55 (platform migration, its own risky breaking-change phase) and Phases 56–57 (the
+research-canvas backend/context-model seam and the email-learning-loop backend), both parallel-safe
+with Phase 55 and with each other. Every phase from 59 onward depends, directly or transitively, on
+Phase 58's recorded pick. Regression rails carried from v1.9 that every phase below must keep
+green: the 16-surface screenshot harness (`npm run screenshot:review`), `palette-ban.test.ts`, the
+WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
+
+- [ ] Phase 55: Platform Migration — Tailwind v4 + React 19
+- [ ] Phase 56: Research Canvas — Backend & Semantic Context Model
+- [ ] Phase 57: Email Learning Loop
+- [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
+- [ ] Phase 59: Visual Identity — Designed Token Set & Brand Guide
+- [ ] Phase 60: Surface Redesign — Inbox & Email Detail
+- [ ] Phase 61: Surface Redesign — Chat, Canvas & Mobile Panel Chrome
+- [ ] Phase 62: Surface Redesign — Knowledge, Studio & Production States
+- [ ] Phase 63: Research Canvas — Visual Surfaces
+
+### Phase 55: Platform Migration — Tailwind v4 + React 19
+
+**Goal**: `apps/web` + `packages/ui` run on Tailwind v4 (oklch tokens) and React 19, every vendored
+component is revalidated, the Radix-vs-Base-UI stance is settled and documented, and a direct
+shadcn registry install works in place of the vendor-and-adapt workflow — all with zero regression
+against the existing gates. This is deliberately unparked now: redoing the palette rebuild (Phase
+59) on the old HSL/v3 stack would mean redoing it again at a later v4 migration.
+**Depends on**: Nothing (first phase of v1.10)
+**Requirements**: STCK-01, STCK-02, STCK-03, STCK-04
+**Success Criteria** (what must be TRUE):
+  1. `apps/web` + `packages/ui` build and run on Tailwind v4: `globals.css` tokens are expressed as
+     `@theme`/oklch (not HSL), and the WCAG-AA contrast + token-registration regression gates stay
+     green on the new engine.
+  2. `apps/web` + `packages/ui` build and run on React 19: the 16-surface screenshot harness
+     (`npm run screenshot:review`) and the 32/32 E2E suite show zero runtime regressions.
+  3. The Radix-vs-Base-UI primitive stance is decided, documented in the design-system skill /
+     `docs/design/`, and every vendored `packages/ui` component still matches its documented
+     behavior post-upgrade.
+  4. A direct `shadcn add @kibo-ui/<component>` (or equivalent registry) install succeeds against
+     the new stack for at least one real component — the vendor-and-adapt workflow is no longer
+     required for that component.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 56: Research Canvas — Backend & Semantic Context Model
+
+**Goal**: The palette-independent data model and server seams for the research canvas exist: every
+source the agent uses in a conversation auto-collects into a per-conversation ledger with no
+capture-confirm ceremony, and connecting a source/table/panel node to a chat node on the canvas
+injects that node's content as real context for that chat through a semantic linkage store — never
+canvas `sharedState`, which was explicitly ruled out as the linkage store per D-54. This phase also
+lands the promotion-gate reuse seam that Phase 63's canon-curation UX sits on top of. No new visual
+canvas chrome ships in this phase.
+**Depends on**: Nothing (parallel-safe with Phase 55)
+**Requirements**: RCNV-01, RCNV-04
+**Success Criteria** (what must be TRUE):
+  1. Every tool result (starting with `web_search`) used during a conversation is recorded in a
+     per-conversation source ledger automatically — verifiable via the database/API — with no
+     manual per-turn confirmation step anywhere in the flow.
+  2. Drawing a canvas edge from a source/table/panel node to a chat node causes that node's content
+     to be injected into the chat's context on the next turn — verifiable by the chat's response
+     referencing the injected content — backed by a semantic linkage store that is NOT canvas
+     `sharedState`.
+  3. The existing suggest-only promotion gate (INFERRED → EXTRACTED) is reachable from the source
+     ledger's records with zero new promotion code, so Phase 63's canon-curation UX has a real seam
+     to build on.
+**Plans**: TBD
+
+### Phase 57: Email Learning Loop
+
+**Goal**: The user can correct what an email or extracted entity *is*, and the system captures and
+reuses that correction to improve future classification/extraction — extending the existing
+suggest-only entity-resolution stance and never auto-deciding.
+**Depends on**: Nothing (parallel-safe with Phase 55 and Phase 56)
+**Requirements**: LEARN-01, LEARN-02
+**Success Criteria** (what must be TRUE):
+  1. The user can correct the classification/extraction of an email or entity, and that correction
+     is stored as a structured, addressable record — not a one-off correction that leaves no trace.
+  2. A later email or entity that resembles a previously corrected one is classified/extracted using
+     the accumulated correction signal, measurably differing from the pre-correction behavior.
+  3. Accumulated correction signal is never auto-applied as a silent decision — every consumer of it
+     stays suggest-only, consistent with the existing entity-resolution stance.
+**Plans**: TBD
+
+### Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
+
+**Goal**: **THIS PHASE IS A BLOCKING HUMAN CHECKPOINT.** 2–3 visually distinct directions are
+sketched on real polytoken screens (throwaway HTML/CSS, real content — not mood boards or swatches)
+so the user can compare actual looks, and the user picks exactly one. This phase's own completion
+IS the gate: no SURF-* phase and no visual research-canvas work is planned or executed until the
+pick is recorded. This directly answers 999.18(d) — the design-review loop with the user on real
+screens that v1.9's autonomous-overnight approach skipped, which is what produced "the whole UI is
+still ugly."
+**Depends on**: Phase 55 (Platform Migration — sketches are built on the stable, migrated stack)
+**Requirements**: IDNT-01, IDNT-02
+**Success Criteria** (what must be TRUE):
+  1. 2–3 distinct visual directions exist as throwaway HTML/CSS renders of real polytoken screens
+     (inbox, chat, at least one canvas surface) — each internally consistent (its own palette/type/
+     spacing) and visibly different from the others on real content, not swatches.
+  2. The user has looked at all directions on real screens and explicitly selected exactly one.
+  3. The selected direction is recorded in a durable, machine-readable location (PROJECT.md Key
+     Decisions or equivalent) that Phase 59 onward reads as its locked input.
+  4. No phase after this one has begun planning or execution before the selection is recorded.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 59: Visual Identity — Designed Token Set & Brand Guide
+
+**Goal**: The direction locked in Phase 58 is realized as a real designed token set — oklch
+palette, type scale, spacing/density system, and a signature element that *replaces* the
+stock-shadcn defaults rather than recoloring them — and the brand guide gains the visual-identity
+section it has never had (today it defines only voice/tone).
+**Depends on**: Phase 58 (the pick)
+**Requirements**: IDNT-03, IDNT-04
+**Success Criteria** (what must be TRUE):
+  1. `globals.css`'s oklch token values are the designed palette from the locked direction, not a
+     recolor of the stock-shadcn defaults (verifiable by diffing against the pre-Phase-59 palette).
+  2. A defined type scale, spacing/density system, and at least one signature element (none present
+     before this phase) exist as reusable tokens/utilities — the app's actual design system, ready
+     for every Band-3 surface to consume.
+  3. `docs/design/brand-guide.md` has a visual-identity section (palette/type/spacing/signature +
+     usage rules) alongside its existing voice/tone section.
+  4. The WCAG-AA contrast + token-registration regression gates stay green against the new designed
+     values.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 60: Surface Redesign — Inbox & Email Detail
+
+**Goal**: The inbox (three-pane, thread groups, mobile feed) and the email-detail view
+(`/emails/[id]`, region overlays) are redesigned on the locked visual identity — layout, hierarchy,
+information density, interactions — not merely re-tokened.
+**Depends on**: Phase 59
+**Requirements**: SURF-01, SURF-04
+**Success Criteria** (what must be TRUE):
+  1. The inbox's three-pane desktop layout and mobile feed view visibly differ in layout, hierarchy,
+     and density from the pre-Phase-59 version, not just in color.
+  2. Thread grouping and entity chips read clearly at a glance against the new identity — contrast,
+     spacing, and information density are deliberate choices, not inherited defaults.
+  3. `/emails/[id]` and its region overlays are redesigned on the same identity, with the
+     document-preview + entity-region interaction visibly improved in hierarchy and density.
+  4. The 16-surface screenshot harness captures both surfaces under the new design with zero
+     unintended regressions elsewhere.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 61: Surface Redesign — Chat, Canvas & Mobile Panel Chrome
+
+**Goal**: `/chat` and its canvas (composer, message stream, tool-round rows, panels, canvas chrome)
+are redesigned on the locked identity, and editable-panel chrome becomes reachable on mobile with
+the docked/mobile transcript honoring panel overlays — closing backlog 999.17.
+**Depends on**: Phase 59
+**Requirements**: SURF-02, SURF-07
+**Success Criteria** (what must be TRUE):
+  1. The composer, message stream, tool-round activity rows, and genui panel chrome are redesigned
+     on the new identity — layout and hierarchy visibly distinct from the pre-Phase-59 version.
+  2. The canvas chrome (controls, minimap, background, node shells) matches the new identity
+     end-to-end, with zero stock React Flow default styling remaining.
+  3. On a mobile viewport, the user can reach the editable-panel toolbar/controls (pack switch,
+     param edit, regenerate, re-theme) that were previously canvas-desktop-only.
+  4. The docked/mobile transcript view of a conversation reflects panel overlays/rethemes made on
+     the canvas side of the same conversation, closing the 999.17 gap.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 62: Surface Redesign — Knowledge, Studio & Production States
+
+**Goal**: The `/knowledge` canvas, `/studio`, `/settings/*`, and `/login` are redesigned on the
+locked identity, and every Band-3-redesigned surface (inbox, email-detail, chat+canvas, knowledge,
+studio, settings, login) gains production-grade empty/loading/error states in place of first-draft
+placeholders — the wrap-up pass that closes out the surface-redesign band.
+**Depends on**: Phase 59, Phase 60, Phase 61 (the production-states pass needs the other surfaces
+already redesigned)
+**Requirements**: SURF-03, SURF-05, SURF-06
+**Success Criteria** (what must be TRUE):
+  1. `/knowledge`'s canvas (node chrome, filter rail, legend, detail pane) is redesigned on the new
+     identity.
+  2. `/studio`, `/settings/*`, and `/login` are redesigned on the new identity — layout, hierarchy,
+     and density all deliberately redesigned, not inherited defaults.
+  3. Every surface touched in Phases 60–62 has a designed (not first-draft) empty state, loading
+     state, and error state — verifiable by triggering each condition on each surface.
+  4. The full 16-surface screenshot harness + 32/32 E2E suite + palette-ban/WCAG gates stay green
+     across the whole redesigned surface set.
+**Plans**: TBD
+**UI hint**: yes
+
+### Phase 63: Research Canvas — Visual Surfaces
+
+**Goal**: The visual layer of the research canvas lands on the locked identity: auto-collected
+sources appear as nodes on the canvas without the user asking, the user can curate them into a
+personal canon through canvas-level UX (never chat widgets), and the user can generate
+presentation-grade panels grounded in the selected canon/sources.
+**Depends on**: Phase 59 (locked identity), Phase 56 (backend ledger/edges), Phase 61 (redesigned
+canvas chrome to land the new node types on)
+**Requirements**: RCNV-02, RCNV-03, RCNV-05
+**Success Criteria** (what must be TRUE):
+  1. During a research conversation, sources the agent used appear as nodes on the canvas
+     automatically — visibly related to the conversation — without any per-turn confirm action.
+  2. The user can select auto-collected source nodes into a personal canon via a canvas-level
+     curation UX (e.g., multi-select + an explicit "add to canon" action on the canvas), which
+     promotes them through the existing suggest-only gate — zero per-turn chat widgets involved.
+  3. The user can generate a presentation-grade genui panel whose content is grounded in the
+     selected canon/sources.
+  4. The new source nodes and curation styling match the Phase 59 designed identity, not stock
+     canvas node styling.
+**Plans**: TBD
+**UI hint**: yes
+
 ## Next Two Epochs — the endgame map (LOCKED 2026-07-10)
 
 Everything remaining in the product vision compresses into TWO epochs (full plan, rationale,
 thinning decisions, and command map: [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md)).
 Standing rule locked with it: **deploy/OAuth/live-UAT gates are first-class phase work, never
 deferrable-by-default** — a milestone isn't done until the user has touched the capability live.
+
+**Note (2026-07-15):** this map originally sequenced v2.0 directly after v1.9. Two post-lock
+findings (999.18, 999.19) inserted v1.10 "Product Design & Research Canvas" ahead of v2.0 instead
+— see PROJECT.md → Current Milestone and the v1.10 section above. v2.0 keeps its number and content
+below unchanged; it now follows v1.10 rather than v1.9.
 
 - **v1.9 — Cloud Workspace** (Epoch A): Band 1 Live-Loop Gate FIRST (local stack green, staging/prod
   migrations 0026–0035, OAuth + SES forwarding runbooks → user's real email flowing, deferred-UAT
@@ -212,19 +446,19 @@ deferrable-by-default** — a milestone isn't done until the user has touched th
 - **999.9 — Canvas auto-layout stacking (cosmetic) — folded into v1.4 as POLISH-02 (Phase 26), SHIPPED 2026-07-06.**
 - **999.10 — Knowledge-graph uplift — PROMOTED to v1.5 (2026-07-07), SHIPPED 2026-07-08.** Adopt graphify's *algorithms* (tier ladder, bounded neighbour-expand, tier-pruned detail) onto the live Postgres store, per its own staged cost/benefit ordering — see full analysis in `.planning/phases/999.10-knowledge-graph-uplift-graphify-adoption/NOTE.md`. Executed as Phases 29–32 (see milestones/v1.5-ROADMAP.md). Stage-3 BFS-into-prompts, budget-aware tier-pruning, and snapshot/diff remain explicitly deferred (tracked as KGX-01..03 in REQUIREMENTS.md → Future Requirements) until RECALL-02 measures a real retrieval-miss rate.
 - **999.11 — polytoken.ai product vision (raised 2026-07-07, user):** total rebrand (nauta → polytoken.ai) + UI refactor + branding/design/marketing research + auth/gauth/tenancy/RLS; email-thread cards on canvas with attached chats + web-research → knowledge nodes → promote-to-global (the "AI-powered ontology driven by user chats"); desktop app + daemon (remote filesystem, watched folders, directory panels with Claude-Code-class attached chats, embedded editor panels); browser-control canvas panel; user-controlled tool/skill registry + agent self-repository of reusable functions; distributed inference/compute-credit pooling (explicitly last/gated). Full dependency-ordered epoch ladder (E0–E7), backlog absorption map, and irreversibility guardrails: `.planning/research/polytoken-vision/VISION.md`. Draws from after v1.6; does NOT alter v1.6 sequencing. **Superseded 2026-07-10 by the two-epoch endgame restructure (ENDGAME-PLAN.md) — E3 now v1.9 Band 3, E4+E5+E6 merged into v2.0, E7 stays parked.**
-- **999.12 — Tailwind v4 + React 19 migration (raised 2026-07-07, UI-ecosystem research):** migrate `apps/web` + `packages/ui` off Tailwind 3.4/React 18 to unlock direct shadcn registry installs (`shadcn add @kibo-ui/…`) in place of the vendor+adapt workflow documented in `.claude/skills/nauta-design-system/SKILL.md`. Ecosystem registries (`@magicui`, `@kibo-ui`, `@coss` ex-Origin UI) all emit Tailwind v4/oklch payloads now. Scope: port the HSL tokens in `apps/web/src/app/globals.css` to `@theme`/oklch, revalidate every vendored `packages/ui` component, and decide the Radix-vs-Base UI stance (upstream shadcn switched default primitives to Base UI, 2026-07). Registry wiring already in place: `packages/ui/components.json` (2026-07-07). **Stays parked — orthogonal platform risk, both v1.9 and v2.0 stay on the stable stack (ENDGAME-PLAN.md §6).**
-- **999.13 — genui catalog expansion: register vendored components as spec types (raised 2026-07-08, user):** the declarative genui catalog (`packages/genui/src/catalog/manifest.ts`, 17 frozen `SpecNodeType`s, `RegisteredTypeSchema` allowlist) cannot emit the 20 vendored Magic UI/Kibo UI components shipped in `59dbf3b` — they render `UnknownComponentPlaceholder`. Register the high-payoff simple-prop ones first (`number-ticker`, `spinner`, `avatar-stack`, `animated-list`, `marquee`): per component = SpecNodeType literal + ManifestEntry (LLM description, CI-gated example, `.strict()` Zod propsSchema, component ref) + catalog tests (CTLG-04). Touches the locked generation surface (Bedrock structured-output grammar D-22/COST-02, catalog prompts D-23) — run as a small phase, not a drive-by. Code-island channel is out of scope by design (AST allowlist blocks imports). Components already browser-verified via `/dev/components` showcase. Candidate for a small v1.9 phase per ENDGAME-PLAN.md §6 — not scoped into a v1.9 phase at this roadmap's creation; re-evaluate at a future milestone if not picked up.
-- **999.14 — untracked dev/design scratch pages break `@polytoken/web` typecheck (found by Phase 42 verification, 2026-07-09):** the untracked `apps/web/src/app/dev/design/` showcase still imports `@nauta/ui/*` (20 specifiers in `previews-vendored.tsx`); after the Phase-42 rename removed `node_modules/@nauta`, Next's regenerated `.next/types/validator.ts` transitively imports the page and `npm run typecheck -w @polytoken/web` fails with 22 `TS2307` errors — the Task-3 tsconfig `exclude` cannot stop transitive imports reached via `.next/types`, so local `next build` (`ignoreBuildErrors: false`) would fail identically. Git-based CI/Vercel builds are unaffected (the dir is untracked). Fix options: find/replace `@nauta/ui` → `@polytoken/ui` inside the user-owned scratch dir (hard-excluded from Phase 42 by decision), or commit/delete the scratch content. Evidence: `.planning/phases/42-atomic-rename-nauta-polytoken/42-VERIFICATION.md` (status gaps_found, 7/8; gap parked here — ship not blocked). Opportunistic fix candidate during v1.9 Phase 51 (re-skin band) per ENDGAME-PLAN.md §6.
-- **999.15 — Chat-path Bedrock prompt caching (raised 2026-07-09, cost hygiene):** the chat/tool-loop path re-sends its static prefix — the chat system prompt + the `emit_ui_spec` SpecRoot JSON schema injected as `input_schema` (`apps/email-listener/app/.../chat_tools.py:74-84`, the largest single block) — at full input rate on **every turn AND every tool round** (loop runs ≤4 rounds/turn, `run_chat_turn_tool_loop.py`). No `cache_control` anywhere on this path (`bedrock_chat_adapter.py:70-82` passes `system` through unchanged). The genui path already proves the fix: `cache_control:{type:ephemeral}` / `cachePoint` on the static block (COST-01, D-21, `genui_generator_adapter.py:171-188`). Scope: add cache points on the chat system block + the tools schema (Bedrock `cachePoint` may be set in `system`/`tools`; 5-min or 1-hr TTL — `research/CURRENCY-2026.md:58-66`); fully lossless (cache-read ≈ 0.1× input), self-contained, no schema/renderer changes. **Context:** app Bedrock spend is ~$10/mo behind ~$30/mo fixed infra — this is hygiene, not a headline cut; sequence behind higher-value product work. Two sibling cost items surfaced the same day but NOT filed: Batches API for the eval judge (`scripts/genui_eval/judge_adapter.py`, −50%, non-latency-sensitive), and the dormant `halfvec(1536)` vs Titan-Embeddings-V2-max-1024 dim mismatch (`research/CURRENCY-2026.md:272`, only bites on a V1→V2 move). Not scoped into a v1.9 phase at this roadmap's creation (hygiene, sequenced behind value work per ENDGAME-PLAN.md §6) — candidate for in-phase opportunistic pickup if cheap.
+- **999.12 — Tailwind v4 + React 19 migration (raised 2026-07-07, UI-ecosystem research):** migrate `apps/web` + `packages/ui` off Tailwind 3.4/React 18 to unlock direct shadcn registry installs (`shadcn add @kibo-ui/…`) in place of the vendor+adapt workflow documented in `.claude/skills/nauta-design-system/SKILL.md`. Ecosystem registries (`@magicui`, `@kibo-ui`, `@coss` ex-Origin UI) all emit Tailwind v4/oklch payloads now. Scope: port the HSL tokens in `apps/web/src/app/globals.css` to `@theme`/oklch, revalidate every vendored `packages/ui` component, and decide the Radix-vs-Base UI stance (upstream shadcn switched default primitives to Base UI, 2026-07). Registry wiring already in place: `packages/ui/components.json` (2026-07-07). **UNPARKED 2026-07-14, promoted to v1.10 Phase 55 (Platform Migration).**
+- **999.13 — genui catalog expansion: register vendored components as spec types (raised 2026-07-08, user):** the declarative genui catalog (`packages/genui/src/catalog/manifest.ts`, 17 frozen `SpecNodeType`s, `RegisteredTypeSchema` allowlist) cannot emit the 20 vendored Magic UI/Kibo UI components shipped in `59dbf3b` — they render `UnknownComponentPlaceholder`. Register the high-payoff simple-prop ones first (`number-ticker`, `spinner`, `avatar-stack`, `animated-list`, `marquee`): per component = SpecNodeType literal + ManifestEntry (LLM description, CI-gated example, `.strict()` Zod propsSchema, component ref) + catalog tests (CTLG-04). Touches the locked generation surface (Bedrock structured-output grammar D-22/COST-02, catalog prompts D-23) — run as a small phase, not a drive-by. Code-island channel is out of scope by design (AST allowlist blocks imports). Components already browser-verified via `/dev/components` showcase. Not scoped into a v1.10 phase at this roadmap's creation; re-evaluate at a future milestone if not picked up.
+- **999.14 — untracked dev/design scratch pages break `@polytoken/web` typecheck (found by Phase 42 verification, 2026-07-09):** the untracked `apps/web/src/app/dev/design/` showcase still imports `@nauta/ui/*` (20 specifiers in `previews-vendored.tsx`); after the Phase-42 rename removed `node_modules/@nauta`, Next's regenerated `.next/types/validator.ts` transitively imports the page and `npm run typecheck -w @polytoken/web` fails with 22 `TS2307` errors — the Task-3 tsconfig `exclude` cannot stop transitive imports reached via `.next/types`, so local `next build` (`ignoreBuildErrors: false`) would fail identically. Git-based CI/Vercel builds are unaffected (the dir is untracked). Fix options: find/replace `@nauta/ui` → `@polytoken/ui` inside the user-owned scratch dir (hard-excluded from Phase 42 by decision), or commit/delete the scratch content. Evidence: `.planning/phases/42-atomic-rename-nauta-polytoken/42-VERIFICATION.md` (status gaps_found, 7/8; gap parked here — ship not blocked). Opportunistic fix candidate during any v1.10 surface-redesign phase that touches `/dev/design`.
+- **999.15 — Chat-path Bedrock prompt caching (raised 2026-07-09, cost hygiene):** the chat/tool-loop path re-sends its static prefix — the chat system prompt + the `emit_ui_spec` SpecRoot JSON schema injected as `input_schema` (`apps/email-listener/app/.../chat_tools.py:74-84`, the largest single block) — at full input rate on **every turn AND every tool round** (loop runs ≤4 rounds/turn, `run_chat_turn_tool_loop.py`). No `cache_control` anywhere on this path (`bedrock_chat_adapter.py:70-82` passes `system` through unchanged). The genui path already proves the fix: `cache_control:{type:ephemeral}` / `cachePoint` on the static block (COST-01, D-21, `genui_generator_adapter.py:171-188`). Scope: add cache points on the chat system block + the tools schema (Bedrock `cachePoint` may be set in `system`/`tools`; 5-min or 1-hr TTL — `research/CURRENCY-2026.md:58-66`); fully lossless (cache-read ≈ 0.1× input), self-contained, no schema/renderer changes. **Context:** app Bedrock spend is ~$10/mo behind ~$30/mo fixed infra — this is hygiene, not a headline cut; sequence behind higher-value product work. Two sibling cost items surfaced the same day but NOT filed: Batches API for the eval judge (`scripts/genui_eval/judge_adapter.py`, −50%, non-latency-sensitive), and the dormant `halfvec(1536)` vs Titan-Embeddings-V2-max-1024 dim mismatch (`research/CURRENCY-2026.md:272`, only bites on a V1→V2 move). Not scoped into a v1.10 phase at this roadmap's creation (hygiene, sequenced behind value work) — candidate for in-phase opportunistic pickup if cheap.
 - **999.16 — Remaining raw-palette chip/badge surfaces off-token (found by Phase 48 adversarial audit, 2026-07-10):** two surfaces implement the exact semantics Phase 48's purpose-built tokens exist for, but with raw Tailwind palette hardcodes: (a) `apps/web/src/app/_components/entity-chips.tsx` — the inbox's entity chips (rendered by `inbox-row.tsx`, `inbox-thread-group.tsx`, `inbox-three-pane.tsx`) use raw `violet-100/200/500/800/950` classes + shared `Badge` (`rounded-md`, not pill) for the entity-type semantic that `color.graph.entity` was built for; missed because 48-03's chip search was grep-scoped to `/chat` only. (b) `apps/web/src/app/entities/[id]/_components/entity-detail.tsx` `StatusBadge` (lines ~66-85) — confirmed-vs-provisional confidence-tier concept via `bg-primary/10` + raw `amber-*` classes instead of the `color.tier.*` ladder. **RESOLVED-SCOPE 2026-07-10: absorbed as RSKN-06 into v1.9 Phase 51 (Total UI Re-skin), which explicitly extends scope to `/entities/[id]`.** Evidence: 48-VERIFICATION.md resolution note.
 - **v1.6 deferred items (from this milestone's own research, tracked for a future pass):** entity-merge confirm-action's surrogate-key decision (Fork 2 allowlist #2 — `component_entity_candidate_links` is keyed by pair, not an addressable id); region-confirm confirm-action (Fork 2 allowlist #3 — has its own dedicated non-chat UI already); cheap-model sanitize pass for read-then-write tool chains (Fork 3 — staged until a write-capable tool exists); inline-interactive knowledge preview (Fork 1 — hand-rolled mini pan/zoom, gated on Phase 41's non-interactive preview proving insufficient); demote/undo path for promoted edges (Fork 2 — plain REST, supersede-never-mutate, lower urgency); `web_search` ToolExecutor + source-capture as INFERRED nodes (VISION.md E1 addition — absorbed into v1.9 Phase 54, CLUS-03/04).
-- **999.17 — Editable-panel chrome unreachable on mobile + docked view ignores overlays (found by v1.9 milestone audit, 2026-07-12):** Phase 52 wired PanelThemeScope/overlays/toolbar ONLY into the canvas node (genui-panel-node.tsx); Phase 53 never mounts the canvas below md and the docked/mobile transcript path (message-turn.tsx → genui-part-boundary.tsx → SpecRenderer) reads raw chat.getHistory parts — never shared.panelOverlays, never resolveActivePanel, no toolbar. Net: PANL-01..04 editing is desktop-canvas-only, and canvas-side edits/rethemes don't surface in the docked/mobile view of the same conversation. Graceful degradation (panels render fine), but an undocumented cross-phase trade-off. Fix direction: overlay-resolve specs in the docked renderer + a slim mobile editing affordance. Evidence: v1.9-MILESTONE-AUDIT.md Finding 1.
-- **999.18 — FULL production UI/UX rebuild (raised 2026-07-12, user — HIGH PRIORITY, top candidate for v2.0 or a dedicated v1.10):** the user's verdict on the live app after v1.9: "the whole UI is still ugly/experimental, not a production UI — not just tokens and colors." Root cause: v1.9 Phase 51 "Total UI Re-skin" was scoped (and executed) as token-hygiene only — class→token conversion, hover/focus convention, glassmorphism removal; its own UI-SPEC said "refinement, not redesign." No phase has EVER done actual visual/UX design: base palette is still stock-shadcn (white + teal `hsl(164 39% 22%)` + 0%-saturation grays — globals.css untouched since Phase 48), layouts/components/density/hierarchy/empty-loading-error states are all first-draft. The brand guide's "warm polytoken register" is defined ONLY as voice/tone — no visual identity was ever specified. Scope for the rebuild: (a) real visual identity (palette/type/spacing/signature, designed not defaulted), (b) per-surface UX redesign (inbox, chat+canvas, knowledge, email detail, studio, settings, login) — layout, hierarchy, information density, interactions, (c) production-grade states everywhere, (d) design-review loop with the user on real screens BEFORE cascading (v1.9's autonomous-overnight approach cannot make taste decisions). Run as its own milestone with /gsd:ui-phase per surface + screenshot-driven iteration; the 16-surface screenshot harness + committed token gates from v1.9 are the regression rails. Evidence: user feedback 2026-07-12; .planning/v1.9-MILESTONE-AUDIT.md.
+- **999.17 — Editable-panel chrome unreachable on mobile + docked view ignores overlays (found by v1.9 milestone audit, 2026-07-12):** Phase 52 wired PanelThemeScope/overlays/toolbar ONLY into the canvas node (genui-panel-node.tsx); Phase 53 never mounts the canvas below md and the docked/mobile transcript path (message-turn.tsx → genui-part-boundary.tsx → SpecRenderer) reads raw chat.getHistory parts — never shared.panelOverlays, never resolveActivePanel, no toolbar. Net: PANL-01..04 editing is desktop-canvas-only, and canvas-side edits/rethemes don't surface in the docked/mobile view of the same conversation. Graceful degradation (panels render fine), but an undocumented cross-phase trade-off. Fix direction: overlay-resolve specs in the docked renderer + a slim mobile editing affordance. Evidence: v1.9-MILESTONE-AUDIT.md Finding 1. **PROMOTED 2026-07-15 to v1.10 Phase 61 (Surface Redesign — Chat, Canvas & Mobile Panel Chrome), SURF-07.**
+- **999.18 — FULL production UI/UX rebuild (raised 2026-07-12, user — HIGH PRIORITY):** the user's verdict on the live app after v1.9: "the whole UI is still ugly/experimental, not a production UI — not just tokens and colors." Root cause: v1.9 Phase 51 "Total UI Re-skin" was scoped (and executed) as token-hygiene only — class→token conversion, hover/focus convention, glassmorphism removal; its own UI-SPEC said "refinement, not redesign." No phase has EVER done actual visual/UX design: base palette is still stock-shadcn (white + teal `hsl(164 39% 22%)` + 0%-saturation grays — globals.css untouched since Phase 48), layouts/components/density/hierarchy/empty-loading-error states are all first-draft. The brand guide's "warm polytoken register" is defined ONLY as voice/tone — no visual identity was ever specified. Scope for the rebuild: (a) real visual identity (palette/type/spacing/signature, designed not defaulted), (b) per-surface UX redesign (inbox, chat+canvas, knowledge, email detail, studio, settings, login) — layout, hierarchy, information density, interactions, (c) production-grade states everywhere, (d) design-review loop with the user on real screens BEFORE cascading (v1.9's autonomous-overnight approach cannot make taste decisions). Evidence: user feedback 2026-07-12; .planning/v1.9-MILESTONE-AUDIT.md. **PROMOTED 2026-07-15 to v1.10 in full: (a)→IDNT-01..04 (Phases 58–59), (b)→SURF-01..05 (Phases 60–62), (c)→SURF-06 (Phase 62), (d)→Phase 58's human gate.**
 
-- **999.19 — Frictionless research canvas: auto-collected sources, user canon, nodes-as-context (raised 2026-07-12, user — the production vision in the user's own words, prime E4/E5 shaping input for v2.0):** the user's target workflow, verbatim-distilled: (1) EMAIL LOOP — emails arrive (one-offs + recurring/same-entity); early on the user manually tells the system what each is, and over time it "gets it right all the time" from that feedback (continuous entity/classification improvement — extends the existing suggest-only entity-resolution stance with a learn-from-corrections loop, never auto-decide). (2) RESEARCH LOOP, all on ONE canvas page — broad chaotic research first: many chats, many sources, many angles on an idea; then refinement. (3) SOURCES WITHOUT CEREMONY — every source the agent uses in research should ALREADY be related to that research and visible on the canvas in some way, WITHOUT the user having to say "capture this as a knowledge source for this cluster" each time (today's CLUS-04 per-turn confirm-widget ceremony is the explicit anti-goal); from that auto-collected pool the user then SELECTS some into their own CANON (user-curated knowledge — maps to the existing INFERRED→promotion gate, but as a canvas-level curation UX over auto-collected candidates, not per-turn chat widgets). (4) COMPOSITION — relate saved sources on the canvas to a NEW chat panel (canvas edges become SEMANTIC: connecting source nodes / generated tables / panels to a chat node injects them as that chat's context — today edges are visual-only and context comes solely from thread_id cluster assembly). (5) PRESENTATION — from selected sources + generated tables, produce polished presentation-grade UI panels (genui grounded in the selected context). User's caveat: "this is not limited to this, but is a narrow version of what this product can do — but it's more or less this way, with this in specific also implemented." Gap analysis vs today: auto-collection of web_search sources per conversation = NEW (design decision needed: auto-collect as zero-write ephemeral records vs auto-INFERRED rows; suggest-only stance says nothing enters the KNOWLEDGE graph without user selection — but a per-conversation source LEDGER visible on canvas is not the knowledge graph); canvas source tray/auto-nodes = NEW; canon-selection UX = NEW (promotion gate reusable); edges-as-context = NEW + architecturally significant (canvas sharedState was explicitly NOT the linkage store per D-54; this needs its own design); source-grounded panel generation = partially exists (cluster context + genui). Relates to: 999.18 (the UI rebuild should design these surfaces, not retrofit them), VISION.md E4/E5. Evidence: user message 2026-07-12 (v1.9 closeout session).
+- **999.19 — Frictionless research canvas: auto-collected sources, user canon, nodes-as-context (raised 2026-07-12, user — the production vision in the user's own words):** the user's target workflow, verbatim-distilled: (1) EMAIL LOOP — emails arrive (one-offs + recurring/same-entity); early on the user manually tells the system what each is, and over time it "gets it right all the time" from that feedback (continuous entity/classification improvement — extends the existing suggest-only entity-resolution stance with a learn-from-corrections loop, never auto-decide). (2) RESEARCH LOOP, all on ONE canvas page — broad chaotic research first: many chats, many sources, many angles on an idea; then refinement. (3) SOURCES WITHOUT CEREMONY — every source the agent uses in research should ALREADY be related to that research and visible on the canvas in some way, WITHOUT the user having to say "capture this as a knowledge source for this cluster" each time (today's CLUS-04 per-turn confirm-widget ceremony is the explicit anti-goal); from that auto-collected pool the user then SELECTS some into their own CANON (user-curated knowledge — maps to the existing INFERRED→promotion gate, but as a canvas-level curation UX over auto-collected candidates, not per-turn chat widgets). (4) COMPOSITION — relate saved sources on the canvas to a NEW chat panel (canvas edges become SEMANTIC: connecting source nodes / generated tables / panels to a chat node injects them as that chat's context — today edges are visual-only and context comes solely from thread_id cluster assembly). (5) PRESENTATION — from selected sources + generated tables, produce polished presentation-grade UI panels (genui grounded in the selected context). User's caveat: "this is not limited to this, but is a narrow version of what this product can do — but it's more or less this way, with this in specific also implemented." Gap analysis vs today: auto-collection of web_search sources per conversation = NEW (design decision needed: auto-collect as zero-write ephemeral records vs auto-INFERRED rows; suggest-only stance says nothing enters the KNOWLEDGE graph without user selection — but a per-conversation source LEDGER visible on canvas is not the knowledge graph); canvas source tray/auto-nodes = NEW; canon-selection UX = NEW (promotion gate reusable); edges-as-context = NEW + architecturally significant (canvas sharedState was explicitly NOT the linkage store per D-54; this needs its own design); source-grounded panel generation = partially exists (cluster context + genui). Relates to: 999.18 (the UI rebuild should design these surfaces, not retrofit them), VISION.md E4/E5. Evidence: user message 2026-07-12 (v1.9 closeout session). **PROMOTED 2026-07-15 to v1.10 in full: step 1→LEARN-01/02 (Phase 57), steps 3–5→RCNV-01..05 (Phases 56, 63).**
 
 - **999.20 — Deep nauta→polytoken purge in LIVE STATE (raised 2026-07-13, user "purge everything"):** the 2026-07-13 brand purge renamed every SAFE surface (code symbols incl. `NAUTA_CATALOG`→`POLYTOKEN_CATALOG`, UI strings, localStorage keys, CSS classes, sample/fixture data, comments, docs). Three "nauta" leaks remain BECAUSE they are coupled to live state and cannot be find-replaced without breakage — each needs a deliberate migration:
   1. **`entity_instances.nauta_id` DB column** — a live Postgres column (the master/canonical-entity FK set on human confirmation), referenced by the Python domain dataclass field, the Supabase repo row-map, promote_entity_on_confirm, and many tests. Rename requires: migration 0037 `ALTER TABLE entity_instances RENAME COLUMN nauta_id TO <new>` (candidate: `canonical_entity_id` — semantically clearer than a brand token; or `polytoken_id` for pure brand parity), applied local→staging→prod (Management API path proven), in LOCKSTEP with the drizzle schema + Python domain/repo + TS + test updates. A half-migration (code renamed, column not) breaks every entity read/write — same failure class as the jsonschema/scope_ref_id bugs. Blocked today only by needing DB access (fresh Supabase token) + Docker for local.
   2. **AWS resource names `nauta-services-*`** — ECR repo, ECS cluster/service, ALB, S3 bucket `nauta-services-ses-inbound-emails` (HOLDS REAL INBOUND EMAILS), Secrets Manager ARN paths, the `project = "nauta-services"` terraform var, and the `.github/workflows` deploy env vars that reference them. This is the re-parked Hazard A/B/C (EXTERNAL-IDENTITY-DECISIONS.md): ECR `force_delete=false` destroy+recreate, immutable ECS/ALB names, S3 buckets can't be renamed (must create-new + migrate objects + re-point SES receipt rules), local-only tfstate. Needs a planned infra migration with the user driving it, not a rename.
   3. **Local project directory `nauta.services.email-listener`** — the working-dir/repo folder name. Can't be changed from inside a session (it's the CWD every path resolves against). User action: rename the folder + re-open; git/remote already point at `pedromshin/polytoken.ai`.
-  Also intentionally left as historical record (NOT bugs): `.planning/**` milestone archives (incl. v1.7 phase 42 "atomic-rename-nauta-polytoken" which documents the original rename) and `packages/db/migrations/**` snapshots (immutable journal — editing breaks the hash chain). Evidence: user "purge everything, project name is fucking polytoken.ai" 2026-07-13.
+  Also intentionally left as historical record (NOT bugs): `.planning/**` milestone archives (incl. v1.7 phase 42 "atomic-rename-nauta-polytoken" which documents the original rename) and `packages/db/migrations/**` snapshots (immutable journal — editing breaks the hash chain). Evidence: user "purge everything, project name is fucking polytoken.ai" 2026-07-13. Stays parked — needs DB access + user-driven infra, next after v1.10 per REQUIREMENTS.md.

@@ -87,17 +87,39 @@ Which phases cover which requirements. Filled by the roadmapper.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| STCK-01..04 | TBD | Pending |
-| IDNT-01..04 | TBD | Pending |
-| SURF-01..07 | TBD | Pending |
-| RCNV-01..05 | TBD | Pending |
-| LEARN-01..02 | TBD | Pending |
+| STCK-01 | Phase 55 — Platform Migration: Tailwind v4 + React 19 | Pending |
+| STCK-02 | Phase 55 — Platform Migration: Tailwind v4 + React 19 | Pending |
+| STCK-03 | Phase 55 — Platform Migration: Tailwind v4 + React 19 | Pending |
+| STCK-04 | Phase 55 — Platform Migration: Tailwind v4 + React 19 | Pending |
+| RCNV-01 | Phase 56 — Research Canvas: Backend & Semantic Context Model | Pending |
+| RCNV-04 | Phase 56 — Research Canvas: Backend & Semantic Context Model | Pending |
+| LEARN-01 | Phase 57 — Email Learning Loop | Pending |
+| LEARN-02 | Phase 57 — Email Learning Loop | Pending |
+| IDNT-01 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |
+| IDNT-02 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |
+| IDNT-03 | Phase 59 — Visual Identity: Designed Token Set & Brand Guide | Pending |
+| IDNT-04 | Phase 59 — Visual Identity: Designed Token Set & Brand Guide | Pending |
+| SURF-01 | Phase 60 — Surface Redesign: Inbox & Email Detail | Pending |
+| SURF-04 | Phase 60 — Surface Redesign: Inbox & Email Detail | Pending |
+| SURF-02 | Phase 61 — Surface Redesign: Chat, Canvas & Mobile Panel Chrome | Pending |
+| SURF-07 | Phase 61 — Surface Redesign: Chat, Canvas & Mobile Panel Chrome | Pending |
+| SURF-03 | Phase 62 — Surface Redesign: Knowledge, Studio & Production States | Pending |
+| SURF-05 | Phase 62 — Surface Redesign: Knowledge, Studio & Production States | Pending |
+| SURF-06 | Phase 62 — Surface Redesign: Knowledge, Studio & Production States | Pending |
+| RCNV-02 | Phase 63 — Research Canvas: Visual Surfaces | Pending |
+| RCNV-03 | Phase 63 — Research Canvas: Visual Surfaces | Pending |
+| RCNV-05 | Phase 63 — Research Canvas: Visual Surfaces | Pending |
 
 **Coverage:**
 - v1 requirements: 22 total (STCK 4 + IDNT 4 + SURF 7 + RCNV 5 + LEARN 2)
-- Mapped to phases: 0/22 (roadmap pending)
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22/22 ✓
+- Unmapped: 0
+
+**Note on RCNV-03:** RCNV-03 ("user can select auto-collected sources into a personal canon
+through a canvas-level curation UX") is owned by Phase 63 because the requirement is only
+user-observably TRUE once the canvas curation UX exists. Phase 56 lays the palette-independent
+promotion-gate-reuse groundwork it depends on, but does not claim the requirement.
 
 ---
 *Requirements defined: 2026-07-14 (from the v1.10 opening Q&A; yolo mode, user asleep — scoping taken from the recorded decisions rather than an interactive pass)*
-*Last updated: 2026-07-14 — v1.10 REQUIREMENTS.md created*
+*Last updated: 2026-07-15 — ROADMAP.md created (Phases 55–63); traceability filled, 22/22 requirements mapped, coverage complete*

@@ -2,11 +2,11 @@
 gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
-status: planning
-last_updated: "2026-07-15T02:52:50.339Z"
+status: ready_to_plan
+last_updated: "2026-07-15T05:00:00.000Z"
 last_activity: 2026-07-15
 progress:
-  total_phases: 0
+  total_phases: 9
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -19,35 +19,40 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-07-14 after v1.9 milestone close)
 
-**Core value:** Reliably receive every inbound email and make it observable — now as a product
-the user actually lives in.
-**Current focus:** Planning the next milestone (`/gsd:new-milestone`).
+**Core value:** Reliably receive every inbound email and make it observable — now as a *designed*
+product the user actually lives in: a research canvas that collects sources without ceremony, lets
+the user select a personal canon, and treats canvas edges as context.
+**Current focus:** v1.10 roadmap created (Phases 55–63, 22/22 requirements mapped). Ready to plan
+Phase 55. Run `/gsd:plan-phase 55`.
 
-**Two things carry into that planning, both user-raised:**
+**Two things carry into execution, both user-raised at v1.9 close and still live:**
 
 1. **The v1.9 live legs are still owed** — §A OAuth, §B.3–6 forwarding, §H CLUS-07, all in
    `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`. Deferred as accepted
-   tech debt at the v1.9 close, overriding the standing rule. No development work required.
+   tech debt at the v1.9 close, overriding the standing rule. No development work required — these
+   are user-only actions and do not block v1.10 phase planning.
 
-2. **Backlog 999.18 — FULL production UI/UX rebuild (HIGH PRIORITY, user's verdict on the live
-   app):** "the whole UI is still ugly/experimental, not a production UI — not just tokens and
-   colors." v1.9's Phase 51 was scoped as token-hygiene only; no phase has ever done real visual
-   design. Top candidate for the next milestone. Related: 999.19 (frictionless research canvas —
-   the user's production vision in their own words; prime E4/E5 shaping input).
+2. **Backlog 999.18/999.19 are now v1.10's spine, not open backlog.** 999.18 (production UI/UX
+   rebuild) maps to IDNT-01..04 (Phases 58–59, the human gate + designed tokens) and SURF-01..07
+   (Phases 60–62, per-surface redesign). 999.19 (frictionless research canvas) maps to LEARN-01/02
+   (Phase 57) and RCNV-01..05 (Phases 56, 63).
 
-Plan of record: research/two-epoch-endgame/ENDGAME-PLAN.md — v2.0 Local Agent Platform (E4+E5+E6
-merged) is the mapped next epoch, but 999.18 may warrant a dedicated v1.10 first.
-
-STANDING RULE (still in force, and worth re-reading given how v1.9 closed): deploy/OAuth/live-UAT
-gates are first-class phase work, never deferrable-by-default — a milestone isn't done until the
-user has touched the capability live.
+**THE GATE (this milestone's defining rule):** Phase 58 is a BLOCKING HUMAN CHECKPOINT — no SURF-*
+phase and no visual research-canvas work is planned or executed before the user has picked a visual
+direction there. Phases 55/56/57 are palette-independent and parallel-safe with each other; they run
+before the gate. STANDING RULE (still in force): deploy/OAuth/live-UAT gates are first-class phase
+work, never deferrable-by-default.
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-07-15 — Milestone v1.10 started
+Phase: 55 of 9 (Platform Migration — Tailwind v4 + React 19) — not yet planned
+Plan: — (no plans created yet)
+Status: Ready to plan
+Last activity: 2026-07-15 — ROADMAP.md created for v1.10 (Phases 55–63); REQUIREMENTS.md
+traceability filled, 22/22 requirements mapped, coverage complete; STATE.md progress counters
+reset for the new milestone.
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
