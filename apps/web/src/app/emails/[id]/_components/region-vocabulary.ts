@@ -129,6 +129,53 @@ export const REGION_ROLE_GEOMETRY: Record<RegionRole, string> = {
   none: "border",
 };
 
+/**
+ * REGION_ROLE_LABEL — polytoken's word for each role, in ONE place.
+ *
+ * `role-picker.tsx` and `inspector-panel.tsx` each carried their own copy of
+ * this map, which is the same one-mapping-not-two hazard T-60-08 names for
+ * tier: two maps of the same fact drift, and the drift shows up as the
+ * picker and the inspector disagreeing about what the user just clicked.
+ * These are polytoken's words, not the document's, so law 2 gives them the
+ * sans — a consumer must never put these behind `chip`/`pmark`.
+ *
+ * "none" reads "Unclassified" — the picker cannot select it (it clears the
+ * role instead), but the inspector can be shown a region that has no role.
+ */
+export const REGION_ROLE_LABEL: Record<RegionRole, string> = {
+  entity: "Entity",
+  field: "Field",
+  unrelated: "Unrelated",
+  none: "Unclassified",
+};
+
+/**
+ * REGION_ROLE_SWATCH — a MINIATURE of the real box treatment the user will
+ * see on the document, for chrome that must show a role rather than name it.
+ *
+ * This is law 3 applied to chrome. Pre-60 the role picker painted an
+ * arbitrary hue per role and the inspector painted a matching chip, so the
+ * surface taught a colour key that (a) died in greyscale and (b) existed
+ * nowhere on the actual document. Rendering the geometry instead means the
+ * picker teaches the document's own vocabulary: the swatch beside "Entity"
+ * IS the border weight an entity box wears on the page.
+ *
+ * The base is deliberately `border-ink` — chrome ink, never a tier hue. A
+ * swatch in the picker is answering "which role?", and it has no tier to
+ * claim; tier colour appears only on a box that has a real extraction status
+ * behind it. Composed here from `REGION_ROLE_GEOMETRY` at module load so the
+ * geometry can never drift from the boxes it advertises, and consumed as a
+ * plain lookup keyed by the `RegionRole` union (T-60-02).
+ */
+const ROLE_SWATCH_BASE = "inline-block h-3 w-3 shrink-0 rounded-[2px] border-ink";
+
+export const REGION_ROLE_SWATCH: Record<RegionRole, string> = {
+  entity: `${ROLE_SWATCH_BASE} ${REGION_ROLE_GEOMETRY.entity}`,
+  field: `${ROLE_SWATCH_BASE} ${REGION_ROLE_GEOMETRY.field}`,
+  unrelated: `${ROLE_SWATCH_BASE} ${REGION_ROLE_GEOMETRY.unrelated}`,
+  none: `${ROLE_SWATCH_BASE} ${REGION_ROLE_GEOMETRY.none}`,
+};
+
 export type RegionLabel =
   | { readonly kind: "type"; readonly text: string }
   | { readonly kind: "text"; readonly text: string }

@@ -9,6 +9,7 @@ import { Input } from "@polytoken/ui/input";
 
 import { EntityTypePicker } from "./entity-type-picker";
 import { FieldRelationshipPicker } from "./field-relationship-picker";
+import { REGION_ROLE_LABEL, REGION_ROLE_SWATCH } from "./region-vocabulary";
 import { RolePicker } from "./role-picker";
 import { getStatusBadge } from "./status-badge";
 
@@ -63,18 +64,23 @@ interface InspectorPanelProps {
   readonly onUnconfirmField: (componentId: string) => void;
 }
 
-/** Compact role chip used in the Region Identity section. */
-const ROLE_CHIP: Record<NonNullable<ComponentRole>, string> = {
-  entity: "bg-graph-entity/10 text-graph-entity",
-  field: "bg-graph-email-component/10 text-graph-email-component",
-  unrelated: "bg-graph-email/10 text-graph-email",
-};
-
-const ROLE_LABEL: Record<NonNullable<ComponentRole>, string> = {
-  entity: "Entity",
-  field: "Field",
-  unrelated: "Unrelated",
-};
+/**
+ * Compact role marker used in the Region Identity section.
+ *
+ * Pre-60 this was a map of one node-TYPE hue per role (a tinted fill plus
+ * matching text, three times over) — a ROLE encoded in a hue, which law 3
+ * gives to shape and law 1 forbids on chrome outright. The retired tokens
+ * are described rather than named: `role-hue-ban.test.ts` walks this file
+ * line by line and cannot tell a citation from a class. It now states the
+ * role the same way the
+ * Role picker does and the same way the page does: the miniature box
+ * geometry (`REGION_ROLE_SWATCH`) over a hue-free chrome fill, with
+ * polytoken's word for the role beside it (`REGION_ROLE_LABEL` — one map,
+ * shared with the picker, so the two cannot disagree about what the user
+ * just clicked). Tier — the one thing that HAS earned colour here — is
+ * stated separately, by the status badge below, through `tierOf`.
+ */
+const ROLE_MARKER = "inline-flex items-center gap-1.5 rounded-sm bg-shade px-2 py-1 text-2xs font-semibold text-ink";
 
 /**
  * InspectorPanel — the single role + relationship control point (D-11,
@@ -126,6 +132,17 @@ export function InspectorPanel({
     selected.extractionStatus !== "confirmed";
   const showConfirmed =
     role === "field" && selected.extractionStatus === "confirmed";
+  /**
+   * A weak candidate is a WARNING, and law 1 spends madder only on the
+   * irreversible — "never errors, never warnings" (58-IDENTITY). Pre-60 this
+   * drove `text-destructive`, which told the user an uncertain guess was a
+   * dangerous one. It is neither: it is a machine's low-confidence read that
+   * a human is about to confirm or correct, which is the entire job of this
+   * panel. Distinguished now by ink WEIGHT, not hue, so it survives
+   * greyscale — and pencil, not madder, is the ladder's word for "uncertain".
+   * The tier hues are not available here either: `sugg` means "suggested",
+   * not "suspect", and a hue means exactly one thing.
+   */
   const lowConfidence =
     selected.confidenceScore !== null && selected.confidenceScore < 0.5;
 
@@ -140,19 +157,18 @@ export function InspectorPanel({
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             {role !== null && (
-              <span
-                className={`text-xs px-2 py-1 rounded-sm font-semibold ${ROLE_CHIP[role]}`}
-              >
-                {ROLE_LABEL[role]}
+              <span className={ROLE_MARKER}>
+                <span className={REGION_ROLE_SWATCH[role]} aria-hidden="true" />
+                {REGION_ROLE_LABEL[role]}
               </span>
             )}
-            <span className="text-sm font-semibold truncate">
+            <span className="text-sm font-semibold truncate text-ink">
               {selected.entityTypeLabel ??
                 selected.propertyLabel ??
                 "Region"}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-pencil">
             <Badge
               variant={statusBadge.variant}
               className={["text-xs", statusBadge.className]
@@ -161,7 +177,7 @@ export function InspectorPanel({
             >
               {selected.extractionStatus}
             </Badge>
-            <span>· Page {selected.pageNumber}</span>
+            <span className="tabular">· Page {selected.pageNumber}</span>
           </div>
         </div>
 
@@ -174,7 +190,7 @@ export function InspectorPanel({
         {/* Section 3: Entity Type Picker (role = entity OR field) */}
         {(role === "entity" || role === "field") && (
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-pencil">
               Entity type
             </p>
             <EntityTypePicker
@@ -252,11 +268,15 @@ export function InspectorPanel({
         {/* Section 5a: Confirmed field — show value + Unconfirm button */}
         {showConfirmed && selected.candidateValue !== null && (
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-pencil">
               Confirmed value
             </p>
+            {/* The document's own words — law 2's evidence, even inside a
+                control. The field is the product; the label above it is
+                polytoken's chrome and stays quiet sans. */}
             <Input
-              className="h-8 text-sm"
+              className="h-8 text-sm font-serif tabular"
+              data-evidence
               defaultValue={selected.candidateValue}
               readOnly
               aria-label="Confirmed value"
@@ -276,18 +296,20 @@ export function InspectorPanel({
         {/* Section 5: Candidate Value (role = field AND candidate present) */}
         {showCandidateValue && (
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-2xs font-semibold uppercase tracking-wide text-pencil">
               Candidate value
             </p>
+            {/* Evidence: this is what the machine read off the page. */}
             <Input
-              className="h-8 text-sm"
+              className="h-8 text-sm font-serif tabular"
+              data-evidence
               defaultValue={selected.candidateValue ?? ""}
               aria-label="Candidate value"
             />
             {selected.confidenceScore !== null && (
               <span
-                className={`text-xs ${
-                  lowConfidence ? "text-destructive" : "text-muted-foreground"
+                className={`text-xs tabular ${
+                  lowConfidence ? "font-semibold text-ink" : "text-pencil"
                 }`}
               >
                 {Math.round(selected.confidenceScore * 100)}% confidence

@@ -5,9 +5,39 @@ import { Button } from "@polytoken/ui/button";
 import { Input } from "@polytoken/ui/input";
 import { Loader2 } from "lucide-react";
 
+import { REGION_TIER } from "./region-vocabulary";
 import { getStatusBadge } from "./status-badge";
 
 // ---- Types ----
+
+/**
+ * The law-1 dispositions in this file (58-IDENTITY law 1; 60-06-PLAN §D).
+ * Madder is earned by an IRREVERSIBLE ACTION and by nothing else — "never
+ * errors, never warnings". This panel had four `destructive` uses and not
+ * one of them was an action:
+ *
+ *   - the REQUIRED asterisk: a rule about a form, stated before anything has
+ *     gone wrong. It now carries ink weight; its `aria-label` already said
+ *     "required" and still does, so the meaning never depended on the hue.
+ *   - the LOW-CONFIDENCE percentage (x2): a machine's uncertainty, which is
+ *     what this review surface exists to resolve, not a hazard. Ink weight
+ *     against `text-pencil` — the ladder's own word for "uncertain".
+ *
+ * The two genuinely destructive controls on this surface are Discard Fields
+ * (here, `variant="ghost"` by 07-UI-SPEC) and the deny buttons in
+ * `confirm-deny-controls.tsx` / `layers-tree-row.tsx`, which keep their
+ * madder — see 60-05-SUMMARY.md.
+ */
+
+/** Required marker: ink weight, never madder — a form rule is not a hazard. */
+const REQUIRED_MARK = "ml-0.5 text-xs font-semibold text-ink";
+
+/** A confidence read: ink weight when weak, quiet pencil otherwise. Never hue. */
+function confidenceClass(score: number): string {
+  return score < 0.5
+    ? "text-xs tabular font-semibold text-ink"
+    : "text-xs tabular text-pencil";
+}
 
 interface FieldDef {
   readonly key: string;
@@ -106,10 +136,22 @@ export function FieldsPanel({
                 {Math.round(confidenceScore * 100)}% overall
               </span>
             )}
+            {/* A badge whose word IS "Confirmed" must wear the confirmed
+                tier, not full chrome ink: verdigris means confirmed, and
+                this is the same claim the overlay boxes, the layers rows and
+                the extraction registry make — through the same lookup, so
+                the four cannot drift (T-60-08). `badge`, never `chip`: the
+                word is polytoken's vocabulary, not the document's, and
+                `chip` carries pmark's serif (law 2). */}
             <Badge
-              className="bg-primary text-primary-foreground text-xs font-semibold px-2 py-0.5 rounded-sm"
+              variant="outline"
+              className={`text-2xs font-semibold px-2 py-0.5 rounded-sm inline-flex items-center gap-1.5 ${REGION_TIER.confirmed.badge}`}
               aria-label="Status: Confirmed"
             >
+              <span
+                className={`h-[7px] w-[7px] shrink-0 rounded-[1.5px] ${REGION_TIER.confirmed.swatch}`}
+                aria-hidden="true"
+              />
               Confirmed
             </Badge>
           </div>
@@ -126,26 +168,25 @@ export function FieldsPanel({
 
             return (
               <div key={field.key}>
-                <p className="text-sm font-medium">
+                <p className="text-2xs font-semibold uppercase tracking-wide text-pencil">
                   {field.label}
                   {field.isRequired && (
                     <span
-                      className="text-destructive text-xs ml-0.5"
+                      className={REQUIRED_MARK}
                       aria-label={`${field.label} (required)`}
                     >
                       *
                     </span>
                   )}
                 </p>
-                <p className="text-sm text-foreground mt-1">{value}</p>
+                {/* The extracted value is the document's own words and the
+                    entire product of this panel — law 2's evidence. */}
+                <p className="mt-1 text-sm font-serif tabular text-ink" data-evidence>
+                  {value}
+                </p>
                 {fieldScore !== null && (
                   <span
-                    className={[
-                      "text-xs",
-                      fieldScore < 0.5
-                        ? "text-destructive"
-                        : "text-muted-foreground",
-                    ].join(" ")}
+                    className={confidenceClass(fieldScore)}
                     aria-label={
                       fieldScore < 0.5
                         ? `${field.label} confidence: ${Math.round(fieldScore * 100)}%, low confidence`
@@ -207,19 +248,21 @@ export function FieldsPanel({
 
           return (
             <div key={field.key}>
-              <p className="text-sm font-medium">
+              <p className="text-2xs font-semibold uppercase tracking-wide text-pencil">
                 {field.label}
                 {field.isRequired && (
                   <span
-                    className="text-destructive text-xs ml-0.5"
+                    className={REQUIRED_MARK}
                     aria-label={`${field.label} (required)`}
                   >
                     *
                   </span>
                 )}
               </p>
+              {/* Evidence: the value under review came off the document. */}
               <Input
-                className="h-8 text-sm"
+                className="h-8 text-sm font-serif tabular"
+                data-evidence
                 value={fieldValues[field.key] ?? ""}
                 onChange={(e) => onFieldChange(field.key, e.target.value)}
                 aria-label={field.label}
@@ -227,12 +270,7 @@ export function FieldsPanel({
               />
               {fieldScore !== null && (
                 <span
-                  className={[
-                    "text-xs",
-                    fieldScore < 0.5
-                      ? "text-destructive"
-                      : "text-muted-foreground",
-                  ].join(" ")}
+                  className={confidenceClass(fieldScore)}
                   aria-label={
                     fieldScore < 0.5
                       ? `${field.label} confidence: ${Math.round(fieldScore * 100)}%, low confidence`
