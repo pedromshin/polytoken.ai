@@ -11,6 +11,7 @@
  * extra query. All entity/field strings render as React text nodes (auto-escaped).
  */
 
+import * as React from "react";
 import { Check, Loader2 } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
