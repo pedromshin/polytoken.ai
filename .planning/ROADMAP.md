@@ -268,7 +268,12 @@ canvas chrome ships in this phase.
   3. The existing suggest-only promotion gate (INFERRED → EXTRACTED) is reachable from the source
      ledger's records with zero new promotion code, so Phase 63's canon-curation UX has a real seam
      to build on.
-**Plans**: TBD
+**Plans**: 5 plans (3 waves)
+- [ ] 56-01-PLAN.md — Data model: chat_source_ledger + chat_context_edges Drizzle schema + migration (wave 1)
+- [ ] 56-02-PLAN.md — RCNV-01 auto-collect: fail-open source-ledger write hook in the tool-round loop (wave 2)
+- [ ] 56-03-PLAN.md — RCNV-04 seam: context-edges tRPC router + write-time cross-tenant ownership check (wave 2)
+- [ ] 56-04-PLAN.md — RCNV-04 read: independent fail-open linked-context injection pipeline at turn time (wave 3)
+- [ ] 56-05-PLAN.md — Promotion-gate reuse seam: ledger to SourceCaptureHandler, zero new promotion code (wave 3)
 
 ### Phase 57: Email Learning Loop
 
