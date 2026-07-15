@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: executing
-last_updated: "2026-07-15T04:41:21.911Z"
+last_updated: "2026-07-15T05:33:00.008Z"
 last_activity: 2026-07-15 -- Phase 55 execution started
 progress:
   total_phases: 9
   completed_phases: 0
-  total_plans: 6
-  completed_plans: 1
+  total_plans: 14
+  completed_plans: 2
   percent: 0
 ---
 
@@ -46,13 +46,13 @@ work, never deferrable-by-default.
 ## Current Position
 
 Phase: 55 (Platform Migration — Tailwind v4 + React 19) — EXECUTING
-Plan: 2 of 6
+Plan: 3 of 6
 Status: Executing Phase 55
 Last activity: 2026-07-15 -- Phase 55 execution started
 traceability filled, 22/22 requirements mapped, coverage complete; STATE.md progress counters
 reset for the new milestone.
 
-Progress: [██░░░░░░░░] 17%
+Progress: [█░░░░░░░░░] 14%
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
@@ -3938,6 +3938,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (55-02): @source verified at FOUR '../' levels (apps/web/src/app is 4 levels below repo root) — packages/ui-only class (min-h-svh) and packages/genui-only class (max-w-4xl) both confirmed surviving the real production purge, resolving RESEARCH Assumption A2
+- 2026-07-15 (55-02): tailwindcss-animate has no confirmed v4 @plugin compatibility path — ported its exact enter/exit keyframe mechanics + the closed set of animate-in/out/fade/zoom/slide utility classes this repo actually uses natively into globals.css via @keyframes + @utility, rather than risk a silent utility-generation gap
+- 2026-07-15 (55-02): [Rule 1] PanelThemeScope (app-owned ThemedRoot sibling, PANL-01/04) shared ThemedRoot's exact unwrapped-color-var injection bug but wasn't named in the plan's fix list — fixed identically (color-var Set derived from TOKEN_ALIAS_TO_CSS_VAR, conditional hsl() wrap) to avoid silently breaking every Tailwind color utility inside a re-themed canvas panel
+- 2026-07-15 (55-02): two E2E/vitest failures (token-render.spec.ts /knowledge click-interception; genui artifacts.test.ts registryVersion hash drift) isolated as pre-existing via live bisection (full revert + re-run against the untouched baseline) — logged to phases/55.../deferred-items.md, out of this plan's scope
 - 2026-07-12 (54-05): Injection point is the system prompt, not a new provider message — the bounded thread+cluster block is appended to `system_prompt` right before streaming, reusing the SAME "untrusted DATA, never instructions" framing the existing tool-result hardening line already establishes on that string; one consistent injection mechanism, no new message-role handling.
 - 2026-07-12 (54-05): Panel titles derive from the already-loaded `history` param (no extra I/O) — a genui spec has no dedicated title field (verified against `spec-schema.ts`'s `SpecRootSchema`), so the model-authored `_plan` field (normally stripped before render) doubles as a human-readable panel description when present, falling back to a turn-indexed generic label.
 - 2026-07-12 (54-05): Captured sources are resolved across ALL conversations linked to the thread (current + every sibling), not just the current conversation — this is what makes 54-03's Known Stub (`provenance.thread_id` always null; edges attach to `conversation_id`) still work correctly for cluster-level source aggregation without needing to fix that stub in this plan.
@@ -4326,6 +4330,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 54 P04 | 22min | 3 tasks | 13 files |
 | Phase 54 P05 | 55min | 2 tasks | 12 files |
 | Phase 55 P01 | 35min | 2 tasks | 9 files |
+| Phase 55 P02 | 130min | 2 tasks | 21 files |
 
 ## Operator Next Steps
 

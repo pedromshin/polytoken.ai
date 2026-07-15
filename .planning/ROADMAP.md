@@ -239,7 +239,7 @@ against the existing gates. This is deliberately unparked now: redoing the palet
 **Plans**: 6 plans (6 waves, sequential — correctness-first for an unattended overnight run)
 Plans:
 - [x] 55-01-PLAN.md — Stage 1: swap to the Tailwind v4 engine (@import + @config bridge, PostCSS plugin) + an executable token-render regression guard [STCK-01]
-- [ ] 55-02-PLAN.md — Stage 2 (crux): port globals.css to oklch + @theme inline + @source, fix every hsl(var(--x)) call site, adapt the genui re-theme surface [STCK-01]
+- [x] 55-02-PLAN.md — Stage 2 (crux): port globals.css to oklch + @theme inline + @source, fix every hsl(var(--x)) call site, adapt the genui re-theme surface [STCK-01]
 - [ ] 55-03-PLAN.md — Stage 3: rewrite the two broken gates (token-contrast -> oklch parser, token-registration -> off resolveConfig) [STCK-01]
 - [ ] 55-04-PLAN.md — Stage 4a: React 18->19 + the six low-risk dep bumps + revalidation [STCK-02]
 - [ ] 55-05-PLAN.md — Stage 4b: react-day-picker v9 (calendar.tsx rewrite) + react-resizable-panels v3, each isolated [STCK-02]
