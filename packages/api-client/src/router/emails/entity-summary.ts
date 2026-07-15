@@ -1,15 +1,26 @@
 /**
- * emails.entitySummary — per-email entity-type rollup powering the glassy
- * Gmail inbox chips (D-23/D-24).
+ * emails.entitySummary — per-email, per-FACT provenance rollup powering the
+ * inbox entity chip (D-58-01's signature element: "a provenance mark on
+ * every extracted fact").
  *
- * Each inbox row surfaces the distinct entity-type labels (+ counts) extracted
- * from that email. Phase 9's first-class `role` / `entity_type_id` columns on
- * email_components make this cheap: we read components with role='entity' (the
- * preferred path now 09-01 added the column) and join entity_types for labels.
- * No new table (D-23).
+ * 60-01-PLAN.md Task 2 rewrote this from a distinct-entity-TYPE rollup
+ * ("supplier ·2") into a per-ENTITY list: each surviving component is its own
+ * entry carrying the extracted VALUE and its confidence TIER ("Acme Freight
+ * · supplier"), not just a type-count badge. Two suppliers in one email are
+ * two chips, not one collapsed count — an information-architecture change a
+ * restyle could not have made.
  *
- * Performance / DoS (T-09-33): callers pass at most 100 email ids; the query is
- * a single parameterized inArray() — never a per-row fetch.
+ * Phase 9's first-class `role` / `entity_type_id` columns on email_components
+ * make this cheap: we read components with role='entity' (the preferred path
+ * now 09-01 added the column) and join entity_types for labels. No new table
+ * (D-23).
+ *
+ * Performance / DoS (T-09-33, T-60-03): callers pass at most 100 email ids;
+ * the query is a single parameterized inArray() — never a per-row fetch.
+ * Entries per email are additionally capped at MAX_ENTITIES_PER_EMAIL so a
+ * single email with hundreds of OCR entity regions cannot balloon the
+ * response; `totalCount` reports the true pre-cap count so the client can
+ * still render an honest overflow chip.
  *
  * T-05-01: input ids validated as UUIDs via z.string().uuid() before any SQL.
  * T-05-03: all filters use Drizzle parameterized builders — no interpolation.
@@ -20,7 +31,9 @@
  * @polytoken/db/ownership) — the query additionally filters to the caller's
  * owned importer set via `userOwnedImporterIds`, so a foreign emailId slipped
  * into the batch simply yields an empty entities[] entry rather than leaking
- * another user's entity rollup.
+ * another user's entity rollup. T-60-01: the new `value` field is email BODY
+ * content — strictly more sensitive than a type label — so this scoping is
+ * left byte-identical; nothing about the select was widened beyond it.
  */
 
 import { and, eq, inArray, ne } from "drizzle-orm";
@@ -40,33 +53,89 @@ import { protectedProcedure } from "../../trpc";
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * D-58-01 tier vocabulary derived from extractionStatus (the ONLY tier
+ * source, per 58-IDENTITY.md law 1): "confirmed" means a human verified the
+ * fact; everything else that survives the query's exclusion filters
+ * ("candidate", "pending", "auto_confirmed", "review_pending", ...) means a
+ * machine inferred it and nobody has confirmed it yet. This is the
+ * conservative direction and it is deliberate — the product's stance is
+ * suggest-only, never auto-decide, so the UI must never claim a human
+ * confirmed something they did not.
+ */
+export type EntityTier = "confirmed" | "suggested";
+
 export interface EntitySummaryEntry {
+  /** The email_component id this fact was extracted from. Keys the entry. */
+  readonly componentId: string;
   readonly entityTypeId: string;
-  readonly label: string;
-  readonly count: number;
+  /** The entity TYPE's label (formerly `label`, renamed now that `value` exists). */
+  readonly typeLabel: string;
   /**
-   * D-24: the entity_instance id for the first selected candidate link in this
-   * email for this entityTypeId. Used by EntityChips to deep-link to the entity
-   * detail page. Undefined when no selected link exists.
+   * A trimmed, length-capped snippet of the component's own detected text —
+   * the extracted FACT itself (e.g. "Acme Freight", "R$ 4.820,00"). Null when
+   * the component has no usable contentText; the chip then falls back to
+   * `typeLabel` (an entity with no detected text still deserves a chip).
+   */
+  readonly value: string | null;
+  readonly tier: EntityTier;
+  /**
+   * D-24: the entity_instance id for a wasSelected=true candidate link on
+   * this component. Used by EntityChips to deep-link to the entity detail
+   * page. Undefined when no selected link exists.
    */
   readonly entityInstanceId?: string;
 }
 
 export interface EmailEntitySummary {
   readonly emailId: string;
+  /** Capped at MAX_ENTITIES_PER_EMAIL, first-appearance order (T-60-03). */
   readonly entities: ReadonlyArray<EntitySummaryEntry>;
+  /** The true pre-cap fact count, so the client can render an honest "+N". */
+  readonly totalCount: number;
 }
 
 /** Shape of a raw entity-component row feeding the aggregation helper. */
 export interface EntitySummaryRow {
   readonly emailId: string;
+  readonly componentId: string;
   readonly entityTypeId: string | null;
   readonly label: string | null;
+  readonly contentText: string | null;
+  readonly extractionStatus: string;
   /**
    * D-24: entity_instance id from a wasSelected=true candidate link.
    * Null/undefined when no selected link exists for this component.
    */
   readonly entityInstanceId?: string | null;
+}
+
+/**
+ * T-60-03: hard cap on entries returned per email. Exported so the bound is
+ * documented and reusable at call sites without a magic number.
+ */
+export const MAX_ENTITIES_PER_EMAIL = 8;
+
+/**
+ * Max length of a `value` snippet before it is ellipsis-truncated. Mirrors
+ * region-label.ts's DEFAULT_SNIPPET_MAX (48) — the same "detected text ->
+ * compact label" concept, kept local here since packages/api-client cannot
+ * import from apps/web.
+ */
+const VALUE_SNIPPET_MAX = 48;
+
+/**
+ * Collapse whitespace/newlines to single spaces, trim, and ellipsis-truncate
+ * a component's raw contentText into a compact chip value. Returns null for
+ * null/blank input so the chip can fall back to the type label.
+ */
+function toValueSnippet(contentText: string | null): string | null {
+  if (contentText === null) return null;
+  const collapsed = contentText.replace(/\s+/g, " ").trim();
+  if (collapsed.length === 0) return null;
+  return collapsed.length > VALUE_SNIPPET_MAX
+    ? `${collapsed.slice(0, VALUE_SNIPPET_MAX - 1)}…`
+    : collapsed;
 }
 
 // ---------------------------------------------------------------------------
@@ -75,86 +144,60 @@ export interface EntitySummaryRow {
 // ---------------------------------------------------------------------------
 
 /**
- * aggregateEntitySummary — collapse flat entity-component rows into a
- * per-email rollup of distinct entity-type labels + counts.
+ * aggregateEntitySummary — expand flat entity-component rows into a
+ * per-email, per-FACT list (D-58-01's signature element).
  *
  * - One output row per requested email id (in `requestedEmailIds` order);
- *   emails with no entity components yield an empty `entities` array.
+ *   emails with no entity components yield `{ entities: [], totalCount: 0 }`.
  * - Rows whose entityTypeId or label is null are skipped (an entity region not
  *   yet typed contributes no chip).
- * - Multiple entity components of the same type collapse into one
- *   `{ entityTypeId, label, count }`. Entries are ordered by first appearance.
+ * - Each surviving row becomes its OWN entry, keyed by componentId — entries
+ *   are NOT collapsed by type. Two suppliers in one email are two entries.
+ * - Entries are capped at MAX_ENTITIES_PER_EMAIL, preserving first-appearance
+ *   order; `totalCount` reports the true pre-cap count.
  * - Returns new immutable objects; never mutates the input rows.
  */
 export function aggregateEntitySummary(
   rows: ReadonlyArray<EntitySummaryRow>,
   requestedEmailIds: ReadonlyArray<string>,
 ): ReadonlyArray<EmailEntitySummary> {
-  // emailId -> (entityTypeId -> { label, count, entityInstanceId, order })
-  const byEmail = new Map<
-    string,
-    {
-      order: string[];
-      types: Map<
-        string,
-        { label: string; count: number; entityInstanceId: string | undefined }
-      >;
-    }
-  >();
+  const byEmail = new Map<string, EntitySummaryEntry[]>();
 
-  const ensureEmail = (emailId: string) => {
-    let entry = byEmail.get(emailId);
-    if (entry === undefined) {
-      entry = { order: [], types: new Map() };
-      byEmail.set(emailId, entry);
+  const ensureEmail = (emailId: string): EntitySummaryEntry[] => {
+    let entries = byEmail.get(emailId);
+    if (entries === undefined) {
+      entries = [];
+      byEmail.set(emailId, entries);
     }
-    return entry;
+    return entries;
   };
 
-  for (const row of rows) {
-    if (row.entityTypeId === null || row.label === null) continue;
-    const entry = ensureEmail(row.emailId);
-    const existing = entry.types.get(row.entityTypeId);
-    // D-24: keep the first non-null entityInstanceId seen for this group.
-    const resolvedInstanceId =
-      row.entityInstanceId !== null && row.entityInstanceId !== undefined
-        ? row.entityInstanceId
-        : undefined;
-    if (existing === undefined) {
-      entry.order.push(row.entityTypeId);
-      entry.types.set(row.entityTypeId, {
-        label: row.label,
-        count: 1,
-        entityInstanceId: resolvedInstanceId,
-      });
-    } else {
-      entry.types.set(row.entityTypeId, {
-        label: existing.label,
-        count: existing.count + 1,
-        // Only promote if the existing slot hasn't been resolved yet
-        entityInstanceId: existing.entityInstanceId ?? resolvedInstanceId,
-      });
-    }
+  for (const sourceRow of rows) {
+    if (sourceRow.entityTypeId === null || sourceRow.label === null) continue;
+
+    const entry: EntitySummaryEntry = {
+      componentId: sourceRow.componentId,
+      entityTypeId: sourceRow.entityTypeId,
+      typeLabel: sourceRow.label,
+      value: toValueSnippet(sourceRow.contentText),
+      tier: sourceRow.extractionStatus === "confirmed" ? "confirmed" : "suggested",
+      entityInstanceId:
+        sourceRow.entityInstanceId !== null && sourceRow.entityInstanceId !== undefined
+          ? sourceRow.entityInstanceId
+          : undefined,
+    };
+
+    ensureEmail(sourceRow.emailId).push(entry);
   }
 
   // Emit one row per requested email id, preserving the requested order so the
   // caller can zip the result back onto its visible page of emails.
   return requestedEmailIds.map((emailId) => {
-    const entry = byEmail.get(emailId);
-    if (entry === undefined) {
-      return { emailId, entities: [] };
-    }
+    const all = byEmail.get(emailId) ?? [];
     return {
       emailId,
-      entities: entry.order.map((entityTypeId) => {
-        const t = entry.types.get(entityTypeId)!;
-        return {
-          entityTypeId,
-          label: t.label,
-          count: t.count,
-          entityInstanceId: t.entityInstanceId,
-        };
-      }),
+      entities: all.slice(0, MAX_ENTITIES_PER_EMAIL),
+      totalCount: all.length,
     };
   });
 }
@@ -165,9 +208,9 @@ export function aggregateEntitySummary(
 
 export const emailEntitySummaryProcedures = {
   /**
-   * entitySummary — batch per-email entity-type rollup keyed by the visible
-   * page of email ids. Returns one entry per requested id (empty entities for
-   * emails with no typed entity regions).
+   * entitySummary — batch per-email, per-FACT provenance rollup keyed by the
+   * visible page of email ids. Returns one entry per requested id (empty
+   * entities for emails with no typed entity regions).
    */
   entitySummary: protectedProcedure
     .input(
@@ -182,7 +225,11 @@ export const emailEntitySummaryProcedures = {
 
       const owned = await userOwnedImporterIds(ctx.db, ctx.user.id);
       if (owned.length === 0) {
-        return input.emailIds.map((emailId) => ({ emailId, entities: [] }));
+        return input.emailIds.map((emailId) => ({
+          emailId,
+          entities: [],
+          totalCount: 0,
+        }));
       }
 
       // Direct path (D-23): components flagged role='entity' with an
@@ -191,14 +238,21 @@ export const emailEntitySummaryProcedures = {
       // D-24: leftJoin ComponentEntityCandidateLinks (wasSelected=true) and
       // EntityInstances (source='email_extracted') to surface entityInstanceId
       // for deep-link navigation to /entities/[id].
-      // T-44-05-01: importerId scoped to the caller's owned set — a foreign
-      // emailId slipped into the batch matches no owned-importer component and
+      // 60-01 Task 2: `id`/contentText`/`extractionStatus` are ADDED to the
+      // select (they already exist on EmailComponents) so the aggregation can
+      // derive `value`/`tier`/`componentId` per fact. Every `where` clause
+      // below, especially the importer-ownership scope (T-60-01, T-44-05-01),
+      // is otherwise byte-identical to the pre-60 query — a foreign emailId
+      // slipped into the batch still matches no owned-importer component and
       // therefore contributes nothing to the aggregation.
       const rows = await ctx.db
         .select({
           emailId: EmailComponents.emailId,
+          componentId: EmailComponents.id,
           entityTypeId: EmailComponents.entityTypeId,
           label: EntityTypes.label,
+          contentText: EmailComponents.contentText,
+          extractionStatus: EmailComponents.extractionStatus,
           entityInstanceId: EntityInstances.id,
         })
         .from(EmailComponents)

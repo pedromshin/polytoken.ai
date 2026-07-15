@@ -243,7 +243,9 @@ describe("emailsRouter — entitySummary scoping (T-44-05-01)", () => {
       emailIds: [EMAIL_A_ID],
     });
 
-    expect(result).toEqual([{ emailId: EMAIL_A_ID, entities: [] }]);
+    // 60-01 Task 2: EmailEntitySummary gained `totalCount` (T-60-03) — the
+    // owner-less short-circuit's shape was updated in lockstep.
+    expect(result).toEqual([{ emailId: EMAIL_A_ID, entities: [], totalCount: 0 }]);
     expect(selectCalls.count).toBe(0);
   });
 });
