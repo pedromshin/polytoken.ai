@@ -10,6 +10,14 @@ leaves all regions unclassified — ingestion is never blocked.
 IDEMPOTENT: re-running updates suggestions for candidate regions.  Accepted /
 confirmed / rejected regions (extraction_status not 'candidate') are skipped.
 
+LEARNING (LEARN-02): when a corrections collaborator is supplied, a SINGLE
+importer-scoped trgm retrieval (EntityTypeCorrectionRepository.find_similar)
+runs before the classify() call and its results are threaded through as
+few-shot examples.  Best-effort: a retrieval failure degrades to examples=()
+and classification still proceeds (D-13 cold-start posture).  No new vector
+call is added (Q2, trgm-only) — the RELIABILITY constraint (one Bedrock call
+per document, entity_type_classifier_protocol.py:1-5) is unaffected.
+
 Architecture contract: imports ONLY domain ports and entities.
 No infrastructure imports permitted.
 """
@@ -24,6 +32,7 @@ from app.domain.ports.entity_type_classifier_protocol import (
     EntityTypeSuggestion,
     RegionToClassify,
 )
+from app.domain.ports.entity_type_correction_repository import EntityTypeCorrectionRepository
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 
 logger = structlog.get_logger(__name__)
@@ -31,6 +40,10 @@ logger = structlog.get_logger(__name__)
 # Minimum confidence to accept a classification suggestion.
 # Regions below this threshold are left unclassified.
 CONFIDENCE_THRESHOLD: float = 0.5
+
+# Number of correction examples to retrieve per classification batch (matches
+# EntityTypeCorrectionRepository.find_similar's own default, RESEARCH Pattern 2).
+_CORRECTION_EXAMPLES_TOP_N: int = 3
 
 
 class SuggestEntityTypesUseCase:
@@ -40,13 +53,18 @@ class SuggestEntityTypesUseCase:
         components: ComponentRepository — load regions, set role + entity_type_id.
         entity_types: EntityTypeRepository — load the importer's active types.
         classifier: EntityTypeClassifierProtocol — ONE Bedrock call for all regions.
+        corrections: EntityTypeCorrectionRepository | None — optional, best-effort
+            importer-scoped trgm retrieval feeding few-shot examples into the
+            classify() call (LEARN-02). Defaults to None (cold start unchanged).
 
     Suggest-only: applies role='entity' + entity_type_id but never sets
     extraction_status='confirmed'.  The suggestion is a candidate the user
     must confirm before it becomes authoritative (D-05).
 
     Best-effort: any exception from the classifier is logged and swallowed;
-    regions are left unclassified rather than blocking ingest.
+    regions are left unclassified rather than blocking ingest. A corrections
+    retrieval failure independently degrades to examples=() and does not
+    block classification.
     """
 
     def __init__(
@@ -55,10 +73,12 @@ class SuggestEntityTypesUseCase:
         components: ComponentRepository,
         entity_types: EntityTypeRepository,
         classifier: EntityTypeClassifierProtocol,
+        corrections: EntityTypeCorrectionRepository | None = None,
     ) -> None:
         self._components = components
         self._entity_types = entity_types
         self._classifier = classifier
+        self._corrections = corrections
 
     async def execute(self, *, email_id: str, importer_id: str) -> None:
         """Suggest entity types for the email's unclassified candidate regions.
@@ -96,11 +116,35 @@ class SuggestEntityTypesUseCase:
 
         regions_input = tuple(RegionToClassify(component_id=c.id, text=c.content_text) for c in candidate_regions)
 
+        # LEARN-02: ONE importer-scoped trgm retrieval (no new vector call —
+        # Q2, RESEARCH.md) using the batch's most-representative candidate
+        # region text as the query. Best-effort: any failure degrades to
+        # examples=() and classification still proceeds (D-13 cold start).
+        examples: tuple[dict[str, object], ...] = ()
+        if self._corrections is not None:
+            try:
+                corrections_found = await self._corrections.find_similar(
+                    query_text=candidate_regions[0].content_text,
+                    importer_id=importer_id,
+                    top_n=_CORRECTION_EXAMPLES_TOP_N,
+                )
+                examples = tuple(
+                    {
+                        "content_text": example.content_text,
+                        "corrected_entity_type_slug": example.corrected_entity_type_slug,
+                    }
+                    for example in corrections_found
+                )
+            except Exception:
+                log.warning("suggest_entity_types_corrections_retrieval_failed", exc_info=True)
+                examples = ()
+
         # ONE Bedrock call for ALL regions (RELIABILITY constraint).
         try:
             suggestions: tuple[EntityTypeSuggestion, ...] = await self._classifier.classify(
                 regions=regions_input,
                 entity_types=tuple(active_types),
+                examples=examples,
             )
         except Exception:
             log.warning("suggest_entity_types_classifier_failed", exc_info=True)

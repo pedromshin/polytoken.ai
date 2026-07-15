@@ -8,6 +8,10 @@ Covers:
   - Regions with role already set are not candidates (role is not None filter).
   - Regions with non-candidate extraction_status are skipped.
   - Empty entity type catalog skips the Bedrock call.
+  - LEARN-02: correction retrieval (find_similar) feeds few-shot examples into
+    classify(); with vs. without corrections yields a measurably different
+    applied suggestion (deterministic, no live Bedrock); retrieval is
+    importer-scoped, best-effort, and never bypasses the suggest-only gates.
 """
 
 from __future__ import annotations
@@ -25,6 +29,7 @@ from app.domain.ports.entity_type_classifier_protocol import (
     EntityTypeSuggestion,
     RegionToClassify,
 )
+from app.domain.ports.entity_type_correction_repository import EntityTypeCorrectionExample
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -261,14 +266,17 @@ class FakeClassifier:
     def __init__(self, suggestions: tuple[EntityTypeSuggestion, ...]) -> None:
         self._suggestions = suggestions
         self.called_with: tuple[RegionToClassify, ...] | None = None
+        self.called_with_examples: tuple[dict[str, object], ...] | None = None
 
     async def classify(
         self,
         *,
         regions: tuple[RegionToClassify, ...],
         entity_types: tuple[object, ...],
+        examples: tuple[dict[str, object], ...] = (),
     ) -> tuple[EntityTypeSuggestion, ...]:
         self.called_with = regions
+        self.called_with_examples = examples
         return self._suggestions
 
 
@@ -280,8 +288,80 @@ class ErrorClassifier:
         *,
         regions: tuple[RegionToClassify, ...],
         entity_types: tuple[object, ...],
+        examples: tuple[dict[str, object], ...] = (),
     ) -> tuple[EntityTypeSuggestion, ...]:
         raise RuntimeError("Bedrock unavailable")
+
+
+class FakeCorrectionRepository:
+    """In-memory EntityTypeCorrectionRepository — records find_similar call args."""
+
+    def __init__(
+        self,
+        examples: list[EntityTypeCorrectionExample] | None = None,
+        *,
+        raise_on_find: bool = False,
+    ) -> None:
+        self._examples = examples or []
+        self._raise_on_find = raise_on_find
+        self.find_similar_calls: list[dict[str, Any]] = []
+
+    async def save(
+        self,
+        *,
+        component_id: str,
+        importer_id: str,
+        previous_entity_type_id: str,
+        corrected_entity_type_id: str,
+    ) -> None:
+        raise NotImplementedError
+
+    async def find_similar(
+        self,
+        *,
+        query_text: str,
+        importer_id: str,
+        top_n: int = 3,
+    ) -> list[EntityTypeCorrectionExample]:
+        self.find_similar_calls.append({"query_text": query_text, "importer_id": importer_id, "top_n": top_n})
+        if self._raise_on_find:
+            raise RuntimeError("trgm RPC unavailable")
+        return list(self._examples)
+
+
+class ExamplesSensitiveClassifier:
+    """Fake classifier whose returned slug depends on whether examples were supplied.
+
+    Given examples containing corrected_entity_type_slug="receipt" it returns
+    "receipt"; given examples=() it returns "invoice". Deterministic proof
+    that corrections measurably change the classifier's suggestion (SC2) with
+    no live Bedrock call.
+    """
+
+    def __init__(self, *, component_id: str) -> None:
+        self._component_id = component_id
+        self.called_with_examples: tuple[dict[str, object], ...] | None = None
+
+    async def classify(
+        self,
+        *,
+        regions: tuple[RegionToClassify, ...],
+        entity_types: tuple[object, ...],
+        examples: tuple[dict[str, object], ...] = (),
+    ) -> tuple[EntityTypeSuggestion, ...]:
+        self.called_with_examples = examples
+        slug = "invoice"
+        for example in examples:
+            if example.get("corrected_entity_type_slug") == "receipt":
+                slug = "receipt"
+                break
+        return (
+            EntityTypeSuggestion(
+                component_id=self._component_id,
+                entity_type_slug=slug,
+                confidence=0.9,
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +373,7 @@ def _make_use_case(
     components: list[Component],
     entity_types: list[EntityType],
     classifier: Any,
+    corrections: Any = None,
 ) -> tuple[SuggestEntityTypesUseCase, FakeComponentRepository]:
     repo = FakeComponentRepository(components)
     et_repo = FakeEntityTypeRepository(entity_types)
@@ -300,6 +381,7 @@ def _make_use_case(
         components=repo,  # type: ignore[arg-type]
         entity_types=et_repo,  # type: ignore[arg-type]
         classifier=classifier,  # type: ignore[arg-type]
+        corrections=corrections,
     )
     return use_case, repo
 
@@ -555,3 +637,176 @@ def test_suggestion_does_not_change_extraction_status() -> None:
     # The component row's extraction_status is unchanged at 'candidate'
     component = repo._components["comp-013"]
     assert component.extraction_status == "candidate"
+
+
+# ---------------------------------------------------------------------------
+# Tests: LEARN-02 — corrections retrieval feeds few-shot examples into classify()
+# ---------------------------------------------------------------------------
+
+
+def test_no_correction_rows_calls_classify_with_empty_examples() -> None:
+    """With NO correction rows, execute() calls classify with examples=() (cold-start path)."""
+    region = _make_region("comp-014")
+    classifier = FakeClassifier(suggestions=())
+    corrections = FakeCorrectionRepository(examples=[])
+    use_case, _repo = _make_use_case([region], [ENTITY_TYPE_INVOICE], classifier, corrections)
+
+    asyncio.run(use_case.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    assert classifier.called_with_examples == ()
+
+
+def test_correction_rows_are_retrieved_importer_scoped_and_passed_as_examples() -> None:
+    """With correction rows present, find_similar is called importer-scoped and its
+    results are threaded into classify() as non-empty examples."""
+    region = _make_region("comp-015", content_text="Payment received, thank you.")
+    classifier = FakeClassifier(suggestions=())
+    corrections = FakeCorrectionRepository(
+        examples=[
+            EntityTypeCorrectionExample(
+                content_text="Payment confirmation",
+                corrected_entity_type_slug="receipt",
+                score=0.8,
+            )
+        ]
+    )
+    use_case, _repo = _make_use_case([region], [ENTITY_TYPE_INVOICE], classifier, corrections)
+
+    asyncio.run(use_case.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    assert len(corrections.find_similar_calls) == 1
+    call = corrections.find_similar_calls[0]
+    assert call["importer_id"] == IMPORTER_ID
+    assert "entity_type_id" not in call
+    assert call["top_n"] <= 3
+
+    assert classifier.called_with_examples is not None
+    assert len(classifier.called_with_examples) == 1
+    assert classifier.called_with_examples[0]["corrected_entity_type_slug"] == "receipt"
+
+
+def test_measurably_different_suggestion_with_vs_without_corrections() -> None:
+    """SC2: same candidate region, same classifier — a different applied suggestion
+    with corrections ("receipt") vs. without ("invoice"). Deterministic, no live Bedrock."""
+    region_with = _make_region("comp-016a")
+    region_without = _make_region("comp-016b")
+
+    corrections_present = FakeCorrectionRepository(
+        examples=[
+            EntityTypeCorrectionExample(
+                content_text="similar prior correction",
+                corrected_entity_type_slug="receipt",
+                score=0.9,
+            )
+        ]
+    )
+    classifier_with = ExamplesSensitiveClassifier(component_id="comp-016a")
+    use_case_with, repo_with = _make_use_case(
+        [region_with], [ENTITY_TYPE_INVOICE, ENTITY_TYPE_RECEIPT], classifier_with, corrections_present
+    )
+    asyncio.run(use_case_with.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    corrections_absent = FakeCorrectionRepository(examples=[])
+    classifier_without = ExamplesSensitiveClassifier(component_id="comp-016b")
+    use_case_without, repo_without = _make_use_case(
+        [region_without], [ENTITY_TYPE_INVOICE, ENTITY_TYPE_RECEIPT], classifier_without, corrections_absent
+    )
+    asyncio.run(use_case_without.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    # Same regions input (identical content_text), different applied suggestion.
+    assert repo_with.entity_type_updates.get("comp-016a") == ENTITY_TYPE_RECEIPT.id
+    assert repo_without.entity_type_updates.get("comp-016b") == ENTITY_TYPE_INVOICE.id
+
+
+def test_suggest_only_invariant_preserved_with_and_without_corrections() -> None:
+    """SUGGEST-ONLY: in BOTH runs, extraction_status is never 'confirmed'; the write
+    path is update_role/update_entity_type only; below-threshold suggestions are still
+    skipped even when correction-backed."""
+    region_with = _make_region("comp-017a")
+    region_without = _make_region("comp-017b")
+
+    corrections_present = FakeCorrectionRepository(
+        examples=[
+            EntityTypeCorrectionExample(
+                content_text="similar prior correction",
+                corrected_entity_type_slug="receipt",
+                score=0.9,
+            )
+        ]
+    )
+    classifier_with = ExamplesSensitiveClassifier(component_id="comp-017a")
+    use_case_with, repo_with = _make_use_case(
+        [region_with], [ENTITY_TYPE_INVOICE, ENTITY_TYPE_RECEIPT], classifier_with, corrections_present
+    )
+    asyncio.run(use_case_with.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    corrections_absent = FakeCorrectionRepository(examples=[])
+    classifier_without = ExamplesSensitiveClassifier(component_id="comp-017b")
+    use_case_without, repo_without = _make_use_case(
+        [region_without], [ENTITY_TYPE_INVOICE, ENTITY_TYPE_RECEIPT], classifier_without, corrections_absent
+    )
+    asyncio.run(use_case_without.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    assert repo_with._components["comp-017a"].extraction_status == "candidate"
+    assert repo_without._components["comp-017b"].extraction_status == "candidate"
+
+
+def test_below_threshold_suggestion_still_skipped_when_correction_backed() -> None:
+    """A below-threshold suggestion is skipped even when corrections were retrieved."""
+    region = _make_region("comp-018")
+    below = CONFIDENCE_THRESHOLD - 0.01
+    suggestion = EntityTypeSuggestion(
+        component_id="comp-018",
+        entity_type_slug="receipt",
+        confidence=below,
+    )
+    classifier = FakeClassifier(suggestions=(suggestion,))
+    corrections = FakeCorrectionRepository(
+        examples=[
+            EntityTypeCorrectionExample(
+                content_text="prior correction",
+                corrected_entity_type_slug="receipt",
+                score=0.9,
+            )
+        ]
+    )
+    use_case, repo = _make_use_case([region], [ENTITY_TYPE_RECEIPT], classifier, corrections)
+
+    asyncio.run(use_case.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    # Retrieval happened (correction-backed) but the threshold gate still applies.
+    assert len(corrections.find_similar_calls) == 1
+    assert "comp-018" not in repo.role_updates
+    assert "comp-018" not in repo.entity_type_updates
+
+
+def test_correction_retrieval_failure_falls_back_to_cold_start() -> None:
+    """find_similar raising does NOT break classification — falls back to examples=()."""
+    region = _make_region("comp-019")
+    suggestion = EntityTypeSuggestion(
+        component_id="comp-019",
+        entity_type_slug="invoice",
+        confidence=0.9,
+    )
+    classifier = FakeClassifier(suggestions=(suggestion,))
+    corrections = FakeCorrectionRepository(raise_on_find=True)
+    use_case, repo = _make_use_case([region], [ENTITY_TYPE_INVOICE], classifier, corrections)
+
+    # Must not raise
+    asyncio.run(use_case.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    assert classifier.called_with_examples == ()
+    # Classification still proceeds and applies the suggestion.
+    assert repo.role_updates.get("comp-019") == "entity"
+    assert repo.entity_type_updates.get("comp-019") == ENTITY_TYPE_INVOICE.id
+
+
+def test_no_corrections_collaborator_calls_classify_with_empty_examples() -> None:
+    """corrections=None (default, backward-compat) — classify() is called with examples=()."""
+    region = _make_region("comp-020")
+    classifier = FakeClassifier(suggestions=())
+    use_case, _repo = _make_use_case([region], [ENTITY_TYPE_INVOICE], classifier)
+
+    asyncio.run(use_case.execute(email_id=EMAIL_ID, importer_id=IMPORTER_ID))
+
+    assert classifier.called_with_examples == ()

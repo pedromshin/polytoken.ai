@@ -12,6 +12,7 @@ from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUse
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
+from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.container import create_container
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -118,6 +119,16 @@ class TestContainerResolution:
             container = create_container()
             use_case = asyncio.run(container.get(ProposeRegionsUseCase))
             assert isinstance(use_case, ProposeRegionsUseCase)
+
+    def test_suggest_entity_types_use_case_resolves(self) -> None:
+        """SuggestEntityTypesUseCase (Phase 57-02, LEARN-02) resolves via its factory —
+        proves the optional EntityTypeCorrectionRepository collaborator wires cleanly.
+        """
+        with _patched_container():
+            container = create_container()
+            use_case = asyncio.run(container.get(SuggestEntityTypesUseCase))
+            assert isinstance(use_case, SuggestEntityTypesUseCase)
+            assert use_case._corrections is not None
 
     def test_parser_registry_returns_pdf_parser_for_pdf_ext(self) -> None:
         """The registry callable must return a PdfParser for 'pdf' extension."""
