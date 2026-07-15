@@ -106,6 +106,25 @@ def _render_entity_types(entity_types: tuple[EntityType, ...]) -> str:
     return "\n".join(lines) if lines else "  (no entity types available)"
 
 
+def _render_correction_examples_block(examples: tuple[dict[str, object], ...]) -> str:
+    """Render few-shot entity-type correction examples as a delimited block.
+
+    Mirrors autofill_adapter._render_examples_block exactly (D-14: user turn
+    only, never the system prompt). Returns "" for empty examples (cold
+    start — no block appended, byte-identical to pre-examples behavior).
+    """
+    if not examples:
+        return ""
+    rendered = "\n".join(
+        "<example>"
+        f"<content>{example.get('content_text', '')}</content>"
+        f"<corrected_entity_type_slug>{example.get('corrected_entity_type_slug', '')}</corrected_entity_type_slug>"
+        "</example>"
+        for example in examples
+    )
+    return f"<entity_type_examples>\n{rendered}\n</entity_type_examples>"
+
+
 def _build_system_prompt(entity_types: tuple[EntityType, ...]) -> str:
     """Build the classification system prompt from entity-type metadata only (D-14).
 
@@ -146,6 +165,7 @@ class AnthropicEntityTypeClassifier:
         *,
         regions: tuple[RegionToClassify, ...],
         entity_types: tuple[object, ...],
+        examples: tuple[dict[str, object], ...] = (),
     ) -> tuple[EntityTypeSuggestion, ...]:
         """Classify all regions in a single Bedrock call; returns () on any failure."""
         typed_entity_types = tuple(et for et in entity_types if isinstance(et, EntityType))
@@ -168,6 +188,13 @@ class AnthropicEntityTypeClassifier:
         user_content = (
             f"<regions>\n{regions_json}\n</regions>\n\nClassify each region and call classify_regions with your result."
         )
+
+        # Few-shot correction examples (LEARN-02, D-14): UNTRUSTED content
+        # rendered ONLY in the user turn, never the system prompt. Empty
+        # examples -> "" -> no block appended (cold start, byte-identical).
+        examples_block = _render_correction_examples_block(examples)
+        if examples_block:
+            user_content = f"{user_content}\n\n{examples_block}"
 
         messages: list[dict[str, object]] = [{"role": "user", "content": user_content}]
 

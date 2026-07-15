@@ -477,6 +477,29 @@ def _provide_set_component_entity_type_use_case(
     return SetComponentEntityTypeUseCase(components=components, corrections=corrections)
 
 
+def _provide_suggest_entity_types_use_case(
+    components: ComponentRepository,
+    entity_types: EntityTypeRepository,
+    classifier: EntityTypeClassifierProtocol,
+    corrections: EntityTypeCorrectionRepository,
+) -> SuggestEntityTypesUseCase:
+    """Factory for SuggestEntityTypesUseCase (Phase 57-02, LEARN-02).
+
+    SuggestEntityTypesUseCase accepts ``corrections`` as Optional with a None
+    default so existing unit tests/non-wired construction keep working;
+    dishka does not auto-inject defaulted Optional params (mirrors
+    _provide_autofill_use_case/_provide_set_component_entity_type_use_case),
+    so this factory passes it explicitly to wire the best-effort correction
+    few-shot retrieval into the live container.
+    """
+    return SuggestEntityTypesUseCase(
+        components=components,
+        entity_types=entity_types,
+        classifier=classifier,
+        corrections=corrections,
+    )
+
+
 def _provide_promote_edge_use_case(client: Client, importer_resolver: ImporterResolver) -> PromoteEdgeUseCase:
     """Factory for PromoteEdgeUseCase (Phase 30-02, TIER-03; extended Phase 44-03, TENA-03).
 
@@ -1117,7 +1140,11 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # UndefinedTypeAnalysisError.
     provider.provide(_provide_ingest_use_case, provides=IngestInboundEmailUseCase)
     provider.provide(ProposeRegionsUseCase)
-    provider.provide(SuggestEntityTypesUseCase)
+    # SuggestEntityTypesUseCase (Phase 57-02, LEARN-02): factory passes the
+    # optional EntityTypeCorrectionRepository collaborator explicitly — dishka
+    # won't auto-inject a defaulted Optional param (mirrors
+    # _provide_set_component_entity_type_use_case).
+    provider.provide(_provide_suggest_entity_types_use_case, provides=SuggestEntityTypesUseCase)
     provider.provide(ReprocessEmailUseCase)
     # AutofillUseCase has Optional embedder/retrieval params (None defaults) that
     # dishka won't auto-inject — use a factory to wire the 04-08 few-shot ports.

@@ -51,11 +51,17 @@ class EntityTypeClassifierProtocol(Protocol):
         *,
         regions: tuple[RegionToClassify, ...],
         entity_types: tuple[object, ...],
+        examples: tuple[dict[str, object], ...] = (),
     ) -> tuple[EntityTypeSuggestion, ...]:
         """Classify regions against the provided entity types in one call.
 
         regions: candidate regions to classify (id + text).
         entity_types: EntityType objects visible to the importer.
+        examples: few-shot entity-type correction examples (LEARN-02).  Each
+            dict carries at least "content_text" and
+            "corrected_entity_type_slug".  Defaults to () (cold start — no
+            behavior change from before this parameter existed).  Rendered
+            ONLY in the Bedrock user turn, never the system prompt (D-14).
 
         Returns one EntityTypeSuggestion per region (in any order).
         Missing rows are treated as confidence=0 / slug=None by callers.
