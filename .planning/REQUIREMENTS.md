@@ -32,8 +32,8 @@ IDNT-02 is locked.
 
 ### Visual Identity (IDNT — Band 2; BLOCKING HUMAN GATE)
 
-- [ ] **IDNT-01**: 2–3 distinct visual directions are sketched on real polytoken screens (throwaway HTML, real content — inbox, chat, one canvas surface) so the user can compare actual looks, not swatches
-- [ ] **IDNT-02**: The user selects one direction; the choice is recorded as the locked visual identity. **This is the gate — no SURF-* or canvas-visual work begins before it.**
+- [x] **IDNT-01**: 2–3 distinct visual directions are sketched on real polytoken screens (throwaway HTML, real content — inbox, chat, one canvas surface) so the user can compare actual looks, not swatches
+- [x] **IDNT-02**: The user selects one direction; the choice is recorded as the locked visual identity. **This is the gate — no SURF-* or canvas-visual work begins before it.**
 - [x] **IDNT-03**: The locked direction is realized as a designed token set — palette (oklch), type scale, spacing/density system, and a signature element — that *replaces* the stock-shadcn defaults rather than recoloring them
 - [ ] **IDNT-04**: The brand guide gains a visual-identity section (today it defines only voice/tone) documenting the designed palette/type/spacing/signature with usage rules
 
@@ -95,8 +95,8 @@ Which phases cover which requirements. Filled by the roadmapper.
 | RCNV-04 | Phase 56 — Research Canvas: Backend & Semantic Context Model | Complete |
 | LEARN-01 | Phase 57 — Email Learning Loop | Complete |
 | LEARN-02 | Phase 57 — Email Learning Loop | Complete |
-| IDNT-01 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |
-| IDNT-02 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |
+| IDNT-01 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Complete |
+| IDNT-02 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Complete |
 | IDNT-03 | Phase 59 — Visual Identity: Designed Token Set & Brand Guide | Complete |
 | IDNT-04 | Phase 59 — Visual Identity: Designed Token Set & Brand Guide | Pending |
 | SURF-01 | Phase 60 — Surface Redesign: Inbox & Email Detail | Pending |
