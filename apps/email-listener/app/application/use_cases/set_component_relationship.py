@@ -17,6 +17,9 @@ import structlog
 
 from app.domain.entities.component import Component
 from app.domain.ports.component_repository import ComponentRepository
+from app.domain.ports.entity_type_correction_repository import (
+    EntityTypeCorrectionRepository,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -65,10 +68,29 @@ class SetComponentRoleUseCase:
 
 
 class SetComponentEntityTypeUseCase:
-    """Set or clear a component's entity_type_id (D-03/D-11)."""
+    """Set or clear a component's entity_type_id (D-03/D-11).
 
-    def __init__(self, *, components: ComponentRepository) -> None:
+    LEARN-01 (Phase 57): a genuine reclassification (a prior entity_type_id
+    existed AND differs from the new one) is captured as a durable
+    entity_type_corrections row BEFORE the mutation (D-16 load-before-mutate
+    idiom). Capture is best-effort — mirrors ConfirmRegionUseCase's synthesis
+    hook (confirm_region.py): a capture failure must never block the human's
+    reclassification from taking effect. First-time classification (None ->
+    X), a no-op (X -> X), and a clear (X -> None) are NOT captured — only a
+    genuine correction is (A3). Suggest-only invariant: this is pure
+    audit-trail capture of a decision the human already made via this same
+    setter; no new automated decision is introduced, and extraction_status is
+    never touched here.
+    """
+
+    def __init__(
+        self,
+        *,
+        components: ComponentRepository,
+        corrections: EntityTypeCorrectionRepository | None = None,
+    ) -> None:
         self._components = components
+        self._corrections = corrections
 
     async def execute(
         self,
@@ -96,6 +118,32 @@ class SetComponentEntityTypeUseCase:
         if importer_id is not None and component.importer_id != importer_id:
             log.warning("set_component_entity_type_component_importer_mismatch")
             raise ValueError(f"Component not found: {component_id}")
+
+        # LEARN-01: capture the correction BEFORE mutating (D-16 load-before-
+        # mutate). previous_entity_type_id and component_id/importer_id are
+        # ALWAYS derived from the loaded component row (D-18), never from
+        # caller args. Only a genuine reclassification is captured — a
+        # first-time classification (previous is None) or a no-op
+        # (previous == new) carries no correction signal (A3), and a clear
+        # (new is None) is not a reclassification to a type.
+        previous_entity_type_id = component.entity_type_id
+        if (
+            self._corrections is not None
+            and previous_entity_type_id is not None
+            and entity_type_id is not None
+            and previous_entity_type_id != entity_type_id
+        ):
+            try:
+                await self._corrections.save(
+                    component_id=component.id,
+                    importer_id=component.importer_id,
+                    previous_entity_type_id=previous_entity_type_id,
+                    corrected_entity_type_id=entity_type_id,
+                )
+            except Exception:
+                # Best-effort (mirrors confirm_region.py's synthesis hook): a
+                # capture failure must never block the human's reclassification.
+                log.warning("set_component_entity_type_correction_capture_failed", exc_info=True)
 
         updated = await self._components.update_entity_type(component_id, entity_type_id)
         log.info("set_component_entity_type_done")

@@ -95,6 +95,7 @@ from app.domain.ports.email_repository import EmailRepository
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
 from app.domain.ports.entity_instance_repository import EntityInstanceRepository
 from app.domain.ports.entity_type_classifier_protocol import EntityTypeClassifierProtocol
+from app.domain.ports.entity_type_correction_repository import EntityTypeCorrectionRepository
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
@@ -147,6 +148,9 @@ from app.infrastructure.supabase.component_repository import SupabaseComponentRe
 from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
 from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
 from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
+from app.infrastructure.supabase.entity_type_correction_repository import (
+    SupabaseEntityTypeCorrectionRepository,
+)
 from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTypeRepository
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
 from app.infrastructure.supabase.forwarding_address_repository import SupabaseForwardingAddressRepository
@@ -293,6 +297,17 @@ def _provide_retrieval(client: Client) -> RetrievalPort:
     Both sub-queries filter by importer_id for cross-tenant isolation (T-04-28).
     """
     return SupabaseRetrievalRepository(client=client)
+
+
+def _provide_entity_type_correction_repository(client: Client) -> EntityTypeCorrectionRepository:
+    """SupabaseEntityTypeCorrectionRepository (Phase 57-01, LEARN-01).
+
+    Mirrors _provide_retrieval: the constructor's ``client`` param is typed
+    ``Any`` (matching retrieval_repository.py's exact style per the plan),
+    which dishka cannot auto-inject directly — a factory typed against the
+    concrete ``Client`` resolves it explicitly.
+    """
+    return SupabaseEntityTypeCorrectionRepository(client=client)
 
 
 def _provide_autofill_retrieval_event_repository(client: Client) -> AutofillRetrievalEventRepository:
@@ -445,6 +460,21 @@ def _provide_confirm_region_use_case(
         embedder=embedder,
         knowledge_synthesizer=knowledge_synthesizer,
     )
+
+
+def _provide_set_component_entity_type_use_case(
+    components: ComponentRepository,
+    corrections: EntityTypeCorrectionRepository,
+) -> SetComponentEntityTypeUseCase:
+    """Factory for SetComponentEntityTypeUseCase (Phase 57-01, LEARN-01).
+
+    SetComponentEntityTypeUseCase accepts ``corrections`` as Optional with a
+    None default so existing unit tests/non-wired construction keep working;
+    dishka does not auto-inject defaulted Optional params (mirrors
+    _provide_autofill_use_case), so this factory passes it explicitly to wire
+    the best-effort correction-capture hook in the live container.
+    """
+    return SetComponentEntityTypeUseCase(components=components, corrections=corrections)
 
 
 def _provide_promote_edge_use_case(client: Client, importer_resolver: ImporterResolver) -> PromoteEdgeUseCase:
@@ -1046,6 +1076,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # chat_source_ledger auto-collect write adapter (Phase 56-02, RCNV-01) —
     # additive-default RunChatTurn collaborator, threaded in below.
     provider.provide(SupabaseSourceLedgerRepository, provides=SourceLedgerRepository)
+    # entity_type_corrections capture + trgm retrieval (Phase 57-01, LEARN-01) —
+    # best-effort collaborator threaded into SetComponentEntityTypeUseCase below.
+    provider.provide(_provide_entity_type_correction_repository, provides=EntityTypeCorrectionRepository)
 
     # ── Ingestion adapters ────────────────────────────────────────────────────
     provider.provide(_provide_raw_email_store, provides=RawEmailStore)
@@ -1105,7 +1138,10 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # Relationship setters + origin-aware deny (Phase 09-02a) — all auto-inject
     # ComponentRepository (DenyFieldUseCase also auto-injects ExtractionRepository).
     provider.provide(SetComponentRoleUseCase)
-    provider.provide(SetComponentEntityTypeUseCase)
+    # SetComponentEntityTypeUseCase (Phase 57-01, LEARN-01): factory passes the
+    # optional EntityTypeCorrectionRepository collaborator explicitly — dishka
+    # won't auto-inject a defaulted Optional param (mirrors _provide_autofill_use_case).
+    provider.provide(_provide_set_component_entity_type_use_case, provides=SetComponentEntityTypeUseCase)
     provider.provide(SetComponentFieldRelationshipUseCase)
     provider.provide(DenyFieldUseCase)
     # Entity-type / field management (Phase 09-03, D-26/D-27) — all auto-inject
