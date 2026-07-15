@@ -322,6 +322,100 @@ decision-ready v1.8 brand/design dossier.
 - Notable: integration checker ~150k subagent tokens with 62 tool calls — live re-running of
   suites is affordable and should stay the norm.
 
+## Milestone: v1.9 — Cloud Workspace
+
+**Shipped:** 2026-07-14 (execution 2026-07-10 → 2026-07-13)
+**Phases:** 6 (49–54) | **Plans:** 37 (36 executed) | **Commits:** 205 | **Reqs:** 24/27
+**Audit:** `gaps_found` — closed anyway by explicit user decision
+
+### What Was Built
+
+The E3 email-cluster workflow, the thing that had been "one epoch away" for three milestones:
+email-thread cards as a first-class canvas node type, chats bound to threads (migration 0036,
+applied local+staging+prod, behind a `tableColumnExists` feature gate), a 4th `web_search`
+ToolExecutor (keyless DuckDuckGo, double pre/post-DNS SSRF guard, 10-fixture adversarial suite,
+code-gated exposure), source-capture → INFERRED nodes promoting through the *unmodified*
+`PromoteEdgeUseCase`, and bounded quarantined thread+cluster context injection. Around it: the
+live-loop gate (local stack green with DB-verified seeded-session Playwright; migrations 0021–0035
+on staging+prod; ECS+Vercel green end-to-end; 21-scenario UAT burn-down with zero silent parking),
+the total UI re-skin onto extended tokens with a committed palette-ban gate, editable genui panels
+(pack switch / bounded param edit / regenerate+history / one-shot Bedrock NL re-theme), and the
+mobile answer (canvas islands never mount below `md`).
+
+### What Worked
+
+- **Exercising things found bugs that verification never would.** The Phase-50 UAT burn-down found
+  a real `chat-canvas.tsx` async `setNodes` race that silently dropped restored canvas nodes on
+  reload. The §G.2 E2E re-run found three live chat bugs (genui_spec replay 400, multi-tool-call
+  mangling, final-round stranding). A live-network smoke test caught a `web_search` envelope
+  truncation that could cut mid-JSON. None of these were reachable from code review.
+- **Unblocking a gate exposed what it was masking.** Ratcheting coverage 80→65 let images deploy
+  again — and immediately revealed that `requirements.txt` had drifted from `pyproject.toml`, so
+  every prod task was crashing at import and the ECS circuit breaker was rolling back every
+  rollout. A red gate had been hiding a total prod outage. Now guarded by a sync test.
+- **Fail-closed feature detection let code ship ahead of migrations.** `tableColumnExists` meant
+  0036 could land in code, degrade cleanly everywhere it wasn't applied, and be applied later
+  without a flag day.
+- **Ship-dark-then-flip held again** (`web_search`, third milestone running).
+- **Honest blocked-task reporting.** 51-07 recorded its Docker-blocked E2E/screenshot tasks as
+  blocked rather than claiming them, and a later session actually closed them (32/32 green twice,
+  all 7 failures root-caused to test-infra contention, zero product regressions).
+
+### What Was Inefficient
+
+- **The milestone's whole ordering premise went unenforced.** Band 1 was supposed to gate
+  everything; it closed 5 of 7 LIVE reqs and Bands 2–3 proceeded anyway on the two that stayed
+  open. The gate was structural, but nothing *stopped* on it — so the milestone ended exactly
+  where the two-epoch restructure was designed to prevent: capability built, never felt.
+- **Parallelizing 52 and 53 produced 999.17.** Phase 52 wired panel editing into the canvas node;
+  Phase 53 stopped mounting the canvas on mobile. Both correct alone; together they made
+  PANL-01..04 desktop-canvas-only, and no plan owned the seam. Found by the audit, not by either
+  phase.
+- **"Re-skin" meant different things to the writer and the executor.** Phase 51 was scoped as
+  token-hygiene ("refinement, not redesign" — its own words) and executed faithfully; the user
+  read the milestone as delivering a designed UI. Cost: 999.18, a whole rebuild, discovered only
+  when the user looked at real screens.
+- **Docker/WSL burned ~25 minutes across 3 wait cycles + a clean restart** in one session and
+  blocked two tasks outright.
+
+### Patterns Established
+
+- **Feature-detected schema columns** (`tableColumnExists`) — the repo's single feature-detection
+  point; per-process cached, fails closed to "not present" including when its own probe fails.
+- **Ratchet-with-a-ladder over silent lowering** — when a gate must move, move it openly, record
+  the step-back-up plan as a tracked todo, and never lower further.
+- **Rename + its coupled infra apply are ONE operation** — the GitHub rename and the IAM OIDC
+  trust `terraform apply` had to happen in the same sitting or the deploy pipeline breaks.
+- **Mobile = don't mount, not hide** — dynamic islands are unmounted below `md`, not CSS-hidden.
+- **Runsheets are authored, never pre-checked** — 54-07 wrote the §H six-leg scenario with real
+  grepped UI labels and a DB-verify query per leg, and marked nothing passed. CLUS-07 stayed
+  honestly Pending. The doc did its job; the run didn't happen.
+
+### Key Lessons
+
+- **A standing rule that can be waived at the gate is a prompt, not a gate.** The rule worked
+  exactly as designed — it blocked, surfaced the conflict, and forced an explicit decision. It was
+  then overridden. That's seven consecutive closes without the user touching the live loop. If the
+  live legs matter, the enforcement has to sit somewhere a milestone close can't reach — e.g. the
+  live legs execute *first* in the milestone, not last, so there's nothing left to defer.
+- **User-only external actions are a scheduling problem, not a technical one.** Every one of the
+  three gaps was blocked on a human opening a console, and all the engineering around them was
+  finished days earlier. Sequencing them at the *end* of a 4-day autonomous run guarantees they
+  land when momentum is spent.
+- **Autonomous runs cannot make taste decisions.** Nothing in v1.9's process could have produced
+  "this UI is ugly" — it took the user looking at real screens. Design work needs a review loop on
+  real screens *before* cascading, not an audit after.
+- **Code-level verification and live acceptance are different claims** and this milestone proves
+  they can diverge completely: 27/27 verified at code level, 3 unproven live, and the 3 were the
+  ones that carried the product's value proposition.
+
+### Cost Observations
+
+- Model mix: Opus orchestrating (incl. audit + close), sonnet executors/verifiers/checkers.
+- Sessions: many — 4 days of largely autonomous overnight runs, survived multiple cutoffs.
+- Notable: 205 commits / 260 code files in 4 days is the project's highest throughput to date —
+  and the milestone still missed its acceptance bar. Throughput was never the constraint.
+
 ## Cross-Milestone Trends
 
 | Milestone | Phases | Plans | Shipped | Audit | Deferred (connected-env) |
@@ -334,5 +428,23 @@ decision-ready v1.8 brand/design dossier.
 | v1.6 | 33–41 | 20 | 2026-07-09 | tech_debt | 7 |
 | v1.7 | 42–46 | 25 | 2026-07-10 | tech_debt | 8 |
 | v1.8 | 47–48 | 10 | 2026-07-10 | tech_debt | 6 |
+| v1.9 | 49–54 | 37 | 2026-07-14 | **gaps_found** | 15 |
 
-**Recurring theme:** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass. Through v1.6 this read as a stable, honest pattern; at the v1.8 close the user called its cumulative effect — a product never experienced live — and the pattern was retired as a default: from v1.9 on, live gates (deploy, OAuth, real email, UAT) are first-class phase work (ENDGAME-PLAN.md standing rule), and every v1.8 deferral carries a designated v1.9 landing spot. The locked-renderer + reusable-registry discipline (FOUND-2) has held across eight milestones; committed regression gates and live re-run verification (127/127 at the v1.8 audit) continue to replace one-off checks. v1.5 added measurement-gated architecture evolution; v1.6 added suite-gated exposure flips and fully-autonomous parallel execution; v1.7 added adversarial acceptance gates that found and same-run-closed a real security hole; v1.8 added recorded overrides against overclaiming success criteria and the scope-cut-as-decision mechanism.
+**Update at the v1.9 close — the theme did not break, it got named.** v1.8 retired
+defer-by-default and locked the standing rule; v1.9 then closed with its three live legs still
+unexecuted, by explicit user choice at the gate. That is **seven consecutive milestones** in which
+the user has not touched the live loop — but v1.9 differs in kind from v1.2–v1.7: the deferral was
+surfaced, argued, and decided rather than assumed, and the remaining gap is three console visits,
+not three epochs of work. The engineering side of "capability shipped but never felt" is now
+genuinely closed (E3 shipped; deploys are green end-to-end; the app is deployed and migrated). The
+open question is no longer *can we build it* but *will the live legs ever run* — and v1.9's answer
+so far is "not yet." Watch whether §A/§B/§H execute before the next milestone's work begins; if
+they don't, the enforcement mechanism (not the rule) is what needs redesigning.
+
+**The other v1.9 finding worth carrying:** the user's verdict that the UI is "still
+ugly/experimental, not a production UI" (999.18) reveals a blind spot no gate covered — this
+project has shipped nine milestones of capability and zero milestones of design. Token discipline,
+WCAG gates, and palette bans measured *hygiene*, and hygiene passed every time while the product
+looked unfinished. Measurement can only enforce what it can express.
+
+**Recurring theme (through v1.8):** this project consistently ships code-complete milestones with a small set of live-browser/Bedrock verifications deferred to a connected-env pass. Through v1.6 this read as a stable, honest pattern; at the v1.8 close the user called its cumulative effect — a product never experienced live — and the pattern was retired as a default: from v1.9 on, live gates (deploy, OAuth, real email, UAT) are first-class phase work (ENDGAME-PLAN.md standing rule), and every v1.8 deferral carries a designated v1.9 landing spot. The locked-renderer + reusable-registry discipline (FOUND-2) has held across eight milestones; committed regression gates and live re-run verification (127/127 at the v1.8 audit) continue to replace one-off checks. v1.5 added measurement-gated architecture evolution; v1.6 added suite-gated exposure flips and fully-autonomous parallel execution; v1.7 added adversarial acceptance gates that found and same-run-closed a real security hole; v1.8 added recorded overrides against overclaiming success criteria and the scope-cut-as-decision mechanism.

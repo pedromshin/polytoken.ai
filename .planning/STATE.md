@@ -2,30 +2,45 @@
 gsd_state_version: 1.0
 milestone: v1.9
 milestone_name: Cloud Workspace
-status: completed
-last_updated: "2026-07-12T14:40:00.000Z"
-last_activity: 2026-07-12 -- Phase 54-07 executed (MORNING-CHECKLIST.md sect:H CLUS-07 live-acceptance runsheet -- doc-only, never faked -- see 54-07-SUMMARY.md; Phase 54 now 7/7 plans complete, PHASE COMPLETE)
+status: shipped
+shipped: 2026-07-14
+last_updated: "2026-07-14T00:00:00.000Z"
+last_activity: 2026-07-14 -- v1.9 Cloud Workspace ARCHIVED via /gsd:complete-milestone. 24/27 requirements; LIVE-03/LIVE-04/CLUS-07 deferred as accepted tech debt by explicit user decision at the gate (audit verdict was gaps_found). See Deferred Items -> v1.9.
 progress:
   total_phases: 6
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 37
   completed_plans: 36
-  percent: 97
+  percent: 100
 ---
 
 # State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-07-10 after v1.8 milestone close)
+See: .planning/PROJECT.md (updated 2026-07-14 after v1.9 milestone close)
 
 **Core value:** Reliably receive every inbound email and make it observable — now as a product
 the user actually lives in.
-**Current focus:** Phase 50 — Live-Loop Gate — UAT Burn-down & Screenshot Coverage
-Plan of record: research/two-epoch-endgame/ENDGAME-PLAN.md. STANDING RULE: deploy/OAuth/live-UAT
-gates are first-class phase work, never deferrable-by-default; user-executed steps (Google
-console, SES/DNS, Supabase project-id decision) are in-phase checkpoint tasks in Phase 49
-(49-06 still pending, held for the user's morning checkpoint).
+**Current focus:** Planning the next milestone (`/gsd:new-milestone`).
+
+**Two things carry into that planning, both user-raised:**
+
+1. **The v1.9 live legs are still owed** — §A OAuth, §B.3–6 forwarding, §H CLUS-07, all in
+   `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`. Deferred as accepted
+   tech debt at the v1.9 close, overriding the standing rule. No development work required.
+2. **Backlog 999.18 — FULL production UI/UX rebuild (HIGH PRIORITY, user's verdict on the live
+   app):** "the whole UI is still ugly/experimental, not a production UI — not just tokens and
+   colors." v1.9's Phase 51 was scoped as token-hygiene only; no phase has ever done real visual
+   design. Top candidate for the next milestone. Related: 999.19 (frictionless research canvas —
+   the user's production vision in their own words; prime E4/E5 shaping input).
+
+Plan of record: research/two-epoch-endgame/ENDGAME-PLAN.md — v2.0 Local Agent Platform (E4+E5+E6
+merged) is the mapped next epoch, but 999.18 may warrant a dedicated v1.10 first.
+
+STANDING RULE (still in force, and worth re-reading given how v1.9 closed): deploy/OAuth/live-UAT
+gates are first-class phase work, never deferrable-by-default — a milestone isn't done until the
+user has touched the capability live.
 
 ## Current Position
 
@@ -2867,6 +2882,43 @@ Coverage: 24/24 v1.3 requirements mapped, no orphans. Next: `/gsd:plan-phase 22`
   **Next: 30-02** (TIER-03 promotion endpoint — not yet planned).
 
 ## Deferred Items
+
+### v1.9 (acknowledged and deferred at the v1.9 milestone close, 2026-07-14)
+
+**Acknowledged by an explicit user decision at the `/gsd:complete-milestone` gate**, NOT by the
+prior standing "defer autonomously" directive — and knowingly overriding v1.9's own STANDING
+RULE ("deploy/OAuth/live-UAT gates are first-class phase work, never deferrable-by-default; a
+milestone isn't done until the user has touched the capability live"). The milestone audit
+(`milestones/v1.9-MILESTONE-AUDIT.md`) verdict was **gaps_found** and explicitly said
+complete-milestone must NOT run until §A, §B.3–6, and §H were executed. The user chose
+"proceed anyway — accept as tech debt" on 2026-07-14.
+
+**The three live legs below are the whole gap. None is missing work** — code, infrastructure,
+and runsheets are complete and waiting; each is a user-only external action. All three live in
+one runsheet: `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
+Order matters: §A → §B.3–6 → §H (§H depends on both).
+
+| Category | Item | Status |
+|----------|------|--------|
+| requirement | LIVE-03 — Google OAuth live on the deployed app (§A) | **deferred, user-only** — prep complete (redirect URIs, env tables, hosted auth users pre-created for identity-linking); Google Console + Supabase Dashboard steps + real sign-in remain |
+| requirement | LIVE-04 — real email flowing (§B.3–6) | **deferred, user-only** — SES `forwarding_catchall` rule authored AND terraform-applied (§B.2, `77a45c7`); copy `u-{token}@` address, Gmail forwarding handshake, real message w/ attachment, prod-DB verify remain |
+| requirement | CLUS-07 — six-leg live scenario on the real inbox (§H) | **deferred, user-only — WAS THE MILESTONE'S ACCEPTANCE BAR**; CLUS-01..06 code-complete + verified, migration 0036 applied local/staging/prod, runsheet authored (§H.4); blocked only by §A + §B.3–6 |
+| uat_gap | 49-HUMAN-UAT.md — 4 open scenarios | partial — all four are the §A/§B external legs above |
+| verification_gap | 49/50/51/52/53/54-VERIFICATION.md (6 files) | human_needed — every phase verification passed at code level; all six await the same live confirmation |
+| todo | 2026-07-12-coverage-ratchet-step-up | pending — email-listener pytest gate ratcheted 80→65 (user-approved 2026-07-12); step-up ladder 70@72% / 75@77% / 80@82%, never lower further |
+| integration_warning | 999.17 — editable-panel chrome unreachable on mobile; docked/mobile transcript ignores panel overlays | filed to backlog — PANL-01..04 editing is desktop-canvas-only; graceful degradation, no data risk |
+| integration_warning | Orphaned conversation on attach-chat failure (`email-thread-node.tsx:103-125`) | open, low severity — conversation created before attach; on degrade it is neither deleted nor opened; cosmetic rail clutter, no corruption |
+| tech_debt | Hosted DB passwords stale (28P01) in `.env.staging`/`.env.production` | deferred (§E.1, low) — Management-API path PASS evidence already captured; native verifier re-run pending a password refresh |
+| tech_debt | Vercel project rename `nauta-web` → `polytoken-web` (§D) | optional/skippable by design — zero hardcoded refs in application code; LIVE-07 closed without it |
+| tech_debt | 51-UI-SPEC exemplar table lists `inbox-three-pane.tsx` as pre-converted (doc drift; code is correct) | open, cosmetic |
+| tech_debt | Display typography role (`text-xl`) declared but unused — page titles fragment across text-lg/text-2xl | open, inherited |
+| tech_debt | `/login` renders inside the authenticated `SidebarProvider` shell | open — pre-existing info-shape concern self-flagged in 53-01; future security pass |
+| tech_debt | Playwright viewport specs (360/768/1024) not authored | open — §G item 6 covers the manual sweep; author later for CI lock-in |
+| tech_debt | `web_search` provider is keyless DuckDuckGo | accepted — keyed provider (Tavily/Brave) is a documented optional swap |
+
+**Consequence to carry into the next milestone:** v1.9's headline claim — "polytoken becomes a
+*used* product, the live loop closed on the user's real email" — is **not proven**. Executing
+§A → §B.3–6 → §H closes LIVE-03, LIVE-04, and CLUS-07 with no further development work.
 
 ### v1.8 (acknowledged and deferred at the v1.8 milestone close, 2026-07-10)
 

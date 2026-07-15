@@ -1,5 +1,100 @@
 # Milestones
 
+## v1.9 Cloud Workspace (Shipped: 2026-07-14)
+
+**Phases completed:** 6 phases (49–54), 37 plans (36 executed + 49-06 held at its designed human
+gate), 205 commits
+**Timeline:** 2026-07-10 → 2026-07-13 (4 days, largely autonomous overnight runs)
+**Code changes:** 260 files, +33,485 / −8,171 (excluding `.planning/`)
+**Requirements:** 24/27 satisfied
+**Audit:** `gaps_found` — see Known Gaps below. Known deferred items at close: 15 (see STATE.md
+→ Deferred Items → v1.9)
+
+**Delivered:** The E3 email-cluster workflow — thread cards on the chat canvas, chats bound to
+email threads, a real `web_search` tool executor, captured sources promotable into the knowledge
+graph, and accumulating cluster context — on a fully re-skinned, mobile-responsive, live-deployed
+product with editable genui panels. Every capability is code-complete and independently verified;
+three user-only live-acceptance legs remain unexecuted.
+
+### Known Gaps
+
+The audit verdict was **`gaps_found`** and stated explicitly that complete-milestone must not run
+until §A, §B.3–6, and §H were executed. The user chose "proceed anyway — accept as tech debt" at
+the gate on 2026-07-14, knowingly overriding this milestone's own STANDING RULE ("a milestone
+isn't done until the user has touched the capability live"). Recorded here so the override is not
+lost to history.
+
+| REQ | Gap | Why it's open |
+|-----|-----|---------------|
+| LIVE-03 | Google OAuth not exercised live on the deployed app | User-only: Google Console + Supabase Dashboard steps, then a real sign-in (§A) |
+| LIVE-04 | No real email has flowed in | User-only: Gmail forwarding handshake + real message round-trip (§B.3–6); the SES rule is applied |
+| CLUS-07 | The six-leg live scenario on the real inbox — **this milestone's acceptance bar** — is unproven | User-only, and blocked by §A + §B.3–6 first (§H.4) |
+
+None of the three is missing work: code, infrastructure, migrations (through 0036, applied to
+local + staging + prod), and the runsheets are all complete and waiting in
+`phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`. **Consequence:** v1.9's
+headline claim — polytoken as a *used* product with the live loop closed on real email — is not
+proven. Executing §A → §B.3–6 → §H closes all three with no further development.
+
+**Key accomplishments:**
+
+### Phase 49 — Live-Loop Gate: Deploy, OAuth & Real Email
+
+- `docs/RUN-LOCAL.md` (161 lines) plus `scripts/preflight-local.ps1` (232 lines) codify a DB-verified, idempotent local cold-start (zombie-kill → Supabase up under `project_id=polytoken` → seed-before-migrate → grant/NOTIFY-pgrst remediation → `has_table_privilege` PASS/FAIL gate).
+- Added `aws_ses_receipt_rule.forwarding_catchall` to `ses.tf` (bare-domain recipient chained `after` the existing exact-match rules) with a clean read-only `terraform plan` (1 to add, 0 changed); applied 2026-07-12.
+- New `apps/web/e2e/helpers/seed-session.ts` (GoTrue admin magiclink + `@supabase/ssr`-native cookie encoding) plus `live-loop-green.spec.ts` drove a real login→inbox→thread→email→chat(tool round + genui card)→`/knowledge` pass on both chromium and firefox against the live local stack, closing LIVE-01 with DB-verified evidence.
+- Applied hosted migrations 0021–0035 to staging then prod (16/16 DB-verified assertions per host) via the Supabase Management API (native `db:migrate` blocked by stale hosted-DB passwords), and fixed-forward 285 ruff + 25 mypy violations to get the ECS deploy workflow CI-green; ALB `/health`=200, Vercel=200.
+- Produced `EXTERNAL-IDENTITY-DECISIONS.md`, giving every LIVE-07 external-identity leftover an explicit disposition (AWS/Terraform re-parked with named hazards, local Supabase project-id closed, GitHub rename held for the OIDC-gated checkpoint, and an autonomous Vercel-rename attempt correctly blocked by the session's own domain-change safety policy rather than executed).
+- **Post-run closure (2026-07-13):** the user executed the GitHub rename to `pedromshin/polytoken.ai` with the companion IAM OIDC trust-policy apply in the same sitting (`02fc71c`), closing LIVE-07; and the coverage ratchet exposed a second hidden deploy blocker — `requirements.txt` had drifted from `pyproject.toml`, so every prod task crashed at import (`ModuleNotFoundError: jsonschema`) and the ECS circuit breaker rolled back each rollout — fixed and guarded by `tests/test_requirements_sync.py`, closing LIVE-02 end-to-end.
+
+### Phase 50 — Live-Loop Gate: UAT Burn-down & Screenshot Coverage
+
+- Extended the screenshot-review harness with a fail-closed `isLocalTarget` guard and a new `/emails/[id]` DB-fixture surface (`seedEmailFixture`), then ran it live to capture all 8 authenticated surfaces (16 PNGs, zero `/login` redirects), closing LIVE-06 and the long-standing W-1 warning.
+- Closed all 7 deferred Phase-39/41 chat-surface UAT scenarios via new `uat-39-tool-round.spec.ts` and `uat-41-knowledge-preview.spec.ts`, finding and fixing a genuine `chat-canvas.tsx` production bug where an async `setNodes` updater race silently dropped every restored canvas node beyond the default chat node on reload.
+- Closed 8 of 11 Phase-43/45 auth+thread UAT scenarios via new `uat-43-auth.spec.ts`/`uat-45-threads.spec.ts` and `seedThreadFixtures`, explicitly routing the 3 genuinely-external scenarios to the morning checklist rather than leaving them silently pending.
+- New `uat-48-token-surfaces.spec.ts` used `getComputedStyle` assertions to prove the Phase-48 token extensions (pill radius, success/destructive colors, EXTRACTED-vs-INFERRED edge styling) resolve on live rendered elements.
+- `50-UAT-BURNDOWN.md` rolled up all 21 deferred Phase 39/41/43/45/47/48 UAT scenarios (17 passed, 4 explicitly moved to the morning checklist with real destinations, zero silently parked), closing LIVE-05 per its own "no silent parking" acceptance bar.
+
+### Phase 51 — Total UI Re-skin
+
+- Applied the D-48-06 hover/active/focus-visible convention across every `/chat` interactive surface and cleared the app-sidebar's last glassmorphism violation, fixing 3 real accessibility gaps (missing focus rings; a sidebar ring resolving to `--primary` instead of the neutral `--ring` token).
+- Converted the heaviest off-token cluster in the app — `region-overlay-box.tsx`'s 17 violet/amber/slate role-coding occurrences plus 6 sibling email-detail files — onto the closed `color.graph.*` palette, with `confirm-deny-controls.tsx`'s filled-semantic recipe as the phase's canonical exemplar.
+- Converted inbox entity chips to `color.graph.entity` + `radius.pill` and `/entities/[id]`'s `StatusBadge` to the `color.tier.*` confidence ladder, closing backlog 999.16 (RSKN-06) in full.
+- Cleared all four remaining glassmorphism-ban violations on `/knowledge` chrome, swapped a raw `⊞` glyph for a `lucide-react` `LayoutGrid` icon, and applied the hover/active convention to toolbar/filter controls (RSKN-03).
+- Applied the hover/active convention to `/studio`'s tab strip and history rows and fixed a `/login` copy drift ("Continue with Google" vs the brand-guide-locked "Sign in with Google") (RSKN-04).
+- Extended `promoteEdge` and a new `invalidateOnChatTerminal` helper to invalidate `knowledge.expandNode` alongside the existing `byId`/`graph` keys, closing the RSKN-07 cache-invalidation gap with two regression tests.
+- Landed the committed `palette-ban.test.ts` D-49-05 regression gate (zero production violations); the plan's E2E suite and 16-surface screenshot re-capture were **blocked by a non-recovering Docker/WSL failure** and closed by two later addenda — an app-wide glassmorphism sweep catching 11 sites across 8 files the per-plan file-ownership fences had missed, and a follow-up session that ran the deferred E2E suite, root-caused all 7 failures to test-infra contention (zero product regressions), and got it to 32/32 green twice.
+
+### Phase 52 — Editable Genui Panels / Studio-on-Canvas
+
+- Built the Zod-validated panel overlay data model (`PanelOverlaySchema`/`PanelVersionSchema` + 6 pure helpers implementing a supersede-never-mutate version chain), an app-owned `PanelThemeScope` CSS-variable theming wrapper, and `usePanelOverlay`/`CanvasPersistenceProvider` wired into the canvas's existing persistence — zero DB migration.
+- Mounted `PanelActionsToolbar` (mutual-exclusion lock across 4 controls) into `GenuiPanelNode` with `PackSwitcher` delivering PANL-01 end-to-end (optimistic apply, persist via `scheduleSave`, revert-on-error toast, rehydrate-on-reload).
+- Shipped bounded, schema-driven spec-parameter editing through a shared client/server whitelist (`panel-edit-schema.ts`) re-validated server-side by `genui.applyPanelEdit` using the same `SpecRootSchema.safeParse` defense-in-depth pattern as FOUND-6 — no free-form JSON, no partial apply (PANL-02).
+- Delivered one-click Regenerate (append-only `regenerate` version over the existing `genui.generate` transport) and a Version History popover with non-destructive Restore, fixing a real bug where a regenerated panel silently reset to the default style pack (PANL-03).
+- Built the server side of one-shot NL re-theming: `ResolveRethemeUseCase` + `GenuiRethemeAdapter` (single Bedrock forced-tool-use call, no repair loop) gated by a two-belt validation chain (Python key-allow-list + authoritative tRPC Zod schema), live-verified against real Bedrock and hardened after a live call surfaced a real malformed `radius` value the web-boundary regex correctly caught.
+- Shipped the NL Re-theme client popover applying `genui.resolveRetheme`'s output as a new overlay version with no-partial-apply on failure, plus an integration test proving a stored retheme version actually re-themes a rendered panel through `PanelThemeScope` (PANL-04).
+
+### Phase 53 — Mobile-Responsive Answer
+
+- Built the shared `useIsMobileViewport()` `matchMedia(max-width:767px)` hook (SSR-safe) and added a global `md:hidden` mobile nav trigger to root `layout.tsx`, closing a found gap where no way existed to open app nav on a phone.
+- Swept `pointer-coarse:` hit-area growth across the six Phase-52 canvas controls named in the UI-SPEC, using the touch-capability CSS media feature rather than a viewport-width check, with a committed class-string regression test.
+- Split `InboxThreePane` into a CSS-dual-tree layout: the byte-identical desktop `ResizablePanelGroup` wrapped `hidden md:block`, plus a new `flex md:hidden` mobile single-pane master→detail stack — the first vitest suite to mount the real render tree, surfacing and fixing 5 pre-existing missing-React-import gotchas.
+- Sheet-collapsed `CanvasShell`'s LAYERS/INSPECTOR/SUMMARY side panels below `md` into left/right Radix Sheets, leaving CANVAS as the sole persistent zone on mobile (MOBL-02's final contributing plan).
+- Force-coerced `/chat`'s view mode to "chat" below `md` — the `next/dynamic(ssr:false)` React-Flow canvas island is never mounted, not merely hidden — and converted `ConversationRail` into a closed-by-default overlay Sheet.
+- Branched `/knowledge` on the same hook via `KnowledgeSurface`: below `md` a self-fetching `KnowledgeMobileList` replaces the `dynamic(ssr:false)` graph island entirely, closing MOBL-01.
+
+### Phase 54 — Email-Cluster Workflow (E3)
+
+- Generated migration 0036 (`chat_conversations.thread_id`, additive/nullable/`ON DELETE SET NULL`) fully offline via `drizzle-kit generate`, and shipped a reusable `tableColumnExists` feature-detection gate plus ownership-scoped `chat.attachConversationToThread`/`getConversationThreadId` and `emails.threadCard` procedures that all degrade cleanly while 0036 is unapplied.
+- Built the 4th real `ToolExecutor`, `web_search` — a keyless DuckDuckGo HTML-scrape provider (stdlib `HTMLParser`, no new dependency) behind a double pre-DNS/post-DNS SSRF guard and a 10-fixture adversarial prompt-injection suite, wired dark then flipped enabled behind `WEB_SEARCH_TOOL_ENABLED` after the suite passed; a live-network smoke test caught and fixed a real envelope-truncation bug that could cut mid-JSON.
+- Extended the existing `emit_confirm_action`/suggest-only machinery with a second `source_capture` suggestion kind: a confirmed `web_search` result becomes an INFERRED `knowledge_nodes`+`knowledge_node_edges` row (server-re-read by a `{toolUseId}:{index}` lookup key, never model text), proven to promote to EXTRACTED through the completely unmodified `PromoteEdgeUseCase` (CLUS-04/05).
+- Added `EmailThreadNode`, the 4th versioned React Flow canvas node type (rendering real thread data via `emails.threadCard`), and `AddEmailThreadPopover`, wiring a new `onOpenConversation` context seam so "Attach chat" actually creates a thread-linked conversation and switches to it (CLUS-01).
+- Closed the Python-side "`thread_id` unreadable" stub by giving `ChatConversationRepository` its first read path to `chat_conversations.thread_id`, then built a pure, quarantine-enveloped `thread_cluster_context.py` assembler injecting a bounded, budget-guarded thread+cluster block into the system prompt for any thread-linked turn — byte-identical for unlinked turns (CLUS-02/06).
+- Shipped `chat.clusterSummary` (real sibling-chat + deduped captured-source counts) surfaced through a `ThreadClusterIndicator` popover mounted additively in the chat header, plus `web_search` tool-round copy-map entries reusing the existing tool-round chrome with zero new components.
+- Appended the 6-subsection §H CLUS-07 live-acceptance runsheet to `MORNING-CHECKLIST.md` — prerequisites, migration-0036 apply commands with a precomputed Dashboard-fallback hash, a 6-leg walkthrough citing the real shipped UI labels with a DB-verify query per leg, and an explicit acceptance bar — **authored only, never executed**, so CLUS-07 stays honestly unproven.
+
+---
+
 ## v1.8 Polytoken Re-skin — Brand & Design-System Foundation (Shipped: 2026-07-10)
 
 **Phases completed:** 2 phases (47–48), 10 plans, 25 tasks

@@ -11,7 +11,8 @@
 - ✅ **v1.6 — Chat × Knowledge Convergence** (Phases 33–41) — SHIPPED 2026-07-09. The chat agent reads its own extracted data: bounded mid-turn tool loop + 3 tiered knowledge tools with structural injection quarantine, per-round cost ceilings, visible tool rounds with citation chips, live data-bound panels, chat-confirmable promotions, and a knowledge-preview canvas node. Archived: [milestones/v1.6-ROADMAP.md](milestones/v1.6-ROADMAP.md) · Audit: [milestones/v1.6-MILESTONE-AUDIT.md](milestones/v1.6-MILESTONE-AUDIT.md).
 - ✅ **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46) — SHIPPED 2026-07-10. Atomic internal rename nauta → polytoken, Google OAuth + sessions (Supabase Auth), enforced per-user tenancy (app-boundary primary + RLS defense-in-depth, adversarially gated), email threads at ingest + personal-forwarding seam, hygiene folds + decision-ready v1.8 dossier. Archived: [milestones/v1.7-ROADMAP.md](milestones/v1.7-ROADMAP.md) · Audit: [milestones/v1.7-MILESTONE-AUDIT.md](milestones/v1.7-MILESTONE-AUDIT.md).
 - ✅ **v1.8 — Polytoken Re-skin — Brand & Design-System Foundation** (Phases 47–48; scope cut) — SHIPPED 2026-07-10. Polytoken brand identity (voice, logo, guide; naming USER-LOCKED to polytoken/polytoken.ai) + Playwright/screenshot verification toolchain, and token-system extensions on the EXTENDED v1.4 token system (pill radius, success color, code typography, tier-ladder + graph node/edge-type tokens, hover/active convention, breakpoint decision). Opened as Phases 47–51; user-directed scope cut ended it at Phase 48 with 12/12 in-scope requirements — RSKN/MOBL/PANL (11 requirements) moved to v1.9 per [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md). Archived: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) · Audit: [milestones/v1.8-MILESTONE-AUDIT.md](milestones/v1.8-MILESTONE-AUDIT.md).
-- ◆ **v1.9 — Cloud Workspace** (Phases 49–54) — OPENED 2026-07-10. Band 1 Live-Loop Gate (local stack green end-to-end, staging/prod migrations 0026–0035, OAuth + SES forwarding runbooks → the user's real email flowing, deferred-UAT burn-down) gates Band 2 (total UI re-skin + backlog 999.16, editable genui panels, mobile-responsive answer) and Band 3 (E3 email-cluster workflow, depth-first, proven live on the user's real inbox). Plan of record: [research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md) §2 (Epoch A).
+- ✅ **v1.9 — Cloud Workspace** (Phases 49–54) — SHIPPED 2026-07-14. The E3 email-cluster workflow (thread cards on the chat canvas, thread-bound chats, a real `web_search` executor, captured sources → INFERRED nodes → promote-to-global, accumulating cluster context) on a fully re-skinned, mobile-responsive, live-deployed product with editable genui panels. 24/27 requirements. **Caveat:** shipped with its three live-acceptance legs unexecuted — LIVE-03 (OAuth live), LIVE-04 (real email flowing), CLUS-07 (the six-leg scenario on the real inbox, *the declared acceptance bar*) — accepted as tech debt by explicit user decision at the gate, overriding the milestone's own standing rule. All three are user-only actions with code/infra/runsheets complete; see [phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md](phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md) §A → §B.3–6 → §H. Archived: [milestones/v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md) · Requirements: [milestones/v1.9-REQUIREMENTS.md](milestones/v1.9-REQUIREMENTS.md) · Audit: [milestones/v1.9-MILESTONE-AUDIT.md](milestones/v1.9-MILESTONE-AUDIT.md).
+- 📋 **Next milestone** — not yet opened. Two live candidates: **backlog 999.18** (full production UI/UX rebuild — the user's post-v1.9 verdict, HIGH PRIORITY) and **v2.0 Local Agent Platform** (E4+E5+E6 merged, the mapped next epoch). Run `/gsd:new-milestone` to open one.
 
 ## Phases
 
@@ -145,204 +146,33 @@ Full detail: [milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) · Audit: 
 
 </details>
 
-## v1.9 — Cloud Workspace (Phases 49–54) — CURRENT
+<details>
+<summary>✅ v1.9 — Cloud Workspace (Phases 49–54) — SHIPPED 2026-07-14</summary>
 
-**Goal:** polytoken becomes a *used* product — the live loop closes on the user's real email FIRST,
-then the total re-skin/mobile/editable-panels land, then the E3 email-cluster workflow ships
-depth-first as ONE fully-working scenario on the user's real inbox. Plan of record:
-[research/two-epoch-endgame/ENDGAME-PLAN.md](research/two-epoch-endgame/ENDGAME-PLAN.md) §2 (Epoch A).
+- [x] Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email (6 plans; 5 executed + 49-06 held at its designed human gate) — LIVE-01/02/07 closed; **LIVE-03/LIVE-04 deferred (user-only)**
+- [x] Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage (5/5 plans) — completed 2026-07-11
+- [x] Phase 51: Total UI Re-skin (7/7 plans + 2 UI-review fix rounds) — completed 2026-07-11; 51-07's Docker-blocked E2E + screenshot tasks closed 2026-07-12 (32/32 green twice)
+- [x] Phase 52: Editable Genui Panels / Studio-on-Canvas (6/6 plans + 1 UI-review fix round) — completed 2026-07-12
+- [x] Phase 53: Mobile-Responsive Answer (6/6 plans) — completed 2026-07-12
+- [x] Phase 54: Email-Cluster Workflow (E3) (7/7 plans + 1 UI-review fix round) — completed 2026-07-12; **CLUS-07 deferred (user-only)**
 
-**Ordering (hard constraint, ENDGAME-PLAN.md §2):** Band 1 (Phases 49–50) gates everything — no
-Band 2/3 phase starts before it is green. Within Band 2, RSKN (Phase 51) precedes MOBL (Phase 53);
-PANL (Phase 52) depends only on Phase 48's token/pack machinery and is parallelizable with RSKN;
-mobile runs last. Band 3 (CLUS, Phase 54) needs only Band 1 complete and its backend work may
-interleave in execution with Band 2, but is sequenced as the final phase — CLUS-07's live
-end-to-end scenario on the user's real inbox is the milestone's acceptance bar. Ex-Phase-49/50/51
-seed specs (goal/success-criteria text) reused from
-[milestones/v1.8-ROADMAP.md](milestones/v1.8-ROADMAP.md) §49–51; ex-49 discuss context:
-[phases/51-total-ui-re-skin/51-CONTEXT.md](phases/51-total-ui-re-skin/51-CONTEXT.md).
+24/27 requirements · 205 commits · 260 code files, +33,485/−8,171 · 2026-07-10 → 2026-07-13.
 
-- [ ] Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
-- [x] Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage (completed 2026-07-11)
-- [x] Phase 51: Total UI Re-skin (completed 2026-07-11 — BLOCKER: 51-07 Tasks 2/3 not yet verified, see below)
-- [x] Phase 52: Editable Genui Panels / Studio-on-Canvas
- (completed 2026-07-12)
-- [x] Phase 53: Mobile-Responsive Answer (completed 2026-07-12)
-- [x] Phase 54: Email-Cluster Workflow (E3) (completed 2026-07-12)
+**Shipped with a caveat worth remembering:** the audit verdict was `gaps_found` and said
+complete-milestone must not run until §A (OAuth), §B.3–6 (real email), and §H (the CLUS-07
+six-leg scenario) were executed live. The user chose to proceed and accept them as tech debt on
+2026-07-14, overriding v1.9's own STANDING RULE. Every capability is code-complete and
+independently verified at code level; **none of the three live legs has been exercised by a
+human.** CLUS-07 was this milestone's declared acceptance bar. No development work remains —
+see [phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md](phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md),
+run §A → §B.3–6 → §H in that order.
 
-### Phase 49: Live-Loop Gate — Deploy, OAuth & Real Email
+Full detail: [milestones/v1.9-ROADMAP.md](milestones/v1.9-ROADMAP.md) · Requirements:
+[milestones/v1.9-REQUIREMENTS.md](milestones/v1.9-REQUIREMENTS.md) · Audit:
+[milestones/v1.9-MILESTONE-AUDIT.md](milestones/v1.9-MILESTONE-AUDIT.md) · Deferred items:
+STATE.md → Deferred Items → v1.9.
 
-**Goal:** The live loop is technically operational — the app runs green locally, is deployed on
-migrated infrastructure, the user can sign in with their real Google account, and their real email
-flows into polytoken.
-**Depends on:** Nothing (first phase of v1.9; picks up where v1.8 Phase 48 left off)
-**Requirements:** LIVE-01, LIVE-02, LIVE-03, LIVE-04, LIVE-07
-**Success criteria:**
-
-1. The local stack runs green end-to-end (login → inbox → thread → email detail → chat with tool rounds → genui panel → /knowledge) via a documented, reproducible start procedure — no zombie-process ambiguity, verified against the DB not the terminal
-2. Migrations 0026–0035 are applied to staging AND production and live-verified; ECS + Vercel deploys are green on the renamed codebase
-3. GOOGLE-OAUTH-RUNBOOK.md is executed (user console steps as in-phase checkpoint tasks); the user signs in to the deployed app with their real Google account, the session persists across reload, and sign-out works
-4. FORWARDING-RUNBOOK.md + the SES rule are wired; a real forwarded message lands in polytoken, threads group correctly, and attachments are stored
-5. External-identity leftovers are decided, not parked: EXTERNAL-RENAME-RUNBOOK.md items are executed or explicitly re-parked by the user, and the local Supabase nauta→polytoken project-id decision is recorded
-
-**Plans:** 5/6 plans executed
-
-Plans:
-**Wave 1**
-
-- [x] 49-01-PLAN.md — Local stack green: RUN-LOCAL.md + preflight script + fresh-DB actualization (LIVE-01, LIVE-07)
-- [x] 49-02-PLAN.md — SES forwarding catch-all terraform rule + read-only plan proof (LIVE-04 prep)
-
-**Wave 2** *(blocked on Wave 1 completion)*
-
-- [x] 49-03-PLAN.md — DB-verified local end-to-end green-path (seeded-session Playwright) (LIVE-01)
-- [x] 49-04-PLAN.md — Staging+prod migrations 0026–0035 + ECS/Vercel deploys green (LIVE-02)
-- [x] 49-05-PLAN.md — External-identity decisions recorded + Vercel rename + JWT audit fold-in (LIVE-07)
-
-**Wave 3** *(blocked on Wave 2 completion)*
-
-- [ ] 49-06-PLAN.md — CHECKPOINT: morning checklist + OAuth + forwarding round-trip + GitHub rename (LIVE-03, LIVE-04, LIVE-07)
-
-### Phase 50: Live-Loop Gate — UAT Burn-down & Screenshot Coverage
-
-**Goal:** Every capability shipped since v1.2 is confirmed working live, not just code-verified, and
-the screenshot-verification harness covers the surface it was missing.
-**Depends on:** Phase 49 (auth-gated UAT scenarios need a live OAuth session to execute)
-**Requirements:** LIVE-05, LIVE-06
-**Success criteria:**
-
-1. Every open scenario in 39/41/43/45/47/48-HUMAN-UAT.md is executed via `/gsd:verify-work` and closed or converted to a tracked fix — none remain silently parked
-2. Auth-gated scenarios among them execute for real now that Phase 49 produced a live OAuth session
-3. The screenshot-review harness (47-05) covers `/emails/[id]` (closing todo W-1) and captures authenticated surfaces using a seeded session instead of falling back to textual before/after artifacts
-
-**Plans:** 5/5 plans complete
-- [x] 50-01-PLAN.md — LIVE-06: extend the screenshot harness with /emails/[id] + seeded-session capture (real authenticated pixels)
-- [x] 50-02-PLAN.md — LIVE-05: chat-surface burn-down (39 tool-round/chips + 41 knowledge-preview node)
-- [x] 50-03-PLAN.md — LIVE-05: auth + inbox/threads burn-down (43 session/sign-out + 45 thread grouping)
-- [x] 50-04-PLAN.md — LIVE-05: visual/token-surface burn-down (48 chip/success/graph-tier + 47 brand mark)
-- [x] 50-05-PLAN.md — LIVE-05: 50-UAT-BURNDOWN.md roll-up + morning-checklist appends (zero silently parked)
-
-### Phase 51: Total UI Re-skin
-
-**Goal:** Every major product surface — chat, inbox, knowledge canvas, studio, settings, login —
-speaks the polytoken register on the extended token system, with token discipline holding
-throughout, including the off-token stragglers the Phase-48 audit found.
-**Depends on:** Phase 48 (v1.8 — consumes tier-ladder + graph-palette + pill/success/code tokens);
-Phase 50 (Band 1 gate — nothing in Band 2/3 starts before the live loop is green)
-**Requirements:** RSKN-01, RSKN-02, RSKN-03, RSKN-04, RSKN-05, RSKN-06, RSKN-07
-**Success criteria:**
-
-1. `/chat` (composer, message stream, tool-round activity rows, citation chips) is re-skinned in the polytoken register on extended tokens
-2. The thread inbox (three-pane, thread groups) and email detail view are re-skinned on extended tokens
-3. `/knowledge` canvas is re-skinned — tier badges on TOKN-04 tokens, node types on the TOKN-05 palette — and the pre-existing UI debt (glassmorphism-ban violations, raw ⊞ glyph) is cleared
-4. `/studio`, `/settings/*`, and `/login` are re-skinned in the polytoken register
-5. Zero raw hex outside token sources holds across the re-skin; the WCAG-AA contrast + token-family registration regression gates stay green and extend to the new aliases
-6. The inbox entity chips consume `color.graph.entity` + `radius.pill`, and `/entities/[id]`'s StatusBadge consumes the `color.tier.*` ladder — closing backlog 999.16
-7. Knowledge-canvas cache invalidation extends to chat-driven promotions and expandNode results, not just staleTime self-healing
-
-**Plans:** 7/7 plans have a SUMMARY.md — **BLOCKER:** 51-07's Task 1 (committed palette-ban gate)
-is done+green, but Task 2 (E2E regression suite) and Task 3 (16-surface screenshot re-capture)
-could NOT execute — Docker Desktop's backend never reached a ready state in that session (~25min
-across 3 wait cycles + 1 clean restart; see `51-07-SUMMARY.md` for the full diagnostic trail).
-Re-run 51-07 Tasks 2/3 in a session where `docker info` succeeds before treating Phase 51 as fully
-verified.
-**UI hint**: yes
-
-Plans:
-**Wave 1** *(6 parallel plans — disjoint files_modified)*
-
-- [x] 51-01-PLAN.md — /chat interactive surfaces + global chrome (sidebar de-glass + hover/active) (RSKN-01)
-- [x] 51-02-PLAN.md — Email-detail D-49-03 palette→graph.* conversion + confirm/deny filled-semantic recipe (RSKN-02, RSKN-05)
-- [x] 51-03-PLAN.md — Inbox entity chips→graph-entity+pill, /entities palette + StatusBadge→tier ladder (backlog 999.16) (RSKN-02, RSKN-06, RSKN-05)
-- [x] 51-04-PLAN.md — /knowledge re-skin: glassmorphism burn-down (4 files) + ⊞→LayoutGrid + tier/graph confirm (RSKN-03)
-- [x] 51-05-PLAN.md — /studio + /settings/forwarding + /login register/hover pass + brand-copy confirm (RSKN-04)
-- [x] 51-06-PLAN.md — RSKN-07 FUNCTIONAL: cache invalidation for chat-driven promotions + expandNode (+ tests) (RSKN-07)
-
-**Wave 2** *(blocked on Wave 1 — the enforceable gate + phase-wide regression)*
-
-- [x] 51-07-PLAN.md — D-49-05 committed palette-ban gate (DONE, green) + E2E regression (live-loop/uat-39/41/43/45/48) + full 16-surface screenshot re-capture vs baseline (RSKN-05) — **E2E + screenshot tasks BLOCKED, not executed (Docker Desktop unavailable this session); re-run before treating this plan as fully verified**
-
-### Phase 52: Editable Genui Panels / Studio-on-Canvas
-
-**Goal:** Canvas genui panels become live editing surfaces instead of read-only renders — a user can
-re-theme, tweak, and regenerate a panel in place.
-**Depends on:** Phase 48 (v1.8 — style-pack/token machinery); Phase 50 (Band 1 gate); functionally
-independent of Phase 51 — parallelizable
-**Requirements:** PANL-01, PANL-02, PANL-03, PANL-04
-**Success criteria:**
-
-1. User can switch a genui panel's `style_pack_id` in place from per-panel controls; the choice persists across reloads
-2. User can tweak a panel's spec parameters in place through a bounded editing surface, schema-validated via the same untrusted-input gate as FOUND-6
-3. User can regenerate a panel variant in place, with provenance retained and the prior version reachable
-4. User can issue a natural-language re-theme instruction on a panel that resolves to pack/token choices (DSGN-03's cheap generation-side slice; no visual-compare repair loop)
-
-**Plans:** 6/6 plans complete
-
-Plans:
-- [x] 52-01-PLAN.md — Foundation: per-panel overlay model (versions/pack override) + PanelThemeScope + persistence hook (no migration)
-- [x] 52-02-PLAN.md — Panel toolbar chrome + PANL-01 pack switch end-to-end (optimistic/persist/rehydrate) + control skeletons
-- [x] 52-03-PLAN.md — PANL-02 bounded parameter editor + server-side FOUND-6 gate (applyPanelEdit)
-- [x] 52-04-PLAN.md — PANL-03 regenerate-in-place + version history/restore (supersede-never-mutate)
-- [x] 52-05-PLAN.md — PANL-04 server: Bedrock retheme resolution (Python) + resolveRetheme tRPC boundary
-- [x] 52-06-PLAN.md — PANL-04 client: NL re-theme popover + apply as retheme version
-
-**UI hint**: yes
-
-### Phase 53: Mobile-Responsive Answer
-
-**Goal:** The product is usable on a mobile viewport — canvas surfaces gracefully degrade to an
-inline-first list/feed rather than an unusable shrunk canvas, per the market-validated pattern
-(ChatGPT removed Canvas 2026-05-28 over cross-surface inconsistency; Claude Artifacts render inline
-on mobile).
-**Depends on:** Phase 51 (re-skinned surfaces to make responsive); Phase 48 (v1.8 — TOKN-07
-breakpoint decision); Phase 50 (Band 1 gate, inherited via Phase 51)
-**Requirements:** MOBL-01, MOBL-02
-**Success criteria:**
-
-1. On small screens, canvas surfaces (chat canvas, `/knowledge`) collapse to a list/feed presentation; desktop keeps the 2D canvas
-2. Core flows (login → inbox → thread → email detail → chat) show no horizontal overflow on a mobile viewport
-3. Touch targets stay ≥44px on a mobile viewport even under denser style packs
-
-**Plans:** 6/6 plans complete
-
-Plans:
-- [x] 53-01-PLAN.md — Foundation: useIsMobileViewport() hook + global mobile nav trigger (wave 1)
-- [x] 53-02-PLAN.md — Touch-target sweep: Phase-52 toolbar + KnowledgePreviewNode pointer-coarse: (wave 1)
-- [x] 53-03-PLAN.md — Inbox single-pane master→detail stack below md (wave 1)
-- [x] 53-04-PLAN.md — Email-detail CanvasShell Sheet-collapse below md (wave 1)
-- [x] 53-05-PLAN.md — /chat inline feed: canvas never mounts + rail overlay Sheet (wave 2)
-- [x] 53-06-PLAN.md — /knowledge mobile list + full-width detail sheet (wave 2)
-
-**UI hint**: yes
-
-### Phase 54: Email-Cluster Workflow (E3)
-
-**Goal:** The killer feature — email-thread clusters with attached chats, mid-turn web research, and
-promotable knowledge — works end-to-end, proven live by the user on their real inbox.
-**Depends on:** Phase 50 (Band 1 complete — real email flowing is the substrate); backend work
-(CLUS-01..06) may interleave in execution with Phases 51–53, but this phase is sequenced last as
-the milestone's final acceptance gate
-**Requirements:** CLUS-01, CLUS-02, CLUS-03, CLUS-04, CLUS-05, CLUS-06, CLUS-07
-**Success criteria:**
-
-1. User can place an email-thread card on the `/chat` canvas as a first-class node type (versioned registry entry), showing the thread's real subject/participants/summary
-2. User can attach a chat to an email thread — the conversation is linked to the thread and the agent's answers draw on that thread's content
-3. The agent can search the web mid-turn via a `web_search` ToolExecutor behind the same port, allowlist, envelope-quarantine, and adversarial-fixture discipline as the v1.6 tools
-4. Tool results (URLs/pages) can be captured as INFERRED knowledge nodes attached to the thread/chat cluster — suggest-only, provenance retained
-5. Cluster knowledge is promotable to the global graph through the existing suggest-only promotion gate
-6. Cluster context accumulates — artifacts from earlier chats in the cluster (genui panels, captured sources) are available as context to subsequent chats attached to the same thread
-7. The end-to-end scenario is proven live by the user on their real inbox: real thread → attached chat → web research with thread in context → sources captured → promotion confirmed → a follow-up chat sees the cluster context — the milestone's acceptance bar
-
-**Plans:** 7/7 plans complete
-
-Plans:
-- [x] 54-01-PLAN.md — Migration 0036 + thread<->conversation linkage tRPC seam (attach + threadId reads + emails.threadCard) (wave 1)
-- [x] 54-02-PLAN.md — web_search ToolExecutor: SearchProvider port + SSRF-guarded fetch + adversarial fixtures + dark exposure gate (wave 1)
-- [x] 54-03-PLAN.md — Source capture as INFERRED nodes + promotion reuse (wave 2)
-- [x] 54-04-PLAN.md — EmailThreadNode + Add-thread popover + versioned node registry (wave 2)
-- [x] 54-05-PLAN.md — Thread + cluster context assembly injection (bounded, quarantined) (wave 3)
-- [x] 54-06-PLAN.md — ThreadClusterIndicator + clusterSummary + web_search tool-round copy (wave 3)
-- [x] 54-07-PLAN.md — CLUS-07 live-acceptance §H runsheet in MORNING-CHECKLIST.md (wave 4)
+</details>
 
 ## Next Two Epochs — the endgame map (LOCKED 2026-07-10)
 

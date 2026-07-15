@@ -2,18 +2,81 @@
 
 ## What This Is
 
-A monorepo (mirroring acme-os-dev conventions) hosting Nauta services. The first service,
-`apps/email-listener`, is a FastAPI server that receives and logs raw inbound emails — the
-real-world entry point for the Nauta "Data-Entry Brain" design case (context/0). Deployed
-to AWS ECS Fargate with staging (dev branch) and production (main branch) environments.
+**polytoken** — a personal knowledge workspace grown out of the user's own email. Mail forwarded
+to a personal `u-{token}@` address is ingested, parsed (PDF text + OCR), extracted into
+entities/regions, and grouped into threads; from there the user works it on a 2D canvas: `/chat`
+with an agent that reads its own extracted data through a bounded mid-turn tool loop (entity
+lookup, email search, knowledge search, web search), generates live data-bound UI panels they can
+re-theme and edit in place, and clusters chats around real email threads whose captured sources
+promote into a confidence-tiered knowledge graph.
+
+A monorepo (conventions mirroring acme-os-dev): `apps/web` (Next.js) + `apps/email-listener`
+(FastAPI, Clean Architecture) + `packages/{db,api-client,ui,genui}`. Deployed to AWS ECS Fargate
+(staging on `dev`, production on `main`) behind a shared ALB, with Vercel for the web app,
+Supabase (Postgres + Auth + Storage), and AWS Bedrock for all LLM/embedding transport.
+Repo: `pedromshin/polytoken.ai`.
 
 ## Core Value
 
-Reliably receive every inbound email destined for agent@magnitudetech.com.br and make it
-observable — nothing lost, everything logged — as the foundation for later parsing,
-persistence, and the agentic pipeline.
+Reliably receive every inbound email and make it observable — now as a product the user actually
+lives in: their real email flowing, every shipped capability touched live, and the email-cluster
+workflow working end-to-end on their real inbox.
 
-## Current State (v1.8 shipped 2026-07-10 — scope cut at Phase 48; next: v1.9 Cloud Workspace)
+*Still the right ONE thing after v1.9 — but v1.9 shipped without proving the "lives in" half of
+it. The capability is built and verified at code level; the user has not yet signed in on the
+deployed app, and no real email has flowed. See Current State.*
+
+## Current State (v1.9 shipped 2026-07-14 — next milestone not yet opened)
+
+**Shipped: v1.9 — Cloud Workspace** (Phases 49–54, 37 plans, 205 commits, 260 code files
++33,485/−8,171, 2026-07-10 → 2026-07-13, largely autonomous overnight runs). 24/27 requirements.
+Audit verdict `gaps_found`.
+
+The E3 email-cluster workflow is real: email-thread cards are a first-class canvas node type,
+chats bind to threads (migration 0036, applied local + staging + prod) and draw on that thread's
+content plus accumulated cluster artifacts, a 4th `web_search` ToolExecutor ships behind a
+double pre/post-DNS SSRF guard and a 10-fixture adversarial injection suite, and captured sources
+become INFERRED knowledge nodes that promote to EXTRACTED through the completely unmodified
+`PromoteEdgeUseCase`. Around it: every major surface re-skinned onto the extended token system
+with a committed palette-ban gate; genui panels became editable in place (pack switch, bounded
+schema-validated param edits, regenerate with version history, one-shot NL re-theme via Bedrock);
+and the product degrades to an inline feed on mobile (canvas islands never mount below `md`).
+Deploys are green end-to-end — CI, prod ECS on a new image, ALB /health 200, Vercel 200.
+
+**⚠ The caveat that defines this milestone.** v1.9 shipped with its three live-acceptance legs
+unexecuted:
+
+| REQ | Gap | Runsheet |
+|-----|-----|----------|
+| LIVE-03 | Google OAuth never exercised on the deployed app | MORNING-CHECKLIST.md §A |
+| LIVE-04 | No real email has ever flowed in | §B.3–6 |
+| CLUS-07 | The six-leg cluster scenario on the real inbox — **the declared acceptance bar** | §H |
+
+The audit said complete-milestone must not run until these were done. The user chose "proceed
+anyway — accept as tech debt" at the gate on 2026-07-14, knowingly overriding the STANDING RULE
+this very milestone established. **None is missing work** — all three are user-only external
+actions with code, infrastructure, and runsheets complete and waiting. Run §A → §B.3–6 → §H in
+that order. Until then, "polytoken is a *used* product" remains a claim, not a fact.
+
+**A second honest finding, straight from the user:** *"the whole UI is still ugly/experimental,
+not a production UI — not just tokens and colors."* Phase 51 "Total UI Re-skin" was scoped and
+executed as token-hygiene (its own UI-SPEC said "refinement, not redesign"); no phase in this
+project's history has ever done actual visual/UX design. Base palette is still stock-shadcn; the
+brand guide defines the polytoken register only as voice/tone. Filed as backlog **999.18 (HIGH
+PRIORITY)** — a full production UI/UX rebuild, top candidate for the next milestone, with v1.9's
+16-surface screenshot harness + committed token gates as the regression rails. Companion **999.19**
+captures the user's own description of the target product (auto-collected sources without capture
+ceremony, user-selected canon, canvas edges-as-context) — prime shaping input for E4/E5.
+
+**Next milestone goals (not yet opened — `/gsd:new-milestone`):** two live candidates —
+**999.18** (production UI/UX rebuild; the felt-value gap) and **v2.0 Local Agent Platform**
+(E4+E5+E6 merged: daemon + one permission model + generalized ToolExecutor, watched folders →
+directory panels with Claude-Code-class attached chats, browser panel CDP-first, tool registry).
+Plan of record: `.planning/research/two-epoch-endgame/ENDGAME-PLAN.md`. Whatever opens, the v1.9
+live legs (§A/§B/§H) should close first — they cost no development time.
+
+<details>
+<summary>v1.8 Milestone Detail (shipped 2026-07-10, scope cut at Phase 48)</summary>
 
 **Shipped: v1.8 — Polytoken Re-skin: Brand & Design-System Foundation** (Phases 47–48, 10 plans,
 25 tasks, 12/12 in-scope requirements, 8/8 integration seams WIRED, 127/127 regression tests
@@ -47,6 +110,11 @@ is parked in 48-HUMAN-UAT.md pending the OAuth runbook (now a v1.9 Band-1 checkp
 open-ended deferral); off-token chip/badge stragglers (entity-chips, entity-detail StatusBadge)
 parked as backlog 999.16 for the v1.9 re-skin band.
 
+</details>
+
+<details>
+<summary>v1.7 Milestone Detail (shipped 2026-07-10)</summary>
+
 **Shipped:** **v1.7 — polytoken.ai Foundation: Rename, Auth & Tenancy** (Phases 42–46, 25 plans,
 61 tasks, 19/19 requirements, 9/9 integration seams WIRED, 3/3 E2E flows, audit `tech_debt` with
 0 blockers). The product is now polytoken everywhere internally (one atomic 242-file rename pass;
@@ -69,6 +137,11 @@ account-switch cutoff, one mid-plan connection-drop recovery, and two API-error 
 *(Post-close user actions that unblock the deferred surface: run `GOOGLE-OAUTH-RUNBOOK.md` (login
 works end-to-end after it), then the 43/45 HUMAN-UAT files; decide the local Supabase nauta→polytoken
 project-id migration; apply migrations 0031–0035 to staging/prod per the deploy playbook.)*
+
+*(All of the above landed in v1.9 Phase 49 except the OAuth sign-in itself — see the caveat in
+Current State.)*
+
+</details>
 
 ## Prior State (v1.6 shipped 2026-07-09)
 
@@ -151,12 +224,19 @@ loop; `spec-renderer.tsx`/`render-node.tsx`/`genui-part-boundary.tsx` stay byte-
 
 </details>
 
-## Current Milestone: v1.9 Cloud Workspace
+## v1.9 Milestone Detail (SHIPPED 2026-07-14 — archived: milestones/v1.9-ROADMAP.md)
 
-**Goal:** polytoken becomes a *used* product — the live loop closes on the user's real email
-FIRST, then the total re-skin/mobile/editable-panels land, then the E3 email-cluster workflow
-ships depth-first as ONE fully-working scenario on the user's real inbox. Plan of record:
-`.planning/research/two-epoch-endgame/ENDGAME-PLAN.md` §2 (Epoch A).
+**Goal (as written at open):** polytoken becomes a *used* product — the live loop closes on the
+user's real email FIRST, then the total re-skin/mobile/editable-panels land, then the E3
+email-cluster workflow ships depth-first as ONE fully-working scenario on the user's real inbox.
+Plan of record: `.planning/research/two-epoch-endgame/ENDGAME-PLAN.md` §2 (Epoch A).
+
+**Goal vs outcome:** Bands 2 and 3 delivered in full at code level. Band 1 — the gate the whole
+milestone was ordered around — closed LIVE-01/02/05/06/07 but never closed LIVE-03 (OAuth live)
+or LIVE-04 (real email flowing), so Bands 2 and 3 shipped on top of a gate that was never fully
+green, and CLUS-07 (the acceptance bar) went unproven. The hard ordering constraint held on paper
+but not in the sense the standing rule was written to protect. Accepted as tech debt by explicit
+user decision at the close.
 
 **Target features (three dependency-ordered bands):**
 - **Band 1 — Live-Loop Gate (FIRST; nothing else starts until green):** local stack green
@@ -491,15 +571,24 @@ already proven locally. Research: `.planning/research/` (SUMMARY.md + 6 deep doc
 
 - ✓ polytoken.ai foundation: atomic internal rename (242 files) + Google OAuth/sessions (@supabase/ssr, protectedProcedure, server-derived X-User-Id) + enforced per-user tenancy (migrations 0031–0034, ownership chokepoint, RLS on 13 tables, adversarially gated incl. same-run 44-09 chat-SSE closure) + email threads at ingest + personal-forwarding seam + kickoff hygiene/dossier — v1.7, Phases 42–46 (19/19 reqs; runbooks + deploys deferred)
 - ✓ Polytoken brand & design-system foundation: brand identity (voice/logo/guide, USER-LOCKED naming) + Playwright toolchain + screenshot harness + token-system extensions (pill/success/code + tier-ladder + graph palette + hover-active/breakpoint conventions, WCAG + registration gates) — v1.8, Phases 47–48 (12/12 in-scope reqs; scope cut, RSKN/MOBL/PANL → v1.9)
+- ✓ Cloud Workspace: live-loop gate (local stack green e2e w/ DB-verified seeded-session Playwright; migrations 0021–0035 applied+verified staging AND prod; ECS+Vercel deploys green end-to-end after fixing a requirements.txt drift that crashed every prod task; 21-scenario UAT burn-down w/ zero silent parking; screenshot harness extended to /emails/[id] + authenticated surfaces) + total UI re-skin on extended tokens (all major surfaces, 999.16 closed, committed palette-ban gate, cache-invalidation gap closed) + editable genui panels (pack switch, bounded schema-validated param edit w/ server FOUND-6 re-validation, regenerate + version history, one-shot Bedrock NL re-theme) + mobile-responsive answer (canvas islands never mount below md, inline feed, pointer-coarse touch targets) + E3 email-cluster workflow (migration 0036 + feature-detected linkage, EmailThreadNode canvas type, web_search ToolExecutor w/ SSRF guard + 10-fixture adversarial suite + code-gated exposure, source-capture → INFERRED → promote via unmodified PromoteEdgeUseCase, bounded quarantined thread+cluster context injection) — **v1.9, Phases 49–54 (24/27 reqs; LIVE-03/LIVE-04/CLUS-07 shipped UNPROVEN-LIVE as accepted tech debt — see Active)**
 
 ### Active
 
-<!-- v1.9 Cloud Workspace — scoped by .planning/research/two-epoch-endgame/ENDGAME-PLAN.md §2;
-requirements formalized at /gsd:new-milestone. -->
+**Carried debt from v1.9 — no development work required, user-only actions.** These are the
+milestone's own unmet acceptance criteria, not new scope. Runsheet:
+`phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`. Order: §A → §B.3–6 → §H.
 
-- [ ] Band 1 — Live-Loop Gate: local stack green e2e; staging/prod migrations 0026–0035; OAuth + SES forwarding runbooks executed (user checkpoint tasks in-phase); deferred-UAT burn-down (~20 scenarios); W-1 screenshot-surface fix
-- [ ] Band 2 — Total UI re-skin on extended tokens (RSKN-01..05 + 999.16), mobile-responsive answer (MOBL-01..02), editable genui panels (PANL-01..04)
-- [ ] Band 3 — E3 Email-Cluster Workflow depth-first: thread cards on canvas, thread-bound chats, web_search executor, source-capture → INFERRED nodes, promote-to-global, cluster context — ONE fully-working scenario on the user's real inbox
+- [ ] **LIVE-03** — Google OAuth live on the deployed app (§A: Google Console + Supabase Dashboard config, then a real sign-in). Everything preppable is done.
+- [ ] **LIVE-04** — the user's real email actually flowing in (§B.3–6: copy the `u-{token}@` address, Gmail forwarding handshake, real message w/ attachment, prod-DB verify). SES rule already applied.
+- [ ] **CLUS-07** — the six-leg cluster scenario proven live on the real inbox (§H). *This was v1.9's declared acceptance bar.* Blocked only by the two above.
+
+**Next milestone — not yet scoped (`/gsd:new-milestone` formalizes requirements):**
+
+- [ ] **999.18 — full production UI/UX rebuild (HIGH PRIORITY, user-raised):** real visual identity (palette/type/spacing/signature — designed, not defaulted), per-surface UX redesign (inbox, chat+canvas, knowledge, email detail, studio, settings, login), production-grade empty/loading/error states everywhere, and a design-review loop with the user on real screens BEFORE cascading. v1.9's autonomous approach cannot make taste decisions.
+- [ ] **999.19 — frictionless research canvas (user's production vision, shapes E4/E5):** sources auto-related to research without capture ceremony, user-selected personal canon, canvas edges-as-context (source/table nodes → new chats), presentation-grade panels; email loop learns from manual corrections.
+- [ ] **v2.0 Local Agent Platform (E4+E5+E6 merged):** daemon + ONE permission model + generalized ToolExecutor; watched folders → directory panels with Claude-Code-class attached chats (fs/terminal/git); browser panel CDP-first; tool registry as per-user allowlist; `/gsd:secure-phase` on every daemon phase.
+- [ ] **999.17** — editable-panel chrome unreachable on mobile; docked/mobile transcript ignores panel overlays (v1.9 cross-phase trade-off).
 
 ### Out of Scope
 
@@ -511,16 +600,42 @@ requirements formalized at /gsd:new-milestone. -->
 
 ## Context
 
-- Conventions copied from examples/acme-os-dev (apps/api FastAPI server, infrastructure
-  Terraform, monorepo layout). Tooling: uv, ruff (120 cols), mypy, pytest, import-linter.
-- Walkthrough: context/5 - walkthrough.md. Design case: context/0 - nauta_design_case.pdf.
-- Webhook is provider-agnostic by decision; SES→S3→SQS is the expected eventual edge.
+- **Codebase after v1.9:** monorepo — `apps/web` (Next.js 15 / React 18 / Tailwind 3.4),
+  `apps/email-listener` (FastAPI, Clean Architecture), `packages/{db,api-client,ui,genui}`.
+  Migrations through 0036 (all applied local + staging + prod). Repo `pedromshin/polytoken.ai`
+  (renamed 2026-07-13; IAM OIDC deploy trust re-pinned the same sitting).
+- Conventions copied from examples/acme-os-dev. Tooling: uv, ruff (120 cols), mypy, pytest,
+  import-linter; **npm workspaces, NOT pnpm** (pnpm pollutes the tree). Playwright for E2E +
+  the 16-surface screenshot harness (`npm run screenshot:review`).
+- **User feedback theme (v1.9 close, load-bearing):** the product's capability outran its craft.
+  The user's verdict on the live app: *"the whole UI is still ugly/experimental, not a production
+  UI — not just tokens and colors."* Three milestones of foundation/paint (v1.7/v1.8/v1.9's
+  re-skin band) delivered token discipline but never visual design — the same "foundation
+  out-sequenced felt value" complaint that triggered v1.8's scope cut, resurfacing. Backlog
+  999.18. A second theme (999.19): capture ceremony is friction — sources should already be
+  related to the research without the user confirming each one.
+- **Known state gap:** the deployed app has never been signed into, and no real email has flowed.
+  See Current State.
+- Webhook is provider-agnostic by decision; SES→S3→SQS is the live edge (catch-all rule applied).
+- Design case: `0 - nauta_design_case.pdf`. Walkthrough: context/5 - walkthrough.md.
 
 ## Constraints
 
-- **Tech stack**: Python 3.11 FastAPI, Docker, Terraform, GitHub Actions — mirrors acme-os
-- **Deploy**: AWS ECS Fargate (user-confirmed pattern); dev→staging, main→production
-- **Security**: secrets via AWS Secrets Manager; API key auth fails closed outside development
+- **Tech stack**: Python 3.11 FastAPI + Next.js/React 18 + Tailwind 3.4, Docker, Terraform,
+  GitHub Actions. Tailwind v4 / React 19 migration deliberately parked (999.12, orthogonal risk).
+- **Deploy**: AWS ECS Fargate (user-confirmed pattern); dev→staging, main→production; Vercel git
+  auto-deploy for web. Migrations-first, always. The Deploy workflow has its own test gate — red
+  tests block deploy.
+- **Security**: secrets via AWS Secrets Manager / env vars only; API key auth fails closed outside
+  development; per-user tenancy enforced at the app boundary (primary) + RLS (defense-in-depth);
+  suggest-only for all knowledge mutations — never auto-decide.
+- **LLM transport**: AWS Bedrock via IAM role for Claude + embeddings — NOT the Anthropic direct
+  API. No `ANTHROPIC_API_KEY`.
+- **Coverage gate**: `apps/email-listener` pytest ratcheted to 65 (user-approved 2026-07-12);
+  step-up ladder 70@72% / 75@77% / 80@82%, never lower further.
+- **Standing rule (established v1.8 close, overridden once at the v1.9 close):**
+  deploy/OAuth/live-UAT gates are first-class phase work, never deferrable-by-default — a
+  milestone isn't done until the user has touched the capability live.
 
 ## Key Decisions
 
@@ -565,7 +680,14 @@ requirements formalized at /gsd:new-milestone. -->
 | **v1.7 Phase 45**: threads importer-anchored, chat direct-user_id; false-split beats false-merge in grouping | Threads inherit tenancy through importers (no second scoping system); conservative Tier-2 fallback avoids merging strangers' mail | — Pending (live forwarding round-trip UAT outstanding) |
 | **v1.7 Phase 46**: accepted override for the real-browser Playwright run (AST-allowlist vitest substitute green) | Closing it required new npm deps, violating the milestone's one-new-dependency guardrail — a stronger locked constraint | — Pending (todo parked; unblocks in v1.8) |
 | **v1.8 Phase 47 (BRND)**: Product name USER-LOCKED to 'polytoken', domain polytoken.ai; warm/companion voice register (tone) + node/brain logo mark adopted | User decided this on 2026-07-10 ("everything will be called polytoken and domain polytoken.ai. everything else is purged"), OVERRIDING the dossier's Direction-B rename recommendation; the exact-name collision with the `polytoken` CLI dev tool (docs.polytoken.dev) is EXPLICITLY ACCEPTED (not mitigated); domain purchase + trademark filing remain user-gated (not done) | ✓ Good — see `docs/design/brand-guide.md` for the repo-of-record |
-| **v1.8 scope cut + two-epoch endgame (USER-DIRECTED 2026-07-10)**: v1.8 ends at Phase 48; RSKN/MOBL/PANL (11 reqs) → v1.9; ALL remaining vision compresses into TWO epochs — v1.9 "Cloud Workspace" (live-loop gate FIRST, then re-skin/mobile/panels + E3 email-cluster workflow depth-first on the user's real inbox) and v2.0 "Local Agent Platform" (E4+E5+E6 merged on one daemon/permission-model/ToolExecutor foundation; browser CDP-first, registry as allowlist panel; editor + self-repo stretch); E7 parked as a venture decision | User verdict after v1.5–v1.8: capability shipped but was never felt — deploys/OAuth/live-UAT were autonomously deferred at six consecutive closes, the user's real email never entered the system, and foundation/paint kept out-sequencing value (E3 stayed "one epoch away" for three milestones). Full diagnosis + plan: `.planning/research/two-epoch-endgame/ENDGAME-PLAN.md` | — Pending. STANDING RULE locked with it: deploy/OAuth/live-UAT gates are first-class phase work, NEVER deferrable-by-default; a milestone isn't done until the user touches the capability live |
+| **v1.8 scope cut + two-epoch endgame (USER-DIRECTED 2026-07-10)**: v1.8 ends at Phase 48; RSKN/MOBL/PANL (11 reqs) → v1.9; ALL remaining vision compresses into TWO epochs — v1.9 "Cloud Workspace" (live-loop gate FIRST, then re-skin/mobile/panels + E3 email-cluster workflow depth-first on the user's real inbox) and v2.0 "Local Agent Platform" (E4+E5+E6 merged on one daemon/permission-model/ToolExecutor foundation; browser CDP-first, registry as allowlist panel; editor + self-repo stretch); E7 parked as a venture decision | User verdict after v1.5–v1.8: capability shipped but was never felt — deploys/OAuth/live-UAT were autonomously deferred at six consecutive closes, the user's real email never entered the system, and foundation/paint kept out-sequencing value (E3 stayed "one epoch away" for three milestones). Full diagnosis + plan: `.planning/research/two-epoch-endgame/ENDGAME-PLAN.md` | ⚠️ **Revisit** — the epoch restructure worked (E3 shipped in v1.9, one milestone later, not "one epoch away"). The STANDING RULE did not: v1.9 closed on 2026-07-14 with §A/§B/§H still unexecuted, by explicit user choice at the gate. Seven consecutive closes now without the user touching the live loop. The rule correctly *blocked* and correctly *surfaced* the conflict — it was overridden, not evaded |
+| **v1.9 §E.2 — email-listener coverage gate ratcheted 80 → 65 (user-approved 2026-07-12)** | The gate blocked every ECS image deploy at 68.10% actual, with all tests passing. Ratcheted openly with a step-up ladder (70@72% / 75@77% / 80@82%, never lower further) tracked as a todo, rather than silently lowered or bypassed | ✓ Good, and it paid off unexpectedly: letting images deploy again immediately exposed a SECOND hidden blocker (requirements.txt drifted from pyproject → `ModuleNotFoundError: jsonschema` crashed every prod task, ECS circuit breaker rolling back each rollout). The coverage gate had been masking a total prod outage. Now guarded by `tests/test_requirements_sync.py` |
+| **v1.9 — AWS/Terraform resource renames explicitly RE-PARKED; GitHub rename EXECUTED with its OIDC apply in the same sitting** | Re-park rationale: hazard A (two unsynced sources of truth — Terraform vars vs hardcoded GitHub Actions env), hazard B (ECR `force_delete=false` destroy+recreate risk), hazard C (local-only un-backed-up tfstate) — high blast radius, zero user-facing value. GitHub rename rationale: renaming the repo breaks the IAM trust policy pinned to the old path, so rename + `terraform apply` had to be one operation | ✓ Good — repo is `pedromshin/polytoken.ai`, trust re-pinned (`02fc71c`), no deploy downtime. Decisions recorded in `EXTERNAL-IDENTITY-DECISIONS.md`; the AWS re-park is a deliberate, documented park, not drift |
+| **v1.9 — feature-detected schema columns (`tableColumnExists`)** | Migration 0036 shipped to code before it was applied anywhere; every read/write of a not-yet-migrated column is gated by a per-process-cached probe that fails closed to "not present", so the app degrades instead of 500ing | ✓ Good — the repo's single feature-detection point; thread-linkage degraded cleanly for the whole window 0036 was unapplied |
+| **v1.9 — `web_search` shipped dark, then flipped** | Exposure code-gated behind `WEB_SEARCH_TOOL_ENABLED` until the 10-fixture adversarial prompt-injection suite passed — same discipline as the v1.6 tools | ✓ Good — and a live-network smoke test caught a real envelope-truncation bug that could cut mid-JSON before any user saw it |
+| **v1.9 — mobile = don't mount, not just hide** | Below `md`, the React-Flow canvas islands on `/chat` and `/knowledge` are never mounted (not CSS-hidden), per the market-validated pattern (ChatGPT removed Canvas 2026-05-28 over cross-surface inconsistency; Claude Artifacts render inline) | ⚠️ Revisit — correct for performance and for the feed UX, but it produced backlog 999.17: Phase 52 wired panel editing only into the canvas node, so PANL-01..04 is desktop-canvas-only and canvas-side edits never surface in the docked/mobile view of the same conversation. A real cost of running Phases 52 and 53 in parallel |
+| **v1.9 close — proceed despite `gaps_found` (USER-DIRECTED 2026-07-14)**: archive v1.9 with LIVE-03/LIVE-04/CLUS-07 unproven-live, recorded as accepted tech debt | The audit verdict said complete-milestone must not run until §A/§B.3–6/§H were executed; the user chose to proceed anyway at the gate, overriding the standing rule they themselves locked at the v1.8 close | — Pending. The bet: shipping the record now and closing the live legs later costs nothing but honesty in the docs. The risk it re-runs: this is the exact pattern ("capability shipped but never felt") the two-epoch restructure existed to break. Watch whether §A/§B/§H actually get executed before the next milestone's work begins |
+| **v1.9 close — 999.18 raised: no phase has ever done visual design** | User's verdict on the live app: *"the whole UI is still ugly/experimental, not a production UI — not just tokens and colors."* Phase 51 "Total UI Re-skin" was scoped and executed as token-hygiene only — its own UI-SPEC said "refinement, not redesign". Base palette is still stock-shadcn; the brand guide defines the polytoken register only as voice/tone | — Pending — filed as backlog 999.18 (HIGH PRIORITY), top candidate for the next milestone. Lesson for scoping: "re-skin" read as design intent to the reader but as hygiene to the executor, and no one caught the gap until the user looked at real screens. A design-review loop on real screens must precede cascading — autonomous runs cannot make taste decisions |
 
 ## Evolution
 
@@ -585,4 +707,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-07-10 after v1.8 milestone (scope cut at Phase 48; two-epoch endgame locked — next: v1.9 Cloud Workspace)*
+*Last updated: 2026-07-14 after v1.9 Cloud Workspace milestone (24/27 reqs; LIVE-03/LIVE-04/CLUS-07 shipped unproven-live as user-accepted tech debt — §A/§B.3–6/§H in MORNING-CHECKLIST.md close them with zero development work. Next milestone not yet opened; 999.18 production UI/UX rebuild is the top candidate.)*
