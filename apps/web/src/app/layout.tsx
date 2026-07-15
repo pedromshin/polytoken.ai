@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Archivo } from "next/font/google";
 
 import {
   SidebarInset,
@@ -12,6 +13,25 @@ import { BrandMark } from "~/components/brand-mark";
 import { ThemeProvider } from "~/components/theme-provider";
 import { TRPCReactProvider } from "~/trpc/react";
 import "./globals.css";
+
+/**
+ * D-58-01 / 59-02-PLAN.md Task 1, interfaces §B: self-host Archivo (400/600
+ * only -- the only two weights direction-final.html uses), exposed as a CSS
+ * variable that globals.css's `--font-sans` consumes. `next/font/google`
+ * fetches this ONCE at build time and self-hosts it thereafter -- no
+ * runtime request to Google, no CLS (T-59-03's mitigation). Per the plan's
+ * hard fallback rule: if `npm run build` cannot fetch it (no network -- the
+ * overnight reality this repo plans around), this import is REMOVED and
+ * `--font-sans`'s literal "Archivo"-first stack in globals.css is left
+ * unchanged -- the identity does not depend on the webfont; a red build
+ * must never depend on one.
+ */
+const archivo = Archivo({
+  subsets: ["latin"],
+  weight: ["400", "600"],
+  variable: "--font-archivo",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Your inbox — Polytoken",
@@ -39,7 +59,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={archivo.variable} suppressHydrationWarning>
       <body>
         <TRPCReactProvider>
           <ThemeProvider
