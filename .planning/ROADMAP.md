@@ -206,7 +206,7 @@ green: the 16-surface screenshot harness (`npm run screenshot:review`), `palette
 WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
 
 - [x] Phase 55: Platform Migration — Tailwind v4 + React 19 (completed 2026-07-15)
-- [ ] Phase 56: Research Canvas — Backend & Semantic Context Model
+- [x] Phase 56: Research Canvas — Backend & Semantic Context Model (completed 2026-07-15)
 - [x] Phase 57: Email Learning Loop (completed 2026-07-15)
 - [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
 - [ ] Phase 59: Visual Identity — Designed Token Set & Brand Guide
@@ -271,8 +271,8 @@ canvas chrome ships in this phase.
 **Plans**: 5 plans (3 waves)
 - [x] 56-01-PLAN.md — Data model: chat_source_ledger + chat_context_edges Drizzle schema + migration (wave 1)
 - [x] 56-02-PLAN.md — RCNV-01 auto-collect: fail-open source-ledger write hook in the tool-round loop (wave 2)
-- [ ] 56-03-PLAN.md — RCNV-04 seam: context-edges tRPC router + write-time cross-tenant ownership check (wave 2)
-- [ ] 56-04-PLAN.md — RCNV-04 read: independent fail-open linked-context injection pipeline at turn time (wave 3)
+- [x] 56-03-PLAN.md — RCNV-04 seam: context-edges tRPC router + write-time cross-tenant ownership check (wave 2)
+- [x] 56-04-PLAN.md — RCNV-04 read: independent fail-open linked-context injection pipeline at turn time (wave 3)
 - [x] 56-05-PLAN.md — Promotion-gate reuse seam: ledger to SourceCaptureHandler, zero new promotion code (wave 3)
 
 ### Phase 57: Email Learning Loop

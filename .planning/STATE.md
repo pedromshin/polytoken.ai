@@ -220,6 +220,70 @@ Progress: [██████░░░░] 57%
   fakes, live-UAT deferred" posture). See `56-02-SUMMARY.md` for full
   detail.
 
+## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 04 History -- independent fail-open linked-context injection pipeline (RCNV-04 read side)
+
+- **56-04 EXECUTED** (`461daf1` feat, `a2d3a4e` feat -- executed concurrently
+  alongside Phase 57's own in-flight execution, palette-independent per this
+  milestone's parallel-safe grouping; STATE.md "Current Position" above
+  intentionally left untouched by this plan, and `state.advance-plan` was
+  NOT invoked, per the 56-05-established concurrent-tracking discipline):
+  Landed RCNV-04's read/inject half -- resolving a conversation's active
+  `chat_context_edges` rows into a bounded, quarantined LINKED CONTEXT
+  block at turn time. Task 1: `chat_context_edge_repository.py` domain port
+  (`ContextEdge` dataclass + `ChatContextEdgeRepository` Protocol) +
+  `SupabaseChatContextEdgeRepository` adapter (fail-open `[]` on any read
+  failure, incl. unapplied migration 0037); `linked_context.py` -- a pure,
+  stdlib-only domain service structurally mirroring
+  `thread_cluster_context.py` (local `truncate_field`, own independent
+  `DEFAULT_LINKED_CONTEXT_BUDGET_CHARS=2000` budget, never folded into
+  `assemble_cluster_context`'s reservation math), small named per-type
+  resolver functions (source_ledger/knowledge_node/genui_panel/
+  email_thread), and `build_linked_context_block` emitting the quarantined
+  block (header before content, budget-bounded, "" when nothing to
+  inject). 18 tests green. Task 2: `RunChatTurn` gains an additive-default
+  `context_edges` collaborator and a private `_system_prompt_with_linked_context`,
+  chained AFTER (never nested inside) the existing
+  `_system_prompt_with_cluster_context` call in `_execute_turn` -- proven
+  independent of thread linkage (a conversation with zero thread linkage
+  still receives its active edges' content). Per-type resolver dispatch
+  (`_resolve_source_ledger_ref`/`_resolve_knowledge_node_ref`/
+  `_resolve_genui_panel_ref`/`_resolve_email_thread_ref`), each fail-open.
+  D-56-A honored: the `knowledge_node` resolver performs a DIRECT
+  tier-agnostic get-by-id, never `list_injectable_edges` (grep-verified
+  absent from both `linked_context.py` and the resolver's own source).
+  **[Rule 2 x2]** the plan's own per-type resolution contract needed two
+  reads that did not yet exist: added `get_by_id` to
+  `ChatMessageRepository` (+ Supabase adapter) for the genui_panel
+  resolver's cross-conversation message read, and `get_node_by_id` to
+  `KnowledgeGraphRepository` (+ Supabase adapter) for the tier-agnostic
+  knowledge-node read -- both were referenced by the plan's `<action>`/
+  `<interfaces>` text but absent from its `files_modified` frontmatter list.
+  `container.py` registers `SupabaseChatContextEdgeRepository` and threads
+  `context_edges=...` into `_provide_run_chat_turn`, additive-default
+  (mirrors `source_ledger`). 8 new `RunChatTurn` tests (independence from
+  thread linkage, no-collaborator byte-identical regression guard,
+  fail-open on read failure, both blocks compose, all four sourceRef types
+  resolve end-to-end, tier-agnostic knowledge_node path never calls
+  `list_injectable_edges`, direct-invocation coverage of the new private
+  method). Full `apps/email-listener` suite green (zero regressions);
+  ruff/ruff-format/mypy/bandit/lint-imports all clean on every
+  touched/created file. One self-corrected mid-execution issue (not a
+  plan deviation): the first `git add`+`git commit` for Task 1 briefly
+  picked up two files a concurrent Phase 57 agent had staged in the shared
+  index between this executor's own `git add` and `git commit` calls --
+  caught immediately via `git show --stat HEAD`, undone with a mixed
+  `git reset HEAD~1` (working tree untouched), and re-committed using a
+  combined add+commit invocation scoped to an explicit pathspec to close
+  the race window. RCNV-04 marked complete in `REQUIREMENTS.md` (both
+  halves now land: 56-03's write-time ownership-gated seam + this plan's
+  read/inject pipeline, deterministic/unit-test layer per the plan's own
+  success criteria). The live leg -- apply migration 0037, draw a real
+  edge via `chat.createContextEdge`, issue a real Bedrock turn, confirm the
+  response references the injected content -- is a documented
+  `checkpoint:human-verify` follow-up, not yet performed this session
+  (mirrors 56-02's identical posture for RCNV-01's live-DB leg). See
+  `56-04-SUMMARY.md` for full detail.
+
 ## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 05 History -- promotion-gate reuse seam (RCNV-01 groundwork)
 
 - **56-05 EXECUTED** (`4f2225f` feat, `3260c41` feat — executed concurrently
