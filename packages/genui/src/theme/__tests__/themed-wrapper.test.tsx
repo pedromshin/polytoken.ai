@@ -90,7 +90,7 @@ describe("ThemedRoot", () => {
     expect(wrapper).not.toBeNull();
     expect(wrapper?.tagName.toLowerCase()).toBe("div");
     // Stable className — always present regardless of pack
-    expect(wrapper?.className).toContain("nauta-themed");
+    expect(wrapper?.className).toContain("polytoken-themed");
   });
 
   it("sets CSS variables from the polytoken-teal (default) pack on the wrapper element", () => {
@@ -267,19 +267,19 @@ describe("SpecRenderer + ThemedRoot integration", () => {
 
   it("renders spec without style_pack_id — no ThemedRoot wrapper (backward compat)", () => {
     const container = mountInteg(<SpecRenderer spec={SPEC_NO_PACK} />);
-    const themed = container.querySelector(".nauta-themed");
+    const themed = container.querySelector(".polytoken-themed");
     expect(themed).toBeNull();
   });
 
   it("renders spec with style_pack_id — ThemedRoot wraps the output", () => {
     const container = mountInteg(<SpecRenderer spec={SPEC_WITH_PACK} />);
-    const themed = container.querySelector(".nauta-themed");
+    const themed = container.querySelector(".polytoken-themed");
     expect(themed).not.toBeNull();
   });
 
   it("ThemedRoot in SpecRenderer sets CSS variables from the specified pack", () => {
     const container = mountInteg(<SpecRenderer spec={SPEC_WITH_PACK} />);
-    const themed = container.querySelector(".nauta-themed") as HTMLElement | null;
+    const themed = container.querySelector(".polytoken-themed") as HTMLElement | null;
     expect(themed).not.toBeNull();
     const style = themed?.getAttribute("style") ?? "";
     // linear-clean has at least --primary set
@@ -295,7 +295,7 @@ describe("SpecRenderer + ThemedRoot integration", () => {
       <SpecRenderer spec={SPEC_WITH_DEFAULT_PACK} actions={actions} />,
     );
     // ThemedRoot must be outermost
-    const themed = container.querySelector(".nauta-themed") as HTMLElement | null;
+    const themed = container.querySelector(".polytoken-themed") as HTMLElement | null;
     expect(themed).not.toBeNull();
   });
 });

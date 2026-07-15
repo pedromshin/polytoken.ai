@@ -5,7 +5,7 @@
  * ALL color values are HSL channel-triplet strings (no raw hex, no prose).
  *
  * Packs included (D-01: >= 5 distinct packs, not variations of one baseline):
- *   1. polytoken-teal       — baseline Nauta brand; teal-primary, light neutral surface  (DEFAULT)
+ *   1. polytoken-teal       — baseline Polytoken brand; teal-primary, light neutral surface  (DEFAULT)
  *   2. linear-clean     — monochrome precision-SaaS inspired by Linear; slate tones
  *   3. warm-editorial   — editorial warmth; amber/sand; serif-leaning typography
  *   4. brutalist        — bold high-contrast; full-black primary, no radius
@@ -85,11 +85,11 @@ function resolveVars(
 
 // ===========================================================================
 // Pack 1: polytoken-teal — DEFAULT baseline (D-02)
-// Primary: hsl(164 39% 22%) — nauta brand teal (dark forest teal)
+// Primary: hsl(164 39% 22%) — polytoken brand teal (dark forest teal)
 // Verified WCAG-AA: primary-foreground (white 98%) on primary passes 8.1:1
 // ===========================================================================
 
-const NAUTA_TEAL_TOKENS: PackTokenMap = makeTokens({
+const POLYTOKEN_TEAL_TOKENS: PackTokenMap = makeTokens({
   "color.background": "0 0% 100%",
   "color.foreground": "0 0% 3.9%",
   "color.card": "0 0% 100%",
@@ -461,12 +461,12 @@ export const STYLE_PACKS: Readonly<Record<StylePackId, StylePack>> =
   Object.freeze({
     "polytoken-teal": Object.freeze({
       id: "polytoken-teal" as const,
-      label: "Nauta Teal",
+      label: "Polytoken Teal",
       description:
-        "Default Nauta brand palette — dark teal primary on a clean light surface.",
+        "Default Polytoken brand palette — dark teal primary on a clean light surface.",
       isDefault: true,
-      tokens: NAUTA_TEAL_TOKENS,
-      resolvedVars: resolveVars(NAUTA_TEAL_TOKENS),
+      tokens: POLYTOKEN_TEAL_TOKENS,
+      resolvedVars: resolveVars(POLYTOKEN_TEAL_TOKENS),
     }),
 
     "linear-clean": Object.freeze({

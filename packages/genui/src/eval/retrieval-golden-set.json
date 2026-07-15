@@ -22,9 +22,9 @@
   },
   {
     "id": 4,
-    "query": "Who is the primary contact at Nauta Freight and what invoices have they sent?",
+    "query": "Who is the primary contact at Polytoken Freight and what invoices have they sent?",
     "expected_ids": [
-      { "kind": "entity", "id": "entity-nauta-freight" },
+      { "kind": "entity", "id": "entity-polytoken-freight" },
       { "kind": "email", "id": "email-seed-003" }
     ],
     "notes": "Cross-kind result set (entity + email), seed fixture-shaped (TOOL-01/02 land Phase 36, not yet resolvable against live data)."

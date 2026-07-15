@@ -213,7 +213,7 @@ def test_cache_key_delimiter_anti_collision() -> None:
 def test_cache_key_same_shape_different_values_hit_same_key() -> None:
     """Two payloads with same schema but different values must produce the SAME cache key (CACHE-03 / D-06)."""
     args_500 = {**_BASE_ARGS, "raw_content": '{"amount": 500, "vendor": "Acme"}'}
-    args_9 = {**_BASE_ARGS, "raw_content": '{"amount": 9, "vendor": "Nauta"}'}
+    args_9 = {**_BASE_ARGS, "raw_content": '{"amount": 9, "vendor": "Polytoken"}'}
     assert compute_cache_key(**args_500) == compute_cache_key(**args_9)  # type: ignore[arg-type]
 
 
@@ -229,9 +229,9 @@ def test_cache_key_style_pack_id_change_yields_different_key() -> None:
     Two packs -> two distinct cache entries. A polytoken-teal spec must never be served
     for a linear-clean request.
     """
-    args_nauta = {**_BASE_ARGS, "style_pack_id": "polytoken-teal"}
+    args_polytoken = {**_BASE_ARGS, "style_pack_id": "polytoken-teal"}
     args_linear = {**_BASE_ARGS, "style_pack_id": "linear-clean"}
-    assert compute_cache_key(**args_nauta) != compute_cache_key(**args_linear)  # type: ignore[arg-type]
+    assert compute_cache_key(**args_polytoken) != compute_cache_key(**args_linear)  # type: ignore[arg-type]
 
 
 @pytest.mark.unit
@@ -316,7 +316,7 @@ def test_is_known_pack_id_returns_false_for_unknown() -> None:
 
     assert is_known_pack_id("unknown-pack") is False
     assert is_known_pack_id("") is False
-    assert is_known_pack_id("nauta") is False  # partial match must NOT be accepted
+    assert is_known_pack_id("polytoken") is False  # partial match must NOT be accepted
 
 
 @pytest.mark.unit

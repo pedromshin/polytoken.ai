@@ -86,7 +86,7 @@ describe("StylePackIdSchema — only known pack ids are accepted", () => {
     for (const unknown of [
       "dark-mode",
       "custom",
-      "nauta_teal",
+      "polytoken_teal",
       "",
       "any-random-string",
     ]) {

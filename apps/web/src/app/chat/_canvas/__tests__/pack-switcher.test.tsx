@@ -177,7 +177,7 @@ describe("PackSwitcher", () => {
       getOption("Brutalist").click();
     });
 
-    expect(getTrigger(container).textContent).toBe("Nauta Teal");
+    expect(getTrigger(container).textContent).toBe("Polytoken Teal");
     expect(toastError).toHaveBeenCalledTimes(1);
     const [message, options] = toastError.mock.calls[0] as [
       string,
@@ -225,7 +225,7 @@ describe("PackSwitcher", () => {
       capturedOnError?.();
     });
 
-    expect(getTrigger(container).textContent).toBe("Nauta Teal");
+    expect(getTrigger(container).textContent).toBe("Polytoken Teal");
     expect(toastError).toHaveBeenCalledTimes(1);
     const [message, options] = toastError.mock.calls[0] as [
       string,

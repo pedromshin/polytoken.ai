@@ -112,7 +112,7 @@ export function StudioTabs(): React.ReactElement {
         </Link>
       </TabsList>
 
-      {/* Catalog tab — lists all NAUTA_CATALOG entries with four D-11 facets each */}
+      {/* Catalog tab — lists all POLYTOKEN_CATALOG entries with four D-11 facets each */}
       <TabsContent
         value="catalog"
         aria-label="Component catalog"

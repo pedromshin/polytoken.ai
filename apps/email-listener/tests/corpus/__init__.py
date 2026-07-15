@@ -1,4 +1,4 @@
-"""Corpus package — layered test fixtures for the nauta PDF pipeline.
+"""Corpus package — layered test fixtures for the polytoken PDF pipeline.
 
 Three layers:
   scan_noise/     — synthetic image-only PDFs representing scanned invoice noise

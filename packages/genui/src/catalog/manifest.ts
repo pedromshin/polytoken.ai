@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * catalog/manifest.ts — Hand-authored NAUTA_CATALOG manifest.
+ * catalog/manifest.ts — Hand-authored POLYTOKEN_CATALOG manifest.
  *
  * TabsComponent below calls React.useContext(RenderChildContext) to render nested tab.content
  * SpecNodes — "use client" declared here (house convention, mirrors form-component.tsx /
@@ -728,7 +728,7 @@ function TabsComponent({
 }
 
 // ---------------------------------------------------------------------------
-// NAUTA_CATALOG — 16 fully-real manifest entries (D-01, D-02, D-03)
+// POLYTOKEN_CATALOG — 16 fully-real manifest entries (D-01, D-02, D-03)
 // ---------------------------------------------------------------------------
 
 /**
@@ -740,7 +740,7 @@ function TabsComponent({
  * Do NOT add entries for `list` or `conditional` here — those are interpreter
  * control-flow nodes dispatched directly by renderNode in Plan 03.
  */
-export const NAUTA_CATALOG: ComponentRegistry = Object.freeze({
+export const POLYTOKEN_CATALOG: ComponentRegistry = Object.freeze({
   text: {
     type: "text",
     description:
@@ -1239,10 +1239,10 @@ export function compactEntry(entry: AnyManifestEntry): CompactEntry {
  * Returns the compact encoding of all (or a subset of) catalog entries.
  * Consumed by Phase 13's generation prompt to describe the available component vocabulary.
  *
- * @param registry — the ComponentRegistry to encode (defaults to full NAUTA_CATALOG)
+ * @param registry — the ComponentRegistry to encode (defaults to full POLYTOKEN_CATALOG)
  */
 export function toCompactCatalog(
-  registry: ComponentRegistry = NAUTA_CATALOG,
+  registry: ComponentRegistry = POLYTOKEN_CATALOG,
 ): ReadonlyArray<CompactEntry> {
   return Object.values(registry).map(compactEntry);
 }

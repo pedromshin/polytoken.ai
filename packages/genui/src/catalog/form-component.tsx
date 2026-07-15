@@ -262,7 +262,7 @@ export function FormComponent({
       onSubmit={handleSubmit}
       noValidate
       aria-label={title ?? "Form"}
-      className="nauta-form grid gap-4"
+      className="polytoken-form grid gap-4"
     >
       {title ? <h3 className="text-lg font-semibold text-foreground">{title}</h3> : null}
       {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}

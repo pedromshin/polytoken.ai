@@ -46,7 +46,7 @@ import { createRoot } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const CONVERSATION_ID = "11111111-1111-1111-1111-111111111111";
-const VIEW_MODE_STORAGE_KEY = `nauta.chat.canvas-view:${CONVERSATION_ID}`;
+const VIEW_MODE_STORAGE_KEY = `polytoken.chat.canvas-view:${CONVERSATION_ID}`;
 
 // Mutable across tests (see file doc comment) — defaults true (mobile) since
 // most of this suite's cases exercise the mobile-forced path.

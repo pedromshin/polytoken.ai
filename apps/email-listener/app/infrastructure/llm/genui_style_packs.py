@@ -52,11 +52,11 @@ def is_known_pack_id(pack_id: str) -> bool:
 
     Returns:
         True for exact members of STYLE_PACK_IDS; False otherwise.
-        Partial matches (e.g. 'nauta') return False — only exact matches.
+        Partial matches (e.g. 'polytoken') return False — only exact matches.
 
     Examples:
         is_known_pack_id("polytoken-teal")  -> True
-        is_known_pack_id("nauta")       -> False  (partial match rejected)
+        is_known_pack_id("polytoken")   -> False  (partial match rejected)
         is_known_pack_id("")            -> False  (empty string rejected)
         is_known_pack_id("unknown")     -> False  (unknown id rejected)
     """

@@ -27,7 +27,7 @@ const VALID_VIEW_MODES: ReadonlySet<string> = new Set<ChatCanvasViewMode>([
 ]);
 
 function storageKeyFor(conversationId: string): string {
-  return `nauta.chat.canvas-view:${conversationId}`;
+  return `polytoken.chat.canvas-view:${conversationId}`;
 }
 
 /**

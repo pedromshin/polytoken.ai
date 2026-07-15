@@ -2,10 +2,10 @@
 
 /**
  * catalog-browser-island.tsx — "use client" island that renders the full
- * NAUTA_CATALOG as browsable cards (D-10/D-11, STDO-02).
+ * POLYTOKEN_CATALOG as browsable cards (D-10/D-11, STDO-02).
  *
  * WHY CLIENT ISLAND (D-10):
- *   NAUTA_CATALOG contains Zod schema objects + React component refs.
+ *   POLYTOKEN_CATALOG contains Zod schema objects + React component refs.
  *   Next.js cannot serialize these across the server→client boundary, so the
  *   catalog MUST be imported directly in a client island — not passed as props
  *   from a server component.
@@ -34,7 +34,7 @@ import {
   CardTitle,
 } from "@polytoken/ui/card";
 
-import { NAUTA_CATALOG } from "@polytoken/genui/catalog";
+import { POLYTOKEN_CATALOG } from "@polytoken/genui/catalog";
 import { buildCatalogExampleSpec, describePropsSchema } from "@polytoken/genui/studio";
 
 import { SpecRendererIsland } from "./spec-renderer-island";
@@ -67,7 +67,7 @@ function EntryCardHeader({
 function EntryLiveExample({
   entry,
 }: {
-  readonly entry: (typeof NAUTA_CATALOG)[keyof typeof NAUTA_CATALOG];
+  readonly entry: (typeof POLYTOKEN_CATALOG)[keyof typeof POLYTOKEN_CATALOG];
 }): React.ReactElement {
   const { type } = entry;
   const spec = buildCatalogExampleSpec(entry);
@@ -171,7 +171,7 @@ function EntrySlotChips({
 function CatalogEntryCard({
   entry,
 }: {
-  readonly entry: (typeof NAUTA_CATALOG)[keyof typeof NAUTA_CATALOG];
+  readonly entry: (typeof POLYTOKEN_CATALOG)[keyof typeof POLYTOKEN_CATALOG];
 }): React.ReactElement {
   return (
     <Card className="flex flex-col">
@@ -192,14 +192,14 @@ function CatalogEntryCard({
 // ---------------------------------------------------------------------------
 
 /**
- * Renders all NAUTA_CATALOG entries as a filterable card grid.
- * Imported directly (not passed as server props) because NAUTA_CATALOG
+ * Renders all POLYTOKEN_CATALOG entries as a filterable card grid.
+ * Imported directly (not passed as server props) because POLYTOKEN_CATALOG
  * contains Zod schemas + React refs that cannot cross the server→client boundary.
  */
 export function CatalogBrowserIsland(): React.ReactElement {
   const [filter, setFilter] = useState("");
 
-  const entries = Object.values(NAUTA_CATALOG);
+  const entries = Object.values(POLYTOKEN_CATALOG);
 
   const filtered =
     filter.trim() === ""

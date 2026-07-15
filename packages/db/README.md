@@ -18,11 +18,11 @@ migrations/       → Generated SQL migrations + journal (committed)
 
 ## Environments
 
-| Env     | Project       | Ref                    | Env file (repo root) |
-| ------- | ------------- | ---------------------- | -------------------- |
-| local   | Docker stack  | —                      | `.env.local`         |
-| staging | nauta-staging | `fyfwkjvbcrmjqjysdyqw` | `.env.staging`       |
-| prod    | nauta-prod    | `dazyccjijdahxyciptkp` | `.env.production`    |
+| Env     | Project           | Ref                    | Env file (repo root) |
+| ------- | ----------------- | ---------------------- | -------------------- |
+| local   | Docker stack      | —                      | `.env.local`         |
+| staging | polytoken-staging | `fyfwkjvbcrmjqjysdyqw` | `.env.staging`       |
+| prod    | polytoken-prod    | `dazyccjijdahxyciptkp` | `.env.production`    |
 
 Hosted projects: `pkms-vercel` org, `sa-east-1`, Postgres 17. See `.env.example`
 for connection string templates (drizzle uses `POSTGRES_URL_NON_POOLING`).
@@ -34,8 +34,8 @@ npm run sb:start            # start local Supabase stack (API 54321, DB 54322, S
 npm run sb:reset            # reset local DB (re-applies supabase bootstrap migrations)
 npm run db:generate         # drizzle-kit generate (schema diff → migrations/)
 npm run db:migrate          # apply migrations to local
-npm run db:migrate:staging  # apply migrations to nauta-staging
-npm run db:migrate:prod     # apply migrations to nauta-prod
+npm run db:migrate:staging  # apply migrations to polytoken-staging
+npm run db:migrate:prod     # apply migrations to polytoken-prod
 npm run db:studio           # Drizzle Studio UI
 npm run db:check            # drizzle-kit check (migration integrity)
 ```

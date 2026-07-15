@@ -80,7 +80,7 @@ import { EdgeDetailPopover, type AnchorPoint, type PopoverEdge } from "./edge-de
 // Constants
 // ---------------------------------------------------------------------------
 
-const BANNER_DISMISSED_KEY = "nauta.knowledge.taxonomy-banner-dismissed";
+const BANNER_DISMISSED_KEY = "polytoken.knowledge.taxonomy-banner-dismissed";
 
 /** Instance count threshold below which instances are automatically shown. */
 const AUTO_SHOW_INSTANCES_THRESHOLD = 50;

@@ -12,7 +12,7 @@ import { X } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
 
-export const KEYBOARD_HINT_DISMISSED_KEY = "nauta.chat.canvas-keyboard-hint-dismissed";
+export const KEYBOARD_HINT_DISMISSED_KEY = "polytoken.chat.canvas-keyboard-hint-dismissed";
 
 interface CanvasKeyboardHintProps {
   readonly onDismiss: () => void;

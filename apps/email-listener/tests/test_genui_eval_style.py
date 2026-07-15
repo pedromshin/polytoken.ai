@@ -110,7 +110,7 @@ _GOOD_SPEC: dict[str, Any] = {
 }
 
 # Polytoken-teal token values (mirroring packs.ts for offline tests)
-_NAUTA_TEAL_TOKENS: dict[str, str] = {
+_POLYTOKEN_TEAL_TOKENS: dict[str, str] = {
     "color.background": "0 0% 100%",
     "color.foreground": "0 0% 3.9%",
     "color.card": "0 0% 100%",
@@ -211,7 +211,7 @@ class TestResolveNodeContrastPairs:
         """A spec with no style props returns empty list."""
         from scripts.genui_eval.style_metrics import resolve_node_contrast_pairs
 
-        pairs = resolve_node_contrast_pairs(_GOOD_SPEC, _NAUTA_TEAL_TOKENS)
+        pairs = resolve_node_contrast_pairs(_GOOD_SPEC, _POLYTOKEN_TEAL_TOKENS)
         assert isinstance(pairs, list)
         assert len(pairs) == 0
 
@@ -220,7 +220,7 @@ class TestResolveNodeContrastPairs:
         """A text node with color style inside a bg-styled container yields a pair."""
         from scripts.genui_eval.style_metrics import resolve_node_contrast_pairs
 
-        pairs = resolve_node_contrast_pairs(_CONTRAST_TOKEN_PASS_SPEC, _NAUTA_TEAL_TOKENS)
+        pairs = resolve_node_contrast_pairs(_CONTRAST_TOKEN_PASS_SPEC, _POLYTOKEN_TEAL_TOKENS)
         # Should find at least one (fg, bg) pair
         assert len(pairs) >= 1
         fg_hsl, bg_hsl = pairs[0]
@@ -248,7 +248,7 @@ class TestRubricA11yContrastExtension:
         """A spec whose only styled node pair passes AA contrast scores a11y as passed."""
         from scripts.genui_eval.rubric import a11y
 
-        result = a11y(_CONTRAST_TOKEN_PASS_SPEC, pack_token_values=_NAUTA_TEAL_TOKENS)
+        result = a11y(_CONTRAST_TOKEN_PASS_SPEC, pack_token_values=_POLYTOKEN_TEAL_TOKENS)
         assert result.passed is True
         assert result.score == 1.0
 
@@ -258,7 +258,7 @@ class TestRubricA11yContrastExtension:
         from scripts.genui_eval.rubric import a11y
 
         # border on muted — both very light, fails AA
-        result = a11y(_CONTRAST_TOKEN_FAIL_SPEC, pack_token_values=_NAUTA_TEAL_TOKENS)
+        result = a11y(_CONTRAST_TOKEN_FAIL_SPEC, pack_token_values=_POLYTOKEN_TEAL_TOKENS)
         assert result.passed is False
         assert result.score < 1.0
 

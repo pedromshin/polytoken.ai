@@ -1,7 +1,7 @@
 /**
  * registry/component-registry.ts — Static component registry.
  *
- * COMPONENT_REGISTRY is the NAUTA_CATALOG map used by the renderer for O(1) keyed
+ * COMPONENT_REGISTRY is the POLYTOKEN_CATALOG map used by the renderer for O(1) keyed
  * lookup. The registry IS the catalog (D-06) — no additional transformation needed.
  *
  * Exports:
@@ -19,7 +19,7 @@
 import * as React from "react";
 import { z } from "zod";
 
-import { NAUTA_CATALOG } from "../catalog/manifest";
+import { POLYTOKEN_CATALOG } from "../catalog/manifest";
 import type { ComponentRegistry } from "../catalog/types";
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ import type { ComponentRegistry } from "../catalog/types";
 // ---------------------------------------------------------------------------
 
 /** The static component registry: spec type key → ManifestEntry. O(1) lookup. */
-export const COMPONENT_REGISTRY: ComponentRegistry = NAUTA_CATALOG;
+export const COMPONENT_REGISTRY: ComponentRegistry = POLYTOKEN_CATALOG;
 
 // ---------------------------------------------------------------------------
 // Allowlist derived from registry keys (D-06)

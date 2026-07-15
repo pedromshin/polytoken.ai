@@ -56,7 +56,7 @@ export function SpecRendererIsland({
   data,
   actions,
 }: SpecRendererIslandProps): React.ReactElement {
-  // registry omitted — SpecRenderer defaults to COMPONENT_REGISTRY (NAUTA_CATALOG)
+  // registry omitted — SpecRenderer defaults to COMPONENT_REGISTRY (POLYTOKEN_CATALOG)
   // This avoids serializing Zod schema objects across the server/client boundary.
   // actions forwarded when present so the sandbox can wire live query/setState/navigate (D-08).
   return (

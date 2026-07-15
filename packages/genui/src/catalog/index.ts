@@ -3,7 +3,7 @@
  *
  * Re-exports:
  *   - Types from types.ts (Plan 01)
- *   - NAUTA_CATALOG value + compact-encoding helpers from manifest.ts (Plan 02)
+ *   - POLYTOKEN_CATALOG value + compact-encoding helpers from manifest.ts (Plan 02)
  */
 
 export type {
@@ -14,7 +14,7 @@ export type {
 } from "./types";
 
 export {
-  NAUTA_CATALOG,
+  POLYTOKEN_CATALOG,
   compactEntry,
   toCompactCatalog,
 } from "./manifest";

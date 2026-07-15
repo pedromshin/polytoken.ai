@@ -3,7 +3,7 @@
 /**
  * Dev-only showcase for the vendored registry components (Magic UI + Kibo UI).
  * Visual verification surface — not linked from any nav. Safe to extend as
- * more components are vendored. See .claude/skills/nauta-design-system/.
+ * more components are vendored. See .claude/skills/polytoken-design-system/.
  */
 
 import { useRef } from "react";
@@ -53,7 +53,7 @@ const DevComponentsPage = () => {
 
       <Section title="marquee">
         <Marquee className="[--duration:12s]" data-testid="marquee">
-          {["nauta", "knowledge", "canvas", "genui", "email"].map((word) => (
+          {["polytoken", "knowledge", "canvas", "genui", "email"].map((word) => (
             <span
               key={word}
               className="mx-2 rounded-full bg-secondary px-3 py-1 text-sm"

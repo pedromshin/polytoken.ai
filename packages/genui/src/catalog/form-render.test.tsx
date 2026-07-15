@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 import { SpecRenderer } from "../renderer/spec-renderer";
 import { SpecRootSchema } from "../schema/spec-schema";
-import { NAUTA_CATALOG } from "./manifest";
+import { POLYTOKEN_CATALOG } from "./manifest";
 import type { SpecRoot } from "../schema/spec-schema";
 
 /** A representative form spec (lead-capture with a conditional phone field). */
@@ -71,7 +71,7 @@ describe("form node — spec → SpecRenderer → FormComponent", () => {
 
 describe("form node — wire ↔ render parity", () => {
   it("the manifest `form` example passes the wire SpecRootSchema", () => {
-    const spec = { v: 1, root: { type: "form", ...NAUTA_CATALOG.form.example } };
+    const spec = { v: 1, root: { type: "form", ...POLYTOKEN_CATALOG.form.example } };
     expect(SpecRootSchema.safeParse(spec).success).toBe(true);
   });
 

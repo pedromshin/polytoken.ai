@@ -72,7 +72,7 @@ const VALID_ENVELOPE_RESPONSE = {
 const STALE_FLAT_RESPONSE = {
   spec: VALID_SPEC,
   outcome: "ok",
-  registryVersion: { catalogId: "nauta-v1", version: "0.1.0" },
+  registryVersion: { catalogId: "polytoken-v1", version: "0.1.0" },
 };
 
 /** A spec payload with an unregistered node type (SAFE-02) — wrapped in real envelope. */

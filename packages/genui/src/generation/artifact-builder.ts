@@ -22,7 +22,7 @@ import { fileURLToPath } from "node:url";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 import { SpecRootSchema } from "../schema/spec-schema";
-import { NAUTA_CATALOG, toCompactCatalog } from "../catalog/manifest";
+import { POLYTOKEN_CATALOG, toCompactCatalog } from "../catalog/manifest";
 import { REGISTRY_VERSION } from "../registry/registry-version";
 import { ALLOWED_PROCEDURES } from "./allowed-procedures";
 
@@ -279,7 +279,7 @@ const ACTION_RULES: ActionRules = Object.freeze({
 export function buildGenuiPromptPayload(): GenuiPromptPayload {
   return {
     registryVersion: { ...REGISTRY_VERSION },
-    components: toCompactCatalog(NAUTA_CATALOG),
+    components: toCompactCatalog(POLYTOKEN_CATALOG),
     allowedProcedures: [...ALLOWED_PROCEDURES],
     actionRules: ACTION_RULES,
   };

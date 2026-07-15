@@ -14,7 +14,7 @@
  * island imports). This test exercises that exact helper, so the test and the
  * island can never drift.
  *
- * For EVERY entry in NAUTA_CATALOG this test asserts:
+ * For EVERY entry in POLYTOKEN_CATALOG this test asserts:
  *   (a) buildCatalogExampleSpec(entry) passes SpecRootSchema.safeParse, and
  *   (b) rendering it through SpecRenderer produces NO NodeErrorFallback
  *       (no `[!]`, no "prop validation failed", no role="alert" fallback).
@@ -31,7 +31,7 @@ import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { NAUTA_CATALOG } from "../../catalog/index";
+import { POLYTOKEN_CATALOG } from "../../catalog/index";
 import { SpecRootSchema } from "../../schema/index";
 import { SpecRenderer } from "../../renderer/index";
 import { buildCatalogExampleSpec } from "../build-catalog-example-spec";
@@ -46,7 +46,7 @@ const FALLBACK_NODE_PREFIX = "node —"; // "node —" (em dash) from the fallba
 const FALLBACK_REASON_PROPS = "prop validation failed";
 const FALLBACK_REASON_RENDER = "render error";
 
-const entries = Object.values(NAUTA_CATALOG);
+const entries = Object.values(POLYTOKEN_CATALOG);
 
 describe("catalog example live-render (BUG A regression)", () => {
   it("covers all 17 catalog entries", () => {

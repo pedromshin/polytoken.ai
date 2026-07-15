@@ -78,7 +78,7 @@ export function ThemedRoot({ packId, children }: ThemedRootProps): React.ReactEl
   // reach the DOM. React serializes it as attribute `style="--primary: ...;"`.
   return (
     <div
-      className="nauta-themed"
+      className="polytoken-themed"
       style={cssVarStyle as React.CSSProperties}
     >
       {children}

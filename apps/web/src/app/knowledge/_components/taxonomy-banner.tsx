@@ -9,7 +9,7 @@
  *   Copy: "Your extraction schema — {N} entity types, {M} fields. Instances and
  *          knowledge rules appear as emails are processed."
  *   Dismiss: X button (aria-label "Dismiss"); parent persists to localStorage
- *            key "nauta.knowledge.taxonomy-banner-dismissed"
+ *            key "polytoken.knowledge.taxonomy-banner-dismissed"
  *   role="status" aria-live="polite"
  *
  * Presentational — parent (knowledge-graph.tsx) owns dismissed state + localStorage.

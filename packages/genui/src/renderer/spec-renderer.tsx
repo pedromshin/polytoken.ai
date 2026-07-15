@@ -69,7 +69,7 @@ export interface SpecRendererProps {
 
   /**
    * The component registry to use for node dispatch.
-   * Defaults to the global COMPONENT_REGISTRY (NAUTA_CATALOG).
+   * Defaults to the global COMPONENT_REGISTRY (POLYTOKEN_CATALOG).
    * Injected by tests to override with a smaller registry.
    */
   readonly registry?: ComponentRegistry;
