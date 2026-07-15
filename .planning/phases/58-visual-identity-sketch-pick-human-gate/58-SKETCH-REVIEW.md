@@ -20,7 +20,7 @@ differences are visual-identity only, as the brief requires.
 | 2. Internally consistent | PASS | PASS | PASS |
 | 3. Content fidelity | PASS | PASS | PASS |
 | 4. Bans | PASS | PASS | PASS |
-| 5. Production-grade | FAIL (1024px reading-pane heading wraps one-word-per-line, 7 lines tall — see below) | PASS | PASS |
+| 5. Production-grade | PASS (1024px reading-pane heading wrap fixed — see below) | PASS | PASS |
 
 ## Direction A — Provenance
 
@@ -44,13 +44,21 @@ cream-and-serif, and a stranger's first read is more likely to land on "editoria
 than register the flat-shadow discipline underneath it. Choosing A commits the product to serif
 headings everywhere and to zero elevation as a hard rule (no shadow-based layering ever).
 
-**Issue found:** at the 1024px check, the reading pane's subject heading
-("Cotação frete SP → POA — Lote 88") wraps to one or two words per line across seven lines,
-because the four-pane layout doesn't reduce pane count or reserve enough width for that column at
+**Issue found (fixed):** at the 1024px check, the reading pane's subject heading
+("Cotação frete SP → POA — Lote 88") wrapped to one or two words per line across seven lines,
+because the four-pane layout didn't reduce pane count or reserve enough width for that column at
 that breakpoint — the heading's serif weight/size was tuned for the wider column. Confirmed
 against B and C at the same 1024px viewport, both of which wrap the identical string to a normal
-2-line break. This is a concrete instance of ban #8 (awkward heading wrap) and is why criterion 5
-fails for A; nothing else in A broke or overlapped.
+2-line break. This was a concrete instance of ban #8 (awkward heading wrap).
+
+Fixed with a one-line addition inside the existing `@media (max-width:1120px)` block in
+`direction-a.html`: `#inbox .entities{display:none}` — the same move B makes (collapsing the
+"what I found in this email" rail out of the row at this width, matching B's `right-col`
+single-column collapse) rather than crushing the reading pane to keep four columns. `.reading`'s
+existing `flex:1` absorbs the freed width automatically, no other rule changed. Re-rendered at
+1024px: the heading now sits on 2 lines and the body reads as a normal paragraph; re-rendered at
+1440px: byte-identical layout to before (the rule only fires ≤1120px). Criterion 5 now passes for
+A; nothing else in A broke or overlapped.
 
 ## Direction B — Threadwork
 
@@ -124,7 +132,7 @@ lines, multiple words per line), unlike A.
   identity. It's the coolest and most technical-reading of the three, closest to a "control panel"
   feel, balanced by a genuinely non-neon accent palette.
 
-No recommendation is made here — this is the user's call. A's 1024px heading-wrap defect is a
-concrete, fixable production bug (not a taste judgment) and is reported as such under criterion 5;
-it does not reflect on the Provenance direction's visual identity itself, which is otherwise
-internally consistent and clean at the primary 1440px viewport.
+No recommendation is made here — this is the user's call. A's 1024px heading-wrap defect was a
+concrete, fixable production bug (not a taste judgment), reported under criterion 5 and since fixed
+(see Direction A section above); it never reflected on the Provenance direction's visual identity
+itself, which is internally consistent and clean at the primary 1440px viewport.

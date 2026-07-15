@@ -540,6 +540,11 @@
     .krail{width:204px}
     .kdetail{width:266px;padding:16px 14px}
     .c4{grid-column:span 6}.c3{grid-column:span 6}.c2{grid-column:span 6}
+    /* inbox: four panes no longer fit without crushing the reading
+       measure — collapse the "what I found" rail like B's right-col
+       does at this width, so .reading's existing flex:1 gets its
+       width back and the subject line/body regain a normal measure */
+    #inbox .entities{display:none}
   }
 
   /* ── reduced motion ─────────────────────────────────────── */
