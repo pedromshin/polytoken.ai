@@ -127,6 +127,14 @@ class SupabaseChatMessageRepository:
         )
         return [_row_to_entity(row) for row in (result.data or [])]
 
+    async def get_by_id(self, message_id: str) -> ChatMessage | None:
+        result = await asyncio.to_thread(
+            lambda: self._client.table(_TABLE).select("*").eq("id", message_id).maybe_single().execute()
+        )
+        if result is None or not result.data:
+            return None
+        return _row_to_entity(result.data)
+
     async def mark_status(self, message_id: str, status: ChatMessageStatus) -> None:
         await asyncio.to_thread(
             lambda: self._client.table(_TABLE).update({"status": status}).eq("id", message_id).execute()

@@ -144,6 +144,20 @@ class ChatMessageRepository(Protocol):
         """
         ...
 
+    async def get_by_id(self, message_id: str) -> ChatMessage | None:
+        """Return the chat_messages row matching message_id, or None if not found.
+
+        Phase 56-04 (RCNV-04): backs the genui_panel-typed linked-context
+        resolver's read — a canvas edge's `sourceRef` may point at a message
+        in ANY conversation (not necessarily the turn's own), so this is a
+        plain by-id lookup, not scoped to `list_active_context`'s single
+        conversation. Propagates exceptions like every other method on this
+        port (message reads are not best-effort) — the CALLER
+        (`RunChatTurn`'s linked-context resolver dispatch) is responsible for
+        the fail-open wrapping.
+        """
+        ...
+
     async def mark_status(self, message_id: str, status: ChatMessageStatus) -> None:
         """Update a single message row's status column in place."""
         ...

@@ -83,6 +83,7 @@ from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
 from app.domain.ports.autofill_retrieval_event_repository import AutofillRetrievalEventRepository
+from app.domain.ports.chat_context_edge_repository import ChatContextEdgeRepository
 from app.domain.ports.chat_repositories import (
     ChatConversationRepository,
     ChatMessageRepository,
@@ -143,6 +144,7 @@ from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentSto
 from app.infrastructure.supabase.autofill_retrieval_event_repository import (
     SupabaseAutofillRetrievalEventRepository,
 )
+from app.infrastructure.supabase.chat_context_edge_repository import SupabaseChatContextEdgeRepository
 from app.infrastructure.supabase.client import get_supabase_client
 from app.infrastructure.supabase.component_repository import SupabaseComponentRepository
 from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
@@ -795,6 +797,7 @@ def _provide_run_chat_turn(
     email_repo: EmailRepository,
     http_client: httpx.AsyncClient,
     source_ledger: SourceLedgerRepository,
+    context_edges: ChatContextEdgeRepository,
 ) -> RunChatTurn:
     """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
@@ -863,6 +866,16 @@ def _provide_run_chat_turn(
     hook fired from inside `_run_server_tool_round` for every gated
     `web_search` result. Zero knowledge-graph writes; no settings kill-switch
     (gating is inherited transitively from WEB_SEARCH_TOOL_ENABLED, A4).
+
+    Phase 56-04 (RCNV-04): `context_edges` (SupabaseChatContextEdgeRepository,
+    bound above) is threaded into RunChatTurn's additive `context_edges`
+    collaborator — the SECOND, INDEPENDENT fail-open linked-context injection
+    pipeline fired from inside `_execute_turn` alongside (never nested inside)
+    the existing thread/cluster injection. The SAME `knowledge_repo` instance
+    built above doubles as the tier-agnostic `get_node_by_id` read collaborator
+    (D-56-A); the SAME `email_repo`/`messages`/`source_ledger` collaborators
+    already threaded above double as this pipeline's other three per-type
+    resolver reads — no new provider/instance beyond `context_edges` itself.
     """
     settings = get_settings()
     resolution_repo = SupabaseEntityResolutionRepository(client=client)
@@ -930,6 +943,11 @@ def _provide_run_chat_turn(
         # additive-default collaborator -- unwired in any caller/test that
         # doesn't pass it, structurally OFF (mirrors email_repository above).
         source_ledger=source_ledger,
+        # Phase 56-04 (RCNV-04): the SECOND, INDEPENDENT linked-context
+        # injection pipeline's additive-default collaborator -- unwired in
+        # any caller/test that doesn't pass it, structurally OFF (mirrors
+        # source_ledger above). Never gated on thread linkage.
+        context_edges=context_edges,
     )
 
 
@@ -1099,6 +1117,10 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # chat_source_ledger auto-collect write adapter (Phase 56-02, RCNV-01) —
     # additive-default RunChatTurn collaborator, threaded in below.
     provider.provide(SupabaseSourceLedgerRepository, provides=SourceLedgerRepository)
+    # chat_context_edges read adapter (Phase 56-04, RCNV-04) — the
+    # linked-context injection pipeline's ONE read collaborator, additive-
+    # default RunChatTurn collaborator, threaded in below.
+    provider.provide(SupabaseChatContextEdgeRepository, provides=ChatContextEdgeRepository)
     # entity_type_corrections capture + trgm retrieval (Phase 57-01, LEARN-01) —
     # best-effort collaborator threaded into SetComponentEntityTypeUseCase below.
     provider.provide(_provide_entity_type_correction_repository, provides=EntityTypeCorrectionRepository)

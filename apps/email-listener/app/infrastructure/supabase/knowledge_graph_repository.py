@@ -220,6 +220,22 @@ class SupabaseKnowledgeGraphRepository:
             return None
         return cast("dict[str, object]", result.data[0])
 
+    async def get_node_by_id(self, node_id: str) -> dict[str, object] | None:
+        """Tier-agnostic direct read of one knowledge_nodes row by id (Phase 56-04, D-56-A).
+
+        Deliberately bypasses `list_injectable_edges`'s EXTRACTED-only
+        allowlist — see port docstring. Does not filter on `is_active`: an
+        explicit user-drawn edge should still surface a deactivated node's
+        content rather than silently vanish (the RunChatTurn caller treats a
+        missing row and a present-but-inactive row the same way if it cares
+        to check `is_active` on the returned dict; today's linked-context
+        resolver does not distinguish).
+        """
+        result = self._client.table("knowledge_nodes").select("*").eq("id", node_id).execute()
+        if not result.data:
+            return None
+        return cast("dict[str, object]", result.data[0])
+
     async def insert_edge(
         self,
         *,

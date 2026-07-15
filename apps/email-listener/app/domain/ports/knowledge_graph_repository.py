@@ -59,6 +59,21 @@ class KnowledgeGraphRepository(Protocol):
         """
         ...
 
+    async def get_node_by_id(self, node_id: str) -> dict[str, object] | None:
+        """Return the knowledge_nodes row matching node_id, tier-agnostic, or None if not found.
+
+        Phase 56-04 (RCNV-04, D-56-A): the DIRECT read backing an explicit
+        user-drawn `knowledge_node`-typed context edge — deliberately reads
+        past the automatic-injection allowlist gate (`list_injectable_edges`,
+        EXTRACTED-tier-only) this port also exposes, since a single
+        addressed, user-selected edge is a structurally different concern
+        than blind auto-injection into every prompt (see that method's own
+        docstring). Does not itself fail-open on a read failure (mirrors
+        `find_active_node`/`find_edge_by_id`'s un-wrapped posture on this
+        same port) — the caller wraps this in its own fail-open dispatch.
+        """
+        ...
+
     async def insert_edge(
         self,
         *,
