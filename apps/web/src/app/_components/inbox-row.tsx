@@ -13,7 +13,9 @@ import { EntityChips, type EntityChipEntry } from "./entity-chips";
 /**
  * The inbox-row's view of an email. A narrow projection of the emails.list row
  * (the DB EmailRow) — only the fields the row paints, typed explicitly so the
- * component never depends on the db package.
+ * component never depends on the db package. `bodyText` (60-02 Task 1) unlocks
+ * the row's serif snippet band — the data already flows from `emails.list`
+ * (`InboxEmailItem` in inbox-three-pane.tsx); only this narrower type hid it.
  */
 export interface InboxEmail {
   readonly id: string;
@@ -21,6 +23,7 @@ export interface InboxEmail {
   readonly senderName: string | null;
   readonly senderAddress: string;
   readonly receivedAt: Date | string | null;
+  readonly bodyText: string | null;
 }
 
 interface InboxRowProps {
@@ -34,16 +37,48 @@ const formatDate = (value: Date | string | null): string =>
   value ? new Date(value).toLocaleDateString() : "—";
 
 /**
- * InboxRow (D-23/D-24) — a single Gmail-style message row.
+ * T-60-04 (DoS, client): `bodyText` can be a multi-megabyte body. Bound the
+ * snippet to this many characters in JS BEFORE it ever reaches the DOM —
+ * never rely on CSS truncation alone to tame a megabyte string. Exported so
+ * `inbox-thread-group.tsx` reuses the exact same bound for `latestSnippet`
+ * rather than duplicating a different cap.
+ */
+export const SNIPPET_MAX_CHARS = 200;
+
+/**
+ * toInboxSnippet — collapse whitespace/newlines to single spaces, trim, and
+ * ellipsis-truncate a message body into a compact single-line snippet.
+ * Returns null for null/blank input so the caller can render nothing (an
+ * empty serif line would be a hole in the row's rhythm) rather than a hole.
+ */
+export function toInboxSnippet(bodyText: string | null): string | null {
+  if (bodyText === null) return null;
+  const collapsed = bodyText.replace(/\s+/g, " ").trim();
+  if (collapsed.length === 0) return null;
+  return collapsed.length > SNIPPET_MAX_CHARS
+    ? `${collapsed.slice(0, SNIPPET_MAX_CHARS - 1)}…`
+    : collapsed;
+}
+
+/**
+ * InboxRow (D-23/D-24, D-58-01) — a registry entry, not a Gmail row.
  *
- * Three lines, two font weights (400/600): sender (semibold) + date on line 1,
- * subject (truncated) on line 2, and the per-email entity-type chips on line 3.
- * Selecting the row drives the reading preview via `onSelect`; the entity chips
- * are independent `<a>` deep-links that must never be nested inside an
- * interactive element (invalid HTML + nested-interactive a11y violation). The
- * row is therefore a `<div role="button">` with explicit keyboard handlers
- * (Enter/Space activate selection) rather than a `<button>` wrapping the chips.
- * Selected rows carry the single teal `bg-primary/10` accent.
+ * 60-02 Task 1 restructure (not a restyle): four bands, not three lines.
+ * Band 1 (chrome, sans): sender + tabular time — product chrome, law 1
+ * clean (no hue). Band 2 (EVIDENCE, serif): the subject — promoted from
+ * muted secondary text to the user's own material (law 2). Band 3
+ * (EVIDENCE, serif) — NEW: a bounded snippet of the message's own words,
+ * the single biggest information-density gain this plan makes; omitted
+ * entirely when there is no usable body text. Band 4: the entity chips
+ * (Plan 01's provenance marks), unchanged in placement.
+ *
+ * The chips are independent `<a>` deep-links that must never be nested
+ * inside an interactive element (invalid HTML + nested-interactive a11y
+ * violation). The row is therefore a `<div role="button">` with explicit
+ * keyboard handlers (Enter/Space activate selection) rather than a
+ * `<button>` wrapping the chips. Selected rows are an ink/ground well
+ * (`bg-bright` + `border-rule` top/bottom) — never a hue (law 1); the pre-60
+ * translucent primary-tint accent is gone.
  */
 export function InboxRow({
   email,
@@ -52,6 +87,7 @@ export function InboxRow({
   onSelect,
 }: InboxRowProps): React.ReactElement {
   const sender = email.senderName ?? email.senderAddress;
+  const snippet = toInboxSnippet(email.bodyText);
 
   function activate(): void {
     onSelect(email.id);
@@ -75,29 +111,42 @@ export function InboxRow({
       aria-pressed={isSelected}
       onClick={activate}
       onKeyDown={handleKeyDown}
-      className={`flex min-h-16 w-full cursor-pointer flex-col gap-1 border-b border-border/50 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-        isSelected ? "bg-primary/10" : "hover:bg-muted/50"
+      className={`flex w-full cursor-pointer flex-col gap-0.5 px-row-x py-row-y text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1 ${
+        isSelected ? "border-y border-rule bg-bright" : "border-b border-hair hover:bg-shade"
       }`}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="truncate text-sm font-semibold">{sender}</span>
-        <span className="shrink-0 text-xs text-muted-foreground">
-          {formatDate(email.receivedAt)}
+        <span data-field="sender" className="truncate text-sm font-semibold">
+          {sender}
         </span>
+        <time data-field="time" className="tabular shrink-0 text-2xs text-pencil">
+          {formatDate(email.receivedAt)}
+        </time>
       </div>
 
-      <span className="truncate text-sm text-muted-foreground">
+      <span data-field="subject" data-evidence className="truncate font-serif text-base text-ink">
         {email.subject ?? "(no subject)"}
       </span>
+
+      {snippet !== null && (
+        <span
+          data-field="snippet"
+          data-evidence
+          className="truncate font-serif text-xs text-faded"
+        >
+          {snippet}
+        </span>
+      )}
 
       {/* The chips are <a> deep-links — kept as a SIBLING (never nested in an
           interactive element). They stopPropagation so a chip click does not
           also toggle the row selection.
-          totalCount: 60-01 Task 3 stopgap — this row only has the capped
-          `entities` array (entitiesByEmailId in inbox-three-pane.tsx does not
-          yet carry the server's true totalCount), so entities.length is used
-          as an honest-for-now approximation. 60-02 threads the real
-          per-email totalCount the rest of the way through. */}
+          totalCount: entitiesByEmailId (inbox-three-pane.tsx) does not carry
+          the server's true per-email totalCount yet, so entities.length is
+          used as an honest-for-now stand-in — a narrow edge case (only
+          under-counts when a single email has MORE than the server's
+          MAX_ENTITIES_PER_EMAIL=8 real entities). Deferred to a later plan
+          that touches inbox-three-pane.tsx's data plumbing. */}
       <EntityChips entities={entities} totalCount={entities.length} emailId={email.id} />
     </div>
   );
