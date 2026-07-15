@@ -92,8 +92,13 @@ export function InboxRow({
 
       {/* The chips are <a> deep-links — kept as a SIBLING (never nested in an
           interactive element). They stopPropagation so a chip click does not
-          also toggle the row selection. */}
-      <EntityChips entities={entities} emailId={email.id} />
+          also toggle the row selection.
+          totalCount: 60-01 Task 3 stopgap — this row only has the capped
+          `entities` array (entitiesByEmailId in inbox-three-pane.tsx does not
+          yet carry the server's true totalCount), so entities.length is used
+          as an honest-for-now approximation. 60-02 threads the real
+          per-email totalCount the rest of the way through. */}
+      <EntityChips entities={entities} totalCount={entities.length} emailId={email.id} />
     </div>
   );
 }

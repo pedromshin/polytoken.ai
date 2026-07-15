@@ -9,13 +9,18 @@
 import * as React from "react";
 import Link from "next/link";
 
-import { Badge } from "@polytoken/ui/badge";
-
-/** One distinct extracted entity type for an email (from emails.entitySummary). */
+/**
+ * One extracted FACT for an email (from emails.entitySummary), post-60-01
+ * Task 2's per-fact rewrite. This REPLACES the pre-60 distinct-entity-TYPE
+ * rollup shape (`{ entityTypeId, label, count }`) — every surviving
+ * component is now its own chip, not a type-count badge.
+ */
 export interface EntityChipEntry {
+  readonly componentId: string;
   readonly entityTypeId: string;
-  readonly label: string;
-  readonly count: number;
+  readonly typeLabel: string;
+  readonly value: string | null;
+  readonly tier: "confirmed" | "suggested";
   /**
    * D-24: entity instance id resolved from a wasSelected=true candidate link.
    * When present, the chip deep-links to /entities/{entityInstanceId}.
@@ -26,34 +31,51 @@ export interface EntityChipEntry {
 
 interface EntityChipsProps {
   readonly entities: ReadonlyArray<EntityChipEntry>;
+  /**
+   * The server's TRUE pre-cap fact count for this email
+   * (`EmailEntitySummary.totalCount`, T-60-03). The overflow chip is derived
+   * from `totalCount - visible.length` rather than `entities.length -
+   * visible.length` so it counts facts the server withheld too, not just
+   * ones this row hid.
+   */
+  readonly totalCount: number;
   readonly emailId: string;
 }
 
-// D-23 anti-bloat: surface at most this many distinct entity types per row; the
-// remainder collapse into a single "+N" overflow chip.
-const MAX_VISIBLE_CHIPS = 4;
+// D-23 anti-bloat: surface at most this many chips per row; the remainder
+// collapse into a single neutral "+N" overflow chip.
+export const MAX_VISIBLE_CHIPS = 4;
 
 /**
- * EntityChips (D-23/D-24) — translucent per-entity-type badges for an inbox row.
+ * EntityChips (D-23/D-24, D-58-01) — the provenance mark on every extracted
+ * fact shown in an inbox row.
  *
- * Each chip shows the entity-type label, suffixed with `·count` when more than
- * one of that type was extracted. Chips render on `color.graph.entity` (the
- * entity-family tint from the canvas role-color palette, no second accent
- * hue) and `radius.pill`.
+ * 60-01 Task 3 rewrite: this used to be a type-rollup badge tinted with an
+ * entity-TYPE role colour (the canvas "graph" role palette's entity swatch)
+ * — a hue spent on classification, which law 1 forbids ("colour is earned";
+ * a hue means exactly one thing). Each chip now renders the extracted VALUE first (the
+ * user's own material, serif) with a subordinate `· {typeLabel}` qualifier
+ * (product-generated chrome, sans), coloured ONLY by confidence tier via the
+ * `pmark`/`pmark-confirmed`/`pmark-suggested` provenance-mark utilities
+ * (59-02) — solid border = confirmed, dashed border = suggested. No entity
+ * TYPE hue anywhere. No `tshape` glyph either (deliberate: the type WORD is
+ * already present beside it — the sketch's own "Chanel rule" removed the
+ * shape from exactly this surface for the same reason).
  *
- * D-24: When entityInstanceId is present the chip deep-links to
- * /entities/{entityInstanceId}. Otherwise falls back to /emails/{emailId}.
+ * Deep-links, click-propagation stopping, and the render-nothing-when-empty
+ * behaviour are all preserved from the pre-60 chip.
  *
  * Empty `entities` renders nothing (anti-bloat — no empty container, no label).
  */
 export function EntityChips({
   entities,
+  totalCount,
   emailId,
 }: EntityChipsProps): React.ReactElement | null {
   if (entities.length === 0) return null;
 
   const visible = entities.slice(0, MAX_VISIBLE_CHIPS);
-  const overflowCount = entities.length - visible.length;
+  const overflowCount = totalCount - visible.length;
 
   return (
     <div className="flex flex-wrap items-center gap-1">
@@ -62,40 +84,45 @@ export function EntityChips({
           entity.entityInstanceId !== undefined
             ? `/entities/${entity.entityInstanceId}`
             : `/emails/${emailId}`;
+        const tierClass = entity.tier === "confirmed" ? "pmark-confirmed" : "pmark-suggested";
+        const primaryText = entity.value ?? entity.typeLabel;
 
         return (
           <Link
-            key={entity.entityTypeId}
+            key={entity.componentId}
             href={href}
-            className="rounded-pill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-            // The chip is independent of row selection; stop the click from also
-            // toggling the row's reading-preview selection.
+            data-field="chip"
+            data-tier={entity.tier}
+            title={`${primaryText} · ${entity.typeLabel}`}
+            // pmark supplies geometry (radius, base padding) + font-serif by
+            // default; font-sans here overrides that default so the
+            // subordinate type qualifier (a sans span nested below) does not
+            // inherit serif from its ancestor — law 2 ("chrome speaks sans")
+            // applies to the product-generated TYPE word, not just the
+            // user's own extracted VALUE. pmark-confirmed/pmark-suggested
+            // supply the whole tier language (wash, border, text colour) —
+            // never re-hand-rolled here.
+            className={`pmark ${tierClass} inline-flex max-w-full items-baseline gap-1 rounded-sm px-chip-x py-chip-y font-sans focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1`}
+            // The chip is independent of row selection; stop the click from
+            // also toggling the row's reading-preview selection.
             onClick={(event) => event.stopPropagation()}
           >
-            <Badge
-              variant="outline"
-              className="gap-1 rounded-pill border-graph-entity/30 bg-graph-entity/10 text-graph-entity hover:bg-accent hover:text-accent-foreground"
-            >
-              <span
-                aria-hidden
-                className="size-1.5 rounded-full bg-graph-entity"
-              />
-              <span className="truncate">{entity.label}</span>
-              {entity.count > 1 && (
-                <span className="text-graph-entity">·{entity.count}</span>
-              )}
-            </Badge>
+            <span className="truncate font-serif tabular">{primaryText}</span>
+            <span className="shrink-0 text-2xs opacity-75">· {entity.typeLabel}</span>
           </Link>
         );
       })}
 
       {overflowCount > 0 && (
-        <Badge
-          variant="outline"
-          className="rounded-pill border-graph-entity/30 bg-graph-entity/10 text-graph-entity"
+        // Chrome, not a fact — no tier hue, no data-tier (Plan 02's gate
+        // requires every [data-field="chip"] to carry a valid tier, so this
+        // is deliberately marked "chip-overflow", not "chip").
+        <span
+          data-field="chip-overflow"
+          className="inline-flex items-center rounded-sm border border-rule bg-bright px-chip-x py-chip-y text-2xs text-faded"
         >
           +{overflowCount}
-        </Badge>
+        </span>
       )}
     </div>
   );
