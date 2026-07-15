@@ -367,7 +367,7 @@ information density, interactions — not merely re-tokened.
 
 Plans:
 - [x] 60-01-PLAN.md — Frozen pre-60 structural baseline + colour-blind fingerprint; per-fact entitySummary (value+tier); the provenance chip (law 1 leaves the inbox)
-- [ ] 60-02-PLAN.md — Inbox row + thread group restructured (serif subject/snippet, ruled member rail); the anti-re-token gate, proven able to fail
+- [x] 60-02-PLAN.md — Inbox row + thread group restructured (serif subject/snippet, ruled member rail); the anti-re-token gate, proven able to fail
 - [ ] 60-03-PLAN.md — Four-pane inbox: filters/list chrome + states (law-1 madder fix), serif reading pane, the new entities rail, mobile feed; pane-level gate
 - [ ] 60-04-PLAN.md — region-vocabulary.ts (tier=colour, role=geometry); region overlays re-encoded; the 20-case role x status matrix gate
 - [ ] 60-05-PLAN.md — Extraction registry on the vocabulary (law 2 turned right way up); status-badge/confirm-deny/layers-row; extraction shape gate

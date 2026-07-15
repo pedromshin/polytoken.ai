@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: in-progress
-last_updated: "2026-07-15T20:00:00.000Z"
+last_updated: "2026-07-15T21:00:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 18
-  completed_plans: 20
-  percent: 48
+  total_plans: 19
+  completed_plans: 21
+  percent: 49
 ---
 
 # State
@@ -58,7 +58,10 @@ and `59-03-SUMMARY.md`. Two open flags remain deliberately unresolved and are re
 `--chart-1..5` (needs a user decision: fold into the identity or keep as a bounded exemption).
 **Phase 60 (per-surface redesign, first SURF-* phase) is now executing: Plan 01 (frozen structural
 baseline + per-fact provenance chip) EXECUTED — see the Plan 01 History entry below and
-`60-01-SUMMARY.md`.** Next: Phase 60 Plan 02 (row/thread-group restructure + the anti-re-token gate).
+`60-01-SUMMARY.md`. Plan 02 (row/thread-group restructure + the anti-re-token gate) EXECUTED — see
+the Plan 02 History entry below and `60-02-SUMMARY.md`; the gate was proven able to fail (negative
+proof verbatim in the summary).** Next: Phase 60 Plan 03 (four-pane inbox: filters/list chrome +
+states, serif reading pane, entities rail, mobile feed; 5 plans remain in this 7-plan phase).
 
 **Done so far in v1.10:**
 
@@ -70,6 +73,7 @@ baseline + per-fact provenance chip) EXECUTED — see the Plan 01 History entry 
 - Phase 59 Plan 02 — EXECUTED (6-step type scale + serif role + density scale + provenance-mark/entity-type-shape utilities + new law-1 `colour-law.test.ts` gate, proven able to fail twice; Archivo self-hosted successfully, no fallback needed)
 - Phase 59 Plan 03 — EXECUTED (brand guide gained §3 "Visual identity"; SKILL.md's stale stock-teal claim fixed + D-58-01 pointer + comment-collision gotcha documented; design-data.json regenerated) — **Phase 59 COMPLETE, IDNT-03 + IDNT-04 both marked complete**
 - Phase 60 Plan 01 — EXECUTED (colour-blind `fingerprintTree` + frozen `inbox-pre-60.json` baseline for the anti-re-token gate; `entitySummary` rewritten to a per-FACT contract with `totalCount`; `EntityChips` now a tier-only provenance mark, zero entity-type hue)
+- Phase 60 Plan 02 — EXECUTED (inbox row restructured to a four-band registry entry with a NEW serif snippet; thread group restructured to a ruled sub-list, stock Badge replaced; `inbox-structure.test.tsx` makes ROADMAP criterion 1 executable and was proven able to fail via a real pre-60 component restore — 2/4 legs genuinely RED)
 
 Migrations 0037 (chat_source_ledger + chat_context_edges), 0038 (entity_type_corrections),
 0039 (entity-resolution dismiss filter) are AUTHORED + journal-coherent, APPLIED NOWHERE.
@@ -97,6 +101,31 @@ CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHEC
   literally matched Task 3's own grep-ban gate and was reworded. `apps/web`: tsc clean, 66/66 files
   731/731+1skipped green. `packages/api-client`: tsc clean, 36/36 files 442/442 green. See
   `60-01-SUMMARY.md` for the full RED evidence and deviation detail.
+
+## Phase 60 -- Surface Redesign: Inbox & Email Detail -- Plan 02 History -- row/thread-group restructure + the anti-re-token gate
+
+- **60-02 EXECUTED** (`71ad2f8` feat, `ca9aef2` feat, `3a0796f` test): Task 1 restructured
+  `inbox-row.tsx` into a four-band registry entry — sender+tabular `<time>` (sans chrome), serif
+  subject (promoted from muted secondary text — law 2), a NEW serif snippet (`toInboxSnippet`,
+  bounded to 200 chars in JS per T-60-04, omitted when blank — the single biggest information-
+  density gain this plan makes), chips (unchanged placement). Selection is now an ink/ground well
+  (`bg-bright`+`border-y border-rule`), never a hue — the pre-60 translucent primary-tint accent is
+  gone. Task 2 restructured `inbox-thread-group.tsx`'s summary row to mirror the same bands, swapped
+  the stock shadcn `Badge` for a designed tabular count marker, and replaced the indented member
+  slab with a left-ruled rail (`border-l border-rule`). Task 3 committed `inbox-structure.test.tsx`
+  — ROADMAP criterion 1 made executable (shape+elementCount, leafTextCount, named `data-field`
+  hierarchy with law-2 enforced BOTH directions, no `dangerouslySetInnerHTML`) — **and proved it able
+  to fail**: restored the pre-Phase-60 versions of `inbox-row.tsx`/`inbox-thread-group.tsx`/
+  `entity-chips.tsx` via `git checkout <pre-60-commit> -- <files>` (not `git stash` — by Task 3 the
+  prior commits are already landed, so there's no uncommitted diff to stash) while Phase 59's colour
+  system stayed untouched; 2/4 legs genuinely RED (missing `data-field` markers, `leafTextCount`
+  dropped 32->26), then restored clean (`git diff --stat` empty against `3a0796f`). One bug found by
+  the gate's own reverse law-2 check and fixed forward: `entity-chips.tsx`'s chip value span was
+  missing `data-evidence` (Plan 01 predates the convention). `apps/web`: tsc clean, 67/67 files
+  735/735+1skipped green. See `60-02-SUMMARY.md` for the full negative-proof output and the
+  fixture-enrichment reasoning (the honest, unenriched baseline fixture showed `elementCount`
+  *shrinking* 81->77 due to the entity-chip redesign legitimately removing more DOM than the row
+  gained — a real, documented finding, not a gate weakening).
 
 ## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 04 History -- React 18->19 core bump + six low-risk dependency bumps
 
@@ -4426,6 +4455,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (60-02): The negative proof used `git checkout <pre-60-commit> -- <files>` + `git checkout HEAD -- <files>`, NOT `git stash` — by the time Task 3 (the gate) runs, Tasks 1/2's component rewrites are already committed, so there is no uncommitted working-tree diff for `git stash` to capture (a `git stash push` against fully-committed files is a silent no-op). This is the correct, sanctioned equivalent per `<destructive_git_prohibition>` for discarding/restoring an already-committed file.
+- 2026-07-15 (60-02): `inbox-structure.test.tsx`'s fixture is deliberately richer than `capture-inbox-baseline.test.tsx`'s frozen fixture (both emails carry bodyText + >=1 entity, vs only email 1 in the baseline) — the honest, unenriched fixture showed `elementCount` SHRINKING (81->77): Plan 01's entity-chip redesign legitimately removed more DOM (Badge wrapper, colour dot, conditional count span) than this plan's row-level additions gained. The plan's stated fixture-fairness bar is scoped to chip PRESENCE, not bodyText/entity-count parity, so enrichment was within discretion. Side effect: the enrichment makes Leg 1 (shape) pass even under the negative proof's restored pre-60 components (extra chip content alone differs from baseline); Legs 2/3 are unaffected and fail for directly meaningful reasons, satisfying the "either/or" RED bar the plan itself states.
+- 2026-07-15 (60-02): [Rule 1] `entity-chips.tsx`'s chip value span was missing `data-evidence` (Plan 01 predates the convention Plan 02's gate introduces) — found by the gate's own reverse law-2 check (every font-serif element must carry data-evidence), fixed forward in the same commit as the gate that found it.
+- 2026-07-15 (60-02): `entitiesByEmailId`'s `totalCount` stopgap (entities.length) was confirmed, not re-litigated — Plan 02's own interfaces §B shows `InboxRow`'s props without a `totalCount` field, meaning the 60-01 stopgap is the plan's own intended state through this plan. `inbox-three-pane.tsx` remains untouched by both plans; deferred to a later plan.
 - 2026-07-15 (60-01): `fingerprintTree` reads role attribute VALUES (structural, stable across renders) but only PRESENCE for the aria-expanded/pressed/selected/hidden allowlist (values flip with component state) — this split, not just "exclude all attributes but className/style/data-*", is what keeps the fingerprint stable across otherwise-identical renders while still closing the colour/marker-attribute loophole criterion 1 exists to prevent.
 - 2026-07-15 (60-01): `EntityChips`' `totalCount` prop is REQUIRED (matches Plan 02's own interfaces §A), but `inbox-row.tsx`'s call site currently passes `entities.length` as an honest-for-now stand-in since `inbox-three-pane.tsx`'s `entitiesByEmailId` map does not yet carry the server's real per-email `totalCount` — documented as a stopgap for 60-02 to resolve, not silently left as the final state.
 - 2026-07-15 (60-01): [Rule 3] Deleted `packages/api-client/src/router/__tests__/entity-summary.test.ts` outright (rather than updating in place) since it exhaustively tested the pre-60 collapse-by-type contract Task 2's `<action>` explicitly replaces; `entity-summary-aggregation.test.ts` at the plan's own declared path supersedes it.
@@ -4849,6 +4882,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 59 P02 | ~30min | 3 tasks | 4 files — 6-step type scale + serif role + density scale + Archivo self-host (landed, no fallback) + provenance-mark/entity-type-shape utilities + colour-law.test.ts law-1 gate (proven able to fail twice) |
 | Phase 59 P03 | ~25min | 2 tasks | 3 files — brand guide §3 "Visual identity" (palette/type-scale/spacing/signature + gate citations + both open flags) + SKILL.md stale-teal fix/D-58-01 pointer/comment-collision gotcha + regenerated design-data.json — PHASE 59 COMPLETE, IDNT-03/IDNT-04 both marked complete |
 | Phase 60 P01 | ~90min | 3 tasks | 9 files — colour-blind fingerprintTree + frozen inbox-pre-60.json baseline (elementCount=81/leafText=32/depth=10) + entitySummary per-fact rewrite (MAX_ENTITIES_PER_EMAIL=8, totalCount) + EntityChips provenance-mark rewrite (zero graph-entity, zero rounded-pill) |
+| Phase 60 P02 | ~75min | 3 tasks | 4 files — inbox row -> four-band registry entry (serif snippet, toInboxSnippet 200-char bound) + thread group -> ruled sub-list (Badge removed) + inbox-structure.test.tsx anti-re-token gate, proven able to fail (2/4 legs RED under restored pre-60 components via git checkout, not stash) |
 
 ## Operator Next Steps
 
