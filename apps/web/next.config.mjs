@@ -7,6 +7,14 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const config = {
   reactStrictMode: true,
 
+  /**
+   * `next dev` and `next build` both default to `.next`. A verification build run while a dev
+   * server is live overwrites its chunks: the server keeps its in-memory module graph and serves
+   * HTML whose client JS never executes — silently, with the build reporting success. Setting
+   * NEXT_DIST_DIR gives such builds their own directory. See package.json's `build:local`.
+   */
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   /** Pin the monorepo root so Next ignores the stray parent lockfile. */
   outputFileTracingRoot: path.join(__dirname, "../../"),
 

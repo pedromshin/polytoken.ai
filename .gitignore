@@ -44,6 +44,9 @@ tfplan*
 
 # Build artifacts
 apps/web/.next/
+# Verification builds (`npm run build:local`) target their own dir so they cannot
+# clobber a live `next dev` server's chunks — see apps/web/next.config.mjs.
+apps/web/.next-verify/
 packages/api-client/dist/
 *.tsbuildinfo
 

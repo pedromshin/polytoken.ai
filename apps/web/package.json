@@ -8,7 +8,7 @@
     "dev:staging": "dotenv -e ../../.env.staging -- next dev",
     "dev:prod": "dotenv -e ../../.env.production -- next dev",
     "build": "next build",
-    "build:local": "dotenv -e ../../.env.local -- next build",
+    "build:local": "dotenv -e ../../.env.local -v NEXT_DIST_DIR=.next-verify -- next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
