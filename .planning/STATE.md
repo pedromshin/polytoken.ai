@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: executing
-last_updated: "2026-07-15T05:50:54.737Z"
-last_activity: 2026-07-15 -- Phase 55 execution started
+last_updated: "2026-07-15T08:13:49.134Z"
+last_activity: "2026-07-15 -- 55-03 EXECUTED: both STCK-01 gates rewritten for v4/oklch"
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 14
-  completed_plans: 4
+  completed_plans: 8
   percent: 0
 ---
 
@@ -46,14 +46,14 @@ work, never deferrable-by-default.
 ## Current Position
 
 Phase: 55 (Platform Migration — Tailwind v4 + React 19) — EXECUTING
-Plan: 4 of 6
+Plan: 5 of 6
 Status: Executing Phase 55
 Last activity: 2026-07-15 -- 55-03 EXECUTED: both STCK-01 gates rewritten for v4/oklch
 (token-contrast off HSL onto oklch, token-registration off resolveConfig onto @theme
 string-parsing), both proven to still fail on an injected regression then reverted,
 full web vitest suite green (64/64, 464/464). STCK-01 now complete.
 
-Progress: [███░░░░░░░] 29%
+Progress: [██████░░░░] 57%
 
 ## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 04 History -- React 18->19 core bump + six low-risk dependency bumps
 
@@ -83,6 +83,33 @@ Progress: [███░░░░░░░] 29%
   (2 new occurrences logged there, zero `sidebar.tsx` changes in this plan). `STCK-02` left
   Pending in REQUIREMENTS.md — not fully satisfiable until 55-05's react-day-picker/
   react-resizable-panels majors land. See `55-04-SUMMARY.md` for full detail.
+
+## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 05 History -- react-day-picker v9 + react-resizable-panels v3
+
+- **55-05 EXECUTED** (`7382925` feat, `a40741f` feat, `70fd3b5` chore): Bumped
+  `react-day-picker` `^8.10.1` -> `^9.14.0` and rewrote `packages/ui/src/calendar.tsx` to the
+  v9 Day/DayButton slot-split API (classNames remapped 1:1 to v9's `UI`/`DayFlag`/
+  `SelectionState` enums; custom `CalendarDayButton` reads the real `modifiers` prop v9
+  passes to drive selected/today/range styling, replacing v8's `:has([aria-selected])`
+  CSS trick; custom `CalendarChevron` replaces v8's `IconLeft`/`IconRight` split;
+  `navLayout="around"` preserves v8's nav-button placement) — rewritten by reading the
+  installed package's own `.d.ts`/`.js` source directly (no Context7 MCP/ctx7 CLI available
+  this session). Bumped `react-resizable-panels` `^2.0.19` -> `^3.0.6` with zero API fallout
+  at `packages/ui/src/resizable.tsx`. Both live-verified via authenticated Playwright
+  interaction: selected day resolves the exact `--primary` oklch value, today resolves the
+  exact `--accent` oklch value, and a dock-resize drag moved a panel's `data-panel-size` from
+  18.0 to 26.3. Removed 55-04's root `overrides: { react, react-dom }` pin (both bumped
+  packages now natively declare React 19 peers) after verifying via a full
+  node_modules+lockfile regeneration that a single `react@19.2.7`/`react-dom@19.2.7` instance
+  resolves tree-wide with zero 18.x remaining. `npm run test -w @polytoken/web` back to the
+  exact 464/464 baseline (checked 3x: post-day-picker-bump, post-resizable-panels-bump,
+  post-overrides-removal); typecheck clean for web/ui/genui; `web:build` 20/20 routes; E2E
+  re-run twice showing the identical pre-existing 38-passed/8-failed/4-did-not-run signature
+  both times (sidebar pointer-events bug + FastAPI-listener-required specs, both documented
+  pre-existing in `deferred-items.md`, zero overlap with this plan's touched files).
+  **`STCK-02` now COMPLETE** — every `packages/ui` runtime dep RESEARCH identified as needing
+  a React-19 bump is bumped (8 total across 55-04+55-05), both high/medium-risk API-surface
+  components revalidated with live interaction proof. See `55-05-SUMMARY.md` for full detail.
 
 ## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 01 History -- chat_source_ledger + chat_context_edges Drizzle schema + migration 0037
 
@@ -4083,6 +4110,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (55-05): Rewrote calendar.tsx to react-day-picker v9's Day/DayButton slot-split API by reading the installed 9.14.0 package's own .d.ts/.js source directly (UI.js enum, DayPicker.js render logic, DayButton.js/Day.js component source) rather than a cached v9 characterization — no Context7 MCP or ctx7 CLI was available in this environment; ground truth from the actually-installed package is higher confidence than a version-agnostic migration guide anyway. Added `navLayout="around"` (discovered via source-reading, not named in the plan's interface text) since v9's default layout renders a single detached `<nav>` above all months, not v8's caption-flanking buttons.
+- 2026-07-15 (55-05): Removed 55-04's root `overrides: { react, react-dom }` pin after confirming react-day-picker@9.14.0/react-resizable-panels@3.0.6 both natively declare React 19 peers — verified via a full node_modules+package-lock.json wipe and fresh `npm install` (not incremental, per 55-04's own documented lesson that `overrides` isn't honored against an existing lockfile) that a single react@19.2.7/react-dom@19.2.7 instance resolves tree-wide, zero 18.x remaining. STCK-02 marked complete.
 - 2026-07-15 (55-03): Both STCK-01-named gates verified NOT hollowed by rewrite — token-contrast's oklch parser proven to fail on an injected `--muted-foreground` lightness edit (ratio collapsed to 1.21), token-registration's `@theme`-block parser proven to fail on a deleted `--color-sidebar-ring` mapping line; both edits reverted (`git diff --stat globals.css` empty). `npm run test -w @polytoken/web` fully green (64/64 files, 464/464 tests) — STCK-01 complete (spanned 55-01/55-02/55-03).
 - 2026-07-15 (55-03): oklch-to-luminance conversion implemented self-contained (standard Bjorn Ottosson OKLab forward matrices) rather than adding a `culori` runtime dependency — the oklch literals were already precomputed once in 55-02, so the gate only ever parses already-final values.
 - 2026-07-15 (56-01): Migration number is 0037 (drizzle-computed via `drizzle-kit generate`, journal idx 37; previous head was idx 36/`0036_chat_conversation_thread_id`) — both `chat_source_ledger` and `chat_context_edges` landed in a single combined generate pass rather than a 0037/0038 split, since neither table has an ordering dependency on the other; downstream 56-02..05 must reference 0037.
@@ -4482,6 +4511,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 55 P02 | 130min | 2 tasks | 21 files |
 | Phase 56 P01 | ~20min | 3 tasks | 6 files — chat_source_ledger + chat_context_edges Drizzle schema + migration 0037 (authored, not applied) |
 | Phase 55 P03 | 25min | 2 tasks | 2 files |
+| Phase 55 P05 | 135min | 2 tasks | 6 files |
 
 ## Operator Next Steps
 

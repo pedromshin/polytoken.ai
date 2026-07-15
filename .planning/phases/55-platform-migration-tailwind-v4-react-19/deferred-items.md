@@ -65,6 +65,17 @@ layout, and the React Flow knowledge-graph canvas all render as expected on Reac
 `.planning/ui-reviews/2026-07-15T06-55-10-082Z/` is the resulting partial-but-real capture
 artifact.
 
+**55-05 update:** Re-ran `npm run test:e2e -w @polytoken/web` twice this session (once after the
+react-day-picker v9 + react-resizable-panels v3 bumps, once again after removing 55-04's now-
+redundant root `overrides` pin) — identical failure signature both times: `token-render.spec.ts`'s
+`/knowledge` case and `uat-48-token-surfaces.spec.ts`'s 48.1 case fail with the same
+`data-sidebar="menu"`/`"content"` under `data-side="left"` pointer-events-interception timeout;
+`live-loop-green.spec.ts` and `uat-39-tool-round.spec.ts` fail because no local FastAPI listener
+was running (both are documented operator prerequisites, not something the spec starts itself).
+38 passed / 8 failed / 4 did not run, matching 55-04's exact documented baseline. Neither of
+55-05's commits touches `packages/ui/src/sidebar.tsx` or any FastAPI/listener code — confirmed
+non-regression, not re-investigated further (out of this plan's scope, per SCOPE BOUNDARY).
+
 ## 55-02: `packages/genui` `artifacts.test.ts` registryVersion hash drift — pre-existing
 
 **Found during:** 55-02 Task 2's `npm run test -w @polytoken/genui` gate (run to confirm the
