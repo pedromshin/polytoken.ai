@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 /**
- * Committed WCAG-AA contrast regression gate (28-01-PLAN.md Task 3).
+ * Committed WCAG-AA contrast regression gate (28-01-PLAN.md Task 3, rewritten
+ * 55-03-PLAN.md Task 1 for the Tailwind v4 / oklch migration).
  *
  * Parses the LIVE apps/web/src/app/globals.css (both `:root` and `.dark`
  * blocks) and asserts every TOKEN-01 neutral `*`/`*-foreground` pair clears
@@ -14,15 +15,28 @@ import { describe, expect, it } from "vitest";
  * "rounds a value back" and silently drops contrast below the bar fails
  * this test, not just a manual visual check.
  *
+ * 55-02 ported every :root/.dark color token from a bare `"H S% L%"` HSL
+ * triplet to a full `oklch(L C H)` color function (55-RESEARCH.md Pattern
+ * 1) -- the previous HSL-triplet parser/converter pair could not parse
+ * that shape at all (it threw immediately on every oklch value). Per
+ * 55-RESEARCH.md's "Don't Hand-Roll" guidance, no runtime HSL<->oklch
+ * conversion library (e.g. culori) is added here: the oklch literals in
+ * globals.css were precomputed ONCE in 55-02, so this gate only needs to
+ * parse an already-final `oklch(L C H)` string and convert oklch ->
+ * linear-sRGB (via the standard OKLab intermediate space) at TEST time --
+ * `readTokenBlock` (engine-agnostic CSS-block extraction) and
+ * `relativeLuminance`/`contrastRatio` (pure WCAG math over linear-sRGB
+ * channels) are unchanged from the pre-migration version of this file.
+ *
  * Chart tokens (`--chart-*`) are graphical, carry no `*-foreground`
  * counterpart in this token system, and are informational-only per the
  * UI-SPEC -- intentionally NOT gated here.
  */
 
-export type HslTriplet = {
-  readonly h: number;
-  readonly s: number;
-  readonly l: number;
+export type OklchColor = {
+  readonly l: number; // lightness, 0-1
+  readonly c: number; // chroma
+  readonly h: number; // hue, degrees
 };
 
 export type LinearRgb = {
@@ -31,46 +45,65 @@ export type LinearRgb = {
   readonly b: number;
 };
 
-/** Parses a `"H S% L%"` CSS custom-property value (e.g. `"164 6% 95.3%"`). */
-export function parseHslTriplet(value: string): HslTriplet {
-  const match = value.trim().match(/^(-?[\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+/**
+ * Parses an `oklch(L C H)` / `oklch(L% C H)` CSS color function (optionally
+ * with a trailing `/ alpha` component, which is ignored -- none of the
+ * gated NEUTRAL_PAIRS below carry an alpha channel). Throws on a value it
+ * cannot parse (same fail-loud contract as this gate's previous parser).
+ */
+export function parseOklch(value: string): OklchColor {
+  const match = value
+    .trim()
+    .match(/^oklch\(\s*(-?[\d.]+)(%)?\s+(-?[\d.]+)\s+(-?[\d.]+)\s*(?:\/\s*-?[\d.]+%?\s*)?\)$/i);
   if (!match) {
-    throw new Error(`Cannot parse HSL triplet from "${value}"`);
+    throw new Error(`Cannot parse oklch(...) value from "${value}"`);
   }
-  const [, h, s, l] = match;
-  return { h: Number(h), s: Number(s), l: Number(l) };
-}
-
-function hueToRgbChannel(p: number, q: number, t: number): number {
-  const wrapped = ((t % 1) + 1) % 1;
-  if (wrapped < 1 / 6) return p + (q - p) * 6 * wrapped;
-  if (wrapped < 1 / 2) return q;
-  if (wrapped < 2 / 3) return p + (q - p) * (2 / 3 - wrapped) * 6;
-  return p;
-}
-
-function toLinearChannel(channel: number): number {
-  return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-}
-
-/** Converts an HSL triplet to linearized sRGB channels (0-1), per WCAG. */
-export function hslToLinearRgb({ h, s, l }: HslTriplet): LinearRgb {
-  const hNorm = (((h % 360) + 360) % 360) / 360;
-  const sNorm = s / 100;
-  const lNorm = l / 100;
-
-  if (sNorm === 0) {
-    const linear = toLinearChannel(lNorm);
-    return { r: linear, g: linear, b: linear };
+  const [, lightnessRaw, lightnessIsPercent, chromaRaw, hueRaw] = match;
+  if (lightnessRaw === undefined || chromaRaw === undefined || hueRaw === undefined) {
+    throw new Error(`Cannot parse oklch(...) value from "${value}"`);
   }
+  const l = lightnessIsPercent === "%" ? Number(lightnessRaw) / 100 : Number(lightnessRaw);
+  return { l, c: Number(chromaRaw), h: Number(hueRaw) };
+}
 
-  const q = lNorm < 0.5 ? lNorm * (1 + sNorm) : lNorm + sNorm - lNorm * sNorm;
-  const p = 2 * lNorm - q;
+/**
+ * Converts an OKLCH color to linearized sRGB channels (0-1), via the OKLab
+ * perceptual color space and its LMS cone-response intermediate. This is
+ * the standard Björn Ottosson OKLab <-> linear-sRGB forward transform
+ * (https://bottosson.github.io/posts/oklab/) -- self-contained, no runtime
+ * dependency added (55-RESEARCH.md "Don't Hand-Roll").
+ *
+ * Unlike this gate's previous HSL-to-linear-RGB converter, no separate
+ * sRGB gamma-decode step is needed: the matrices below already resolve
+ * directly to linear-light sRGB, which is exactly the representation
+ * `relativeLuminance` expects.
+ */
+export function oklchToLinearRgb(color: OklchColor): LinearRgb {
+  const hueRadians = (color.h * Math.PI) / 180;
+  const a = color.c * Math.cos(hueRadians);
+  const b = color.c * Math.sin(hueRadians);
 
+  const lPrime = color.l + 0.3963377774 * a + 0.2158037573 * b;
+  const mPrime = color.l - 0.1055613458 * a - 0.0638541728 * b;
+  const sPrime = color.l - 0.0894841775 * a - 1.291485548 * b;
+
+  const lCubed = lPrime ** 3;
+  const mCubed = mPrime ** 3;
+  const sCubed = sPrime ** 3;
+
+  const r = 4.0767416621 * lCubed - 3.3077115913 * mCubed + 0.2309699292 * sCubed;
+  const g = -1.2684380046 * lCubed + 2.6097574011 * mCubed - 0.3413193965 * sCubed;
+  const blueChannel = -0.0041960863 * lCubed - 0.7034186147 * mCubed + 1.707614701 * sCubed;
+
+  // Gamut-clipping edge case (55-RESEARCH.md): the OKLab matrices can
+  // produce slightly out-of-[0,1] channels for colors near (or, from
+  // floating-point rounding, just inside) the sRGB gamut boundary. Clamp
+  // before feeding relativeLuminance -- an unclamped negative channel would
+  // silently corrupt the WCAG luminance sum.
   return {
-    r: toLinearChannel(hueToRgbChannel(p, q, hNorm + 1 / 3)),
-    g: toLinearChannel(hueToRgbChannel(p, q, hNorm)),
-    b: toLinearChannel(hueToRgbChannel(p, q, hNorm - 1 / 3)),
+    r: Math.min(1, Math.max(0, r)),
+    g: Math.min(1, Math.max(0, g)),
+    b: Math.min(1, Math.max(0, blueChannel)),
   };
 }
 
@@ -86,7 +119,13 @@ export function contrastRatio(luminanceA: number, luminanceB: number): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** Extracts all `--token: value;` custom properties inside a named CSS block. */
+/**
+ * Extracts all `--token: value;` custom properties inside a named CSS
+ * block. Engine-agnostic (regexes raw CSS text, no PostCSS/Tailwind
+ * runtime involved) -- unchanged since 28-01, and reused by
+ * token-registration.test.ts to read the v4 `@theme`/`@theme inline`
+ * blocks directly, with no JS build-config introspection needed.
+ */
 export function readTokenBlock(css: string, blockSelector: string): Record<string, string> {
   const escaped = blockSelector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const blockPattern = new RegExp(`${escaped}\\s*\\{([\\s\\S]*?)\\}`);
@@ -118,8 +157,8 @@ function contrastForPair(
   if (backgroundValue === undefined || foregroundValue === undefined) {
     throw new Error(`Missing token(s) for pair "${backgroundKey}"/"${foregroundKey}"`);
   }
-  const backgroundLuminance = relativeLuminance(hslToLinearRgb(parseHslTriplet(backgroundValue)));
-  const foregroundLuminance = relativeLuminance(hslToLinearRgb(parseHslTriplet(foregroundValue)));
+  const backgroundLuminance = relativeLuminance(oklchToLinearRgb(parseOklch(backgroundValue)));
+  const foregroundLuminance = relativeLuminance(oklchToLinearRgb(parseOklch(foregroundValue)));
   return contrastRatio(backgroundLuminance, foregroundLuminance);
 }
 

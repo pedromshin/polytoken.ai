@@ -1,44 +1,118 @@
-import { describe, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { describe, expect, it } from "vitest";
+
+import { readTokenBlock } from "./token-contrast.test";
 
 /**
- * Regression guard for the "CSS var exists but Tailwind utility was never
- * registered" bug class (28-VERIFICATION gap, closed in 69c3afa): the
- * `--sidebar-*` vars were correctly aliased to teal tokens in globals.css,
- * yet `bg-sidebar`/`ring-sidebar-ring` emitted no CSS because no `sidebar`
- * color family existed in the config that actually compiles apps/web — so
+ * Committed token-family-registration regression gate (28-01-PLAN.md Task 3,
+ * rewritten 55-03-PLAN.md Task 2 for the Tailwind v4 migration).
+ *
+ * Guards the "CSS var exists but Tailwind utility was never registered" bug
+ * class (28-VERIFICATION gap, closed in 69c3afa): the `--sidebar-*` vars
+ * were correctly aliased to teal tokens in globals.css, yet
+ * `bg-sidebar`/`ring-sidebar-ring` emitted no CSS because no `sidebar`
+ * color family existed in the config that actually compiles apps/web -- so
  * the app silently kept Tailwind's stock blue ring. This test asserts every
  * token FAMILY that globals.css declares vars for is registered in the
- * resolved Tailwind theme, independent of whether a consumer exists yet.
+ * compiled Tailwind theme, independent of whether a consumer exists yet.
  *
- * SKIPPED for Tailwind v4 Stage 1 (55-01-PLAN.md): `tailwindcss/resolveConfig`
- * does not exist in tailwindcss@4.x — confirmed live during 55-01 execution
- * (`npm run test -w @polytoken/web` threw Vite's
- * `Missing "./resolveConfig" specifier in "tailwindcss" package`, and
- * `npm run typecheck -w @polytoken/web` failed the same way because TS's
- * classic module resolution fell through to the ROOT-hoisted
- * tailwindcss@3.4.x copy — see 55-01-SUMMARY.md for the full trace). This
- * confirms 55-RESEARCH.md's Pitfall 5 exactly as written ("fails at the
- * import line regardless of whether tailwind.config.ts itself still exists
- * via @config") — 55-01-PLAN.md's Task 1 acceptance criteria assumed this
- * gate would still pass through Stage 1, but the resolveConfig()-removal
- * breakage is triggered by the tailwindcss devDependency bump itself, not
- * by any CSS value change, so it cannot be deferred to Stage 2.
- *
- * Rewritten for real in Stage 3 (55-03) per 55-RESEARCH.md's stage map:
- * parse the `@theme inline` block of globals.css directly (reusing
- * token-contrast.test.ts's readTokenBlock-style helper) instead of
- * resolveConfig(). The `resolveConfig`/`appConfig` imports are removed
- * here (not just skipped) because the import itself is what throws — a
- * `describe.skip` alone does not prevent ESM import evaluation. Test names
- * below are preserved as the Stage-3 rewrite target; do not re-enable
- * before that rewrite lands.
+ * Tailwind v4's JS-config introspection API this gate used to depend on
+ * does not exist under tailwindcss@4.x (v4 is CSS-first -- there is no JS
+ * theme object to resolve; confirmed live during 55-01, see
+ * 55-01-SUMMARY.md). That v3-shaped introspection is replaced here with
+ * the SAME string-parsing technique token-contrast.test.ts already uses
+ * (`readTokenBlock`, imported and reused rather than reimplemented) applied
+ * directly against globals.css's `@theme inline` block (the color-family ->
+ * Tailwind-namespace mapping, per 55-RESEARCH.md Pattern 1) and its native
+ * `@theme` block (radius/shadow-scale registration, per 55-02-SUMMARY.md).
+ * No JS build-config file is imported anywhere in this test -- CSS is the
+ * single source of truth in v4, and this gate reads exactly the same CSS
+ * the build pipeline reads.
  */
-describe.skip("token family registration (guards the unregistered-utility bug class) — PENDING 55-03 rewrite: tailwindcss/resolveConfig() does not exist in v4", () => {
-  it("registers the full sidebar family against the --sidebar-* vars", () => {});
 
-  it("registers chart-1..5 against the --chart-* vars", () => {});
+const selfPath = fileURLToPath(import.meta.url);
+const cssPath = path.resolve(path.dirname(selfPath), "..", "globals.css");
+const css = readFileSync(cssPath, "utf-8");
 
-  it("registers the elevation shadow scale", () => {});
+// `@theme inline` maps every color-family CSS custom property (e.g.
+// `--sidebar-background`) into Tailwind's `--color-*` theme namespace --
+// this is where `bg-sidebar`/`text-chart-1`/etc. utilities get generated
+// from.
+const themeInlineTokens = readTokenBlock(css, "@theme inline");
 
-  it("registers the xl/2xl radius steps", () => {});
+// The native `@theme` block (no `inline`) registers the non-color families
+// this gate also guards: the elevation shadow scale and the xl/2xl radius
+// steps (55-02-SUMMARY.md's "native @theme port of borderRadius/
+// boxShadow/fontFamily").
+const themeTokens = readTokenBlock(css, "@theme");
+
+/** Asserts `tokens["--" + key]` exists and its mapped value matches `pattern`. */
+function expectRegistered(
+  tokens: Record<string, string>,
+  key: string,
+  pattern: RegExp,
+): void {
+  const value = tokens[key];
+  if (value === undefined) {
+    throw new Error(
+      `Expected globals.css's @theme block to register "--${key}" -- not found. ` +
+        `A declared token family with no @theme mapping line reproduces the ` +
+        `unregistered-utility bug class this gate exists to catch.`,
+    );
+  }
+  expect(value).toMatch(pattern);
+}
+
+/** Asserts `tokens["--" + key]` exists and is non-empty (no shape assertion). */
+function expectPresent(tokens: Record<string, string>, key: string): void {
+  const value = tokens[key];
+  if (value === undefined || value.length === 0) {
+    throw new Error(`Expected globals.css's @theme block to register "--${key}" -- not found.`);
+  }
+}
+
+describe("token family registration (guards the unregistered-utility bug class)", () => {
+  it("registers the full sidebar family against the --sidebar-* vars", () => {
+    const sidebarKeys = [
+      "color-sidebar",
+      "color-sidebar-foreground",
+      "color-sidebar-primary",
+      "color-sidebar-primary-foreground",
+      "color-sidebar-accent",
+      "color-sidebar-accent-foreground",
+      "color-sidebar-border",
+      "color-sidebar-ring",
+    ];
+    for (const key of sidebarKeys) {
+      expectRegistered(themeInlineTokens, key, /^var\(--sidebar-[\w-]+\)$/);
+    }
+  });
+
+  it("registers chart-1..5 against the --chart-* vars", () => {
+    for (let index = 1; index <= 5; index += 1) {
+      expectRegistered(
+        themeInlineTokens,
+        `color-chart-${index}`,
+        new RegExp(`^var\\(--chart-${index}\\)$`),
+      );
+    }
+  });
+
+  it("registers the elevation shadow scale", () => {
+    for (let index = 1; index <= 3; index += 1) {
+      expectRegistered(
+        themeTokens,
+        `shadow-elevation-${index}`,
+        new RegExp(`^var\\(--elevation-${index}\\)$`),
+      );
+    }
+  });
+
+  it("registers the xl/2xl radius steps", () => {
+    expectPresent(themeTokens, "radius-xl");
+    expectPresent(themeTokens, "radius-2xl");
+  });
 });
