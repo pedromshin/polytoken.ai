@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: in-progress
-last_updated: "2026-07-15T18:30:00.000Z"
+last_updated: "2026-07-15T18:52:00.000Z"
 progress:
   total_phases: 9
-  completed_phases: 3
-  total_plans: 18
-  completed_plans: 18
-  percent: 33
+  completed_phases: 5
+  total_plans: 17
+  completed_plans: 19
+  percent: 47
 ---
 
 # State
@@ -21,7 +21,7 @@ See: .planning/PROJECT.md (updated 2026-07-14 after v1.9 milestone close)
 **Core value:** Reliably receive every inbound email and make it observable — now as a *designed*
 product the user actually lives in: a research canvas that collects sources without ceremony, lets
 the user select a personal canon, and treats canvas edges as context.
-**Current focus:** Phase 59 — Visual Identity — Designed Token Set & Brand Guide (2/3 plans done: 59-01, 59-02 executed, 59-03 remains). Execute `59-03-PLAN.md` next.
+**Current focus:** Phase 59 — Visual Identity — Designed Token Set & Brand Guide is COMPLETE (3/3 plans executed: 59-01, 59-02, 59-03). IDNT-03 and IDNT-04 both marked complete. Next: Phase 60 (per-surface redesign, first of the SURF-* phases the Phase 58 gate unblocked).
 
 **Two things carry into execution, both user-raised at v1.9 close and still live:**
 
@@ -47,13 +47,16 @@ work, never deferrable-by-default.
 Meaningful Colour" (`.planning/phases/58-visual-identity-sketch-pick-human-gate/58-IDENTITY.md`).
 Phase 59 (Designed Token Set & Brand Guide) is now executing against that locked contract.
 
-**Phase 59 progress: 2/3 plans done.** 59-01 (oklch ladder port + shadcn semantic mapping + WCAG-AA
-+ token-registration gate rewrites) EXECUTED — see the Plan 01 History entry below and
+**Phase 59: 3/3 plans done — PHASE COMPLETE.** 59-01 (oklch ladder port + shadcn semantic mapping
++ WCAG-AA + token-registration gate rewrites) EXECUTED — see the Plan 01 History entry below and
 `59-01-SUMMARY.md`. 59-02 (type scale + serif role + density scale + the provenance mark +
 entity-type-shape utilities + a new law-1 structural-enforcement gate, `colour-law.test.ts`)
-EXECUTED — see the Plan 02 History entry below and `59-02-SUMMARY.md`. Next: 59-03 (brand
-guide's visual-identity section + SKILL.md update). Run `/gsd:plan-phase 59` continuation or
-execute `59-03-PLAN.md` directly.
+EXECUTED — see the Plan 02 History entry below and `59-02-SUMMARY.md`. 59-03 (brand guide's
+visual-identity section §3 + SKILL.md correction) EXECUTED — see the Plan 03 History entry below
+and `59-03-SUMMARY.md`. Two open flags remain deliberately unresolved and are recorded in
+`docs/design/brand-guide.md` §6: D-58-03 (entity-type-as-shape, not explicitly blessed) and
+`--chart-1..5` (needs a user decision: fold into the identity or keep as a bounded exemption).
+Next: Phase 60 (per-surface redesign, first SURF-* phase).
 
 **Done so far in v1.10:**
 
@@ -63,13 +66,13 @@ execute `59-03-PLAN.md` directly.
 - Phase 58 — D-58-01 LOCKED (Provenance × Meaningful Colour, both themes, three laws, 12-token oklch ladder)
 - Phase 59 Plan 01 — EXECUTED (identity ladder ported, shadcn mapping complete, both gates rewritten + re-proven able to fail)
 - Phase 59 Plan 02 — EXECUTED (6-step type scale + serif role + density scale + provenance-mark/entity-type-shape utilities + new law-1 `colour-law.test.ts` gate, proven able to fail twice; Archivo self-hosted successfully, no fallback needed)
+- Phase 59 Plan 03 — EXECUTED (brand guide gained §3 "Visual identity"; SKILL.md's stale stock-teal claim fixed + D-58-01 pointer + comment-collision gotcha documented; design-data.json regenerated) — **Phase 59 COMPLETE, IDNT-03 + IDNT-04 both marked complete**
 
 Migrations 0037 (chat_source_ledger + chat_context_edges), 0038 (entity_type_corrections),
 0039 (entity-resolution dismiss filter) are AUTHORED + journal-coherent, APPLIED NOWHERE.
 
 **Still owed from v1.9 (user declined twice):** LIVE-03 (§A OAuth), LIVE-04 (§B.3-6 real email),
 CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
-
 
 ## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 04 History -- React 18->19 core bump + six low-risk dependency bumps
 
@@ -149,6 +152,7 @@ CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHEC
   surfaced and fixed two real bugs in `build-design-data.mjs` (a comment-string-collision bug
   that was silently extracting the WRONG CSS block — zero oklch tokens shipped pre-fix — and
   a stale JS-config animation-source read left over from 55-02/55-03's migration). `page.tsx`
+
   + `design-data.json` committed for the first time (previously untracked scratch, 55-01
   precedent). Phase-final gate sweep: typecheck ui/web/genui all 0; `npm run test -w
   @polytoken/web` 64/64 files, 464/464 tests (unchanged baseline); `web:build` 20/20 routes.
@@ -480,6 +484,39 @@ CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHEC
   apps/web/src/app/globals.css` returns 0. See `59-02-SUMMARY.md` for full
   detail, including both negative proofs' verbatim output and the derived
   type-scale/density tables.
+
+## Phase 59 -- Visual Identity — Designed Token Set & Brand Guide -- Plan 03 History -- brand guide's visual-identity section + SKILL.md correction (PHASE COMPLETE)
+
+- **59-03 EXECUTED** (`eabf5c7` docs, `2a19444` docs) — **Phase 59 is now 3/3 plans complete.**
+  Task 1 gave `docs/design/brand-guide.md` a new §3 "Visual identity" — inserted after §2 Voice
+  principles (criterion 3's "alongside") — covering the thesis and all three laws, the full
+  12-token oklch ladder read directly out of `globals.css` (both themes) with a
+  shadcn-semantic-name lookup table, the 6-step type scale + serif role + `tabular` utility, the
+  9-step density rhythm, and the signature (`pmark`/`pmark-confirmed`/`pmark-suggested` +
+  `tshape*`) with law 3's placement rule. Enforcement split honestly: four committed gates
+  (`token-contrast.test.ts`, `colour-law.test.ts`, `token-registration.test.ts`,
+  `palette-ban.test.ts`) cited by path, five NOT-gateable rules stated as the guide's own job.
+  Both open flags (D-58-03 entity-type-as-shape, `--chart-1..5`) recorded with concrete cost in a
+  new subsection under the renumbered §6. Sections §3-§8 renumbered to §4-§9, every internal `§N`
+  cross-reference fixed. Task 2 fixed `.claude/skills/polytoken-design-system/SKILL.md`'s stale
+  "Brand primary `oklch(38.9% 0.053 173.7)`" claim — the file every `gsd-ui-researcher`/
+  `gsd-ui-auditor` auto-reads — replacing it with a pointer to the D-58-01 ladder and
+  `brand-guide.md` §3, added a "Visual identity (D-58-01)" summary section (three laws,
+  `pmark`/`tshape`, type scale, four gates by path), flagged `@tweakcn` as a law-1 conflict, and
+  documented the CSS comment-collision gotcha that bit three times across 59-01/59-02 (dangling
+  `*/`, literal `--token:` in a comment, `*/` inside comment prose). Regenerated
+  `apps/web/src/app/dev/design/design-data.json` via `build-design-data.mjs` — succeeded cleanly
+  (`tokens=78 animations=8 components=56 suites=1`). Two self-caught Rule-1 fixes before their
+  respective commits: a draft heading ("Open flags from the visual identity (§3)") double-matched
+  the plan's own heading-count acceptance regex (fixed by rewording to "Open flags carried from
+  §3"); SKILL.md's own explanatory sentence reintroduced the literal stale-teal oklch value it was
+  correcting, failing the blunt string-presence acceptance check (fixed by describing the removal
+  without repeating the literal number). Full token gate suite re-run as phase-final baseline: 4
+  files, 284 tests, all green. `git diff --name-only` across both commits confirmed scope: exactly
+  `docs/design/brand-guide.md`, `SKILL.md`, and the explicitly-allowed `design-data.json`
+  regeneration — no other `apps/`/`packages/` source touched. IDNT-03 and IDNT-04 both marked
+  complete. See `59-03-SUMMARY.md` for full detail, including the final section numbering and both
+  open flags restated for VERIFICATION.
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
@@ -4365,6 +4402,9 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (59-03): The two open flags (D-58-03 entity-type-as-shape, `--chart-1..5`) live in a new subsection under `docs/design/brand-guide.md`'s renumbered §6 "NOT done — user-gated" ("Open flags carried from §3") rather than inside the new §3 "Visual identity" itself, per the plan's explicit instruction to use that existing home — both remain deliberately unresolved, not silently inherited as decided.
+- 2026-07-15 (59-03): `apps/web/src/app/dev/design/design-data.json` (a tracked build artifact) is included in this docs-only plan's diff per the plan's own `<verification>` exception ("docs-only... and any build-design-data.mjs output") — regenerated cleanly, no manual edit.
+- 2026-07-15 (59-03): [Rule 1] Two self-caught deviations, both found by running the plan's own acceptance-criteria grep commands against the draft before committing rather than by visual read-through: (1) a draft heading ("Open flags from the visual identity (§3)") double-matched the plan's `^#+ .*[Vv]isual identity` heading-count regex, inflating the count from the required 1 to 2 — reworded to "Open flags carried from §3"; (2) SKILL.md's own explanatory sentence describing the DELETED stock-teal reintroduced its literal oklch value (`38.9% 0.053 173.7`), failing the blunt string-presence acceptance check that has no semantic awareness of "this value is gone" — reworded to describe the removal without repeating the literal number.
 - 2026-07-15 (59-02): Type scale clustered to 6 steps (2xs/xs/sm/base/lg/xl) from `direction-final.html`'s 13 raw font-size values, deliberately reusing Tailwind's own `xs`/`sm`/`base`/`lg`/`xl` scale names — this REPLACES stock Tailwind text sizing wherever those classes are already used anywhere in the app, per the plan's explicit instruction ("that is the point of ROADMAP criterion 2"), not just for future Phase 60-63 consumers.
 - 2026-07-15 (59-02): `colour-law.test.ts`'s earned-hue chroma FLOOR (>=0.06) deliberately does NOT include `--chart-1..5`, even though interfaces §D lists chart tokens as part of the CEILING-exempt set — several chart chroma values (light chart-1=0.053, dark chart-3=0.057/chart-4=0.044) sit below 0.06, so applying the floor would make an always-red gate. Chart tokens get their own "documented exemption" describe block (parses + logs chroma via console.info, asserts nothing) instead — excluded from both bounds, but auditable rather than silently skipped.
 - 2026-07-15 (59-02): Archivo (via `next/font/google`, layout.tsx, 400/600 weights) self-hosted successfully on the first build attempt — the plan's §B build-failure fallback branch (drop the import, keep the literal Archivo-first stack) was NOT needed this session.
@@ -4778,6 +4818,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 57 P01 | ~65min | 3 tasks | 12 files — entity_type_corrections table + importer-scoped trgm RPC + migration 0038 (authored, not applied) + load-before-mutate capture hook in SetComponentEntityTypeUseCase (LEARN-01) |
 | Phase 56 P03 | ~30min | 2 tasks | 4 files — assertSourceRefOwnership dispatcher + chat.createContextEdge/removeContextEdge/listContextEdges (RCNV-04), 33-test adversarial two-user suite (all sourceRef types), D-56-A ownership-only tier-agnostic knowledge_node check |
 | Phase 59 P02 | ~30min | 3 tasks | 4 files — 6-step type scale + serif role + density scale + Archivo self-host (landed, no fallback) + provenance-mark/entity-type-shape utilities + colour-law.test.ts law-1 gate (proven able to fail twice) |
+| Phase 59 P03 | ~25min | 2 tasks | 3 files — brand guide §3 "Visual identity" (palette/type-scale/spacing/signature + gate citations + both open flags) + SKILL.md stale-teal fix/D-58-01 pointer/comment-collision gotcha + regenerated design-data.json — PHASE 59 COMPLETE, IDNT-03/IDNT-04 both marked complete |
 
 ## Operator Next Steps
 

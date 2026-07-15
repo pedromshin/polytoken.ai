@@ -212,7 +212,7 @@ WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
 - [x] Phase 57: Email Learning Loop
  (completed 2026-07-15)
 - [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
-- [ ] Phase 59: Visual Identity — Designed Token Set & Brand Guide
+- [x] Phase 59: Visual Identity — Designed Token Set & Brand Guide (completed 2026-07-15)
 - [ ] Phase 60: Surface Redesign — Inbox & Email Detail
 - [ ] Phase 61: Surface Redesign — Chat, Canvas & Mobile Panel Chrome
 - [ ] Phase 62: Surface Redesign — Knowledge, Studio & Production States
@@ -343,7 +343,7 @@ section it has never had (today it defines only voice/tone).
 Plans:
 - [x] 59-01-PLAN.md — Port the locked oklch ladder (both themes) + map every shadcn semantic token onto it; rewrite the WCAG-AA + token-registration gates to gate the new system
 - [x] 59-02-PLAN.md — Type scale + serif role + density scale + the provenance-mark and entity-type-shape utilities; new law-1 chroma-ceiling gate
-- [ ] 59-03-PLAN.md — Brand guide gains its visual-identity section; SKILL.md updated to the designed system
+- [x] 59-03-PLAN.md — Brand guide gains its visual-identity section; SKILL.md updated to the designed system
 **UI hint**: yes
 
 ### Phase 60: Surface Redesign — Inbox & Email Detail
