@@ -419,14 +419,14 @@ This is a mechanical, one-to-one port of `packages/tailwind-config/web.ts`'s `th
 | A3 | The exact oklch equivalents for this repo's HSL brand values (teal `164 39% 22%`, the tier-ladder/graph-palette hues, etc.) were not computed in this research session — flagged as a Stage 2 implementation task, not a research deliverable, since it requires either a conversion library run or hand-verification against the WCAG-AA gate | Standard Stack, Code Examples | Low risk if flagged clearly — the planner must include an explicit "compute + verify contrast" task, not assume oklch values can be eyeballed from the HSL originals |
 | A4 | `react-day-picker` v9's exact prop/classname API differences were characterized at a summary level (from the peerDependency-range signal + general knowledge of the library's documented v9 rewrite) but not diffed line-by-line against this repo's `calendar.tsx` in this research session | Pitfall 3 | If the actual diff is smaller than expected, the isolated-task recommendation still holds (low cost); if larger, the isolation recommendation becomes more important, not less — asymmetric risk favors the recommendation regardless |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Does this repo need to support pre-2023 browsers (Safari <16.4, Chrome <111, Firefox <128)?**
+1. **Does this repo need to support pre-2023 browsers (Safari <16.4, Chrome <111, Firefox <128)?** — **RESOLVED (non-blocking):** no legacy-browser requirement exists in PROJECT.md/REQUIREMENTS.md; 55-01/55-02 note the modern-browser floor (Tailwind v4's `@property`/`color-mix()`) as a one-line assumption, not a gate. Revisit only if a browser-support matrix is later added.
    - What we know: Tailwind v4 requires these floors due to its use of native CSS `@property` and `color-mix()`.
    - What's unclear: No documented browser-support matrix was found in `PROJECT.md`/`REQUIREMENTS.md` for this product (a personal-use "second brain" tool, per `PROJECT.md`'s framing — likely low risk, but not explicitly confirmed).
    - Recommendation: Treat as non-blocking (no evidence of a legacy-browser requirement anywhere in the planning docs read), but flag it as a one-line checkpoint in the plan rather than silently assuming.
 
-2. **Should the exact oklch conversion be computed via a library (`culori`) at test/build time, or precomputed once and hard-coded as literals in `globals.css`?**
+2. **Should the exact oklch conversion be computed via a library (`culori`) at test/build time, or precomputed once and hard-coded as literals in `globals.css`?** — **RESOLVED:** precompute-once adopted in 55-02 (no `culori`/new dependency); 55-03 rewrites token-contrast.test.ts to parse the `oklch(...)` literals directly. Phase 59 can introduce a conversion pipeline if the designed palette needs one.
    - What we know: Precomputing avoids adding a new runtime/test dependency and keeps `token-contrast.test.ts`'s rewrite simpler (parse `oklch(...)` literals directly, no conversion math needed at test time).
    - What's unclear: Whether the phase wants the flexibility of a conversion utility (e.g., for future palette work in Phase 59's designed token set) versus the simplicity of one-time hard-coded values.
    - Recommendation: Precompute once for this phase (lower risk, smaller diff) — Phase 59 (Visual Identity: Designed Token Set) is explicitly where a *new* palette gets designed anyway, and can introduce a proper conversion pipeline then if needed.
