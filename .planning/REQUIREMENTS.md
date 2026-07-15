@@ -57,7 +57,7 @@ IDNT-02 is locked.
 
 ### Email Learning Loop (LEARN — Band 5; palette-independent, runs early)
 
-- [ ] **LEARN-01**: The user can correct what an email or extracted entity *is* (classification/extraction), and the correction is captured as structured, addressable signal
+- [x] **LEARN-01**: The user can correct what an email or extracted entity *is* (classification/extraction), and the correction is captured as structured, addressable signal
 - [ ] **LEARN-02**: Accumulated corrections improve subsequent classification/extraction for the same or similar entities — extending the suggest-only entity-resolution stance, **never auto-deciding**
 
 ## v2 Requirements
@@ -93,7 +93,7 @@ Which phases cover which requirements. Filled by the roadmapper.
 | STCK-04 | Phase 55 — Platform Migration: Tailwind v4 + React 19 | Pending |
 | RCNV-01 | Phase 56 — Research Canvas: Backend & Semantic Context Model | Complete |
 | RCNV-04 | Phase 56 — Research Canvas: Backend & Semantic Context Model | Pending |
-| LEARN-01 | Phase 57 — Email Learning Loop | Pending |
+| LEARN-01 | Phase 57 — Email Learning Loop | Complete |
 | LEARN-02 | Phase 57 — Email Learning Loop | Pending |
 | IDNT-01 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |
 | IDNT-02 | Phase 58 — Visual Identity: Sketch & Pick (HUMAN GATE) | Pending |

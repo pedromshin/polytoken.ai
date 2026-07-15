@@ -111,6 +111,35 @@ Progress: [██████░░░░] 57%
   a React-19 bump is bumped (8 total across 55-04+55-05), both high/medium-risk API-surface
   components revalidated with live interaction proof. See `55-05-SUMMARY.md` for full detail.
 
+## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 06 History -- Radix-stays decision + @kibo-ui registry-install proof + /dev/design oklch cleanup (PHASE COMPLETE)
+
+- **55-06 EXECUTED** (`d6ef0fd` docs, `4010a4e` feat, `bf294a7` fix — STATE.md "Current
+  Position" above intentionally left untouched per the additive-only discipline established
+  by 56-01's own precedent, since this plan ran concurrently with other Wave-6 work):
+  **STCK-03 decided** — `docs/design/radix-vs-base-ui.md` records staying on Radix, citing
+  shadcn's July-2026 changelog's explicit non-deprecation statement, the 37-component
+  zero-forcing-function rationale, and a re-evaluation trigger; `SKILL.md`'s Stack pin section
+  updated off the now-false "NOT Tailwind v4, NOT React 19" line. **STCK-04 proven** —
+  `packages/ui/components.json`'s `tailwind.config` set to `""` (v4 shape); `@kibo-ui/rating`
+  vendored to `packages/ui/src/rating.tsx` with ZERO v3/Base-UI adaptation (its
+  `@polytoken/ui` import convention already matched, its one runtime dep was already
+  installed), live-verified via Playwright screenshot on `/dev/components`. Mid-execution,
+  live CLI testing against the installed `shadcn@4.13.0` found the plan's assumed `-b radix`
+  add-time flag does not exist (init-only) — corrected both docs to the real, verified
+  mechanism (this repo's existing `components.json` `style: "new-york"` already pins
+  canonical `@shadcn` items to Radix with no flag needed). **Pitfall 6 cleanup** —
+  `/dev/design`'s `Swatch` made format-agnostic (renders oklch, not just bare HSL triplets),
+  stale `nauta-design-system` paths fixed, `design-data.json` regenerated; regeneration
+  surfaced and fixed two real bugs in `build-design-data.mjs` (a comment-string-collision bug
+  that was silently extracting the WRONG CSS block — zero oklch tokens shipped pre-fix — and
+  a stale JS-config animation-source read left over from 55-02/55-03's migration). `page.tsx`
+  + `design-data.json` committed for the first time (previously untracked scratch, 55-01
+  precedent). Phase-final gate sweep: typecheck ui/web/genui all 0; `npm run test -w
+  @polytoken/web` 64/64 files, 464/464 tests (unchanged baseline); `web:build` 20/20 routes.
+  **STCK-03 + STCK-04 marked complete in REQUIREMENTS.md. Phase 55 (Platform Migration —
+  Tailwind v4 + React 19) is now FULLY COMPLETE** — all 4 requirements (STCK-01..04)
+  satisfied across plans 55-01 through 55-06. See `55-06-SUMMARY.md` for full detail.
+
 ## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 01 History -- chat_source_ledger + chat_context_edges Drizzle schema + migration 0037
 
 - **56-01 EXECUTED** (`2a3a766` feat, `a6e6e22` feat, `895253e` feat — executed
@@ -225,6 +254,51 @@ Progress: [██████░░░░] 57%
   concurrent-tracking hazard 56-01/56-02 already avoided), and was reverted
   via `git checkout -- .planning/STATE.md` before this section was appended
   by hand instead. See `56-05-SUMMARY.md` for full detail.
+
+## Phase 57 -- Email Learning Loop -- Plan 01 History -- entity_type_corrections table + importer-scoped trgm RPC + load-before-mutate capture hook (LEARN-01)
+
+- **57-01 EXECUTED** (`5785dc0` feat, `e27a7db` feat, `08bd480` feat —
+  executed concurrently alongside other in-flight phase execution,
+  palette-independent per this milestone's parallel-safe grouping; STATE.md
+  "Current Position" above intentionally left untouched by this plan, and
+  `state.advance-plan` was NOT invoked, per the 56-05-established
+  concurrent-tracking discipline): Closed LEARN-01 gap 1 —
+  `SetComponentEntityTypeUseCase` previously overwrote a component's
+  `entity_type_id` with zero audit trail. Task 1: `entity_type_corrections`
+  Drizzle table + migration **0038** (`0038_entity_type_corrections.sql`,
+  journal idx 38; previous head was idx 37/`0037_serious_sugar_man` from
+  Phase 56) — importer_id/component_id/previous+corrected entity_type_id
+  FKs, RLS importer-descendant policy, and the
+  `match_entity_type_corrections_by_trgm` RPC (importer-scoped ONLY, no
+  entity_type_id filter parameter — Pitfall 4, this retrieval runs BEFORE
+  the type is known). `drizzle-kit check` green. Task 2:
+  `EntityTypeCorrection` domain entity + `EntityTypeCorrectionRepository`
+  port (`save`/`find_similar`) + `SupabaseEntityTypeCorrectionRepository`
+  adapter (save propagates exceptions; find_similar degrades to `[]`,
+  D-13). Task 3: `SetComponentEntityTypeUseCase` gains an optional
+  `corrections` collaborator (default None, backward compatible); captures
+  a genuine reclassification (previous exists AND differs) BEFORE
+  `update_entity_type` (D-16 load-before-mutate), best-effort (mirrors
+  `confirm_region.py`'s synthesis hook) — first-time classification, no-op,
+  and clear are never captured. `container.py` wires both via factories
+  (`_provide_entity_type_correction_repository` mirrors `_provide_retrieval`
+  for the `client: Any` param; `_provide_set_component_entity_type_use_case`
+  mirrors `_provide_autofill_use_case` for the defaulted-Optional
+  collaborator param — both required after `test_container.py` first
+  failed with `GraphMissingFactoryError`). 13 new tests (6 repository + 7
+  use-case behavior) all green; full `apps/email-listener` suite 100% pass,
+  66.88% coverage (>= 65% ratchet). Two self-caught Rule-1 fixes: the
+  plan's literal `--name=` migration-generate command didn't forward
+  through the npm script wrapper (renamed the generated file + corrected
+  the journal tag to match the acceptance-criteria glob), and an early
+  comment/docstring literally containing the substring
+  `match_entity_type_id` tripped its own "no such parameter" grep gate
+  (reworded everywhere). Migration 0038 is AUTHORED + GENERATED, **NOT
+  APPLIED** to any environment (same posture as Phase 56's 0037) — Plan
+  57-03 must re-check the journal head (next free index 0039) rather than
+  assume it. Suggest-only invariant preserved and tested: `update_entity_type`
+  fires unconditionally in every scenario; `extraction_status` is never
+  touched. See `57-01-SUMMARY.md` for full detail.
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
@@ -4110,6 +4184,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (57-01): Migration number is 0038 (journal idx 38; previous head was idx 37/`0037_serious_sugar_man` from Phase 56) — `packages/db/migrations/meta/_journal.json` re-checked at execution time per RESEARCH Pitfall 3's own instruction, not assumed. Downstream 57-03 must reference 0038 as the floor and re-check the head itself before allocating.
+- 2026-07-15 (57-01): [Rule 1] `npm run migration:generate --name=entity_type_corrections` did not forward `--name` through the `migration:generate` npm script (no `--` pass-through in package.json), producing a random-slug filename (`0038_known_hemingway.sql`) — renamed to `0038_entity_type_corrections.sql` and corrected the journal `tag` to match, satisfying the plan's own `*_entity_type_corrections.sql` acceptance-criteria glob; `drizzle-kit check` re-verified green after the rename.
+- 2026-07-15 (57-01): `match_entity_type_corrections_by_trgm` retrieval RPC is importer_id-scoped ONLY, with NO entity_type_id filter parameter (RESEARCH Pitfall 4) — this retrieval runs BEFORE classification decides the entity type, so an entity_type_id filter would make it structurally incapable of ever returning results. The literal substring `match_entity_type_id` was also scrubbed from ALL prose (SQL comments + Python docstrings), not just the actual signature, after an early draft's explanatory comment tripped its own "must not exist" acceptance grep gate.
+- 2026-07-15 (57-01): `SupabaseEntityTypeCorrectionRepository.save()` does NOT swallow exceptions internally (only `find_similar()` does, D-13 degrade-safe) — `SetComponentEntityTypeUseCase` owns the best-effort try/except at the use-case level instead, mirroring `confirm_region.py`'s synthesis-hook posture exactly, per the plan's explicit behavior spec.
+- 2026-07-15 (57-01): [Rule 3] Two dishka factories were required beyond the plan's interface sketch: `_provide_entity_type_correction_repository` (the adapter's `client: Any` constructor param — deliberately typed to mirror `retrieval_repository.py` — isn't resolvable by dishka directly; factory mirrors `_provide_retrieval`) and `_provide_set_component_entity_type_use_case` (the use case's new defaulted-Optional `corrections` param isn't auto-injected by a bare `provider.provide(ClassName)`; factory mirrors `_provide_autofill_use_case`). Both caught by `test_container.py`'s `GraphMissingFactoryError` before commit.
 - 2026-07-15 (55-05): Rewrote calendar.tsx to react-day-picker v9's Day/DayButton slot-split API by reading the installed 9.14.0 package's own .d.ts/.js source directly (UI.js enum, DayPicker.js render logic, DayButton.js/Day.js component source) rather than a cached v9 characterization — no Context7 MCP or ctx7 CLI was available in this environment; ground truth from the actually-installed package is higher confidence than a version-agnostic migration guide anyway. Added `navLayout="around"` (discovered via source-reading, not named in the plan's interface text) since v9's default layout renders a single detached `<nav>` above all months, not v8's caption-flanking buttons.
 - 2026-07-15 (55-05): Removed 55-04's root `overrides: { react, react-dom }` pin after confirming react-day-picker@9.14.0/react-resizable-panels@3.0.6 both natively declare React 19 peers — verified via a full node_modules+package-lock.json wipe and fresh `npm install` (not incremental, per 55-04's own documented lesson that `overrides` isn't honored against an existing lockfile) that a single react@19.2.7/react-dom@19.2.7 instance resolves tree-wide, zero 18.x remaining. STCK-02 marked complete.
 - 2026-07-15 (55-03): Both STCK-01-named gates verified NOT hollowed by rewrite — token-contrast's oklch parser proven to fail on an injected `--muted-foreground` lightness edit (ratio collapsed to 1.21), token-registration's `@theme`-block parser proven to fail on a deleted `--color-sidebar-ring` mapping line; both edits reverted (`git diff --stat globals.css` empty). `npm run test -w @polytoken/web` fully green (64/64 files, 464/464 tests) — STCK-01 complete (spanned 55-01/55-02/55-03).
@@ -4512,6 +4591,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 56 P01 | ~20min | 3 tasks | 6 files — chat_source_ledger + chat_context_edges Drizzle schema + migration 0037 (authored, not applied) |
 | Phase 55 P03 | 25min | 2 tasks | 2 files |
 | Phase 55 P05 | 135min | 2 tasks | 6 files |
+| Phase 57 P01 | ~65min | 3 tasks | 12 files — entity_type_corrections table + importer-scoped trgm RPC + migration 0038 (authored, not applied) + load-before-mutate capture hook in SetComponentEntityTypeUseCase (LEARN-01) |
 
 ## Operator Next Steps
 

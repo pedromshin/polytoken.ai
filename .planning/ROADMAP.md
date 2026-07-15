@@ -205,7 +205,7 @@ Phase 58's recorded pick. Regression rails carried from v1.9 that every phase be
 green: the 16-surface screenshot harness (`npm run screenshot:review`), `palette-ban.test.ts`, the
 WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
 
-- [ ] Phase 55: Platform Migration — Tailwind v4 + React 19
+- [x] Phase 55: Platform Migration — Tailwind v4 + React 19 (completed 2026-07-15)
 - [ ] Phase 56: Research Canvas — Backend & Semantic Context Model
 - [ ] Phase 57: Email Learning Loop
 - [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
@@ -243,7 +243,7 @@ Plans:
 - [x] 55-03-PLAN.md — Stage 3: rewrite the two broken gates (token-contrast -> oklch parser, token-registration -> off resolveConfig) [STCK-01]
 - [x] 55-04-PLAN.md — Stage 4a: React 18->19 + the six low-risk dep bumps + revalidation [STCK-02]
 - [x] 55-05-PLAN.md — Stage 4b: react-day-picker v9 (calendar.tsx rewrite) + react-resizable-panels v3, each isolated [STCK-02]
-- [ ] 55-06-PLAN.md — Stage 5: Radix-stays decision doc + SKILL.md + a direct @kibo-ui registry install proof + /dev/design oklch cleanup [STCK-03, STCK-04]
+- [x] 55-06-PLAN.md — Stage 5: Radix-stays decision doc + SKILL.md + a direct @kibo-ui registry install proof + /dev/design oklch cleanup [STCK-03, STCK-04]
 **UI hint**: yes
 
 ### Phase 56: Research Canvas — Backend & Semantic Context Model
@@ -291,7 +291,7 @@ suggest-only entity-resolution stance and never auto-deciding.
      stays suggest-only, consistent with the existing entity-resolution stance.
 **Plans**: 3 plans (2 waves — capture foundation, then parallel few-shot + dismissal consumption)
 Plans:
-- [ ] 57-01-PLAN.md — Capture: entity_type_corrections table + trgm RPC + load-before-mutate capture hook [LEARN-01]
+- [x] 57-01-PLAN.md — Capture: entity_type_corrections table + trgm RPC + load-before-mutate capture hook [LEARN-01]
 - [ ] 57-02-PLAN.md — Consume (classification): few-shot examples param + <entity_type_examples> render + importer-scoped retrieval into SuggestEntityTypes [LEARN-02]
 - [ ] 57-03-PLAN.md — Consume (resolution): wire dead was_dismissed into the BlendedRAG RPCs as a symmetric exclusion filter [LEARN-02]
 
