@@ -8,7 +8,8 @@ import { readTokenBlock } from "./token-contrast.test";
 
 /**
  * Committed token-family-registration regression gate (28-01-PLAN.md Task 3,
- * rewritten 55-03-PLAN.md Task 2 for the Tailwind v4 migration).
+ * rewritten 55-03-PLAN.md Task 2 for the Tailwind v4 migration, extended
+ * 59-01-PLAN.md Task 3 for D-58-01's identity ladder).
  *
  * Guards the "CSS var exists but Tailwind utility was never registered" bug
  * class (28-VERIFICATION gap, closed in 69c3afa): the `--sidebar-*` vars
@@ -18,6 +19,10 @@ import { readTokenBlock } from "./token-contrast.test";
  * the app silently kept Tailwind's stock blue ring. This test asserts every
  * token FAMILY that globals.css declares vars for is registered in the
  * compiled Tailwind theme, independent of whether a consumer exists yet.
+ * 59-01 adds the same assertion for the identity ladder families
+ * (conf/sugg/bad/ink/faded/pencil/shelf/leaf/bright/shade/rule/hair/
+ * on-fill/washes/lines) -- this is what stops a Phase 60-62 surface from
+ * reaching for `bg-conf` and silently getting no CSS.
  *
  * Tailwind v4's JS-config introspection API this gate used to depend on
  * does not exist under tailwindcss@4.x (v4 is CSS-first -- there is no JS
@@ -88,6 +93,31 @@ describe("token family registration (guards the unregistered-utility bug class)"
     ];
     for (const key of sidebarKeys) {
       expectRegistered(themeInlineTokens, key, /^var\(--sidebar-[\w-]+\)$/);
+    }
+  });
+
+  it("registers the identity ladder families (D-58-01, 59-01-PLAN.md Task 1)", () => {
+    const identityKeys = [
+      "color-conf",
+      "color-conf-wash",
+      "color-conf-line",
+      "color-sugg",
+      "color-sugg-wash",
+      "color-sugg-line",
+      "color-bad",
+      "color-ink",
+      "color-faded",
+      "color-pencil",
+      "color-shelf",
+      "color-leaf",
+      "color-bright",
+      "color-shade",
+      "color-rule",
+      "color-hair",
+      "color-on-fill",
+    ];
+    for (const key of identityKeys) {
+      expectRegistered(themeInlineTokens, key, /^var\(--[\w-]+\)$/);
     }
   });
 
