@@ -168,10 +168,15 @@ describe("InboxThreePane mobile stack (MOBL-02, 53-UI-SPEC §4)", () => {
     expect(tablist?.getAttribute("role")).toBe("tablist");
   });
 
-  it("desktop three-pane wrapper carries hidden md:block; mobile stack carries md:hidden", () => {
-    expect(SOURCE).toContain('<div className="hidden h-full md:block">');
+  it("desktop three-pane wrapper carries hidden md:block + data-tree=desktop; mobile stack carries md:hidden + data-tree=mobile", () => {
+    // 60-03 Task 1 added `data-tree` markers to both top-level wrappers (the
+    // pane-level gate in inbox-structure.test.tsx scopes its queries by
+    // `[data-tree="desktop"]`) — a literal whole-tag substring match would
+    // break the instant an attribute is added, so this asserts the class
+    // gating and the marker attribute as two independent substrings instead.
+    expect(SOURCE).toContain('data-tree="desktop" className="hidden h-full md:block"');
     expect(SOURCE).toContain(
-      '<div className="flex h-full flex-col md:hidden">',
+      'data-tree="mobile" className="flex h-full flex-col md:hidden"',
     );
   });
 

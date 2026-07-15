@@ -11,7 +11,6 @@ import * as React from "react";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
-import { Badge } from "@polytoken/ui/badge";
 import { Button } from "@polytoken/ui/button";
 import {
   ResizableHandle,
@@ -94,11 +93,11 @@ function FiltersRail({
   ];
 
   return (
-    <div className="flex h-full flex-col bg-background/95">
-      <div className="flex h-11 items-center border-b border-border/50 px-4 text-sm font-semibold">
+    <div data-pane="filters" className="flex h-full flex-col bg-leaf p-panel">
+      <div className="mb-2 px-2 text-2xs font-semibold tracking-[0.07em] text-pencil uppercase">
         Filters
       </div>
-      <nav className="flex flex-col gap-1 p-2" aria-label="Inbox filters">
+      <nav className="flex flex-col gap-0.5" aria-label="Inbox filters">
         {options.map((option) => {
           const active = filter === option.value;
           return (
@@ -107,10 +106,10 @@ function FiltersRail({
               type="button"
               aria-pressed={active}
               onClick={() => onFilterChange(option.value)}
-              className={`rounded-md px-3 py-2 text-left text-sm transition-colors ${
+              className={`rounded-md px-2.5 py-1.5 text-left text-sm transition-colors ${
                 active
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted"
+                  ? "bg-shade font-semibold text-ink"
+                  : "text-faded hover:bg-shade hover:text-ink"
               }`}
             >
               {option.label}
@@ -118,6 +117,17 @@ function FiltersRail({
           );
         })}
       </nav>
+      <p className="mt-4 border-t border-hair pt-2.5 text-xs leading-relaxed text-pencil">
+        Forward mail to your personal polytoken address and I&rsquo;ll read it
+        and pull out what matters. Find yours under{" "}
+        <Link
+          href="/settings/forwarding"
+          className="font-semibold text-ink underline underline-offset-2"
+        >
+          Settings → Forwarding
+        </Link>
+        .
+      </p>
     </div>
   );
 }
@@ -129,9 +139,9 @@ function ReadingPreview({
 }): React.ReactElement {
   if (!email) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 bg-background/95 p-12 text-center">
-        <p className="text-sm font-semibold">No email selected</p>
-        <p className="text-sm text-muted-foreground">
+      <div className="flex h-full flex-col items-center justify-center gap-2 bg-leaf p-12 text-center">
+        <p className="text-sm font-semibold text-ink">No email selected</p>
+        <p className="text-sm text-faded">
           Select a message from the list to preview it here.
         </p>
       </div>
@@ -143,9 +153,9 @@ function ReadingPreview({
     : email.senderAddress;
 
   return (
-    <div className="flex h-full flex-col bg-background/95">
-      <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border/50 px-4 py-2">
-        <span className="truncate text-sm font-semibold">
+    <div className="flex h-full flex-col bg-leaf">
+      <div className="flex min-h-11 items-center justify-between gap-3 border-b border-hair px-4 py-2">
+        <span className="truncate text-sm font-semibold text-ink">
           {email.subject ?? "(no subject)"}
         </span>
         <Button asChild size="sm" variant="outline">
@@ -155,18 +165,18 @@ function ReadingPreview({
 
       <div className="flex flex-col gap-4 overflow-auto p-4">
         <div className="flex flex-col gap-1 text-sm">
-          <span className="font-semibold">{sender}</span>
-          <span className="text-muted-foreground">
+          <span className="font-semibold text-ink">{sender}</span>
+          <span className="text-faded">
             To: {email.toAddresses.join(", ") || "—"}
           </span>
         </div>
 
         {email.bodyText ? (
-          <p className="whitespace-pre-line text-sm text-muted-foreground">
+          <p className="whitespace-pre-line text-sm text-faded">
             {email.bodyText.slice(0, 2000)}
           </p>
         ) : (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-faded">
             This email has no plain-text body. Open the editor to view the full
             document and its regions.
           </p>
@@ -330,7 +340,7 @@ export function InboxThreePane({
   return (
     <>
       {/* Desktop (>=md): the exact three-pane ResizablePanelGroup, byte-identical. */}
-      <div className="hidden h-full md:block">
+      <div data-tree="desktop" className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full">
       <ResizablePanel defaultSize={18} minSize={14}>
         <FiltersRail filter={filter} onFilterChange={setFilter} />
@@ -339,31 +349,48 @@ export function InboxThreePane({
       <ResizableHandle withHandle />
 
       <ResizablePanel defaultSize={42} minSize={28}>
-        <div className="flex h-full flex-col bg-background/95">
-          <div className="flex h-11 items-center justify-between border-b border-border/50 px-4">
-            <span className="text-sm font-semibold">Inbox</span>
+        <div data-pane="threads" className="flex h-full flex-col bg-leaf">
+          <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-hair bg-leaf px-4 py-3">
+            <h2 className="text-base font-semibold text-ink">Inbox</h2>
             {data && (
-              <Badge variant="secondary">{visibleItems.length}</Badge>
+              <span
+                data-field="count"
+                className="tabular rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold text-faded"
+              >
+                {visibleItems.length}
+              </span>
             )}
           </div>
 
           <div className="flex-1 overflow-auto">
             {showLoading && (
-              <div className="space-y-2 p-4">
-                <Skeleton className="h-16 w-full rounded-md" />
-                <Skeleton className="h-16 w-full rounded-md" />
-                <Skeleton className="h-16 w-full rounded-md" />
+              <div aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="space-y-1.5 border-b border-hair px-row-x py-row-y"
+                  >
+                    <Skeleton className="h-3 w-24 rounded-sm" />
+                    <Skeleton className="h-4 w-56 rounded-sm" />
+                    <Skeleton className="h-3 w-72 rounded-sm" />
+                  </div>
+                ))}
               </div>
             )}
 
             {showError && (
-              <div className="p-6 text-center text-sm text-destructive">
-                Unable to load emails. Please try refreshing the page.
+              <div role="alert" className="m-4 border border-rule p-panel text-center">
+                <p className="text-sm font-semibold text-ink">
+                  Unable to load emails.
+                </p>
+                <p className="mt-1 text-xs text-faded">
+                  Please try refreshing the page.
+                </p>
               </div>
             )}
 
             {data && visibleItems.length === 0 && !showLoading && (
-              <div className="p-12 text-center text-sm text-muted-foreground">
+              <div className="p-panel text-center text-sm text-faded">
                 {filter === "with-entities"
                   ? "Nothing extracted yet — entities will show up as mail arrives."
                   : "Your inbox is clear — forwarded mail will land here."}
@@ -414,22 +441,31 @@ export function InboxThreePane({
       </div>
 
       {/* Mobile (<md): single-pane master->detail stack (MOBL-02, 53-UI-SPEC §4). */}
-      <div className="flex h-full flex-col md:hidden">
+      <div data-tree="mobile" className="flex h-full flex-col md:hidden">
         <Tabs
           value={filter}
           onValueChange={(next) => setFilter(next as InboxFilter)}
         >
           <TabsList
             aria-label="Inbox filter"
-            className="h-11 w-full justify-start gap-1 bg-background p-1"
+            className="h-11 w-full justify-start gap-1 border-b border-hair bg-leaf p-1"
           >
-            <TabsTrigger value="all" className="h-9 flex-1 text-xs">
+            <TabsTrigger
+              value="all"
+              className="h-9 flex-1 pointer-coarse:h-11 text-sm data-[state=active]:bg-shade data-[state=active]:text-ink"
+            >
               All
             </TabsTrigger>
-            <TabsTrigger value="unread" className="h-9 flex-1 text-xs">
+            <TabsTrigger
+              value="unread"
+              className="h-9 flex-1 pointer-coarse:h-11 text-sm data-[state=active]:bg-shade data-[state=active]:text-ink"
+            >
               Unread
             </TabsTrigger>
-            <TabsTrigger value="with-entities" className="h-9 flex-1 text-xs">
+            <TabsTrigger
+              value="with-entities"
+              className="h-9 flex-1 pointer-coarse:h-11 text-sm data-[state=active]:bg-shade data-[state=active]:text-ink"
+            >
               With entities
             </TabsTrigger>
           </TabsList>
@@ -438,21 +474,33 @@ export function InboxThreePane({
         {mobileView === "list" ? (
           <div className="flex-1 overflow-auto">
             {showLoading && (
-              <div className="space-y-2 p-4">
-                <Skeleton className="h-16 w-full rounded-md" />
-                <Skeleton className="h-16 w-full rounded-md" />
-                <Skeleton className="h-16 w-full rounded-md" />
+              <div aria-hidden>
+                {[0, 1, 2].map((i) => (
+                  <div
+                    key={i}
+                    className="space-y-1.5 border-b border-hair px-row-x py-row-y"
+                  >
+                    <Skeleton className="h-3 w-24 rounded-sm" />
+                    <Skeleton className="h-4 w-56 rounded-sm" />
+                    <Skeleton className="h-3 w-72 rounded-sm" />
+                  </div>
+                ))}
               </div>
             )}
 
             {showError && (
-              <div className="p-6 text-center text-sm text-destructive">
-                Unable to load emails. Please try refreshing the page.
+              <div role="alert" className="m-4 border border-rule p-panel text-center">
+                <p className="text-sm font-semibold text-ink">
+                  Unable to load emails.
+                </p>
+                <p className="mt-1 text-xs text-faded">
+                  Please try refreshing the page.
+                </p>
               </div>
             )}
 
             {data && visibleItems.length === 0 && !showLoading && (
-              <div className="p-12 text-center text-sm text-muted-foreground">
+              <div className="p-panel text-center text-sm text-faded">
                 {filter === "with-entities"
                   ? "Nothing extracted yet — entities will show up as mail arrives."
                   : "Your inbox is clear — forwarded mail will land here."}
@@ -493,18 +541,22 @@ export function InboxThreePane({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/50 bg-background px-2">
+            <div className="flex h-11 shrink-0 items-center gap-2 border-b border-hair bg-leaf px-2">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 aria-label="Back to inbox"
-                className="size-11"
+                className="size-11 pointer-coarse:size-11"
                 onClick={() => setMobileView("list")}
               >
                 <ArrowLeft className="size-4" aria-hidden />
               </Button>
-              <span className="truncate text-sm font-semibold">
+              <span
+                data-field="subject"
+                data-evidence
+                className="truncate font-serif text-sm text-ink"
+              >
                 {selectedEmail?.subject ?? "Message"}
               </span>
             </div>
