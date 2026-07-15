@@ -269,7 +269,7 @@ canvas chrome ships in this phase.
      ledger's records with zero new promotion code, so Phase 63's canon-curation UX has a real seam
      to build on.
 **Plans**: 5 plans (3 waves)
-- [ ] 56-01-PLAN.md — Data model: chat_source_ledger + chat_context_edges Drizzle schema + migration (wave 1)
+- [x] 56-01-PLAN.md — Data model: chat_source_ledger + chat_context_edges Drizzle schema + migration (wave 1)
 - [ ] 56-02-PLAN.md — RCNV-01 auto-collect: fail-open source-ledger write hook in the tool-round loop (wave 2)
 - [ ] 56-03-PLAN.md — RCNV-04 seam: context-edges tRPC router + write-time cross-tenant ownership check (wave 2)
 - [ ] 56-04-PLAN.md — RCNV-04 read: independent fail-open linked-context injection pipeline at turn time (wave 3)

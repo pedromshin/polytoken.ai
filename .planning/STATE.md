@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: executing
-last_updated: "2026-07-15T05:33:00.008Z"
+last_updated: "2026-07-15T05:50:05.297Z"
 last_activity: 2026-07-15 -- Phase 55 execution started
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 14
-  completed_plans: 2
+  completed_plans: 4
   percent: 0
 ---
 
@@ -46,13 +46,51 @@ work, never deferrable-by-default.
 ## Current Position
 
 Phase: 55 (Platform Migration — Tailwind v4 + React 19) — EXECUTING
-Plan: 3 of 6
+Plan: 4 of 6
 Status: Executing Phase 55
 Last activity: 2026-07-15 -- Phase 55 execution started
 traceability filled, 22/22 requirements mapped, coverage complete; STATE.md progress counters
 reset for the new milestone.
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [███░░░░░░░] 29%
+
+## Phase 56 -- Research Canvas — Backend & Semantic Context Model -- Plan 01 History -- chat_source_ledger + chat_context_edges Drizzle schema + migration 0037
+
+- **56-01 EXECUTED** (`2a3a766` feat, `a6e6e22` feat, `895253e` feat — executed
+  concurrently alongside Phase 55's own in-flight execution, palette-independent
+  per this milestone's parallel-safe grouping; STATE.md "Current Position" above
+  intentionally left untouched by this plan, owned by the Phase 55 executor):
+  Landed the palette-independent backend data-model foundation for the research
+  canvas. Task 1: `chat-source-ledger.ts` — `ChatSourceLedger` pgTable
+  (RCNV-01), conversation-anchored (ON DELETE CASCADE to `chat_conversations`,
+  never importer_id), UNIQUE (conversation_id, tool_use_id, result_index)
+  dedupe index, FK-less denormalized `importerId`, nullable
+  `knowledgeNodeId` (ON DELETE SET NULL) reserved for the Phase 63 promotion
+  seam. Task 2: `chat-context-edges.ts` — `ChatContextEdges` pgTable
+  (RCNV-04), the D-54-mandated durable semantic linkage store (NOT canvas
+  `sharedState`, NOT `chat_canvas_layouts.edges`), jsonb `sourceRef`
+  discriminated union (`source_ledger`/`knowledge_node`/`genui_panel`/
+  `email_thread`) + derived `sourceRefKey`, partial UNIQUE
+  (target_conversation_id, source_ref_key) WHERE is_active index mirroring
+  `knowledge_node_edges`' active-identity idiom. Task 3: barrel-exported both
+  from `schema/index.ts` (after `chat-widget-interactions`), ran
+  `drizzle-kit generate` fully offline (no live DB) — drizzle computed the
+  next migration itself: **migration 0037** (`0037_serious_sugar_man.sql`,
+  journal idx 37; previous head was idx 36/`0036_chat_conversation_thread_id`).
+  Generated SQL confirmed CREATE-TABLE-only (2 `CREATE TABLE`, FK
+  `ALTER TABLE ADD CONSTRAINT`s on the two new tables only, 4 indexes) — zero
+  `ALTER`/`DROP` against any pre-existing table. `npm run typecheck -w
+  @polytoken/db` clean. No deviations — plan executed exactly as written.
+  Migration AUTHORED + GENERATED, **NOT APPLIED** to any environment (no
+  Docker/Supabase connection this session, same posture as 54-01's 0036) —
+  every downstream reader/writer of these two tables must feature-detect
+  until 0037 is actually applied local->staging->prod. This is Wave 1 of a
+  multi-plan phase — RCNV-01/RCNV-04 left Pending in REQUIREMENTS.md
+  (data-model foundation only; per 56-RESEARCH.md's own sequencing, RCNV-01
+  isn't satisfied until the Python auto-collect write hook lands and RCNV-04
+  isn't satisfied until the Python linked-context read/inject pipeline lands
+  — both are later 56-0N waves, not this plan). See `56-01-SUMMARY.md` for
+  full detail.
 
 ## Phase 54 -- Email-Cluster Workflow (E3) -- Plan 07 History -- section:H CLUS-07 Live-Acceptance Runsheet
 
@@ -3938,6 +3976,10 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (55-03): Both STCK-01-named gates verified NOT hollowed by rewrite — token-contrast's oklch parser proven to fail on an injected `--muted-foreground` lightness edit (ratio collapsed to 1.21), token-registration's `@theme`-block parser proven to fail on a deleted `--color-sidebar-ring` mapping line; both edits reverted (`git diff --stat globals.css` empty). `npm run test -w @polytoken/web` fully green (64/64 files, 464/464 tests) — STCK-01 complete (spanned 55-01/55-02/55-03).
+- 2026-07-15 (55-03): oklch-to-luminance conversion implemented self-contained (standard Bjorn Ottosson OKLab forward matrices) rather than adding a `culori` runtime dependency — the oklch literals were already precomputed once in 55-02, so the gate only ever parses already-final values.
+- 2026-07-15 (56-01): Migration number is 0037 (drizzle-computed via `drizzle-kit generate`, journal idx 37; previous head was idx 36/`0036_chat_conversation_thread_id`) — both `chat_source_ledger` and `chat_context_edges` landed in a single combined generate pass rather than a 0037/0038 split, since neither table has an ordering dependency on the other; downstream 56-02..05 must reference 0037.
+- 2026-07-15 (56-01): RCNV-01/RCNV-04 intentionally left Pending in REQUIREMENTS.md despite being this plan's frontmatter `requirements` — this is Wave 1 of 3 (data-model foundation only); per 56-RESEARCH.md's own sequencing, RCNV-01 isn't satisfied until the Python auto-collect write hook lands (56-02) and RCNV-04 isn't satisfied until the linked-context read/inject pipeline lands (a later wave), mirroring the exact CLUS-01/CLUS-02-at-54-01 precedent already logged below.
 - 2026-07-15 (55-02): @source verified at FOUR '../' levels (apps/web/src/app is 4 levels below repo root) — packages/ui-only class (min-h-svh) and packages/genui-only class (max-w-4xl) both confirmed surviving the real production purge, resolving RESEARCH Assumption A2
 - 2026-07-15 (55-02): tailwindcss-animate has no confirmed v4 @plugin compatibility path — ported its exact enter/exit keyframe mechanics + the closed set of animate-in/out/fade/zoom/slide utility classes this repo actually uses natively into globals.css via @keyframes + @utility, rather than risk a silent utility-generation gap
 - 2026-07-15 (55-02): [Rule 1] PanelThemeScope (app-owned ThemedRoot sibling, PANL-01/04) shared ThemedRoot's exact unwrapped-color-var injection bug but wasn't named in the plan's fix list — fixed identically (color-var Set derived from TOKEN_ALIAS_TO_CSS_VAR, conditional hsl() wrap) to avoid silently breaking every Tailwind color utility inside a re-themed canvas panel
@@ -4331,6 +4373,8 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 54 P05 | 55min | 2 tasks | 12 files |
 | Phase 55 P01 | 35min | 2 tasks | 9 files |
 | Phase 55 P02 | 130min | 2 tasks | 21 files |
+| Phase 56 P01 | ~20min | 3 tasks | 6 files — chat_source_ledger + chat_context_edges Drizzle schema + migration 0037 (authored, not applied) |
+| Phase 55 P03 | 25min | 2 tasks | 2 files |
 
 ## Operator Next Steps
 
