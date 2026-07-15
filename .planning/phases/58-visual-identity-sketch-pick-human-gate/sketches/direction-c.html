@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>polytoken — Direction C: Quiet Precision</title>
+<!--
+  polytoken — DIRECTION C: "Quiet Precision"
+  The instrument you trust with your working life. Dark-first warm-graphite
+  workspace: chrome is monochrome, the user's data is the only color.
+
+  PALETTE
+    Ground ladder (umber-tinted graphite, never pure black):
+      g0 page ground      #191512
+      g1 panel / rail     #1f1a16
+      g2 card / row       #252019
+      g3 reading surface  #2c2620   (elevated, for long email text)
+      g4 hover / fill     #363028
+    Lines:  hairline #2e2822 · border #3a332b · strong #4c4335
+    Text (warm off-white ladder): #ece5d8 · #b7ad9e · #877d6e · #5f574b
+    Signals (data only — chrome never wears these):
+      amber  #d9a13f   suggested / needs my attention
+      green  #79b784   confirmed / success
+      blue   #7ba3d6   actions, links, selection
+      violet #a891d8   the user's own words
+      red    #c9705c   destructive + errors only
+
+  TYPE
+    Labels / nav:  IBM Plex Sans Condensed 500–600  → Segoe UI → system-ui
+    Body / data:   IBM Plex Sans 400–600            → Segoe UI → system-ui
+    Tabular numerals everywhere a number appears.
+
+  SIGNATURE
+    The tier meter — a two-segment confidence glyph:
+    ▮▮ filled = confirmed · ▮▯ half = suggested · ▯▯ hollow = uncertain.
+    Appears on chips, badges, graph entities, the legend, and as
+    row-leading edge ticks in the inbox. One glance = how much is verified.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* ---------- reset + tokens ---------- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --g0:#191512; --g1:#1f1a16; --g2:#252019; --g3:#2c2620; --g4:#363028;
+    --line1:#2e2822; --line2:#3a332b; --line3:#4c4335;
+    --t1:#ece5d8; --t2:#b7ad9e; --t3:#877d6e; --t4:#5f574b;
+    --amber:#d9a13f; --green:#79b784; --blue:#7ba3d6; --violet:#a891d8; --red:#c9705c;
+    --f-ui:'IBM Plex Sans','Segoe UI',system-ui,-apple-system,sans-serif;
+    --f-cond:'IBM Plex Sans Condensed','Segoe UI',system-ui,sans-serif;
+    --r-ctl:6px; --r-card:10px; --r-frame:12px;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--g0); color: var(--t1);
+    font-family: var(--f-ui); font-size: 13px; line-height: 1.45;
+    -webkit-font-smoothing: antialiased; padding-top: 44px;
+  }
+  ::selection { background: rgba(123,163,214,.30); }
+  a { color: var(--blue); text-decoration: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+  svg { display: block; flex: none; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- direction bar ---------- */
+  .dirbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50; height: 44px;
+    background: var(--g1); border-bottom: 1px solid var(--line2);
+    display: flex; align-items: center; gap: 24px; padding: 0 24px;
+  }
+  .dirbar .dirname {
+    font-family: var(--f-cond); font-weight: 600; font-size: 12.5px;
+    letter-spacing: .06em; text-transform: uppercase; color: var(--t2);
+  }
+  .dirbar .dirname b { color: var(--t1); font-weight: 600; }
+  .dirbar nav { margin-left: auto; display: flex; gap: 4px; }
+  .dirbar nav a {
+    font-family: var(--f-cond); font-weight: 500; font-size: 12.5px;
+    color: var(--t3); padding: 5px 10px; border-radius: 6px;
+    transition: color .15s, background-color .15s;
+  }
+  .dirbar nav a:hover { color: var(--t1); background: var(--g4); }
+
+  /* ---------- section scaffolding ---------- */
+  main { max-width: 1440px; margin: 0 auto; padding: 0 32px 72px; }
+  section { padding-top: 44px; scroll-margin-top: 44px; }
+  .microlabel {
+    font-family: var(--f-cond); font-weight: 600; font-size: 10.5px;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--t3);
+  }
+  .section-label { margin-bottom: 10px; }
+
+  /* ---------- app frame + app bar ---------- */
+  .appframe {
+    background: var(--g1); border: 1px solid var(--line2);
+    border-radius: var(--r-frame); overflow: hidden;
+  }
+  .appbar {
+    height: 44px; display: flex; align-items: center; gap: 20px;
+    padding: 0 14px; border-bottom: 1px solid var(--line1); background: var(--g1);
+  }
+  .brandmark { color: var(--t1); }
+  .apptabs { display: flex; gap: 2px; }
+  .apptab {
+    font-family: var(--f-cond); font-weight: 500; font-size: 13px;
+    color: var(--t3); padding: 5px 11px; border-radius: 6px;
+    transition: color .15s, background-color .15s;
+  }
+  .apptab:hover { color: var(--t1); background: var(--g4); }
+  .apptab.active { color: var(--t1); font-weight: 600; background: var(--g4); }
+  .avatar {
+    margin-left: auto; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--g4); border: 1px solid var(--line3);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--f-cond); font-weight: 600; font-size: 11px; color: var(--t2);
+  }
+
+  /* ---------- tier meter (signature) ---------- */
+  .meter { display: inline-flex; gap: 2px; align-items: center; flex: none; }
+  .meter i { width: 7px; height: 4px; border-radius: 1.5px; display: block; }
+  .m-c i { background: var(--green); }
+  .m-s i:first-child { background: var(--amber); }
+  .m-s i:last-child  { background: transparent; box-shadow: inset 0 0 0 1px var(--amber); }
+  .m-u i { background: transparent; box-shadow: inset 0 0 0 1px var(--t4); }
+
+  /* row-leading edge ticks (inbox) — same language, rotated */
+  .ticks { display: flex; flex-direction: column; gap: 3px; width: 4px; flex: none; padding-top: 4px; }
+  .ticks i { width: 4px; height: 9px; border-radius: 1.5px; display: block; }
+  .ticks .tc { background: var(--green); }
+  .ticks .ts { background: transparent; box-shadow: inset 0 0 0 1px var(--amber); }
+  .ticks .tf { background: var(--amber); }
+
+  /* ---------- chips / badges ---------- */
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; height: 20px;
+    padding: 0 8px; border-radius: 999px; max-width: 100%;
+    background: var(--g2); border: 1px solid var(--line2);
+    font-size: 11px; color: var(--t2); white-space: nowrap;
+    transition: border-color .15s, background-color .15s;
+  }
+  .chip:hover { border-color: var(--line3); background: var(--g4); }
+  .chip.suggested { border-style: dashed; color: var(--t3); }
+  .chip .chip-label { overflow: hidden; text-overflow: ellipsis; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; height: 18px;
+    padding: 0 7px; border-radius: 999px; font-size: 10.5px; font-weight: 500;
+    white-space: nowrap; flex: none;
+  }
+  .b-confirmed { color: var(--green); background: rgba(121,183,132,.13); }
+  .b-suggested { color: var(--amber); background: rgba(217,161,63,.10); border: 1px dashed rgba(217,161,63,.45); }
+  .b-type { color: var(--t2); background: var(--g4); }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 12px; border-radius: var(--r-ctl);
+    font-size: 12.5px; font-weight: 500; white-space: nowrap;
+    transition: background-color .15s, border-color .15s, color .15s;
+  }
+  .btn-primary { background: var(--blue); color: #14110e; font-weight: 600; }
+  .btn-primary:hover { background: rgba(123,163,214,.9); }
+  .btn-outline { border: 1px solid var(--line3); color: var(--t1); }
+  .btn-outline:hover { background: var(--g4); }
+  .btn-danger { background: var(--red); color: #1c0f0b; font-weight: 600; }
+  .btn-danger:hover { background: rgba(201,112,92,.9); }
+  .btn-quiet { color: var(--t3); }
+  .btn-quiet:hover { color: var(--t1); background: var(--g4); }
+  .btn-sm { height: 24px; padding: 0 9px; font-size: 11.5px; }
+  .btn-block { width: 100%; }
+  .link-quiet { color: var(--blue); font-size: 12.5px; font-weight: 500; }
+  .link-quiet:hover { color: var(--t1); }
+
+  /* =========================================================
+     SCREEN 1 — INBOX
+     ========================================================= */
+  .inbox-body { display: flex; align-items: stretch; min-height: 760px; }
+
+  .filters {
+    width: 200px; flex: none; padding: 14px 10px;
+    border-right: 1px solid var(--line1); display: flex; flex-direction: column; gap: 2px;
+  }
+  .filters .microlabel { padding: 0 8px 8px; }
+  .filter-item {
+    font-size: 12.5px; color: var(--t2); padding: 6px 8px; border-radius: 6px;
+    cursor: pointer; transition: background-color .15s, color .15s;
+  }
+  .filter-item:hover { background: var(--g4); color: var(--t1); }
+  .filter-item.active { background: rgba(123,163,214,.12); color: var(--t1); font-weight: 500; }
+  .rail-hint { margin-top: 14px; padding: 0 8px; font-size: 11.5px; line-height: 1.5; color: var(--t3); }
+
+  .threadlist {
+    width: 372px; flex: none; border-right: 1px solid var(--line1);
+    display: flex; flex-direction: column;
+  }
+  .list-head {
+    display: flex; align-items: center; gap: 8px; padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--line1);
+  }
+  .list-title { font-family: var(--f-cond); font-weight: 600; font-size: 15px; }
+  .count-badge {
+    height: 17px; min-width: 17px; padding: 0 5px; border-radius: 999px;
+    background: var(--g4); color: var(--t2); font-size: 10.5px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  .row {
+    display: flex; gap: 8px; padding: 9px 12px 9px 8px;
+    border-bottom: 1px solid var(--line1); cursor: pointer;
+    transition: background-color .15s;
+  }
+  .row:hover { background: var(--g2); }
+  .row.selected { background: rgba(123,163,214,.08); }
+  .row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .row-line1 { display: flex; align-items: center; gap: 6px; }
+  .sender { font-size: 13px; font-weight: 500; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.read .sender { color: var(--t2); }
+  .time { margin-left: auto; flex: none; font-size: 11px; color: var(--t3); }
+  .subject { font-size: 12.5px; color: var(--t2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snippet { font-size: 11.5px; color: var(--t3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .row.unread .sender, .row.unread .subject { color: var(--t1); font-weight: 600; }
+  .unread-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); flex: none; }
+  .thread-badge {
+    height: 15px; min-width: 15px; padding: 0 4px; border-radius: 4px;
+    background: var(--g4); color: var(--t2); font-size: 10px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+  }
+  .chev { color: var(--t3); }
+  .attach-line { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t3); }
+
+  .members { margin-top: 6px; border-left: 1px solid var(--line2); padding-left: 10px; display: flex; flex-direction: column; gap: 2px; }
+  .member { padding: 6px 8px; border-radius: 6px; transition: background-color .15s; }
+  .member:hover { background: var(--g2); }
+  .member.selected { background: rgba(123,163,214,.12); }
+  .mline { display: flex; align-items: baseline; gap: 6px; }
+  .msender { font-size: 12.5px; font-weight: 500; color: var(--t1); }
+  .msnippet { font-size: 11.5px; color: var(--t3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .member .chiprow { margin-top: 6px; }
+  .load-more-wrap { padding: 10px 12px; }
+
+  .reading { flex: 1; min-width: 0; padding: 18px 22px; border-right: 1px solid var(--line1); }
+  .reading-head { display: flex; align-items: flex-start; gap: 14px; }
+  .reading-head h2 { font-family: var(--f-cond); font-weight: 600; font-size: 17px; line-height: 1.3; flex: 1; min-width: 0; }
+  .reading-meta { margin-top: 10px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--t3); }
+  .reading-meta b { font-weight: 500; color: var(--t3); }
+  .reading-meta span span { color: var(--t2); }
+  .reading-surface {
+    margin-top: 14px; background: var(--g3); border: 1px solid var(--line2);
+    border-radius: var(--r-card); padding: 22px 26px; max-width: 62ch;
+  }
+  .reading-surface p { font-size: 15px; line-height: 1.7; color: var(--t1); }
+  .reading-surface p + p { margin-top: 14px; }
+
+  .entities { width: 288px; flex: none; padding: 16px 14px; display: flex; flex-direction: column; }
+  .pane-title { font-size: 13.5px; font-weight: 600; color: var(--t1); margin-bottom: 10px; }
+  .entity-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 6px;
+    border-bottom: 1px solid var(--line1); border-radius: 4px;
+    transition: background-color .15s;
+  }
+  .entity-row:hover { background: var(--g2); }
+  .e-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .e-label { font-size: 12.5px; font-weight: 500; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .e-type { font-size: 10.5px; color: var(--t3); }
+  .e-actions { display: flex; gap: 4px; padding: 6px 6px 10px; border-bottom: 1px solid var(--line1); }
+  .e-actions .confirm { color: var(--blue); }
+  .entities-footer { margin-top: auto; padding-top: 14px; }
+
+  /* =========================================================
+     SCREEN 2 — CHAT + CANVAS
+     ========================================================= */
+  .chat-body { display: flex; align-items: stretch; height: 660px; }
+
+  .convrail { width: 196px; flex: none; border-right: 1px solid var(--line1); padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; }
+  .newchat {
+    display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 8px;
+    border: 1px solid var(--line3); border-radius: var(--r-ctl);
+    font-size: 12px; font-weight: 500; color: var(--t1);
+    transition: background-color .15s;
+  }
+  .newchat:hover { background: var(--g4); }
+  .conv-item {
+    font-size: 12px; color: var(--t2); padding: 6px 8px; border-radius: 6px; cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: background-color .15s, color .15s;
+  }
+  .conv-item:hover { background: var(--g4); color: var(--t1); }
+  .conv-item.active { background: rgba(123,163,214,.12); color: var(--t1); font-weight: 500; }
+
+  .chatcol { width: 380px; flex: none; border-right: 1px solid var(--line1); display: flex; flex-direction: column; }
+  .transcript { flex: 1; overflow-y: auto; padding: 18px 16px; display: flex; flex-direction: column; gap: 18px; }
+  .turn-user { align-self: flex-end; max-width: 86%; }
+  .turn-user .bubble {
+    background: rgba(168,145,216,.12); border: 1px solid rgba(168,145,216,.28);
+    border-radius: 12px 12px 4px 12px; padding: 9px 12px;
+    font-size: 13px; line-height: 1.5; color: var(--t1);
+  }
+  .turn-assistant { display: flex; flex-direction: column; gap: 8px; }
+  .tool-row { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--t3); }
+  .cite-chip {
+    display: inline-flex; align-items: center; gap: 6px; max-width: 100%;
+    height: 22px; padding: 0 9px; border-radius: 999px;
+    background: var(--g2); border: 1px solid var(--line2);
+    font-size: 11px; color: var(--t2); cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .cite-chip:hover { border-color: var(--blue); color: var(--t1); }
+  .cite-chip .chip-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .answer { font-size: 13px; line-height: 1.65; color: var(--t1); }
+  .answer strong { font-weight: 600; }
+  .composer { border-top: 1px solid var(--line1); padding: 12px; display: flex; gap: 8px; align-items: flex-end; }
+  .composer textarea {
+    flex: 1; resize: none; background: var(--g0); border: 1px solid var(--line2);
+    border-radius: 8px; padding: 9px 11px; min-height: 60px;
+    font: inherit; font-size: 12.5px; color: var(--t1);
+    transition: border-color .15s;
+  }
+  .composer textarea::placeholder { color: var(--t4); }
+  .composer textarea:focus { outline: none; border-color: var(--blue); }
+  .send {
+    width: 32px; height: 32px; border-radius: 8px; background: var(--blue); color: #14110e;
+    display: flex; align-items: center; justify-content: center; flex: none;
+    transition: background-color .15s;
+  }
+  .send:hover { background: rgba(123,163,214,.9); }
+
+  .canvas { flex: 1; min-width: 0; position: relative; overflow: auto; background: var(--g0); }
+  .canvas-grid {
+    background-image: radial-gradient(circle, rgba(236,229,216,.055) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .canvas-stage { position: relative; width: 780px; height: 640px; }
+  .save-status {
+    position: absolute; top: 12px; right: 14px; z-index: 3;
+    font-size: 11px; color: var(--t3); background: var(--g1);
+    border: 1px solid var(--line2); border-radius: 999px; padding: 3px 10px;
+  }
+  .edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .edge-solid { stroke: rgba(236,229,216,.26); stroke-width: 1.5; fill: none; }
+  .edge-suggested { stroke: rgba(217,161,63,.55); stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+  .edge-label {
+    position: absolute; transform: translate(-50%,-50%); z-index: 2;
+    font-size: 10.5px; color: var(--t3); background: var(--g0);
+    border: 1px solid var(--line2); border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+  }
+
+  .ccard {
+    position: absolute; background: var(--g2); border: 1px solid var(--line2);
+    border-radius: var(--r-card); z-index: 2;
+    transition: border-color .15s;
+  }
+  .ccard:hover { border-color: var(--line3); }
+  .ccard-head {
+    display: flex; align-items: center; gap: 7px; padding: 8px 10px;
+    border-bottom: 1px solid var(--line1); color: var(--t3);
+  }
+  .ccard-title { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ccard-x { color: var(--t4); border-radius: 4px; padding: 1px; transition: color .15s; }
+  .ccard-x:hover { color: var(--t1); }
+  .ccard-body { padding: 10px 12px; }
+  .ccard-caption { font-size: 10.5px; color: var(--t3); }
+  .participants { font-size: 11.5px; color: var(--t2); }
+  .ccard-snippet { margin-top: 5px; font-size: 11.5px; line-height: 1.5; color: var(--t3); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ccard-foot { display: flex; gap: 12px; padding: 8px 12px; border-top: 1px solid var(--line1); }
+  .ccard-foot a { font-size: 11.5px; font-weight: 500; }
+  .url-line { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--t3); font-variant-numeric: tabular-nums; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .table-wrap { overflow-x: auto; }
+  .qtable { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .qtable th, .qtable td { text-align: left; padding: 6px 10px; font-size: 11.5px; border-bottom: 1px solid var(--line1); white-space: nowrap; }
+  .qtable thead th { font-family: var(--f-cond); font-weight: 600; font-size: 11.5px; color: var(--t1); border-bottom: 1px solid var(--line2); }
+  .qtable tbody th { font-weight: 500; color: var(--t3); white-space: nowrap; }
+  .qtable td { color: var(--t2); }
+  .qtable tbody tr:last-child th, .qtable tbody tr:last-child td { border-bottom: 0; }
+  .qtable tbody tr { transition: background-color .15s; }
+  .qtable tbody tr:hover { background: var(--g3); }
+
+  /* =========================================================
+     SCREEN 3 — KNOWLEDGE
+     ========================================================= */
+  .know-body { display: flex; align-items: stretch; height: 620px; }
+
+  .know-rail { width: 240px; flex: none; border-right: 1px solid var(--line1); padding: 16px 14px; display: flex; flex-direction: column; }
+  .checkrow { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: var(--t1); transition: background-color .15s; }
+  .checkrow:hover { background: var(--g2); }
+  .checkrow.off { color: var(--t3); }
+  .cbox { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--line3); flex: none; display: flex; align-items: center; justify-content: center; }
+  .checkrow.on .cbox { background: var(--blue); border-color: var(--blue); color: #14110e; }
+  .tdot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .d-supplier { background: var(--blue); } .d-person { background: var(--violet); }
+  .d-amount { background: var(--green); } .d-document { background: var(--amber); }
+  .d-email { background: transparent; box-shadow: inset 0 0 0 1px var(--t4); }
+  .rail-sep { height: 1px; background: var(--line1); margin: 12px 0; }
+  .switchrow { display: flex; align-items: flex-start; gap: 8px; padding: 2px 4px; }
+  .switch { width: 28px; height: 16px; border-radius: 999px; background: var(--blue); position: relative; flex: none; margin-top: 2px; }
+  .switch::after { content: ""; position: absolute; top: 2px; right: 2px; width: 12px; height: 12px; border-radius: 50%; background: #14110e; }
+  .switch-label { font-size: 12.5px; color: var(--t1); }
+  .switch-sub { font-size: 11px; color: var(--t3); margin-top: 2px; line-height: 1.45; }
+  .rail-count { margin-top: auto; padding-top: 14px; font-size: 11.5px; color: var(--t3); }
+
+  .graph { flex: 1; min-width: 0; position: relative; overflow: auto; background: var(--g0); }
+  .graph-stage { position: relative; width: 760px; height: 560px; margin: 0 auto; }
+  .graph-toolbar { position: sticky; top: 12px; z-index: 3; display: flex; justify-content: center; }
+  .seg {
+    display: inline-flex; background: var(--g1); border: 1px solid var(--line2);
+    border-radius: 8px; padding: 2px; gap: 2px;
+  }
+  .seg button {
+    font-size: 11.5px; color: var(--t3); padding: 4px 12px; border-radius: 6px;
+    transition: color .15s, background-color .15s;
+  }
+  .seg button:hover { color: var(--t1); }
+  .seg button.active { background: rgba(123,163,214,.14); color: var(--t1); font-weight: 500; }
+
+  .node {
+    position: absolute; transform: translate(-50%,-50%); z-index: 2;
+    display: flex; align-items: center; gap: 7px;
+    background: var(--g2); border: 1px solid var(--line3); border-radius: 999px;
+    padding: 6px 11px; font-size: 12.5px; font-weight: 500; color: var(--t1);
+    white-space: nowrap; cursor: pointer;
+    transition: border-color .15s, background-color .15s;
+  }
+  .node:hover { border-color: var(--t3); }
+  .node.suggested { border-style: dashed; color: var(--t2); }
+  /* Chanel rule: selection halo (0 0 0 3px ring) removed — border + tint already say it */
+  .node.sel { border-color: rgba(123,163,214,.75); background: rgba(123,163,214,.10); }
+  .legend {
+    position: absolute; left: 14px; bottom: 12px; z-index: 3;
+    display: flex; gap: 14px; align-items: center;
+    background: var(--g1); border: 1px solid var(--line2); border-radius: 999px; padding: 5px 12px;
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--t2); }
+
+  .detail { width: 320px; flex: none; border-left: 1px solid var(--line1); padding: 16px; display: flex; flex-direction: column; overflow-y: auto; }
+  .detail-head { display: flex; align-items: center; gap: 8px; }
+  .detail-head h3 { font-family: var(--f-cond); font-weight: 600; font-size: 16px; flex: 1; min-width: 0; }
+  .badgerow { display: flex; gap: 6px; margin-top: 8px; }
+  .provenance { margin-top: 14px; }
+  .prov-line { font-size: 11.5px; color: var(--t3); margin-bottom: 4px; }
+  .email-row {
+    display: flex; align-items: baseline; gap: 8px; padding: 6px 6px;
+    border-radius: 6px; cursor: pointer; transition: background-color .15s;
+  }
+  .email-row:hover { background: var(--g2); }
+  .email-row .e-subj { flex: 1; min-width: 0; font-size: 12px; color: var(--t1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .email-row .time { margin-left: 0; }
+  .kv { margin-top: 12px; border-top: 1px solid var(--line1); padding-top: 10px; display: flex; flex-direction: column; gap: 7px; }
+  .kv > div { display: flex; gap: 10px; font-size: 12px; }
+  .kv dt { width: 72px; flex: none; color: var(--t3); font-weight: 500; }
+  .kv dd { color: var(--t1); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .suggest-block {
+    margin-top: 16px; background: rgba(217,161,63,.06);
+    border: 1px dashed rgba(217,161,63,.35); border-radius: 8px; padding: 12px;
+  }
+  .suggest-block .cap { font-size: 11.5px; color: var(--t2); }
+  .suggest-block .what { font-size: 12.5px; color: var(--t1); margin-top: 5px; line-height: 1.5; }
+  .suggest-actions { display: flex; gap: 6px; margin-top: 10px; }
+  .detail-footer { margin-top: auto; padding-top: 16px; }
+
+  /* =========================================================
+     SCREEN 4 — COMPONENTS
+     ========================================================= */
+  .comp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; }
+  .comp-cell { background: var(--g1); border: 1px solid var(--line2); border-radius: var(--r-card); padding: 16px; }
+  .comp-cell .microlabel { margin-bottom: 14px; }
+  .comp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .comp-stack { display: flex; flex-direction: column; gap: 10px; }
+
+  .field label { display: block; font-size: 11.5px; font-weight: 500; color: var(--t2); margin-bottom: 5px; }
+  .field input {
+    width: 100%; background: var(--g0); border: 1px solid var(--line2); border-radius: var(--r-ctl);
+    padding: 7px 10px; font: inherit; font-size: 12.5px; color: var(--t1);
+    transition: border-color .15s;
+  }
+  .field input:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(123,163,214,.15); }
+
+  .toast { display: flex; align-items: flex-start; gap: 9px; background: var(--g2); border: 1px solid var(--line2); border-radius: var(--r-card); padding: 10px 12px; }
+  .toast .t-msg { flex: 1; font-size: 12.5px; color: var(--t1); line-height: 1.45; }
+  .toast .t-ico-ok { color: var(--green); margin-top: 1px; }
+  .toast .t-ico-err { color: var(--red); margin-top: 1px; }
+  .toast .t-action { color: var(--blue); font-size: 12px; font-weight: 600; flex: none; padding: 0 2px; }
+  .toast .t-action:hover { color: var(--t1); }
+
+  .empty { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 18px 8px; }
+  .empty .e-ico { color: var(--t3); margin-bottom: 10px; }
+  .empty h4 { font-size: 14px; font-weight: 600; }
+  .empty p { font-size: 12px; color: var(--t3); max-width: 30ch; margin: 5px 0 12px; line-height: 1.5; }
+
+  .skel { display: flex; flex-direction: column; gap: 8px; }
+  .skel i { display: block; height: 8px; border-radius: 4px; background: var(--g4); }
+  .skel i:nth-child(1) { width: 100%; } .skel i:nth-child(2) { width: 82%; } .skel i:nth-child(3) { width: 58%; }
+  .spin-row { display: flex; align-items: center; gap: 9px; margin-top: 14px; font-size: 12px; color: var(--t3); }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(123,163,214,.25); border-top-color: var(--blue); flex: none; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .skel i { animation: pulse 1.4s ease-in-out infinite; }
+    .spinner { animation: rotate .9s linear infinite; }
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+  @keyframes rotate { to { transform: rotate(360deg); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+
+  /* ---------- 1024px safety ---------- */
+  @media (max-width: 1180px) {
+    main { padding: 0 20px 56px; }
+    .filters { width: 172px; }
+    .threadlist { width: 320px; }
+    .entities { width: 252px; }
+    .reading { padding: 16px; }
+    .convrail { width: 168px; }
+    .chatcol { width: 340px; }
+    .know-rail { width: 210px; }
+    .detail { width: 280px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="dirbar">
+  <span class="dirname">Direction C — <b>Quiet Precision</b></span>
+  <nav aria-label="Sections">
+    <a href="#inbox">Inbox</a>
+    <a href="#chat">Chat &amp; Canvas</a>
+    <a href="#knowledge">Knowledge</a>
+    <a href="#components">Components</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= SCREEN 1 — INBOX ================= -->
+<section id="inbox">
+  <div class="microlabel section-label">Inbox — three-pane</div>
+  <div class="appframe">
+    <div class="appbar">
+      <span class="brandmark" aria-label="polytoken">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <circle cx="9.5" cy="10.5" r="6.5" fill="currentColor"/>
+          <circle cx="15" cy="14.5" r="5.8" fill="currentColor" opacity=".55"/>
+          <circle cx="18" cy="7" r="2.1" fill="currentColor"/>
+        </svg>
+      </span>
+      <nav class="apptabs" aria-label="polytoken">
+        <span class="apptab active">Inbox</span>
+        <span class="apptab">Chat</span>
+        <span class="apptab">Knowledge</span>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="inbox-body">
+      <!-- filters rail -->
+      <aside class="filters">
+        <div class="microlabel">Filters</div>
+        <div class="filter-item active">All</div>
+        <div class="filter-item">Unread</div>
+        <div class="filter-item">With entities</div>
+        <p class="rail-hint">Forward anything to pedro@in.polytoken.ai — I'll read it and pull out what matters.</p>
+      </aside>
+
+      <!-- thread list -->
+      <div class="threadlist">
+        <div class="list-head">
+          <span class="list-title">Inbox</span>
+          <span class="count-badge num">7</span>
+        </div>
+
+        <!-- row 1 — selected, expanded thread -->
+        <article class="row selected">
+          <span class="ticks"><i class="tc"></i><i class="ts"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">Rafael Lima</span>
+              <span class="thread-badge num">3</span>
+              <svg class="chev" viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>
+              <span class="time num">Ter 14:32</span>
+            </div>
+            <div class="subject">Cotação frete SP → POA — Lote 88</div>
+            <div class="snippet">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07)…</div>
+            <div class="members">
+              <div class="member selected">
+                <div class="mline"><span class="msender">Rafael Lima</span><span class="time num">Ter 14:32</span></div>
+                <div class="chiprow">
+                  <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">Acme Freight · supplier</span></span>
+                  <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">R$ 4.820,00 · amount</span></span>
+                  <span class="chip suggested"><span class="meter m-s"><i></i><i></i></span><span class="chip-label num">18 Jul · date</span></span>
+                </div>
+              </div>
+              <div class="member">
+                <div class="mline"><span class="msender">Rafael Lima</span><span class="time num">Seg 10:12</span></div>
+                <div class="msnippet">Segue proposta inicial: R$ 5.150,00, coleta em 5 dias úteis.</div>
+              </div>
+              <div class="member">
+                <div class="mline"><span class="msender">Pedro Shin</span><span class="time num">Sex 17:03</span></div>
+                <div class="msnippet">Rafael, preciso de cotação para o Lote 88 até quarta.</div>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 2 — unread -->
+        <article class="row unread">
+          <span class="ticks"><i class="tf"></i><i class="ts"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="unread-dot" aria-label="Unread"></span>
+              <span class="sender">Marina Costa</span>
+              <span class="time num">Ter 11:05</span>
+            </div>
+            <div class="subject">Proposta comercial — Embalagens Rio Claro</div>
+            <div class="snippet">Conforme conversamos, segue nossa proposta para o contrato anual…</div>
+            <div class="chiprow">
+              <span class="chip suggested"><span class="meter m-s"><i></i><i></i></span><span class="chip-label">Embalagens Rio Claro · supplier</span></span>
+              <span class="chip suggested"><span class="meter m-s"><i></i><i></i></span><span class="chip-label">Marina Costa · person</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 3 -->
+        <article class="row read">
+          <span class="ticks"><i class="tc"></i><i class="tc"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">Papelaria Vitória</span>
+              <span class="time num">Ter 09:14</span>
+            </div>
+            <div class="subject">NF-e 3412 — Papelaria Vitória Ltda</div>
+            <div class="snippet">Segue em anexo a Nota Fiscal Eletrônica referente ao pedido #2210.</div>
+            <div class="chiprow">
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">Papelaria Vitória · supplier</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">NF-e 3412 · document</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">R$ 1.284,50 · amount</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 4 -->
+        <article class="row read">
+          <span class="ticks"><i class="tc"></i><i class="tc"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">LATAM Airlines</span>
+              <span class="time num">Seg 18:47</span>
+            </div>
+            <div class="subject">Booking confirmed — GRU → REC, 22 Jul</div>
+            <div class="snippet">Your booking XKJ9PW is confirmed. Check-in opens 48h before departure.</div>
+            <div class="chiprow">
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">LATAM Airlines · supplier</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">XKJ9PW · document</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">22 Jul · date</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 5 — attachment -->
+        <article class="row read">
+          <span class="ticks"><i class="tc"></i><i class="ts"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">Conta Azul</span>
+              <span class="time num">Seg 08:30</span>
+            </div>
+            <div class="subject">Recibo #8817 — Plano anual</div>
+            <div class="snippet">Obrigado! Seu pagamento foi confirmado. Recibo em anexo.</div>
+            <div class="attach-line">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-label="Attachment"><path d="M13 7.5l-4.9 4.9a3 3 0 01-4.2-4.2l4.9-4.9a2 2 0 012.8 2.8L6.9 10.8a1 1 0 01-1.4-1.4l4.4-4.4"/></svg>
+              <span class="num">recibo-8817.pdf</span>
+            </div>
+            <div class="chiprow">
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">Conta Azul · supplier</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">R$ 948,00 · amount</span></span>
+              <span class="chip suggested"><span class="meter m-s"><i></i><i></i></span><span class="chip-label num">Recibo #8817 · document</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 6 -->
+        <article class="row read">
+          <span class="ticks"><i class="tc"></i><i class="tc"></i></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">Banco Itaú</span>
+              <span class="time num">Sex 16:20</span>
+            </div>
+            <div class="subject">Extrato mensal — Junho 2026</div>
+            <div class="snippet">Seu extrato consolidado de junho já está disponível.</div>
+            <div class="chiprow">
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">Banco Itaú · supplier</span></span>
+              <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label num">Extrato Jun/2026 · document</span></span>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 7 — no chips -->
+        <article class="row read">
+          <span class="ticks"></span>
+          <div class="row-main">
+            <div class="row-line1">
+              <span class="sender">Filipe Deschamps</span>
+              <span class="time num">Qui 07:58</span>
+            </div>
+            <div class="subject">☕ Edição #1.204 — IA, chips e Selic</div>
+            <div class="snippet">Bom dia! Hoje: data centers no Nordeste, Selic parada e um bug de 30 anos.</div>
+          </div>
+        </article>
+
+        <div class="load-more-wrap">
+          <button class="btn btn-outline btn-block">Load more</button>
+        </div>
+      </div>
+
+      <!-- reading pane -->
+      <div class="reading">
+        <div class="reading-head">
+          <h2>Cotação frete SP → POA — Lote 88</h2>
+          <button class="btn btn-outline btn-sm">Open email →</button>
+        </div>
+        <div class="reading-meta">
+          <span><b>From:</b> <span>Rafael Lima &lt;rafael@acmefreight.com.br&gt;</span></span>
+          <span><b>To:</b> <span>pedro@in.polytoken.ai</span></span>
+        </div>
+        <div class="reading-surface">
+          <p>Oi Pedro, tudo bem?</p>
+          <p class="num">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte (23/07). Inclui seguro e rastreio. Se confirmar até amanhã, seguro esse valor.</p>
+          <p>Abraço,<br>Rafael Lima — Acme Freight</p>
+        </div>
+      </div>
+
+      <!-- extracted entities -->
+      <aside class="entities">
+        <h3 class="pane-title">What I found in this email</h3>
+        <div class="entity-row">
+          <div class="e-main"><span class="e-label">Rafael Lima</span><span class="e-type">person</span></div>
+          <span class="badge b-confirmed"><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+        </div>
+        <div class="entity-row">
+          <div class="e-main"><span class="e-label">Acme Freight</span><span class="e-type">supplier</span></div>
+          <span class="badge b-confirmed"><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+        </div>
+        <div class="entity-row">
+          <div class="e-main"><span class="e-label num">R$ 4.820,00</span><span class="e-type">amount</span></div>
+          <span class="badge b-confirmed"><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+        </div>
+        <div class="entity-row" style="border-bottom:0">
+          <div class="e-main"><span class="e-label num">18 Jul 2026</span><span class="e-type">date</span></div>
+          <span class="badge b-suggested"><span class="meter m-s"><i></i><i></i></span>Suggested</span>
+        </div>
+        <div class="e-actions">
+          <button class="btn btn-quiet btn-sm confirm">Confirm</button>
+          <button class="btn btn-quiet btn-sm">Dismiss</button>
+        </div>
+        <div class="entities-footer">
+          <a class="link-quiet" href="#knowledge">See it all in your knowledge →</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 2 — CHAT + CANVAS ================= -->
+<section id="chat">
+  <div class="microlabel section-label">Chat &amp; Canvas</div>
+  <div class="appframe">
+    <div class="appbar">
+      <span class="brandmark" aria-label="polytoken">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <circle cx="9.5" cy="10.5" r="6.5" fill="currentColor"/>
+          <circle cx="15" cy="14.5" r="5.8" fill="currentColor" opacity=".55"/>
+          <circle cx="18" cy="7" r="2.1" fill="currentColor"/>
+        </svg>
+      </span>
+      <nav class="apptabs" aria-label="polytoken">
+        <span class="apptab">Inbox</span>
+        <span class="apptab active">Chat</span>
+        <span class="apptab">Knowledge</span>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="chat-body">
+      <!-- conversation rail -->
+      <aside class="convrail">
+        <button class="newchat">
+          <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M8 3v10M3 8h10"/></svg>
+          New chat
+        </button>
+        <div class="conv-item active">Freight quote — Lote 88</div>
+        <div class="conv-item">June spending recap</div>
+        <div class="conv-item">Flight to Recife</div>
+      </aside>
+
+      <!-- chat column -->
+      <div class="chatcol">
+        <div class="transcript">
+          <div class="turn-user">
+            <div class="bubble">What did Acme Freight quote for Lote 88, and how does it compare to the other quotes I got?</div>
+          </div>
+          <div class="turn-assistant">
+            <div class="tool-row">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="7" cy="7" r="4.2"/><path d="M13.5 13.5l-3.2-3.2"/></svg>
+              <span>Searched your mail — <span class="num">3</span> results</span>
+            </div>
+            <span class="cite-chip">
+              <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5L8 9l5.5-4.5"/></svg>
+              <span class="meter m-c"><i></i><i></i></span>
+              <span class="chip-label">Cotação frete SP → POA — Lote 88</span>
+            </span>
+            <p class="answer num">Acme Freight came back at <strong>R$ 4.820,00</strong> — pickup Friday 18 Jul, delivery in Porto Alegre on Wednesday 23 Jul, insurance and tracking included. You also have Transportes Andrade at R$ 5.310,00 and Rodocargo at R$ 4.590,00, but Rodocargo doesn't include insurance. Acme is the only one holding its price — until tomorrow.</p>
+          </div>
+          <div class="turn-user">
+            <div class="bubble">Put them side by side for me.</div>
+          </div>
+          <div class="turn-assistant">
+            <p class="answer">Here you go — I've laid the three quotes out on your canvas.</p>
+          </div>
+        </div>
+        <div class="composer">
+          <textarea rows="2" placeholder="Ask me anything — I'll check your mail first."></textarea>
+          <button class="send" aria-label="Send message">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- canvas -->
+      <div class="canvas canvas-grid">
+        <span class="save-status">Saved just now</span>
+        <div class="canvas-stage">
+          <svg class="edges" viewBox="0 0 780 640" aria-hidden="true">
+            <!-- table panel -> email-thread card -->
+            <path class="edge-solid" d="M360 240 C 350 215, 345 190, 336 160"/>
+            <!-- source card (gov.br) -> chat column -->
+            <path class="edge-solid" d="M118 400 C 70 392, 30 378, 4 360"/>
+          </svg>
+          <span class="edge-label" style="left:56px; top:382px;">in this chat</span>
+
+          <!-- 1. email-thread card -->
+          <div class="ccard" style="left:36px; top:60px; width:300px;">
+            <div class="ccard-head">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.5"/><path d="M2.5 4.5L8 9l5.5-4.5"/></svg>
+              <span class="ccard-title">Cotação frete SP → POA — Lote 88</span>
+              <button class="ccard-x" aria-label="Remove">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              </button>
+            </div>
+            <div class="ccard-body">
+              <div class="participants">Rafael Lima, you · <span class="num">3</span> messages</div>
+              <div class="ccard-snippet num">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte…</div>
+            </div>
+            <div class="ccard-foot">
+              <a href="#inbox">Open thread →</a>
+              <a href="#chat">Attach chat</a>
+            </div>
+          </div>
+
+          <!-- 2. generated table panel -->
+          <div class="ccard" style="left:360px; top:150px; width:410px;">
+            <div class="ccard-head">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M2 6h12M6.5 6v7.5"/></svg>
+              <span class="ccard-title">Freight quotes — Lote 88</span>
+              <span class="ccard-caption num">From turn 2</span>
+              <button class="ccard-x" aria-label="Remove">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              </button>
+            </div>
+            <div class="ccard-body">
+              <table class="qtable num">
+                <thead>
+                  <tr><th></th><th>Acme Freight</th><th>Transportes Andrade</th><th>Rodocargo</th></tr>
+                </thead>
+                <tbody>
+                  <tr><th scope="row">Price</th><td>R$ 4.820,00</td><td>R$ 5.310,00</td><td>R$ 4.590,00</td></tr>
+                  <tr><th scope="row">Pickup</th><td>Sex 18 Jul</td><td>Ter 22 Jul</td><td>Sex 18 Jul</td></tr>
+                  <tr><th scope="row">Delivery</th><td>Qua 23 Jul</td><td>Sex 25 Jul</td><td>Seg 28 Jul</td></tr>
+                  <tr><th scope="row">Insurance</th><td>Included</td><td>Included</td><td>Not included</td></tr>
+                  <tr><th scope="row">Price held until</th><td>Qua 15 Jul</td><td>—</td><td>Sáb 19 Jul</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. source card (web) -->
+          <div class="ccard" style="left:118px; top:368px; width:292px;">
+            <div class="ccard-head">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.8"/><path d="M2.5 8h11M8 2.4c-3.6 3.2-3.6 8 0 11.2M8 2.4c3.6 3.2 3.6 8 0 11.2"/></svg>
+              <span class="ccard-title">Tabela Nacional de Fretes — atualização julho 2026</span>
+              <button class="ccard-x" aria-label="Remove">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              </button>
+            </div>
+            <div class="ccard-body">
+              <div class="url-line">
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5a2.7 2.7 0 004 .3l2-2a2.7 2.7 0 00-3.8-3.8l-1 1"/><path d="M9.5 6.5a2.7 2.7 0 00-4-.3l-2 2a2.7 2.7 0 003.8 3.8l1-1"/></svg>
+                gov.br/antt/tabela-de-fretes
+              </div>
+              <div class="ccard-caption" style="margin-top:5px">Saved from the web</div>
+            </div>
+          </div>
+
+          <!-- 4. source card (web) -->
+          <div class="ccard" style="left:150px; top:496px; width:292px;">
+            <div class="ccard-head">
+              <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="8" cy="8" r="5.8"/><path d="M2.5 8h11M8 2.4c-3.6 3.2-3.6 8 0 11.2M8 2.4c3.6 3.2 3.6 8 0 11.2"/></svg>
+              <span class="ccard-title">Como negociar frete com seguro incluído</span>
+              <button class="ccard-x" aria-label="Remove">
+                <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+              </button>
+            </div>
+            <div class="ccard-body">
+              <div class="url-line">
+                <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M6.5 9.5a2.7 2.7 0 004 .3l2-2a2.7 2.7 0 00-3.8-3.8l-1 1"/><path d="M9.5 6.5a2.7 2.7 0 00-4-.3l-2 2a2.7 2.7 0 003.8 3.8l1-1"/></svg>
+                blog.contaazul.com/negociar-frete
+              </div>
+              <div class="ccard-caption" style="margin-top:5px">Saved from the web</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 3 — KNOWLEDGE ================= -->
+<section id="knowledge">
+  <div class="microlabel section-label">Knowledge</div>
+  <div class="appframe">
+    <div class="appbar">
+      <span class="brandmark" aria-label="polytoken">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <circle cx="9.5" cy="10.5" r="6.5" fill="currentColor"/>
+          <circle cx="15" cy="14.5" r="5.8" fill="currentColor" opacity=".55"/>
+          <circle cx="18" cy="7" r="2.1" fill="currentColor"/>
+        </svg>
+      </span>
+      <nav class="apptabs" aria-label="polytoken">
+        <span class="apptab">Inbox</span>
+        <span class="apptab">Chat</span>
+        <span class="apptab active">Knowledge</span>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="know-body">
+      <!-- filter rail -->
+      <aside class="know-rail">
+        <div class="microlabel" style="margin-bottom:8px">Show</div>
+        <div class="checkrow on">
+          <span class="cbox"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg></span>
+          <span class="tdot d-supplier"></span>Suppliers
+        </div>
+        <div class="checkrow on">
+          <span class="cbox"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg></span>
+          <span class="tdot d-person"></span>People
+        </div>
+        <div class="checkrow on">
+          <span class="cbox"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg></span>
+          <span class="tdot d-amount"></span>Amounts
+        </div>
+        <div class="checkrow on">
+          <span class="cbox"><svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-6.5"/></svg></span>
+          <span class="tdot d-document"></span>Documents
+        </div>
+        <div class="checkrow off">
+          <span class="cbox"></span>
+          <span class="tdot d-email"></span>Emails
+        </div>
+        <div class="rail-sep"></div>
+        <div class="switchrow">
+          <span class="switch" role="switch" aria-checked="true"></span>
+          <div>
+            <div class="switch-label">Show suggested connections</div>
+            <div class="switch-sub">I'll mark anything I'm not sure about.</div>
+          </div>
+        </div>
+        <div class="rail-count num">9 entities · 6 connections · from 14 emails</div>
+      </aside>
+
+      <!-- graph canvas -->
+      <div class="graph canvas-grid">
+        <div class="graph-toolbar">
+          <div class="seg" role="group" aria-label="Confidence filter">
+            <button>Confirmed only</button>
+            <button class="active">+ Suggested</button>
+            <button>Everything</button>
+          </div>
+        </div>
+        <div class="graph-stage">
+          <svg class="edges" viewBox="0 0 760 560" aria-hidden="true">
+            <line class="edge-solid" x1="150" y1="90"  x2="300" y2="170"/>
+            <line class="edge-solid" x1="300" y1="170" x2="430" y2="260"/>
+            <line class="edge-solid" x1="150" y1="320" x2="300" y2="400"/>
+            <line class="edge-suggested" x1="480" y1="380" x2="640" y2="420"/>
+            <line class="edge-suggested" x1="660" y1="240" x2="560" y2="120"/>
+            <line class="edge-suggested" x1="560" y1="120" x2="430" y2="260"/>
+          </svg>
+          <span class="edge-label" style="left:225px; top:130px;">works at</span>
+          <span class="edge-label" style="left:365px; top:215px;">quoted</span>
+          <span class="edge-label" style="left:225px; top:360px;">issued</span>
+          <span class="edge-label" style="left:560px; top:400px;">works at</span>
+          <span class="edge-label" style="left:614px; top:180px;">similar to</span>
+          <span class="edge-label" style="left:495px; top:190px;">quoted</span>
+
+          <div class="node" style="left:150px; top:90px;"><span class="tdot d-person"></span>Rafael Lima<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node sel" style="left:300px; top:170px;"><span class="tdot d-supplier"></span>Acme Freight<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node" style="left:560px; top:120px;"><span class="tdot d-supplier"></span>Transportes Andrade<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node num" style="left:430px; top:260px;"><span class="tdot d-amount"></span>R$ 4.820,00<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node suggested" style="left:660px; top:240px;"><span class="tdot d-supplier"></span>Rodocargo<span class="meter m-s"><i></i><i></i></span></div>
+          <div class="node" style="left:150px; top:320px;"><span class="tdot d-supplier"></span>Papelaria Vitória<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node num" style="left:300px; top:400px;"><span class="tdot d-document"></span>NF-e 3412<span class="meter m-c"><i></i><i></i></span></div>
+          <div class="node suggested" style="left:480px; top:380px;"><span class="tdot d-person"></span>Marina Costa<span class="meter m-s"><i></i><i></i></span></div>
+          <div class="node suggested" style="left:640px; top:420px;"><span class="tdot d-supplier"></span>Embalagens Rio Claro<span class="meter m-s"><i></i><i></i></span></div>
+        </div>
+        <div class="legend">
+          <span><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+          <span><span class="meter m-s"><i></i><i></i></span>Suggested</span>
+          <span><span class="meter m-u"><i></i><i></i></span>Uncertain</span>
+        </div>
+      </div>
+
+      <!-- detail pane -->
+      <aside class="detail">
+        <div class="detail-head">
+          <h3>Acme Freight</h3>
+          <button class="ccard-x" aria-label="Close">
+            <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>
+          </button>
+        </div>
+        <div class="badgerow">
+          <span class="badge b-type">Supplier</span>
+          <span class="badge b-confirmed"><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+        </div>
+        <div class="provenance">
+          <div class="prov-line">from <span class="num">3</span> emails</div>
+          <div class="email-row"><span class="e-subj">Cotação frete SP → POA — Lote 88</span><span class="time num">Ter 14:32</span></div>
+          <div class="email-row"><span class="e-subj">Re: Lote 88</span><span class="time num">Seg 10:12</span></div>
+          <div class="email-row"><span class="e-subj">Tabela de preços 2026</span><span class="time num">12 Jun</span></div>
+        </div>
+        <dl class="kv">
+          <div><dt>Contact</dt><dd>rafael@acmefreight.com.br</dd></div>
+          <div><dt>First seen</dt><dd class="num">12 Jun 2026</dd></div>
+          <div><dt>Last seen</dt><dd class="num">Ter 14:32</dd></div>
+        </dl>
+        <div class="suggest-block">
+          <div class="cap">I think this connects to:</div>
+          <div class="what">Transportes Andrade — quoted the same shipment</div>
+          <div class="suggest-actions">
+            <button class="btn btn-primary btn-sm">Promote to confirmed</button>
+            <button class="btn btn-quiet btn-sm">Dismiss</button>
+          </div>
+        </div>
+        <div class="detail-footer">
+          <a class="link-quiet" href="#knowledge">Open entity →</a>
+        </div>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<!-- ================= SCREEN 4 — COMPONENTS ================= -->
+<section id="components">
+  <div class="microlabel section-label">Components</div>
+  <div class="comp-grid">
+
+    <div class="comp-cell">
+      <div class="microlabel">Buttons</div>
+      <div class="comp-row">
+        <button class="btn btn-primary">Promote to confirmed</button>
+        <button class="btn btn-outline">Open thread</button>
+        <button class="btn btn-danger">Delete conversation</button>
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Input</div>
+      <div class="field">
+        <label for="chat-name">Chat name</label>
+        <input id="chat-name" type="text" value="Freight quote — Lote 88">
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Entity chips</div>
+      <div class="comp-row">
+        <span class="chip"><span class="meter m-c"><i></i><i></i></span><span class="chip-label">Acme Freight · supplier</span></span>
+        <span class="chip suggested"><span class="meter m-s"><i></i><i></i></span><span class="chip-label">Marina Costa · person</span></span>
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Badges</div>
+      <div class="comp-row">
+        <span class="badge b-confirmed"><span class="meter m-c"><i></i><i></i></span>Confirmed</span>
+        <span class="badge b-suggested"><span class="meter m-s"><i></i><i></i></span>Suggested</span>
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Toasts</div>
+      <div class="comp-stack">
+        <div class="toast">
+          <span class="t-ico-ok"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5l3.2 3.2L13 5"/></svg></span>
+          <span class="t-msg">On it — reprocessing this email</span>
+        </div>
+        <div class="toast">
+          <span class="t-ico-err"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6"/><path d="M8 5v3.5M8 11h.01"/></svg></span>
+          <span class="t-msg">Couldn't attach a chat to this thread — try again.</span>
+          <button class="t-action">Retry</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Empty state</div>
+      <div class="empty">
+        <span class="e-ico">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11.5a7.5 7.5 0 01-11 6.6L4 19.5l1.4-4.5A7.5 7.5 0 1120 11.5z"/></svg>
+        </span>
+        <h4>Ask me anything</h4>
+        <p>I'll stream the answer back — sometimes with interactive panels built right in.</p>
+        <button class="btn btn-primary btn-sm">New chat</button>
+      </div>
+    </div>
+
+    <div class="comp-cell">
+      <div class="microlabel">Loading</div>
+      <div class="skel"><i></i><i></i><i></i></div>
+      <div class="spin-row"><span class="spinner"></span>Searching your mail…</div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+</body>
+</html>

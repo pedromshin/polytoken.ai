@@ -1,0 +1,1068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>polytoken — Direction B: Threadwork</title>
+<!--
+  DIRECTION B — "THREADWORK"
+  The living workspace where everything connects. Light, airy, tactile.
+  Signature: the THREADLINE — rounded connectors with circular joints,
+  solid = confirmed, dotted = suggested.
+
+  PALETTE (named hexes)
+  Ground & chrome
+    --ground      #F4F7F6   paper-white with a blue-green cast (never pure white)
+    --surface     #FFFFFF   card surface
+    --surface-2   #EDF2F0   inset / quiet fills
+    --ink         #21332F   primary text, spruce-black
+    --ink-2       #5A6D68   secondary text
+    --ink-3       #93A5A0   faint / uncertain
+    --line        #DFE8E5   hairline borders
+    --line-2      #C9D6D2   control borders
+    --thread      #8FABA4   the threadline neutral (all connectors)
+    --brand       #14655A   deep sea-teal — primary actions, selection
+    --brand-tint  #E1EFEB   selection wash
+    --danger      #A64444   destructive / error
+    --danger-tint #F7E9E8
+
+  CONTENT-FAMILY HUES — fixed tint steps (tint ≈ L93 fill, mid ≈ L60 stroke, deep ≈ L30 text)
+    supplier  #E2F1EC / #6FB5A2 / #1E6B57   teal-green
+    person    #EFEAF6 / #A995C9 / #6B4E93   plum
+    amount    #F9EFDD / #D2A960 / #7D5A17   honey
+    document  #E7EEF8 / #8FAEDA / #3A5A8F   cornflower
+    date      #F8EBEE / #D39FAC / #94465C   rose
+    source    #E2F0F4 / #7BB4C6 / #22657A   cyan (web + email provenance)
+
+  TYPE
+    Sans: Nunito → Avenir Next → Avenir → Segoe UI → system-ui (rounded-humanist)
+    Mono (identifiers only — amounts, document numbers): ui-monospace stack
+-->
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============ reset & tokens ============ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ground:#F4F7F6; --surface:#FFFFFF; --surface-2:#EDF2F0;
+  --ink:#21332F; --ink-2:#5A6D68; --ink-3:#93A5A0;
+  --line:#DFE8E5; --line-2:#C9D6D2; --thread:#8FABA4;
+  --brand:#14655A; --brand-tint:#E1EFEB;
+  --danger:#A64444; --danger-tint:#F7E9E8;
+  --sans:'Nunito','Avenir Next','Avenir','Segoe UI',system-ui,-apple-system,sans-serif;
+  --mono:ui-monospace,'Cascadia Code','SF Mono',Consolas,'Liberation Mono',monospace;
+  --r-card:18px; --r-panel:20px; --r-ctl:10px;
+}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+body{
+  font-family:var(--sans); font-size:13.5px; line-height:1.6; color:var(--ink);
+  background:var(--ground); padding-top:52px;
+}
+button{font-family:var(--sans); cursor:pointer}
+:focus-visible{outline:2px solid var(--brand); outline-offset:2px; border-radius:4px}
+svg{display:block}
+
+/* family variables */
+.f-sup{--ft:#E2F1EC;--fm:#6FB5A2;--fd:#1E6B57}
+.f-per{--ft:#EFEAF6;--fm:#A995C9;--fd:#6B4E93}
+.f-amt{--ft:#F9EFDD;--fm:#D2A960;--fd:#7D5A17}
+.f-doc{--ft:#E7EEF8;--fm:#8FAEDA;--fd:#3A5A8F}
+.f-dat{--ft:#F8EBEE;--fm:#D39FAC;--fd:#94465C}
+.f-src{--ft:#E2F0F4;--fm:#7BB4C6;--fd:#22657A}
+
+/* ============ proposal top bar ============ */
+.topbar{
+  position:fixed; top:0; left:0; right:0; z-index:50; height:52px;
+  background:var(--ink); color:#EAF2EF;
+  display:flex; align-items:center; gap:14px; padding:0 24px;
+}
+.topbar .b-mark{width:20px;height:20px;color:#9FD4C6;flex:none}
+.topbar .dir{font-weight:800; font-size:14px; letter-spacing:.01em}
+.topbar .dir span{color:#9FD4C6}
+.topbar nav{margin-left:auto; display:flex; gap:4px}
+.topbar nav a{
+  color:#BBD2CB; text-decoration:none; font-weight:700; font-size:12.5px;
+  padding:6px 12px; border-radius:999px; transition:background .15s,color .15s;
+}
+.topbar nav a:hover{background:rgba(255,255,255,.09); color:#fff}
+
+/* ============ sections & frames ============ */
+.sec{max-width:1400px; margin:0 auto; padding:44px 24px 12px}
+.sec-head{display:flex; align-items:baseline; gap:14px; margin-bottom:14px}
+.sec-head h2{font-size:21px; font-weight:800; letter-spacing:-.01em}
+.sec-head p{color:var(--ink-2); font-size:13px}
+.frame{
+  background:var(--ground); border:1px solid var(--line-2); border-radius:var(--r-panel);
+  overflow:hidden;
+}
+
+/* ============ in-app bar (product chrome) ============ */
+.appbar{
+  display:flex; align-items:center; gap:10px; height:52px; padding:0 18px;
+  background:var(--surface); border-bottom:1px solid var(--line);
+}
+.appbar .b-mark{width:22px;height:22px;color:var(--brand);flex:none}
+.appbar .wordmark{font-weight:800; font-size:15px; letter-spacing:-.01em; margin-right:14px}
+.appbar nav{display:flex; gap:2px}
+.appbar nav a{
+  text-decoration:none; color:var(--ink-2); font-weight:700; font-size:13px;
+  padding:6px 13px; border-radius:999px; transition:background .15s,color .15s;
+}
+.appbar nav a:hover{background:var(--surface-2); color:var(--ink)}
+.appbar nav a.active{background:var(--brand-tint); color:var(--brand)}
+.avatar{
+  margin-left:auto; width:30px; height:30px; border-radius:50%;
+  background:var(--brand); color:#fff; font-weight:800; font-size:13px;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ============ shared atoms ============ */
+.chip{
+  display:inline-flex; align-items:center; gap:6px; padding:2.5px 10px 2.5px 8px;
+  border-radius:999px; font-size:12px; font-weight:700; color:var(--fd);
+  background:var(--ft); border:1.5px solid var(--fm); white-space:nowrap;
+}
+.chip .cdot{width:7px;height:7px;border-radius:50%;background:var(--fd);flex:none}
+.chip .ctype{font-weight:600; font-size:11.5px; opacity:.62}
+.chip.suggested{border-style:dashed; background:var(--surface)}
+.chip.suggested .cdot{background:transparent; border:1.5px solid var(--fd)}
+.chip .mono{font-family:var(--mono); font-size:11.5px}
+
+.badge{
+  display:inline-flex; align-items:center; gap:6px; padding:2px 10px;
+  border-radius:999px; font-size:11.5px; font-weight:700; white-space:nowrap;
+}
+.badge.confirmed{background:var(--brand-tint); border:1.5px solid #6FB5A2; color:#1E6B57}
+.badge.confirmed::before{content:""; width:6px; height:6px; border-radius:50%; background:#1E6B57}
+.badge.suggested{background:var(--surface); border:1.5px dashed #A9BAB5; color:var(--ink-2)}
+.badge.suggested::before{content:""; width:6px; height:6px; border-radius:50%; border:1.5px solid var(--ink-2)}
+.badge.type{background:var(--surface-2); border:1.5px solid var(--line-2); color:var(--ink-2)}
+
+.btn{
+  display:inline-flex; align-items:center; gap:7px; border-radius:999px;
+  font-size:13px; font-weight:700; padding:8px 17px; border:1.5px solid transparent;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.btn.primary{background:var(--brand); color:#fff}
+.btn.primary:hover{background:#0F5248}
+.btn.secondary{background:var(--surface); color:var(--ink); border-color:var(--line-2)}
+.btn.secondary:hover{background:var(--brand-tint); border-color:#6FB5A2; color:var(--brand)}
+.btn.destructive{background:var(--danger); color:#fff}
+.btn.destructive:hover{background:#8C3535}
+.btn.quiet{background:transparent; color:var(--ink-2); padding:6px 12px}
+.btn.quiet:hover{background:var(--surface-2); color:var(--ink)}
+.btn.sm{font-size:12px; padding:4.5px 12px}
+.btn.outline-wide{
+  width:100%; justify-content:center; background:var(--surface);
+  border-color:var(--line-2); color:var(--ink-2);
+}
+.btn.outline-wide:hover{background:var(--brand-tint); border-color:#6FB5A2; color:var(--brand)}
+
+.link{
+  color:var(--brand); font-weight:700; font-size:12.5px; text-decoration:none;
+  border-radius:4px;
+}
+.link:hover{text-decoration:underline; text-underline-offset:3px}
+
+.count-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width:20px; height:20px; padding:0 6px; border-radius:999px;
+  background:var(--brand-tint); color:var(--brand); font-size:11.5px; font-weight:800;
+}
+.mono{font-family:var(--mono)}
+
+/* ============ SCREEN 1 — INBOX ============ */
+.inbox-grid{display:grid; grid-template-columns:200px 364px 1fr; align-items:stretch}
+.pane{padding:18px}
+.pane + .pane{border-left:1px solid var(--line)}
+
+.rail-head{font-size:11.5px; font-weight:800; color:var(--ink-3); letter-spacing:.02em; margin-bottom:10px}
+.filter-item{
+  display:flex; align-items:center; gap:8px; padding:7px 11px; border-radius:var(--r-ctl);
+  font-size:13px; font-weight:700; color:var(--ink-2); transition:background .15s,color .15s;
+}
+.filter-item:hover{background:var(--surface-2); color:var(--ink)}
+.filter-item.active{background:var(--brand-tint); color:var(--brand)}
+.rail-hint{margin-top:22px; font-size:12px; line-height:1.55; color:var(--ink-3)}
+.rail-hint .addr{font-weight:700; color:var(--ink-2)}
+
+.list-head{display:flex; align-items:center; gap:9px; margin-bottom:12px}
+.list-head h3{font-size:16.5px; font-weight:800}
+
+.trow{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card);
+  padding:11px 14px; margin-bottom:8px; transition:border-color .15s,background .15s;
+}
+.trow:hover{border-color:var(--line-2); background:#FBFDFC}
+.trow.selected{background:var(--brand-tint); border-color:#6FB5A2}
+.trow .r1{display:flex; align-items:center; gap:7px}
+.trow .snd{font-weight:700; font-size:13.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.trow .tm{font-size:11.5px; font-weight:600; color:var(--ink-3); flex:none}
+.trow .sub{font-size:12.5px; font-weight:600; color:var(--ink-2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px}
+.trow .snip{font-size:12px; color:var(--ink-3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px}
+.trow .chips{display:flex; flex-wrap:wrap; gap:5px; margin-top:8px}
+.trow.unread .snd{font-weight:800; color:var(--ink)}
+.trow.unread .sub{color:var(--ink); font-weight:700}
+.unread-dot{width:8px; height:8px; border-radius:50%; background:var(--brand); flex:none}
+.chev{color:var(--ink-3); flex:none}
+.attach{display:inline-flex; align-items:center; gap:5px; margin-top:7px;
+  font-size:11.5px; font-weight:600; color:var(--ink-2);
+  background:var(--surface-2); border-radius:999px; padding:2px 10px 2px 7px}
+.attach svg{width:12px;height:12px;color:var(--ink-3)}
+.attach .mono{font-size:11px}
+
+/* the threadline — expanded thread members */
+.members{position:relative; margin-top:12px; padding-left:24px}
+.members::before{
+  content:""; position:absolute; left:8px; top:16px; bottom:16px; width:2px;
+  border-radius:2px; background:var(--thread);
+}
+.member{position:relative; padding:8px 10px; border-radius:12px; margin-bottom:4px}
+.member::before{
+  content:""; position:absolute; left:-20px; top:15px; width:8px; height:8px;
+  border-radius:50%; background:var(--surface); border:2px solid var(--thread);
+}
+.member:hover{background:rgba(255,255,255,.7)}
+.member.selected{background:var(--surface); border:1px solid #6FB5A2}
+.member.selected::before{background:var(--brand); border-color:var(--brand)}
+.member .r1{display:flex; align-items:center; gap:8px}
+.member .snd{font-weight:700; font-size:12.5px; flex:1}
+.member .snip{font-size:12px; color:var(--ink-2); margin-top:1px; white-space:normal}
+.member .chips{margin-top:7px}
+
+/* reading pane + entities */
+.right-col{display:grid; grid-template-columns:1fr 276px; gap:18px; padding:18px; border-left:1px solid var(--line)}
+.read-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:20px 22px; align-self:start}
+.read-head{display:flex; align-items:flex-start; gap:12px; justify-content:space-between; margin-bottom:6px}
+.read-head h4{font-size:16.5px; font-weight:800; letter-spacing:-.01em; line-height:1.35}
+.read-meta{font-size:12px; color:var(--ink-2); padding-bottom:14px; border-bottom:1px solid var(--line); margin-bottom:14px}
+.read-meta b{font-weight:700; color:var(--ink)}
+.read-body p{margin-bottom:12px; font-size:13.5px}
+.read-body p:last-child{margin-bottom:0}
+
+.ent-card{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:16px; align-self:start}
+.ent-card h5{font-size:13px; font-weight:800; margin-bottom:10px}
+.ent-row{padding:9px 0; border-top:1px solid var(--line)}
+.ent-row:first-of-type{border-top:none}
+.ent-row .r1{display:flex; align-items:center; gap:8px}
+.ent-row .lbl{font-weight:700; font-size:12.5px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ent-row .typ{font-size:11px; font-weight:700; color:var(--fd)}
+.ent-row .acts{display:flex; gap:6px; margin-top:7px}
+.ent-foot{margin-top:12px; padding-top:12px; border-top:1px solid var(--line)}
+
+/* ============ SCREEN 2 — CHAT + CANVAS ============ */
+.chat-grid{display:grid; grid-template-columns:216px 380px 1fr; align-items:stretch}
+.convo-rail{padding:16px 12px}
+.newchat{
+  display:flex; align-items:center; gap:7px; width:100%;
+  background:var(--surface); border:1.5px solid var(--line-2); border-radius:999px;
+  font-size:12.5px; font-weight:700; color:var(--ink); padding:7px 13px; margin-bottom:14px;
+  transition:background .15s,border-color .15s,color .15s;
+}
+.newchat:hover{background:var(--brand-tint); border-color:#6FB5A2; color:var(--brand)}
+.convo-item{
+  padding:7px 11px; border-radius:var(--r-ctl); font-size:12.5px; font-weight:600;
+  color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  margin-bottom:2px; transition:background .15s,color .15s;
+}
+.convo-item:hover{background:var(--surface-2); color:var(--ink)}
+.convo-item.active{background:var(--brand-tint); color:var(--brand); font-weight:700}
+
+.chat-col{border-left:1px solid var(--line); display:flex; flex-direction:column; padding:18px 16px 16px; background:var(--surface)}
+.turns{flex:1; display:flex; flex-direction:column; gap:16px}
+.turn.user{align-self:flex-end; max-width:86%;
+  background:var(--brand-tint); border:1px solid #CBE2DB;
+  border-radius:16px 16px 6px 16px; padding:9px 14px; font-size:13px; font-weight:600}
+.turn.assistant{position:relative; padding-left:20px; font-size:13.5px}
+.turn.assistant .tl{position:absolute; left:6px; top:14px; bottom:10px; width:2px; border-radius:2px; background:var(--thread)}
+.turn.assistant .joint{position:absolute; left:2.5px; width:9px; height:9px; border-radius:50%;
+  background:var(--surface); border:2px solid var(--thread)}
+.tool-row{display:flex; align-items:center; gap:7px; font-size:12px; font-weight:600; color:var(--ink-3)}
+.tool-row svg{width:13px; height:13px; flex:none}
+.cite-chip{
+  display:inline-flex; align-items:center; gap:6px; margin:7px 0 9px;
+  max-width:100%; padding:3px 11px 3px 8px; border-radius:999px;
+  background:var(--ft); border:1.5px solid var(--fm); color:var(--fd);
+  font-size:11.5px; font-weight:700;
+}
+.cite-chip svg{width:11px; height:11px; flex:none}
+.cite-chip span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.answer{color:var(--ink)}
+.answer b{font-weight:800}
+.composer{display:flex; align-items:flex-end; gap:9px; margin-top:18px;
+  background:var(--ground); border:1.5px solid var(--line-2); border-radius:16px; padding:10px 10px 10px 15px}
+.composer:hover{border-color:#B3C4BF}
+.composer textarea{
+  flex:1; border:0; background:transparent; resize:none; font-family:var(--sans);
+  font-size:13px; color:var(--ink); line-height:1.5; height:21px; outline:none;
+}
+.composer textarea::placeholder{color:var(--ink-3)}
+.send{
+  flex:none; width:32px; height:32px; border-radius:50%; border:0;
+  background:var(--brand); color:#fff; display:flex; align-items:center; justify-content:center;
+  transition:background .15s;
+}
+.send:hover{background:#0F5248}
+
+.canvas-region{border-left:1px solid var(--line); overflow-x:auto}
+.canvas-inner{
+  position:relative; width:100%; min-width:780px; height:700px;
+  background-image:radial-gradient(#D5E0DC 1px, transparent 1px);
+  background-size:22px 22px;
+}
+.save-status{
+  position:absolute; top:14px; right:16px; z-index:3;
+  background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  font-size:11.5px; font-weight:600; color:var(--ink-3); padding:3px 12px;
+}
+.edges{position:absolute; inset:0; width:100%; height:100%; z-index:1; pointer-events:none}
+.edges .e{stroke:var(--thread); stroke-width:2; fill:none; stroke-linecap:round}
+.edges .e.dotted{stroke-dasharray:0 7}
+.edges .joint{fill:var(--surface); stroke:var(--thread); stroke-width:2}
+.edge-label{
+  position:absolute; z-index:2; transform:translate(-50%,-50%);
+  background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  font-size:10.5px; font-weight:700; color:var(--ink-2); padding:1px 9px; white-space:nowrap;
+}
+
+.ccard{
+  position:absolute; z-index:2; background:var(--surface); border:1px solid var(--line-2);
+  border-radius:var(--r-card); padding:12px 14px;
+}
+.ccard .chead{display:flex; align-items:center; gap:8px; margin-bottom:4px}
+.ccard .chead svg{width:14px; height:14px; flex:none; color:var(--fd)}
+.ccard .ctitle{font-size:13px; font-weight:800; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ccard .x{
+  flex:none; border:0; background:transparent; color:var(--ink-3); font-size:14px;
+  width:22px; height:22px; border-radius:50%; line-height:1;
+  transition:background .15s,color .15s;
+}
+.ccard .x:hover{background:var(--surface-2); color:var(--ink)}
+.ccard .parts{font-size:11.5px; font-weight:600; color:var(--ink-2)}
+.ccard .snip{font-size:12px; color:var(--ink-3); margin-top:4px;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden}
+.ccard .cfoot{display:flex; gap:12px; margin-top:10px; padding-top:9px; border-top:1px solid var(--line)}
+.ccard .caption{font-size:10.5px; font-weight:700; color:var(--ink-3); letter-spacing:.01em; margin-bottom:2px}
+.ccard .url{font-size:11.5px; color:var(--fd); font-weight:600; margin-top:2px}
+
+.qtable{width:100%; border-collapse:collapse; margin-top:9px; font-size:12px}
+.qtable th,.qtable td{padding:6px 9px; text-align:left; border-top:1px solid var(--line); white-space:nowrap}
+.qtable thead th{border-top:none; font-weight:800; font-size:11.5px; color:var(--ink)}
+.qtable tbody th{font-weight:600; color:var(--ink-2)}
+.qtable td.num{font-family:var(--mono); font-size:11.5px}
+
+/* ============ SCREEN 3 — KNOWLEDGE ============ */
+.know-grid{display:grid; grid-template-columns:240px 1fr 320px; align-items:stretch}
+.know-rail{padding:18px 14px}
+.chk-row{display:flex; align-items:center; gap:9px; padding:6px 9px; border-radius:9px; transition:background .15s}
+.chk-row:hover{background:var(--surface-2)}
+.chk{width:16px; height:16px; border-radius:5px; border:1.5px solid var(--line-2); background:var(--surface); flex:none; position:relative}
+.chk-row.on .chk{background:var(--brand); border-color:var(--brand)}
+.chk-row.on .chk::after{
+  content:""; position:absolute; left:4.5px; top:1.5px; width:4px; height:8px;
+  border:solid #fff; border-width:0 2px 2px 0; transform:rotate(42deg);
+}
+.fdot{width:8px; height:8px; border-radius:50%; background:var(--fd); flex:none}
+.chk-row .lbl{font-size:13px; font-weight:600; color:var(--ink)}
+.rail-sep{height:1px; background:var(--line); margin:13px 4px}
+.sw-row{display:flex; gap:10px; padding:4px 9px; align-items:flex-start}
+.sw{flex:none; width:34px; height:20px; border-radius:999px; background:var(--brand); position:relative; margin-top:2px}
+.sw::after{content:""; position:absolute; right:2.5px; top:2.5px; width:15px; height:15px; border-radius:50%; background:#fff}
+.sw-row .lbl{font-size:12.5px; font-weight:700}
+.sw-row .sub{font-size:11.5px; color:var(--ink-3); font-weight:400; line-height:1.45}
+.rail-count{margin-top:16px; padding:9px 9px 0; border-top:1px solid var(--line);
+  font-size:11.5px; font-weight:600; color:var(--ink-3)}
+
+.know-canvas-region{border-left:1px solid var(--line); overflow-x:auto}
+.know-canvas{
+  position:relative; width:100%; min-width:660px; height:600px;
+  background-image:radial-gradient(#D5E0DC 1px, transparent 1px);
+  background-size:22px 22px;
+}
+.seg{
+  position:absolute; top:14px; left:14px; z-index:3;
+  display:inline-flex; gap:2px; padding:3px;
+  background:var(--surface-2); border:1px solid var(--line); border-radius:999px;
+}
+.seg button{
+  border:1px solid transparent; background:transparent; border-radius:999px;
+  font-size:12px; font-weight:700; color:var(--ink-2); padding:4px 13px;
+  transition:background .15s,color .15s;
+}
+.seg button:hover{color:var(--ink)}
+.seg button.active{background:var(--surface); border-color:var(--line-2); color:var(--ink)}
+
+.node{
+  position:absolute; z-index:2; transform:translate(-50%,-50%);
+  display:inline-flex; align-items:center; gap:7px; padding:6px 13px;
+  background:var(--surface); border:1.5px solid var(--fm); border-radius:12px;
+  font-size:12.5px; font-weight:700; color:var(--ink); white-space:nowrap;
+  transition:border-color .15s;
+}
+.node:hover{border-color:var(--fd)}
+.node .fdot{width:8px; height:8px}
+.node.suggested{border-style:dashed; color:var(--ink-2); background:#FAFCFB}
+.node.suggested .fdot{background:var(--surface); border:1.5px solid var(--fd)}
+.node.selected{border-color:var(--fd); box-shadow:0 0 0 4px var(--ft)}
+
+.legend{
+  position:absolute; left:14px; bottom:12px; z-index:3;
+  display:flex; gap:6px;
+}
+.legend .lg{
+  display:inline-flex; align-items:center; gap:7px;
+  background:var(--surface); border:1px solid var(--line); border-radius:999px;
+  font-size:11px; font-weight:700; color:var(--ink-2); padding:3px 11px;
+}
+.legend svg{width:18px; height:6px}
+.legend line{stroke:var(--thread); stroke-width:2; stroke-linecap:round}
+.legend .dash{stroke-dasharray:0 5}
+.legend .faint{opacity:.38}
+
+.detail{border-left:1px solid var(--line); padding:18px 16px; background:var(--surface)}
+.detail-head{display:flex; align-items:center; gap:8px; margin-bottom:8px}
+.detail-head h4{font-size:16.5px; font-weight:800; flex:1}
+.detail .x{border:0; background:transparent; color:var(--ink-3); font-size:15px;
+  width:24px; height:24px; border-radius:50%; transition:background .15s,color .15s}
+.detail .x:hover{background:var(--surface-2); color:var(--ink)}
+.badge-row{display:flex; gap:6px; margin-bottom:14px}
+.prov{font-size:11.5px; font-weight:800; color:var(--ink-3); margin-bottom:5px}
+.prov-row{
+  display:flex; align-items:baseline; gap:9px; padding:7px 9px; border-radius:var(--r-ctl);
+  transition:background .15s;
+}
+.prov-row:hover{background:var(--surface-2)}
+.prov-row .s{font-size:12px; font-weight:600; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.prov-row .t{font-size:11px; color:var(--ink-3); flex:none}
+.kv{display:flex; gap:10px; padding:6.5px 0; border-top:1px solid var(--line); font-size:12.5px}
+.kv:first-of-type{border-top:none}
+.kv .k{width:76px; flex:none; font-weight:700; color:var(--ink-2)}
+.kv .v{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.kv-block{margin-top:14px; border-top:1px solid var(--line); padding-top:12px}
+.suggest-block{
+  margin-top:14px; background:var(--surface-2); border-radius:14px; padding:13px 14px;
+}
+.suggest-block .cap{font-size:11.5px; font-weight:800; color:var(--ink-2); margin-bottom:6px}
+.suggest-block .row{font-size:12.5px; font-weight:600; margin-bottom:10px}
+.suggest-block .acts{display:flex; gap:8px; align-items:center}
+.detail-foot{margin-top:16px; padding-top:13px; border-top:1px solid var(--line)}
+
+/* ============ SCREEN 4 — COMPONENTS ============ */
+.comp-frame{padding:22px}
+.comp-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:14px}
+.cell{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-card); padding:16px}
+.cell-label{font-size:11px; font-weight:800; color:var(--ink-3); letter-spacing:.02em; margin-bottom:13px}
+.cell-body{display:flex; flex-direction:column; align-items:flex-start; gap:10px}
+.cell-body.rowwrap{flex-direction:row; flex-wrap:wrap; align-items:center}
+.cell.span2{grid-column:span 2}
+
+.field label{display:block; font-size:12px; font-weight:700; color:var(--ink-2); margin-bottom:5px}
+.field input{
+  font-family:var(--sans); font-size:13px; font-weight:600; color:var(--ink);
+  background:var(--surface); border:1.5px solid var(--line-2); border-radius:12px;
+  padding:8px 13px; width:230px; transition:border-color .15s;
+}
+.field input:hover{border-color:#B3C4BF}
+.field input:focus{outline:none; border-color:var(--brand)}
+
+.toast{
+  display:flex; align-items:center; gap:10px; width:100%;
+  background:var(--surface); border-radius:14px; padding:11px 14px;
+  box-shadow:0 3px 8px rgba(33,51,47,.10);
+  font-size:12.5px; font-weight:600;
+}
+.toast svg{width:16px; height:16px; flex:none}
+.toast.ok svg{color:#1E6B57}
+.toast.err svg{color:var(--danger)}
+.toast .tact{
+  margin-left:auto; border:0; background:transparent; color:var(--danger);
+  font-size:12px; font-weight:800; padding:3px 8px; border-radius:8px;
+  transition:background .15s;
+}
+.toast .tact:hover{background:var(--danger-tint)}
+
+.empty{align-items:center; text-align:center; padding:14px 8px; gap:6px; width:100%}
+.empty .eicon{
+  width:44px; height:44px; border-radius:50%; background:var(--brand-tint);
+  display:flex; align-items:center; justify-content:center; color:var(--brand); margin-bottom:4px;
+}
+.empty .eicon svg{width:20px; height:20px}
+.empty h6{font-size:15px; font-weight:800}
+.empty p{font-size:12.5px; color:var(--ink-2); max-width:300px; margin-bottom:6px}
+
+.skel{width:100%; display:flex; flex-direction:column; gap:8px}
+.skel i{display:block; height:12px; border-radius:6px; background:var(--surface-2); animation:pulse 1.4s ease-in-out infinite}
+.skel i:nth-child(2){width:78%}
+.skel i:nth-child(3){width:56%}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.spin-row{display:flex; align-items:center; gap:9px; font-size:12.5px; font-weight:600; color:var(--ink-2)}
+.spinner{
+  width:16px; height:16px; border-radius:50%; flex:none;
+  border:2px solid var(--line-2); border-top-color:var(--brand);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.page-foot{max-width:1400px; margin:0 auto; padding:26px 24px 48px; color:var(--ink-3); font-size:12px}
+
+/* ============ responsive (≥1024 must hold) ============ */
+@media (max-width:1180px){
+  .inbox-grid{grid-template-columns:184px 332px 1fr}
+  .right-col{grid-template-columns:1fr}
+  .chat-grid{grid-template-columns:176px 320px 1fr}
+  .know-grid{grid-template-columns:212px 1fr 292px}
+  .comp-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ proposal top bar ============ -->
+<header class="topbar">
+  <svg class="b-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="12" r="6.5" fill="currentColor"/><circle cx="16" cy="9" r="4.6" fill="currentColor" opacity=".55"/><circle cx="16.8" cy="16.6" r="2.2" fill="currentColor"/></svg>
+  <div class="dir">Direction B — <span>Threadwork</span></div>
+  <nav>
+    <a href="#inbox">Inbox</a>
+    <a href="#chat">Chat &amp; Canvas</a>
+    <a href="#knowledge">Knowledge</a>
+    <a href="#components">Components</a>
+  </nav>
+</header>
+
+<!-- ============================================================
+     SCREEN 1 — INBOX
+============================================================ -->
+<section class="sec" id="inbox">
+  <div class="sec-head"><h2>Inbox</h2><p>Threads stitched together — the threadline links every message that belongs to the same conversation.</p></div>
+  <div class="frame">
+    <div class="appbar">
+      <svg class="b-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="12" r="6.5" fill="currentColor"/><circle cx="16" cy="9" r="4.6" fill="currentColor" opacity=".55"/><circle cx="16.8" cy="16.6" r="2.2" fill="currentColor"/></svg>
+      <span class="wordmark">polytoken</span>
+      <nav>
+        <a href="#inbox" class="active">Inbox</a>
+        <a href="#chat">Chat</a>
+        <a href="#knowledge">Knowledge</a>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="inbox-grid">
+      <!-- filters rail -->
+      <div class="pane">
+        <div class="rail-head">Filters</div>
+        <div class="filter-item active">All</div>
+        <div class="filter-item">Unread</div>
+        <div class="filter-item">With entities</div>
+        <p class="rail-hint">Forward anything to <span class="addr">pedro@in.polytoken.ai</span> — I'll read it and pull out what matters.</p>
+      </div>
+
+      <!-- thread list -->
+      <div class="pane">
+        <div class="list-head"><h3>Inbox</h3><span class="count-badge">7</span></div>
+
+        <!-- row 1: selected, expanded thread -->
+        <article class="trow selected">
+          <div class="r1">
+            <svg class="chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            <span class="snd">Rafael Lima</span>
+            <span class="count-badge">3</span>
+            <span class="tm">Ter 14:32</span>
+          </div>
+          <div class="sub">Cotação frete SP → POA — Lote 88</div>
+          <div class="snip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07)…</div>
+
+          <div class="members">
+            <div class="member selected">
+              <div class="r1"><span class="snd">Rafael Lima</span><span class="tm">Ter 14:32</span></div>
+              <div class="chips">
+                <span class="chip f-sup"><span class="cdot"></span>Acme Freight <span class="ctype">· supplier</span></span>
+                <span class="chip f-amt"><span class="cdot"></span><span class="mono">R$ 4.820,00</span> <span class="ctype">· amount</span></span>
+                <span class="chip suggested f-dat"><span class="cdot"></span>18 Jul <span class="ctype">· date</span></span>
+              </div>
+            </div>
+            <div class="member">
+              <div class="r1"><span class="snd">Rafael Lima</span><span class="tm">Seg 10:12</span></div>
+              <div class="snip">Segue proposta inicial: R$ 5.150,00, coleta em 5 dias úteis.</div>
+            </div>
+            <div class="member">
+              <div class="r1"><span class="snd">Pedro Shin</span><span class="tm">Sex 17:03</span></div>
+              <div class="snip">Rafael, preciso de cotação para o Lote 88 até quarta.</div>
+            </div>
+          </div>
+        </article>
+
+        <!-- row 2: unread -->
+        <article class="trow unread">
+          <div class="r1">
+            <span class="unread-dot"></span>
+            <span class="snd">Marina Costa</span>
+            <span class="tm">Ter 11:05</span>
+          </div>
+          <div class="sub">Proposta comercial — Embalagens Rio Claro</div>
+          <div class="snip">Conforme conversamos, segue nossa proposta para o contrato anual…</div>
+          <div class="chips">
+            <span class="chip suggested f-sup"><span class="cdot"></span>Embalagens Rio Claro <span class="ctype">· supplier</span></span>
+            <span class="chip suggested f-per"><span class="cdot"></span>Marina Costa <span class="ctype">· person</span></span>
+          </div>
+        </article>
+
+        <!-- row 3 -->
+        <article class="trow">
+          <div class="r1"><span class="snd">Papelaria Vitória</span><span class="tm">Ter 09:14</span></div>
+          <div class="sub">NF-e 3412 — Papelaria Vitória Ltda</div>
+          <div class="snip">Segue em anexo a Nota Fiscal Eletrônica referente ao pedido #2210.</div>
+          <div class="chips">
+            <span class="chip f-sup"><span class="cdot"></span>Papelaria Vitória <span class="ctype">· supplier</span></span>
+            <span class="chip f-doc"><span class="cdot"></span><span class="mono">NF-e 3412</span> <span class="ctype">· document</span></span>
+            <span class="chip f-amt"><span class="cdot"></span><span class="mono">R$ 1.284,50</span> <span class="ctype">· amount</span></span>
+          </div>
+        </article>
+
+        <!-- row 4 -->
+        <article class="trow">
+          <div class="r1"><span class="snd">LATAM Airlines</span><span class="tm">Seg 18:47</span></div>
+          <div class="sub">Booking confirmed — GRU → REC, 22 Jul</div>
+          <div class="snip">Your booking XKJ9PW is confirmed. Check-in opens 48h before departure.</div>
+          <div class="chips">
+            <span class="chip f-sup"><span class="cdot"></span>LATAM Airlines <span class="ctype">· supplier</span></span>
+            <span class="chip f-doc"><span class="cdot"></span><span class="mono">XKJ9PW</span> <span class="ctype">· document</span></span>
+            <span class="chip f-dat"><span class="cdot"></span>22 Jul <span class="ctype">· date</span></span>
+          </div>
+        </article>
+
+        <!-- row 5: attachment -->
+        <article class="trow">
+          <div class="r1"><span class="snd">Conta Azul</span><span class="tm">Seg 08:30</span></div>
+          <div class="sub">Recibo #8817 — Plano anual</div>
+          <div class="snip">Obrigado! Seu pagamento foi confirmado. Recibo em anexo.</div>
+          <span class="attach">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            <span class="mono">recibo-8817.pdf</span>
+          </span>
+          <div class="chips">
+            <span class="chip f-sup"><span class="cdot"></span>Conta Azul <span class="ctype">· supplier</span></span>
+            <span class="chip f-amt"><span class="cdot"></span><span class="mono">R$ 948,00</span> <span class="ctype">· amount</span></span>
+            <span class="chip suggested f-doc"><span class="cdot"></span><span class="mono">Recibo #8817</span> <span class="ctype">· document</span></span>
+          </div>
+        </article>
+
+        <!-- row 6 -->
+        <article class="trow">
+          <div class="r1"><span class="snd">Banco Itaú</span><span class="tm">Sex 16:20</span></div>
+          <div class="sub">Extrato mensal — Junho 2026</div>
+          <div class="snip">Seu extrato consolidado de junho já está disponível.</div>
+          <div class="chips">
+            <span class="chip f-sup"><span class="cdot"></span>Banco Itaú <span class="ctype">· supplier</span></span>
+            <span class="chip f-doc"><span class="cdot"></span>Extrato Jun/2026 <span class="ctype">· document</span></span>
+          </div>
+        </article>
+
+        <!-- row 7: no chips -->
+        <article class="trow">
+          <div class="r1"><span class="snd">Filipe Deschamps</span><span class="tm">Qui 07:58</span></div>
+          <div class="sub">☕ Edição #1.204 — IA, chips e Selic</div>
+          <div class="snip">Bom dia! Hoje: data centers no Nordeste, Selic parada e um bug de 30 anos.</div>
+        </article>
+
+        <button class="btn outline-wide">Load more</button>
+      </div>
+
+      <!-- reading pane + entities -->
+      <div class="right-col">
+        <div class="read-card">
+          <div class="read-head">
+            <h4>Cotação frete SP → POA — Lote 88</h4>
+            <button class="btn secondary sm">Open email →</button>
+          </div>
+          <div class="read-meta">From <b>Rafael Lima</b> &lt;rafael@acmefreight.com.br&gt; · To pedro@in.polytoken.ai</div>
+          <div class="read-body">
+            <p>Oi Pedro, tudo bem?</p>
+            <p>Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte (23/07). Inclui seguro e rastreio. Se confirmar até amanhã, seguro esse valor.</p>
+            <p>Abraço,<br>Rafael Lima — Acme Freight</p>
+          </div>
+        </div>
+
+        <div class="ent-card">
+          <h5>What I found in this email</h5>
+          <div class="ent-row f-per">
+            <div class="r1"><span class="fdot"></span><span class="lbl">Rafael Lima</span><span class="typ">person</span><span class="badge confirmed">Confirmed</span></div>
+          </div>
+          <div class="ent-row f-sup">
+            <div class="r1"><span class="fdot"></span><span class="lbl">Acme Freight</span><span class="typ">supplier</span><span class="badge confirmed">Confirmed</span></div>
+          </div>
+          <div class="ent-row f-amt">
+            <div class="r1"><span class="fdot"></span><span class="lbl mono">R$ 4.820,00</span><span class="typ">amount</span><span class="badge confirmed">Confirmed</span></div>
+          </div>
+          <div class="ent-row f-dat">
+            <div class="r1"><span class="fdot"></span><span class="lbl">18 Jul 2026</span><span class="typ">date</span><span class="badge suggested">Suggested</span></div>
+            <div class="acts">
+              <button class="btn secondary sm">Confirm</button>
+              <button class="btn quiet sm">Dismiss</button>
+            </div>
+          </div>
+          <div class="ent-foot"><a class="link" href="#knowledge">See it all in your knowledge →</a></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 2 — CHAT + CANVAS
+============================================================ -->
+<section class="sec" id="chat">
+  <div class="sec-head"><h2>Chat &amp; Canvas</h2><p>Sources are stitched to the chat that used them — every relationship is a visible thread with a joint at each end.</p></div>
+  <div class="frame">
+    <div class="appbar">
+      <svg class="b-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="12" r="6.5" fill="currentColor"/><circle cx="16" cy="9" r="4.6" fill="currentColor" opacity=".55"/><circle cx="16.8" cy="16.6" r="2.2" fill="currentColor"/></svg>
+      <span class="wordmark">polytoken</span>
+      <nav>
+        <a href="#inbox">Inbox</a>
+        <a href="#chat" class="active">Chat</a>
+        <a href="#knowledge">Knowledge</a>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="chat-grid">
+      <!-- conversation rail -->
+      <div class="convo-rail">
+        <button class="newchat">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          New chat
+        </button>
+        <div class="convo-item active">Freight quote — Lote 88</div>
+        <div class="convo-item">June spending recap</div>
+        <div class="convo-item">Flight to Recife</div>
+      </div>
+
+      <!-- chat column -->
+      <div class="chat-col">
+        <div class="turns">
+          <div class="turn user">What did Acme Freight quote for Lote 88, and how does it compare to the other quotes I got?</div>
+
+          <div class="turn assistant">
+            <span class="tl" aria-hidden="true"></span>
+            <span class="joint" style="top:5px" aria-hidden="true"></span>
+            <div class="tool-row">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+              Searched your mail — 3 results
+            </div>
+            <div class="cite-chip f-src">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 6 10-6"/></svg>
+              <span>Cotação frete SP → POA — Lote 88</span>
+            </div>
+            <span class="joint" style="top:64px" aria-hidden="true"></span>
+            <div class="answer">Acme Freight came back at <b class="mono">R$ 4.820,00</b> — pickup Friday 18 Jul, delivery in Porto Alegre on Wednesday 23 Jul, insurance and tracking included. You also have Transportes Andrade at R$ 5.310,00 and Rodocargo at R$ 4.590,00, but Rodocargo doesn't include insurance. Acme is the only one holding its price — until tomorrow.</div>
+          </div>
+
+          <div class="turn user">Put them side by side for me.</div>
+
+          <div class="turn assistant">
+            <span class="tl" aria-hidden="true"></span>
+            <span class="joint" style="top:5px" aria-hidden="true"></span>
+            <div class="answer">Here you go — I've laid the three quotes out on your canvas.</div>
+          </div>
+        </div>
+
+        <div class="composer">
+          <textarea rows="1" placeholder="Ask me anything — I'll check your mail first." aria-label="Message"></textarea>
+          <button class="send" aria-label="Send message">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- canvas -->
+      <div class="canvas-region">
+        <div class="canvas-inner">
+          <span class="save-status">Saved just now</span>
+
+          <svg class="edges" aria-hidden="true">
+            <!-- source card → chat: "in this chat" -->
+            <path class="e" d="M 10 522 H 116"/>
+            <circle class="joint" cx="10" cy="522" r="4.5"/>
+            <circle class="joint" cx="116" cy="522" r="4.5"/>
+            <!-- table panel → email-thread card -->
+            <path class="e" d="M 352 262 C 322 262 324 246 324 220"/>
+            <circle class="joint" cx="352" cy="262" r="4.5"/>
+            <circle class="joint" cx="324" cy="217" r="4.5"/>
+          </svg>
+          <span class="edge-label" style="left:63px; top:503px">in this chat</span>
+
+          <!-- card 1: email thread -->
+          <div class="ccard f-src" style="left:28px; top:36px; width:296px; height:178px">
+            <div class="chead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="m2 7 10 6 10-6"/></svg>
+              <span class="ctitle">Cotação frete SP → POA — Lote 88</span>
+              <button class="x" aria-label="Remove">×</button>
+            </div>
+            <div class="parts">Rafael Lima, you · 3 messages</div>
+            <div class="snip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte…</div>
+            <div class="cfoot"><a class="link" href="#inbox">Open thread →</a><a class="link" href="#chat">Attach chat</a></div>
+          </div>
+
+          <!-- card 2: generated table panel -->
+          <div class="ccard f-amt" style="left:352px; top:176px; width:400px">
+            <div class="caption">From turn 2</div>
+            <div class="chead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18"/></svg>
+              <span class="ctitle">Freight quotes — Lote 88</span>
+              <button class="x" aria-label="Remove">×</button>
+            </div>
+            <table class="qtable">
+              <thead>
+                <tr><th></th><th>Acme Freight</th><th>Transportes Andrade</th><th>Rodocargo</th></tr>
+              </thead>
+              <tbody>
+                <tr><th>Price</th><td class="num">R$ 4.820,00</td><td class="num">R$ 5.310,00</td><td class="num">R$ 4.590,00</td></tr>
+                <tr><th>Pickup</th><td>Sex 18 Jul</td><td>Ter 22 Jul</td><td>Sex 18 Jul</td></tr>
+                <tr><th>Delivery</th><td>Qua 23 Jul</td><td>Sex 25 Jul</td><td>Seg 28 Jul</td></tr>
+                <tr><th>Insurance</th><td>Included</td><td>Included</td><td>Not included</td></tr>
+                <tr><th>Price held until</th><td>Qua 15 Jul</td><td>—</td><td>Sáb 19 Jul</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- card 3: source card (web) -->
+          <div class="ccard f-src" style="left:116px; top:470px; width:292px">
+            <div class="chead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg>
+              <span class="ctitle">Tabela Nacional de Fretes — atualização julho 2026</span>
+              <button class="x" aria-label="Remove">×</button>
+            </div>
+            <div class="url">gov.br/antt/tabela-de-fretes</div>
+            <div class="caption" style="margin-top:6px">Saved from the web</div>
+          </div>
+
+          <!-- card 4: source card (web) -->
+          <div class="ccard f-src" style="left:430px; top:566px; width:316px">
+            <div class="chead">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a13.5 13.5 0 0 1 0 18M12 3a13.5 13.5 0 0 0 0 18"/></svg>
+              <span class="ctitle">Como negociar frete com seguro incluído</span>
+              <button class="x" aria-label="Remove">×</button>
+            </div>
+            <div class="url">blog.contaazul.com/negociar-frete</div>
+            <div class="caption" style="margin-top:6px">Saved from the web</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 3 — KNOWLEDGE
+============================================================ -->
+<section class="sec" id="knowledge">
+  <div class="sec-head"><h2>Knowledge</h2><p>Each family owns its hue; confidence lives in the stroke — solid threads are confirmed, dotted threads are suggested.</p></div>
+  <div class="frame">
+    <div class="appbar">
+      <svg class="b-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9.5" cy="12" r="6.5" fill="currentColor"/><circle cx="16" cy="9" r="4.6" fill="currentColor" opacity=".55"/><circle cx="16.8" cy="16.6" r="2.2" fill="currentColor"/></svg>
+      <span class="wordmark">polytoken</span>
+      <nav>
+        <a href="#inbox">Inbox</a>
+        <a href="#chat">Chat</a>
+        <a href="#knowledge" class="active">Knowledge</a>
+      </nav>
+      <span class="avatar">P</span>
+    </div>
+
+    <div class="know-grid">
+      <!-- filter rail -->
+      <div class="know-rail">
+        <div class="rail-head" style="text-transform:uppercase; letter-spacing:.06em">Show</div>
+        <div class="chk-row on f-sup"><span class="chk"></span><span class="fdot"></span><span class="lbl">Suppliers</span></div>
+        <div class="chk-row on f-per"><span class="chk"></span><span class="fdot"></span><span class="lbl">People</span></div>
+        <div class="chk-row on f-amt"><span class="chk"></span><span class="fdot"></span><span class="lbl">Amounts</span></div>
+        <div class="chk-row on f-doc"><span class="chk"></span><span class="fdot"></span><span class="lbl">Documents</span></div>
+        <div class="chk-row f-src"><span class="chk"></span><span class="fdot"></span><span class="lbl">Emails</span></div>
+        <div class="rail-sep"></div>
+        <div class="sw-row">
+          <span class="sw" role="switch" aria-checked="true"></span>
+          <div>
+            <div class="lbl">Show suggested connections</div>
+            <div class="sub">I'll mark anything I'm not sure about.</div>
+          </div>
+        </div>
+        <div class="rail-count">9 entities · 6 connections · from 14 emails</div>
+      </div>
+
+      <!-- exploration canvas -->
+      <div class="know-canvas-region">
+        <div class="know-canvas">
+          <div class="seg" role="group">
+            <button>Confirmed only</button>
+            <button class="active">+ Suggested</button>
+            <button>Everything</button>
+          </div>
+
+          <svg class="edges" aria-hidden="true">
+            <!-- confirmed (solid) -->
+            <line class="e" x1="21.5%" y1="28%"  x2="34%"   y2="34.5%"/>
+            <line class="e" x1="41%"   y1="42.5%" x2="51.5%" y2="53.5%"/>
+            <line class="e" x1="25%"   y1="72%"  x2="37%"   y2="82%"/>
+            <!-- suggested (dotted) -->
+            <line class="e dotted" x1="61%"   y1="12.7%" x2="74.5%" y2="15.2%"/>
+            <line class="e dotted" x1="82%"   y1="61.5%" x2="75.5%" y2="42.5%"/>
+            <line class="e dotted" x1="70%"   y1="42.5%" x2="59%"   y2="54%"/>
+            <!-- joints -->
+            <circle class="joint" cx="21.5%" cy="28%"   r="4"/><circle class="joint" cx="34%"   cy="34.5%" r="4"/>
+            <circle class="joint" cx="41%"   cy="42.5%" r="4"/><circle class="joint" cx="51.5%" cy="53.5%" r="4"/>
+            <circle class="joint" cx="25%"   cy="72%"   r="4"/><circle class="joint" cx="37%"   cy="82%"   r="4"/>
+            <circle class="joint" cx="61%"   cy="12.7%" r="4"/><circle class="joint" cx="74.5%" cy="15.2%" r="4"/>
+            <circle class="joint" cx="82%"   cy="61.5%" r="4"/><circle class="joint" cx="75.5%" cy="42.5%" r="4"/>
+            <circle class="joint" cx="70%"   cy="42.5%" r="4"/><circle class="joint" cx="59%"   cy="54%"   r="4"/>
+          </svg>
+
+          <span class="edge-label" style="left:27.5%; top:31%">works at</span>
+          <span class="edge-label" style="left:46%;   top:48%">quoted</span>
+          <span class="edge-label" style="left:31%;   top:77%">issued</span>
+          <span class="edge-label" style="left:68%;   top:14%">works at</span>
+          <span class="edge-label" style="left:79%;   top:52%">similar to</span>
+          <span class="edge-label" style="left:64.5%; top:48%">quoted</span>
+
+          <span class="node f-per" style="left:18%; top:24%"><span class="fdot"></span>Rafael Lima</span>
+          <span class="node selected f-sup" style="left:38%; top:38%"><span class="fdot"></span>Acme Freight</span>
+          <span class="node suggested f-per" style="left:56%; top:12%"><span class="fdot"></span>Marina Costa</span>
+          <span class="node suggested f-sup" style="left:80%; top:16%"><span class="fdot"></span>Embalagens Rio Claro</span>
+          <span class="node f-sup" style="left:74%; top:38%"><span class="fdot"></span>Transportes Andrade</span>
+          <span class="node f-amt mono" style="left:55%; top:58%; font-size:11.5px"><span class="fdot"></span>R$ 4.820,00</span>
+          <span class="node suggested f-sup" style="left:84%; top:66%"><span class="fdot"></span>Rodocargo</span>
+          <span class="node f-sup" style="left:22%; top:68%"><span class="fdot"></span>Papelaria Vitória</span>
+          <span class="node f-doc mono" style="left:40%; top:86%; font-size:11.5px"><span class="fdot"></span>NF-e 3412</span>
+
+          <div class="legend">
+            <span class="lg"><svg viewBox="0 0 18 6" aria-hidden="true"><line x1="1" y1="3" x2="17" y2="3"/></svg>Confirmed</span>
+            <span class="lg"><svg viewBox="0 0 18 6" aria-hidden="true"><line class="dash" x1="1" y1="3" x2="17" y2="3"/></svg>Suggested</span>
+            <span class="lg"><svg viewBox="0 0 18 6" aria-hidden="true"><line class="faint" x1="1" y1="3" x2="17" y2="3"/></svg>Uncertain</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- detail pane -->
+      <div class="detail">
+        <div class="detail-head">
+          <h4>Acme Freight</h4>
+          <button class="x" aria-label="Close">×</button>
+        </div>
+        <div class="badge-row">
+          <span class="badge type">Supplier</span>
+          <span class="badge confirmed">Confirmed</span>
+        </div>
+
+        <div class="prov">from 3 emails</div>
+        <div class="prov-row"><span class="s">Cotação frete SP → POA — Lote 88</span><span class="t">Ter 14:32</span></div>
+        <div class="prov-row"><span class="s">Re: Lote 88</span><span class="t">Seg 10:12</span></div>
+        <div class="prov-row"><span class="s">Tabela de preços 2026</span><span class="t">12 Jun</span></div>
+
+        <div class="kv-block">
+          <div class="kv"><span class="k">Contact</span><span class="v">rafael@acmefreight.com.br</span></div>
+          <div class="kv"><span class="k">First seen</span><span class="v">12 Jun 2026</span></div>
+          <div class="kv"><span class="k">Last seen</span><span class="v">Ter 14:32</span></div>
+        </div>
+
+        <div class="suggest-block">
+          <div class="cap">I think this connects to:</div>
+          <div class="row">Transportes Andrade — quoted the same shipment</div>
+          <div class="acts">
+            <button class="btn primary sm">Promote to confirmed</button>
+            <button class="btn quiet sm">Dismiss</button>
+          </div>
+        </div>
+
+        <div class="detail-foot"><a class="link" href="#knowledge">Open entity →</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 4 — COMPONENTS
+============================================================ -->
+<section class="sec" id="components">
+  <div class="sec-head"><h2>Components</h2><p>The Threadwork kit — soft radii, family hues at fixed tint steps, confidence carried by the stroke.</p></div>
+  <div class="frame comp-frame">
+    <div class="comp-grid">
+
+      <div class="cell">
+        <div class="cell-label">Buttons</div>
+        <div class="cell-body">
+          <button class="btn primary">Promote to confirmed</button>
+          <button class="btn secondary">Open thread</button>
+          <button class="btn destructive">Delete conversation</button>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="cell-label">Input</div>
+        <div class="cell-body">
+          <div class="field">
+            <label for="chat-name">Chat name</label>
+            <input id="chat-name" type="text" value="Freight quote — Lote 88">
+          </div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="cell-label">Entity chips</div>
+        <div class="cell-body rowwrap">
+          <span class="chip f-sup"><span class="cdot"></span>Acme Freight <span class="ctype">· supplier</span></span>
+          <span class="chip suggested f-per"><span class="cdot"></span>Marina Costa <span class="ctype">· person</span></span>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="cell-label">Badges</div>
+        <div class="cell-body rowwrap">
+          <span class="badge confirmed">Confirmed</span>
+          <span class="badge suggested">Suggested</span>
+        </div>
+      </div>
+
+      <div class="cell span2">
+        <div class="cell-label">Toasts</div>
+        <div class="cell-body">
+          <div class="toast ok">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8.5 12.5 2.5 2.5 5-6"/></svg>
+            On it — reprocessing this email
+          </div>
+          <div class="toast err">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.5"/></svg>
+            Couldn't attach a chat to this thread — try again.
+            <button class="tact">Retry</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="cell-label">Empty state</div>
+        <div class="cell-body empty">
+          <span class="eicon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 8.5-8.5 8.38 8.38 0 0 1 8.5 8.5Z"/></svg>
+          </span>
+          <h6>Ask me anything</h6>
+          <p>I'll stream the answer back — sometimes with interactive panels built right in.</p>
+          <button class="btn primary">New chat</button>
+        </div>
+      </div>
+
+      <div class="cell">
+        <div class="cell-label">Loading</div>
+        <div class="cell-body">
+          <div class="skel" aria-hidden="true"><i></i><i></i><i></i></div>
+          <div class="spin-row"><span class="spinner" aria-hidden="true"></span>Searching your mail…</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<footer class="page-foot">polytoken — visual identity proposal, Direction B: Threadwork.</footer>
+
+</body>
+</html>

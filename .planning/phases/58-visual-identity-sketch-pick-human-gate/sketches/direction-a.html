@@ -1,0 +1,1038 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>polytoken — Direction A: Provenance</title>
+<!--
+  DIRECTION A — "PROVENANCE" · the beautifully-kept field record
+  ────────────────────────────────────────────────────────────────
+  PALETTE (named hexes)
+    #E8E6DC  archive shelf    — page ground; warm gray, faint green undertone
+    #F1EFE7  record leaf      — panel / card surface
+    #FAF9F4  fresh leaf       — elevated fields, selected sheets, inputs
+    #E0DED2  shelf shadow     — hover wells, skeletons, inset controls
+    #C7C5B6  ledger rule      — strong structural rules
+    #DBD9CC  ledger hairline  — soft dividers
+    #24271F  iron-gall ink    — primary text
+    #575C4F  faded ink        — secondary text
+    #878B7C  pencil           — muted metadata; "Uncertain"
+    #2F6D5F  verdigris        — CONFIRMED knowledge (solid provenance mark)
+    #8A6B37  graphite amber   — SUGGESTED knowledge (dashed provenance mark)
+    #35516B  drafting blue    — actions, links, selection (the one quiet accent)
+    #9C4130  madder           — destructive / errors only
+  TYPE-HUES (knowledge map + filter dots only)
+    supplier #46647E · person #7D5068 · amount #2F6D5F · document #6E6A54 · email #878B7C
+  TYPE
+    chrome  : Archivo → system grotesque fallback (2 weights: 400 / 600)
+    evidence: Iowan Old Style / Palatino / Georgia — anything that came from the
+              user's own mail renders in serif. Chrome speaks sans, evidence speaks serif.
+  SIGNATURE — the PROVENANCE MARK: a rectangular highlight echoing OCR token boxes
+    on every extracted fact. Solid border + wash = Confirmed. Dashed border = Suggested.
+    Same mark on: inbox chips, cited spans in chat answers, table values, map labels,
+    detail-pane values. Corner brackets = the mark's "selected" state on the map.
+  CHANEL RULE (removed before finishing): the halftone-hatch fill planned for
+    suggested marks, and the blue outline box behind the selected map node —
+    brackets alone carry selection.
+-->
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  /* ── tokens ─────────────────────────────────────────────── */
+  :root{
+    --shelf:#E8E6DC; --leaf:#F1EFE7; --bright:#FAF9F4; --shade:#E0DED2;
+    --rule:#C7C5B6; --hair:#DBD9CC;
+    --ink:#24271F; --faded:#575C4F; --pencil:#878B7C;
+    --conf:#2F6D5F; --sugg:#8A6B37; --act:#35516B; --bad:#9C4130;
+    --t-sup:#46647E; --t-per:#7D5068; --t-amt:#2F6D5F; --t-doc:#6E6A54; --t-eml:#878B7C;
+    --sans:"Archivo",-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+    --r-ctl:8px; --r-card:10px; --r-frame:12px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--shelf); color:var(--ink);
+    font:400 14px/1.55 var(--sans);
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+    padding-top:46px;
+  }
+  ::selection{background:rgba(47,109,95,.22)}
+  a{color:var(--act);text-decoration:none}
+  a:hover{text-decoration:underline}
+  button{font:inherit;color:inherit;background:none;border:none;cursor:pointer}
+  :is(a,button,input):focus-visible{outline:2px solid var(--act);outline-offset:2px;border-radius:4px}
+  svg.i{width:16px;height:16px;flex:none;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .serif{font-family:var(--serif)}
+  .num{font-variant-numeric:tabular-nums lining-nums}
+
+  /* ── fixed top bar ──────────────────────────────────────── */
+  .topbar{
+    position:fixed;inset:0 0 auto 0;height:46px;z-index:50;
+    display:flex;align-items:center;gap:14px;padding:0 24px;
+    background:var(--bright);border-bottom:1px solid var(--rule);
+  }
+  .dirmark{display:inline-flex;gap:3px;align-items:center}
+  .dirmark i{width:9px;height:9px;border-radius:2px;display:block}
+  .dirmark i:first-child{background:var(--conf)}
+  .dirmark i:last-child{border:1px dashed var(--sugg)}
+  .topbar .wm{font-weight:600;font-size:13.5px}
+  .topbar .dir{font-size:13px;color:var(--faded)}
+  .topnav{margin-left:auto;display:flex;gap:4px}
+  .topnav a{font-size:12.5px;padding:5px 10px;border-radius:6px;color:var(--faded)}
+  .topnav a:hover{background:rgba(53,81,107,.07);color:var(--act);text-decoration:none}
+
+  /* ── section shells ─────────────────────────────────────── */
+  main{max-width:1400px;margin:0 auto;padding:0 24px 96px}
+  section{scroll-margin-top:64px;padding-top:56px}
+  .rulehead{display:flex;align-items:baseline;gap:14px;margin-bottom:18px}
+  .rulehead h1{font-size:15px;font-weight:600;letter-spacing:.01em;white-space:nowrap}
+  .rulehead::after{content:"";flex:1;border-top:1px solid var(--rule);transform:translateY(-4px)}
+
+  /* app frame + global nav rail */
+  .frame{
+    display:flex;align-items:stretch;overflow:hidden;
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-frame);
+  }
+  .navrail{
+    width:64px;flex:none;display:flex;flex-direction:column;align-items:center;
+    padding:14px 0 12px;gap:6px;background:var(--bright);border-right:1px solid var(--hair);
+  }
+  .brand{color:#29594D;margin-bottom:10px}
+  .brand svg{width:26px;height:26px;display:block}
+  .nitem{
+    width:52px;padding:7px 0 6px;border-radius:8px;display:flex;flex-direction:column;
+    align-items:center;gap:3px;color:var(--faded);font-size:10px;line-height:1;
+  }
+  .nitem:hover{background:rgba(53,81,107,.07);color:var(--act)}
+  .nitem.on{background:rgba(53,81,107,.10);color:var(--act);font-weight:600}
+  .avatar{
+    margin-top:auto;width:28px;height:28px;border-radius:50%;
+    background:var(--shade);border:1px solid var(--rule);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--faded);
+  }
+
+  /* ── provenance mark (signature) ────────────────────────── */
+  .pm{
+    font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;
+    border-radius:3px;padding:0 .22em;margin:0 .04em;
+  }
+  .pm.c{background:rgba(47,109,95,.10);border:1px solid rgba(47,109,95,.35)}
+  .pm.s{background:rgba(138,107,55,.07);border:1px dashed rgba(138,107,55,.55)}
+
+  /* entity chips — OCR-box rectangles, not pills */
+  .chips{display:flex;flex-wrap:wrap;gap:5px}
+  .chip{
+    display:inline-flex;align-items:baseline;gap:4px;max-width:100%;
+    font-size:11.5px;line-height:1;padding:4px 7px;border-radius:4px;white-space:nowrap;
+  }
+  .chip .cv{font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;font-size:12px}
+  .chip .ct{font-size:10.5px;color:var(--pencil)}
+  .chip.c{background:rgba(47,109,95,.09);border:1px solid rgba(47,109,95,.35);color:#26584D}
+  .chip.s{background:rgba(138,107,55,.07);border:1px dashed rgba(138,107,55,.55);color:#6E5429}
+  .chip.c:hover{background:rgba(47,109,95,.15)}
+  .chip.s:hover{background:rgba(138,107,55,.13)}
+  .chip.neutral{background:var(--bright);border:1px solid var(--rule);color:var(--ink)}
+  .chip.neutral:hover{background:rgba(53,81,107,.06)}
+
+  /* badges */
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    line-height:1;padding:3px 7px;border-radius:4px;white-space:nowrap;
+  }
+  .badge .sw{width:7px;height:7px;border-radius:1.5px;display:block}
+  .badge.c{color:var(--conf);background:rgba(47,109,95,.09);border:1px solid rgba(47,109,95,.3)}
+  .badge.c .sw{background:var(--conf)}
+  .badge.s{color:#79602F;background:rgba(138,107,55,.08);border:1px dashed rgba(138,107,55,.5)}
+  .badge.s .sw{border:1px dashed var(--sugg)}
+  .badge.type{color:var(--t-sup);background:rgba(70,100,126,.09);border:1px solid rgba(70,100,126,.3)}
+
+  /* buttons */
+  .btn{
+    display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;
+    padding:7px 14px;border-radius:var(--r-ctl);line-height:1.2;white-space:nowrap;
+  }
+  .btn.primary{background:var(--act);color:var(--bright)}
+  .btn.primary:hover{background:#2C4459}
+  .btn.ghost{background:var(--bright);border:1px solid var(--rule);color:var(--ink)}
+  .btn.ghost:hover{background:rgba(53,81,107,.06);border-color:#B3B1A0}
+  .btn.danger{background:var(--bad);color:var(--bright)}
+  .btn.danger:hover{background:#873A2B}
+  .btn.block{width:100%;justify-content:center}
+  .btn.sm{font-size:12px;padding:6px 11px}
+  .tbtn{font-size:12.5px;font-weight:600;color:var(--act);padding:2px 4px;border-radius:4px}
+  .tbtn:hover{background:rgba(53,81,107,.08)}
+  .tbtn.quiet{color:var(--faded);font-weight:400}
+  .tbtn.quiet:hover{background:rgba(36,39,31,.05)}
+  .xbtn{color:var(--pencil);font-size:14px;line-height:1;padding:2px 5px;border-radius:4px}
+  .xbtn:hover{color:var(--ink);background:rgba(36,39,31,.06)}
+
+  /* ══ SCREEN 1 · INBOX ═══════════════════════════════════ */
+  #inbox .frame{height:860px}
+  .filters{
+    width:200px;flex:none;display:flex;flex-direction:column;gap:2px;
+    padding:16px 12px;border-right:1px solid var(--hair);
+  }
+  .paneh{
+    font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+    color:var(--pencil);padding:0 8px;margin-bottom:8px;
+  }
+  .fitem{font-size:13px;text-align:left;padding:6px 9px;border-radius:6px;color:var(--faded)}
+  .fitem:hover{background:rgba(53,81,107,.06);color:var(--ink)}
+  .fitem.on{background:rgba(53,81,107,.10);color:var(--act);font-weight:600}
+  .fhint{
+    margin-top:16px;padding:10px 9px 0;border-top:1px solid var(--hair);
+    font-size:12px;line-height:1.55;color:var(--pencil);
+  }
+  .threads{
+    width:376px;flex:none;display:flex;flex-direction:column;
+    border-right:1px solid var(--hair);overflow-y:auto;
+  }
+  .lhead{
+    display:flex;align-items:center;gap:8px;padding:16px 16px 12px;
+    position:sticky;top:0;background:var(--leaf);border-bottom:1px solid var(--hair);z-index:2;
+  }
+  .lhead h2{font-size:15px;font-weight:600}
+  .count{
+    font-size:11px;font-weight:600;padding:2px 7px;border-radius:4px;
+    background:var(--bright);border:1px solid var(--rule);color:var(--faded);
+    font-variant-numeric:tabular-nums;
+  }
+  .row{padding:12px 16px 13px;border-bottom:1px solid var(--hair);cursor:pointer}
+  .row:hover{background:rgba(36,39,31,.03)}
+  .row .rh{display:flex;align-items:center;gap:7px}
+  .sender{font-size:13px;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row time{margin-left:auto;flex:none;font-size:11.5px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .chev{color:var(--pencil);display:flex}
+  .chev svg{width:13px;height:13px}
+  .mcount{
+    font-size:10.5px;font-weight:600;color:var(--faded);background:var(--shade);
+    border-radius:4px;padding:1px 5px;font-variant-numeric:tabular-nums;
+  }
+  .subj{
+    font-family:var(--serif);font-size:14px;margin-top:3px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .snip{
+    font-family:var(--serif);font-size:12.5px;color:var(--faded);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .row .chips{margin-top:8px}
+  .row.unread .sender::before{
+    content:"";display:inline-block;width:7px;height:7px;border-radius:50%;
+    background:var(--act);margin-right:6px;vertical-align:1px;
+  }
+  .row.unread .subj{font-weight:600}
+  .row.sel{background:var(--bright);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+  .row.sel:hover{background:var(--bright)}
+  .attach{
+    display:inline-flex;align-items:center;gap:5px;margin-top:7px;
+    font-size:11.5px;color:var(--faded);background:var(--shade);
+    border-radius:4px;padding:3px 7px;
+  }
+  .attach svg{width:12px;height:12px}
+  .members{margin:10px 0 0 6px;padding-left:12px;border-left:1px solid var(--rule)}
+  .member{padding:8px 8px 9px;border-radius:6px}
+  .member + .member{margin-top:2px}
+  .member .mh{display:flex;align-items:baseline;gap:8px}
+  .member .mh span{font-size:12.5px;font-weight:600}
+  .member .mh time{margin-left:auto;font-size:11px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .member.msel{background:rgba(53,81,107,.08);border:1px solid rgba(53,81,107,.22)}
+  .member .chips{margin-top:7px}
+  .msnip{
+    font-family:var(--serif);font-size:12px;color:var(--faded);margin-top:2px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .loadmore{padding:12px 16px 16px}
+  .reading{flex:1;min-width:0;padding:22px 26px;overflow-y:auto}
+  .rp-head{display:flex;align-items:flex-start;gap:16px}
+  .rp-head h2{font-family:var(--serif);font-size:19px;font-weight:600;line-height:1.3;flex:1;min-width:0}
+  .rp-meta{
+    margin-top:10px;padding-bottom:14px;border-bottom:1px solid var(--hair);
+    font-size:12.5px;color:var(--faded);
+  }
+  .rp-body{font-family:var(--serif);font-size:15.5px;line-height:1.7;margin-top:18px;max-width:56ch}
+  .rp-body p + p{margin-top:14px}
+  .entities{
+    width:288px;flex:none;border-left:1px solid var(--hair);
+    padding:22px 18px;display:flex;flex-direction:column;background:var(--leaf);
+  }
+  .entities h3{font-size:13px;font-weight:600;margin-bottom:14px}
+  .ent{padding:9px 0;border-bottom:1px solid var(--hair)}
+  .ent .e1{display:flex;align-items:center;gap:8px}
+  .ent .ev{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .ent .e1 .badge{margin-left:auto;flex:none}
+  .ent .et{font-size:11px;color:var(--pencil);margin-top:3px}
+  .ent-actions{display:flex;gap:8px;margin-top:7px}
+  .flink{display:block;font-size:12.5px;font-weight:600;margin-top:auto;padding-top:16px}
+
+  /* ══ SCREEN 2 · CHAT + CANVAS ═══════════════════════════ */
+  #chat .frame{height:680px}
+  .convrail{
+    width:208px;flex:none;padding:14px 10px;display:flex;flex-direction:column;gap:2px;
+    border-right:1px solid var(--hair);
+  }
+  .newchat{
+    display:flex;align-items:center;gap:7px;font-size:13px;font-weight:600;color:var(--act);
+    padding:7px 9px;border-radius:6px;margin-bottom:10px;text-align:left;
+  }
+  .newchat:hover{background:rgba(53,81,107,.08)}
+  .citem{
+    font-size:12.5px;text-align:left;padding:7px 9px;border-radius:6px;color:var(--faded);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .citem:hover{background:rgba(53,81,107,.06);color:var(--ink)}
+  .citem.on{background:rgba(53,81,107,.10);color:var(--act);font-weight:600}
+  .chatcol{
+    width:388px;flex:none;display:flex;flex-direction:column;
+    background:var(--bright);border-right:1px solid var(--hair);
+  }
+  .turns{flex:1;overflow-y:auto;padding:20px 18px;display:flex;flex-direction:column;gap:16px}
+  .uturn{
+    align-self:flex-end;max-width:85%;background:var(--shade);
+    border-radius:12px;padding:9px 13px;font-size:13.5px;line-height:1.55;
+  }
+  .aturn{font-size:13.5px;line-height:1.65}
+  .aturn p + p{margin-top:8px}
+  .tool{
+    display:flex;align-items:center;gap:7px;font-size:12px;color:var(--pencil);margin-bottom:7px;
+  }
+  .tool svg{width:13px;height:13px}
+  .srcchip{
+    display:inline-flex;align-items:center;gap:6px;max-width:100%;
+    font-size:12px;padding:5px 9px;border-radius:4px;margin-bottom:9px;
+    background:var(--leaf);border:1px solid var(--rule);color:var(--ink);cursor:pointer;
+  }
+  .srcchip:hover{background:rgba(53,81,107,.06);text-decoration:none}
+  .srcchip svg{width:13px;height:13px;color:var(--faded)}
+  .srcchip .st{
+    font-family:var(--serif);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .composer{
+    display:flex;gap:8px;padding:14px 16px;border-top:1px solid var(--hair);
+  }
+  .composer input{
+    flex:1;min-width:0;font:400 13px/1.4 var(--sans);color:var(--ink);
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-ctl);
+    padding:9px 12px;
+  }
+  .composer input::placeholder{color:var(--pencil)}
+  .composer input:focus{outline:2px solid var(--act);outline-offset:1px}
+  .send{
+    flex:none;width:36px;height:36px;border-radius:var(--r-ctl);
+    background:var(--act);color:var(--bright);display:flex;align-items:center;justify-content:center;
+  }
+  .send:hover{background:#2C4459}
+  .canvaswrap{flex:1;min-width:0;position:relative;overflow:auto}
+  .board{
+    position:relative;width:700px;height:640px;
+    background-image:radial-gradient(rgba(36,39,31,.10) 1px,transparent 1px);
+    background-size:22px 22px;
+  }
+  .savestatus{
+    position:absolute;top:12px;right:14px;z-index:3;
+    display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--pencil);
+    background:var(--leaf);padding:4px 9px;border-radius:5px;
+  }
+  .savestatus svg{width:12px;height:12px;color:var(--conf)}
+  .edges{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+  .edgelabel{
+    position:absolute;transform:translate(-50%,-50%);z-index:2;
+    font-size:10.5px;color:var(--faded);background:var(--leaf);
+    padding:1px 6px;border-radius:3px;white-space:nowrap;
+  }
+  .card{
+    position:absolute;z-index:2;background:var(--bright);
+    border:1px solid var(--rule);border-radius:var(--r-card);
+    display:flex;flex-direction:column;
+  }
+  .card:hover{border-color:#AFAD9C}
+  .ch{display:flex;align-items:center;gap:7px;padding:9px 10px 8px;border-bottom:1px solid var(--hair)}
+  .ch svg{width:13px;height:13px;color:var(--faded)}
+  .ch .ct2{
+    flex:1;min-width:0;font-family:var(--serif);font-size:12.5px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .cbody{padding:10px 12px 11px}
+  .cap{font-size:10.5px;color:var(--pencil);margin-bottom:2px}
+  .parts{font-size:11.5px;color:var(--faded)}
+  .csnip{font-family:var(--serif);font-size:12px;line-height:1.55;color:var(--ink);margin-top:6px}
+  .cf{display:flex;gap:10px;padding:8px 12px 10px;border-top:1px solid var(--hair)}
+  .urlline{font-size:11px;color:var(--pencil);margin-top:5px;font-variant-numeric:tabular-nums}
+  table.qt{border-collapse:collapse;width:100%;margin-top:8px}
+  .qt th,.qt td{
+    text-align:left;padding:5px 8px;border-bottom:1px solid var(--hair);
+    font-size:11.5px;line-height:1.35;vertical-align:top;
+  }
+  .qt thead th{font-weight:600;font-size:11px;color:var(--faded);border-bottom:1px solid var(--rule)}
+  .qt tbody th{font-weight:400;color:var(--faded);white-space:nowrap}
+  .qt td{font-family:var(--serif);font-size:12px;font-variant-numeric:tabular-nums lining-nums;white-space:nowrap}
+  .qt tbody tr:last-child :is(td,th){border-bottom:none}
+
+  /* ══ SCREEN 3 · KNOWLEDGE ═══════════════════════════════ */
+  #knowledge .frame{height:660px}
+  .krail{
+    width:236px;flex:none;padding:16px 14px;display:flex;flex-direction:column;
+    border-right:1px solid var(--hair);
+  }
+  .krow{
+    display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 6px;
+    border-radius:6px;cursor:pointer;
+  }
+  .krow:hover{background:rgba(53,81,107,.05)}
+  .cb{
+    width:14px;height:14px;flex:none;border-radius:3px;background:var(--bright);
+    border:1px solid var(--rule);display:flex;align-items:center;justify-content:center;
+  }
+  .cb.on{background:var(--act);border-color:var(--act)}
+  .cb.on svg{width:9px;height:9px;color:var(--bright);stroke-width:2.6}
+  .tdot{width:8px;height:8px;flex:none;border-radius:50%}
+  .krow.off{color:var(--pencil)}
+  .ksep{border:none;border-top:1px solid var(--hair);margin:12px 2px}
+  .swrow{display:flex;align-items:flex-start;gap:9px;padding:2px 6px}
+  .switch{
+    width:32px;height:18px;flex:none;border-radius:9px;background:var(--rule);
+    position:relative;margin-top:2px;
+  }
+  .switch.on{background:var(--act)}
+  .switch .knob{
+    position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:var(--bright);
+  }
+  .switch.on .knob{left:auto;right:2px}
+  .swlabel{font-size:13px;line-height:1.35}
+  .swsub{font-size:11.5px;color:var(--pencil);margin-top:2px}
+  .kcount{
+    margin-top:auto;padding:12px 6px 0;border-top:1px solid var(--hair);
+    font-size:11.5px;color:var(--pencil);font-variant-numeric:tabular-nums;
+  }
+  .kcanvas{flex:1;min-width:0;position:relative;overflow:auto}
+  .kboard{
+    position:relative;min-width:640px;width:100%;height:100%;
+    background-image:radial-gradient(rgba(36,39,31,.10) 1px,transparent 1px);
+    background-size:22px 22px;
+  }
+  .seg{
+    position:absolute;top:12px;left:14px;z-index:4;display:inline-flex;gap:2px;
+    background:var(--shade);border-radius:var(--r-ctl);padding:3px;
+  }
+  .seg button{font-size:12px;color:var(--faded);padding:4px 10px;border-radius:6px;white-space:nowrap}
+  .seg button:hover{color:var(--ink)}
+  .seg button.on{background:var(--bright);border:1px solid var(--hair);color:var(--ink);font-weight:600;padding:3px 9px}
+  .legend{
+    position:absolute;bottom:12px;left:14px;z-index:4;display:flex;gap:12px;
+    background:var(--leaf);border:1px solid var(--hair);border-radius:6px;
+    padding:6px 11px;font-size:11.5px;color:var(--faded);
+  }
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .legend .sw{width:8px;height:8px;border-radius:2px;display:block}
+  .legend .sw.c{background:var(--conf)}
+  .legend .sw.s{border:1px dashed var(--sugg)}
+  .legend .sw.u{background:var(--pencil);opacity:.4}
+  .node{
+    position:absolute;transform:translate(-50%,-50%);z-index:3;
+    display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;
+  }
+  .ndot{width:12px;height:12px;border-radius:50%;background:var(--th)}
+  .node.sug .ndot{background:transparent;border:1.5px dashed var(--th)}
+  .nlabel{
+    font-family:var(--serif);font-size:12.5px;line-height:1;white-space:nowrap;
+    font-variant-numeric:tabular-nums lining-nums;
+    border-radius:3px;padding:2px 5px;background:var(--leaf);
+    border:1px solid rgba(47,109,95,.35);
+  }
+  .node.sug .nlabel{border:1px dashed rgba(138,107,55,.55);color:#5F5138}
+  .node:hover .nlabel{background:var(--bright)}
+  .node.selnode{padding:9px 10px}
+  .node.selnode .nlabel{background:var(--bright);font-weight:600}
+  .node.selnode::before,.node.selnode::after{
+    content:"";position:absolute;width:9px;height:9px;border-color:var(--act);border-style:solid;
+  }
+  .node.selnode::before{top:0;left:0;border-width:1.5px 0 0 1.5px}
+  .node.selnode::after{bottom:0;right:0;border-width:0 1.5px 1.5px 0}
+  .kdetail{
+    width:312px;flex:none;border-left:1px solid var(--hair);
+    padding:20px 18px;display:flex;flex-direction:column;background:var(--leaf);overflow-y:auto;
+  }
+  .kd-head{display:flex;align-items:flex-start;gap:10px}
+  .kd-head h3{font-family:var(--serif);font-size:18px;font-weight:600;flex:1;min-width:0}
+  .kd-badges{display:flex;gap:6px;margin-top:9px}
+  .kd-prov{font-size:12px;color:var(--pencil);margin:16px 0 6px}
+  .kd-mail{display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--hair)}
+  .kd-mail .ms{
+    flex:1;min-width:0;font-family:var(--serif);font-size:12.5px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .kd-mail time{flex:none;font-size:11px;color:var(--pencil);font-variant-numeric:tabular-nums}
+  .kd-rows{margin-top:14px}
+  .kd-rows>div{display:flex;gap:10px;padding:5px 0;font-size:12.5px}
+  .kd-rows dt{width:74px;flex:none;color:var(--pencil)}
+  .kd-rows dd{
+    font-family:var(--serif);font-variant-numeric:tabular-nums lining-nums;min-width:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .kd-sug{
+    margin-top:16px;padding:12px;border:1px dashed rgba(138,107,55,.5);
+    border-radius:var(--r-card);background:rgba(138,107,55,.05);
+  }
+  .kd-sug .cap{margin-bottom:6px}
+  .sugrow{font-size:12.5px;line-height:1.5}
+  .kd-sug .btns{display:flex;align-items:center;gap:10px;margin-top:11px}
+
+  /* ══ SCREEN 4 · COMPONENTS ══════════════════════════════ */
+  .compgrid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}
+  .cell{
+    background:var(--leaf);border:1px solid var(--rule);border-radius:var(--r-card);
+    padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0;
+  }
+  .cell>h4{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--pencil)}
+  .c4{grid-column:span 4}.c3{grid-column:span 3}.c2{grid-column:span 2}
+  .cellrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .field label{display:block;font-size:12px;font-weight:600;margin-bottom:5px}
+  .field input{
+    width:100%;font:400 13px/1.4 var(--sans);color:var(--ink);
+    background:var(--bright);border:1px solid var(--rule);border-radius:var(--r-ctl);
+    padding:8px 11px;
+  }
+  .field input:hover{border-color:#B3B1A0}
+  .field input:focus{outline:2px solid var(--act);outline-offset:1px}
+  .toast{
+    display:flex;align-items:flex-start;gap:9px;max-width:360px;
+    background:var(--bright);border:1px solid var(--rule);border-radius:var(--r-card);
+    padding:11px 13px;font-size:13px;line-height:1.45;
+  }
+  .toast svg{width:15px;height:15px;margin-top:1px}
+  .toast.ok svg{color:var(--conf)}
+  .toast.err svg{color:var(--bad)}
+  .toast .tbtn{margin-left:auto;flex:none}
+  .empty{
+    display:flex;flex-direction:column;align-items:center;text-align:center;gap:8px;
+    padding:22px 16px;
+  }
+  .empty svg{width:26px;height:26px;color:var(--pencil);stroke-width:1.4}
+  .empty h5{font-size:14.5px;font-weight:600}
+  .empty p{font-size:12.5px;color:var(--faded);max-width:30ch}
+  .empty .btn{margin-top:4px}
+  .skel{display:flex;flex-direction:column;gap:8px}
+  .skel i{
+    display:block;height:10px;border-radius:4px;background:var(--shade);
+    background-image:linear-gradient(90deg,var(--shade) 0%,#EAE8DC 45%,var(--shade) 90%);
+    background-size:200% 100%;animation:shimmer 1.4s linear infinite;
+  }
+  .skel i:nth-child(1){width:100%}.skel i:nth-child(2){width:84%}.skel i:nth-child(3){width:58%}
+  @keyframes shimmer{from{background-position:120% 0}to{background-position:-80% 0}}
+  .spinrow{display:flex;align-items:center;gap:9px;font-size:13px;color:var(--faded)}
+  .spinner{
+    width:16px;height:16px;flex:none;border-radius:50%;
+    border:2px solid var(--rule);border-top-color:var(--ink);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ── 1024px guard ───────────────────────────────────────── */
+  @media (max-width:1120px){
+    main{padding:0 16px 72px}
+    .navrail{width:56px}
+    .filters{width:156px}
+    .threads{width:308px}
+    .entities{width:238px;padding:18px 14px}
+    .convrail{width:184px}
+    .chatcol{width:336px}
+    .krail{width:204px}
+    .kdetail{width:266px;padding:16px 14px}
+    .c4{grid-column:span 6}.c3{grid-column:span 6}.c2{grid-column:span 6}
+  }
+
+  /* ── reduced motion ─────────────────────────────────────── */
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *,*::before,*::after{animation:none!important;transition:none!important}
+  }
+</style>
+</head>
+<body>
+
+<!-- icon sprite -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></symbol>
+    <symbol id="i-know" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.6"/><circle cx="18" cy="9" r="2.6"/><circle cx="10" cy="18" r="2.6"/><path d="M8.4 7.1 15.5 8.4M7 8.4l2.2 7.2M16.4 11.2l-4.8 5.2"/></symbol>
+    <symbol id="i-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+    <symbol id="i-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 9h18M3 15h18"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+    <symbol id="i-checkc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <span class="dirmark" aria-hidden="true"><i></i><i></i></span>
+  <span class="wm">polytoken</span>
+  <span class="dir">Direction A — Provenance</span>
+  <nav class="topnav">
+    <a href="#inbox">Inbox</a>
+    <a href="#chat">Chat &amp; Canvas</a>
+    <a href="#knowledge">Knowledge</a>
+    <a href="#components">Components</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ══════════════════ SCREEN 1 · INBOX ══════════════════ -->
+<section id="inbox">
+  <div class="rulehead"><h1>Inbox</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem on"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="filters">
+      <div class="paneh">Filters</div>
+      <button class="fitem on">All</button>
+      <button class="fitem">Unread</button>
+      <button class="fitem">With entities</button>
+      <p class="fhint">Forward anything to pedro@in.polytoken.ai — I&rsquo;ll read it and pull out what matters.</p>
+    </aside>
+
+    <div class="threads">
+      <div class="lhead"><h2>Inbox</h2><span class="count num">7</span></div>
+
+      <!-- 1 · selected, expanded thread -->
+      <article class="row sel">
+        <div class="rh">
+          <span class="chev"><svg class="i"><use href="#i-chev"/></svg></span>
+          <span class="sender">Rafael Lima</span>
+          <span class="mcount">3</span>
+          <time>Ter 14:32</time>
+        </div>
+        <div class="subj">Cotação frete SP → POA — Lote 88</div>
+        <div class="snip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07)…</div>
+        <div class="members">
+          <div class="member msel">
+            <div class="mh"><span>Rafael Lima</span><time>Ter 14:32</time></div>
+            <div class="chips">
+              <span class="chip c"><span class="cv">Acme Freight</span><span class="ct">· supplier</span></span>
+              <span class="chip c"><span class="cv">R$ 4.820,00</span><span class="ct">· amount</span></span>
+              <span class="chip s"><span class="cv">18 Jul</span><span class="ct">· date</span></span>
+            </div>
+          </div>
+          <div class="member">
+            <div class="mh"><span>Rafael Lima</span><time>Seg 10:12</time></div>
+            <div class="msnip">Segue proposta inicial: R$ 5.150,00, coleta em 5 dias úteis.</div>
+          </div>
+          <div class="member">
+            <div class="mh"><span>Pedro Shin</span><time>Sex 17:03</time></div>
+            <div class="msnip">Rafael, preciso de cotação para o Lote 88 até quarta.</div>
+          </div>
+        </div>
+      </article>
+
+      <!-- 2 · unread -->
+      <article class="row unread">
+        <div class="rh"><span class="sender">Marina Costa</span><time>Ter 11:05</time></div>
+        <div class="subj">Proposta comercial — Embalagens Rio Claro</div>
+        <div class="snip">Conforme conversamos, segue nossa proposta para o contrato anual…</div>
+        <div class="chips">
+          <span class="chip s"><span class="cv">Embalagens Rio Claro</span><span class="ct">· supplier</span></span>
+          <span class="chip s"><span class="cv">Marina Costa</span><span class="ct">· person</span></span>
+        </div>
+      </article>
+
+      <!-- 3 -->
+      <article class="row">
+        <div class="rh"><span class="sender">Papelaria Vitória</span><time>Ter 09:14</time></div>
+        <div class="subj">NF-e 3412 — Papelaria Vitória Ltda</div>
+        <div class="snip">Segue em anexo a Nota Fiscal Eletrônica referente ao pedido #2210.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Papelaria Vitória</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">NF-e 3412</span><span class="ct">· document</span></span>
+          <span class="chip c"><span class="cv">R$ 1.284,50</span><span class="ct">· amount</span></span>
+        </div>
+      </article>
+
+      <!-- 4 -->
+      <article class="row">
+        <div class="rh"><span class="sender">LATAM Airlines</span><time>Seg 18:47</time></div>
+        <div class="subj">Booking confirmed — GRU → REC, 22 Jul</div>
+        <div class="snip">Your booking XKJ9PW is confirmed. Check-in opens 48h before departure.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">LATAM Airlines</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">XKJ9PW</span><span class="ct">· document</span></span>
+          <span class="chip c"><span class="cv">22 Jul</span><span class="ct">· date</span></span>
+        </div>
+      </article>
+
+      <!-- 5 · attachment -->
+      <article class="row">
+        <div class="rh"><span class="sender">Conta Azul</span><time>Seg 08:30</time></div>
+        <div class="subj">Recibo #8817 — Plano anual</div>
+        <div class="snip">Obrigado! Seu pagamento foi confirmado. Recibo em anexo.</div>
+        <span class="attach"><svg class="i"><use href="#i-clip"/></svg>recibo-8817.pdf</span>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Conta Azul</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">R$ 948,00</span><span class="ct">· amount</span></span>
+          <span class="chip s"><span class="cv">Recibo #8817</span><span class="ct">· document</span></span>
+        </div>
+      </article>
+
+      <!-- 6 -->
+      <article class="row">
+        <div class="rh"><span class="sender">Banco Itaú</span><time>Sex 16:20</time></div>
+        <div class="subj">Extrato mensal — Junho 2026</div>
+        <div class="snip">Seu extrato consolidado de junho já está disponível.</div>
+        <div class="chips">
+          <span class="chip c"><span class="cv">Banco Itaú</span><span class="ct">· supplier</span></span>
+          <span class="chip c"><span class="cv">Extrato Jun/2026</span><span class="ct">· document</span></span>
+        </div>
+      </article>
+
+      <!-- 7 · no chips -->
+      <article class="row">
+        <div class="rh"><span class="sender">Filipe Deschamps</span><time>Qui 07:58</time></div>
+        <div class="subj">☕ Edição #1.204 — IA, chips e Selic</div>
+        <div class="snip">Bom dia! Hoje: data centers no Nordeste, Selic parada e um bug de 30 anos.</div>
+      </article>
+
+      <div class="loadmore"><button class="btn ghost block">Load more</button></div>
+    </div>
+
+    <div class="reading">
+      <div class="rp-head">
+        <h2>Cotação frete SP → POA — Lote 88</h2>
+        <button class="btn ghost">Open email →</button>
+      </div>
+      <div class="rp-meta">From: Rafael Lima &lt;rafael@acmefreight.com.br&gt; · To: pedro@in.polytoken.ai</div>
+      <div class="rp-body">
+        <p>Oi Pedro, tudo bem?</p>
+        <p>Consigo fechar em <span class="pm c">R$ 4.820,00</span> com coleta na sexta (<span class="pm s">18/07</span>) e entrega em Porto Alegre na quarta seguinte (23/07). Inclui seguro e rastreio. Se confirmar até amanhã, seguro esse valor.</p>
+        <p>Abraço,<br>Rafael Lima — <span class="pm c">Acme Freight</span></p>
+      </div>
+    </div>
+
+    <aside class="entities">
+      <h3>What I found in this email</h3>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">Rafael Lima</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">person</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">Acme Freight</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">supplier</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm c ev">R$ 4.820,00</span><span class="badge c"><span class="sw"></span>Confirmed</span></div>
+        <div class="et">amount</div>
+      </div>
+      <div class="ent">
+        <div class="e1"><span class="pm s ev">18 Jul 2026</span><span class="badge s"><span class="sw"></span>Suggested</span></div>
+        <div class="et">date</div>
+        <div class="ent-actions">
+          <button class="tbtn">Confirm</button>
+          <button class="tbtn quiet">Dismiss</button>
+        </div>
+      </div>
+      <a class="flink" href="#knowledge">See it all in your knowledge →</a>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ═══════════════ SCREEN 2 · CHAT + CANVAS ═══════════════ -->
+<section id="chat">
+  <div class="rulehead"><h1>Chat &amp; Canvas</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem on"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="convrail">
+      <button class="newchat"><svg class="i"><use href="#i-plus"/></svg>New chat</button>
+      <button class="citem on">Freight quote — Lote 88</button>
+      <button class="citem">June spending recap</button>
+      <button class="citem">Flight to Recife</button>
+    </aside>
+
+    <div class="chatcol">
+      <div class="turns">
+        <div class="uturn">What did Acme Freight quote for Lote 88, and how does it compare to the other quotes I got?</div>
+        <div class="aturn">
+          <div class="tool"><svg class="i"><use href="#i-search"/></svg>Searched your mail — 3 results</div>
+          <a class="srcchip"><svg class="i"><use href="#i-mail"/></svg><span class="st">Cotação frete SP → POA — Lote 88</span></a>
+          <p>Acme Freight came back at <strong class="pm c num">R$ 4.820,00</strong> — pickup Friday 18 Jul, delivery in Porto Alegre on Wednesday 23 Jul, insurance and tracking included. You also have Transportes Andrade at <span class="pm c num">R$ 5.310,00</span> and Rodocargo at <span class="pm c num">R$ 4.590,00</span>, but Rodocargo doesn&rsquo;t include insurance. Acme is the only one holding its price — until tomorrow.</p>
+        </div>
+        <div class="uturn">Put them side by side for me.</div>
+        <div class="aturn"><p>Here you go — I&rsquo;ve laid the three quotes out on your canvas.</p></div>
+      </div>
+      <div class="composer">
+        <input type="text" placeholder="Ask me anything — I&rsquo;ll check your mail first.">
+        <button class="send" aria-label="Send message"><svg class="i"><use href="#i-send"/></svg></button>
+      </div>
+    </div>
+
+    <div class="canvaswrap">
+      <div class="savestatus"><svg class="i"><use href="#i-check"/></svg>Saved just now</div>
+      <div class="board">
+        <svg class="edges" aria-hidden="true">
+          <path d="M420,110 Q300,290 8,272" fill="none" stroke="rgba(36,39,31,.35)" stroke-width="1.5"/>
+          <circle cx="420" cy="110" r="3" fill="rgba(36,39,31,.45)"/>
+          <circle cx="8" cy="272" r="3" fill="rgba(36,39,31,.45)"/>
+          <line x1="336" y1="322" x2="170" y2="206" stroke="rgba(36,39,31,.35)" stroke-width="1.5"/>
+          <circle cx="336" cy="322" r="3" fill="rgba(36,39,31,.45)"/>
+          <circle cx="170" cy="206" r="3" fill="rgba(36,39,31,.45)"/>
+        </svg>
+        <span class="edgelabel" style="left:190px;top:262px">in this chat</span>
+
+        <!-- 1 · email-thread card -->
+        <div class="card" style="left:24px;top:44px;width:290px">
+          <div class="ch"><svg class="i"><use href="#i-mail"/></svg><span class="ct2">Cotação frete SP → POA — Lote 88</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="parts">Rafael Lima, you · 3 messages</div>
+            <div class="csnip">Consigo fechar em R$ 4.820,00 com coleta na sexta (18/07) e entrega em Porto Alegre na quarta seguinte…</div>
+          </div>
+          <div class="cf"><button class="tbtn">Open thread →</button><button class="tbtn">Attach chat</button></div>
+        </div>
+
+        <!-- 3 · source card (web) -->
+        <div class="card" style="left:404px;top:36px;width:272px">
+          <div class="ch"><svg class="i"><use href="#i-globe"/></svg><span class="ct2">Tabela Nacional de Fretes — atualização julho 2026</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="urlline">gov.br/antt/tabela-de-fretes</div>
+            <div class="cap">Saved from the web</div>
+          </div>
+        </div>
+
+        <!-- 4 · source card (web) -->
+        <div class="card" style="left:428px;top:196px;width:248px">
+          <div class="ch"><svg class="i"><use href="#i-globe"/></svg><span class="ct2">Como negociar frete com seguro incluído</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="urlline">blog.contaazul.com/negociar-frete</div>
+            <div class="cap">Saved from the web</div>
+          </div>
+        </div>
+
+        <!-- 2 · generated table panel -->
+        <div class="card" style="left:96px;top:322px;width:492px">
+          <div class="ch"><svg class="i"><use href="#i-table"/></svg><span class="ct2">Freight quotes — Lote 88</span><button class="xbtn" aria-label="Remove">×</button></div>
+          <div class="cbody">
+            <div class="cap">From turn 2</div>
+            <table class="qt">
+              <thead><tr><th></th><th>Acme Freight</th><th>Transportes Andrade</th><th>Rodocargo</th></tr></thead>
+              <tbody>
+                <tr><th>Price</th><td><span class="pm c">R$ 4.820,00</span></td><td>R$ 5.310,00</td><td>R$ 4.590,00</td></tr>
+                <tr><th>Pickup</th><td>Sex 18 Jul</td><td>Ter 22 Jul</td><td>Sex 18 Jul</td></tr>
+                <tr><th>Delivery</th><td>Qua 23 Jul</td><td>Sex 25 Jul</td><td>Seg 28 Jul</td></tr>
+                <tr><th>Insurance</th><td>Included</td><td>Included</td><td>Not included</td></tr>
+                <tr><th>Price held until</th><td>Qua 15 Jul</td><td>—</td><td>Sáb 19 Jul</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════ SCREEN 3 · KNOWLEDGE ═══════════════ -->
+<section id="knowledge">
+  <div class="rulehead"><h1>Knowledge</h1></div>
+  <div class="frame">
+
+    <nav class="navrail" aria-label="polytoken">
+      <span class="brand" aria-label="polytoken">
+        <svg viewBox="0 0 32 32" fill="currentColor" aria-hidden="true">
+          <rect x="3" y="7" width="16" height="19" rx="8"/>
+          <rect x="13" y="4" width="16" height="19" rx="8" opacity=".55"/>
+          <circle cx="16" cy="27" r="3"/>
+        </svg>
+      </span>
+      <button class="nitem"><svg class="i"><use href="#i-inbox"/></svg>Inbox</button>
+      <button class="nitem"><svg class="i"><use href="#i-chat"/></svg>Chat</button>
+      <button class="nitem on"><svg class="i"><use href="#i-know"/></svg>Knowledge</button>
+      <span class="avatar">P</span>
+    </nav>
+
+    <aside class="krail">
+      <div class="paneh">Show</div>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tdot" style="background:#46647E"></span>Suppliers</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tdot" style="background:#7D5068"></span>People</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tdot" style="background:#2F6D5F"></span>Amounts</label>
+      <label class="krow"><span class="cb on"><svg class="i"><use href="#i-check"/></svg></span><span class="tdot" style="background:#6E6A54"></span>Documents</label>
+      <label class="krow off"><span class="cb"></span><span class="tdot" style="background:#878B7C"></span>Emails</label>
+      <hr class="ksep">
+      <div class="swrow">
+        <span class="switch on"><span class="knob"></span></span>
+        <span class="swlabel">Show suggested connections
+          <span class="swsub">I&rsquo;ll mark anything I&rsquo;m not sure about.</span>
+        </span>
+      </div>
+      <div class="kcount">9 entities · 6 connections · from 14 emails</div>
+    </aside>
+
+    <div class="kcanvas">
+      <div class="kboard">
+        <div class="seg" role="group">
+          <button>Confirmed only</button>
+          <button class="on">+ Suggested</button>
+          <button>Everything</button>
+        </div>
+
+        <svg class="edges" aria-hidden="true">
+          <!-- confirmed: solid verdigris -->
+          <line x1="14%" y1="150" x2="32%" y2="260" stroke="rgba(47,109,95,.45)" stroke-width="1.5"/>
+          <line x1="32%" y1="260" x2="52%" y2="170" stroke="rgba(47,109,95,.45)" stroke-width="1.5"/>
+          <line x1="18%" y1="430" x2="38%" y2="500" stroke="rgba(47,109,95,.45)" stroke-width="1.5"/>
+          <!-- suggested: dashed graphite amber -->
+          <line x1="88%" y1="196" x2="72%" y2="106" stroke="rgba(138,107,55,.55)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <line x1="84%" y1="396" x2="68%" y2="266" stroke="rgba(138,107,55,.55)" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <line x1="68%" y1="266" x2="52%" y2="170" stroke="rgba(138,107,55,.55)" stroke-width="1.5" stroke-dasharray="4 4"/>
+        </svg>
+        <span class="edgelabel" style="left:23%;top:205px">works at</span>
+        <span class="edgelabel" style="left:42%;top:215px">quoted</span>
+        <span class="edgelabel" style="left:28%;top:465px">issued</span>
+        <span class="edgelabel" style="left:80%;top:151px">works at</span>
+        <span class="edgelabel" style="left:76%;top:331px">similar to</span>
+        <span class="edgelabel" style="left:60%;top:218px">quoted</span>
+
+        <div class="node selnode" style="--th:#46647E;left:32%;top:260px"><span class="ndot"></span><span class="nlabel">Acme Freight</span></div>
+        <div class="node" style="--th:#46647E;left:68%;top:266px"><span class="ndot"></span><span class="nlabel">Transportes Andrade</span></div>
+        <div class="node sug" style="--th:#46647E;left:84%;top:396px"><span class="ndot"></span><span class="nlabel">Rodocargo</span></div>
+        <div class="node sug" style="--th:#46647E;left:72%;top:106px"><span class="ndot"></span><span class="nlabel">Embalagens Rio Claro</span></div>
+        <div class="node" style="--th:#46647E;left:18%;top:430px"><span class="ndot"></span><span class="nlabel">Papelaria Vitória</span></div>
+        <div class="node" style="--th:#7D5068;left:14%;top:150px"><span class="ndot"></span><span class="nlabel">Rafael Lima</span></div>
+        <div class="node sug" style="--th:#7D5068;left:88%;top:196px"><span class="ndot"></span><span class="nlabel">Marina Costa</span></div>
+        <div class="node" style="--th:#2F6D5F;left:52%;top:170px"><span class="ndot"></span><span class="nlabel num">R$ 4.820,00</span></div>
+        <div class="node" style="--th:#6E6A54;left:38%;top:500px"><span class="ndot"></span><span class="nlabel">NF-e 3412</span></div>
+
+        <div class="legend">
+          <span><i class="sw c"></i>Confirmed</span>
+          <span><i class="sw s"></i>Suggested</span>
+          <span><i class="sw u"></i>Uncertain</span>
+        </div>
+      </div>
+    </div>
+
+    <aside class="kdetail">
+      <div class="kd-head"><h3>Acme Freight</h3><button class="xbtn" aria-label="Close">×</button></div>
+      <div class="kd-badges">
+        <span class="badge type">Supplier</span>
+        <span class="badge c"><span class="sw"></span>Confirmed</span>
+      </div>
+      <div class="kd-prov">from 3 emails</div>
+      <div class="kd-mail"><span class="ms">Cotação frete SP → POA — Lote 88</span><time>Ter 14:32</time></div>
+      <div class="kd-mail"><span class="ms">Re: Lote 88</span><time>Seg 10:12</time></div>
+      <div class="kd-mail"><span class="ms">Tabela de preços 2026</span><time>12 Jun</time></div>
+      <dl class="kd-rows">
+        <div><dt>Contact</dt><dd>rafael@acmefreight.com.br</dd></div>
+        <div><dt>First seen</dt><dd>12 Jun 2026</dd></div>
+        <div><dt>Last seen</dt><dd>Ter 14:32</dd></div>
+      </dl>
+      <div class="kd-sug">
+        <div class="cap">I think this connects to:</div>
+        <div class="sugrow"><span class="pm s">Transportes Andrade</span> — quoted the same shipment</div>
+        <div class="btns">
+          <button class="btn primary sm">Promote to confirmed</button>
+          <button class="tbtn quiet">Dismiss</button>
+        </div>
+      </div>
+      <a class="flink">Open entity →</a>
+    </aside>
+
+  </div>
+</section>
+
+<!-- ═════════════════ SCREEN 4 · COMPONENTS ═══════════════ -->
+<section id="components">
+  <div class="rulehead"><h1>Components</h1></div>
+  <div class="compgrid">
+
+    <div class="cell c4">
+      <h4>Buttons</h4>
+      <div class="cellrow">
+        <button class="btn primary">Promote to confirmed</button>
+        <button class="btn ghost">Open thread</button>
+        <button class="btn danger">Delete conversation</button>
+      </div>
+    </div>
+
+    <div class="cell c3">
+      <h4>Input</h4>
+      <div class="field">
+        <label for="chatname">Chat name</label>
+        <input id="chatname" type="text" value="Freight quote — Lote 88">
+      </div>
+    </div>
+
+    <div class="cell c3">
+      <h4>Entity chips</h4>
+      <div class="cellrow">
+        <span class="chip c"><span class="cv">Acme Freight</span><span class="ct">· supplier</span></span>
+        <span class="chip s"><span class="cv">Marina Costa</span><span class="ct">· person</span></span>
+      </div>
+    </div>
+
+    <div class="cell c2">
+      <h4>Badges</h4>
+      <div class="cellrow">
+        <span class="badge c"><span class="sw"></span>Confirmed</span>
+        <span class="badge s"><span class="sw"></span>Suggested</span>
+      </div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Toasts</h4>
+      <div class="toast ok"><svg class="i"><use href="#i-checkc"/></svg>On it — reprocessing this email</div>
+      <div class="toast err"><svg class="i"><use href="#i-alert"/></svg>Couldn&rsquo;t attach a chat to this thread — try again.<button class="tbtn">Retry</button></div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Empty state</h4>
+      <div class="empty">
+        <svg class="i"><use href="#i-chat"/></svg>
+        <h5>Ask me anything</h5>
+        <p>I&rsquo;ll stream the answer back — sometimes with interactive panels built right in.</p>
+        <button class="btn primary sm">New chat</button>
+      </div>
+    </div>
+
+    <div class="cell c4">
+      <h4>Loading state</h4>
+      <div class="skel"><i></i><i></i><i></i></div>
+      <div class="spinrow"><span class="spinner"></span>Searching your mail…</div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+</body>
+</html>
