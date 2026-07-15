@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: in-progress
-last_updated: "2026-07-15T18:52:00.000Z"
+last_updated: "2026-07-15T20:00:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 5
-  total_plans: 17
-  completed_plans: 19
-  percent: 47
+  total_plans: 18
+  completed_plans: 20
+  percent: 48
 ---
 
 # State
@@ -56,7 +56,9 @@ visual-identity section §3 + SKILL.md correction) EXECUTED — see the Plan 03 
 and `59-03-SUMMARY.md`. Two open flags remain deliberately unresolved and are recorded in
 `docs/design/brand-guide.md` §6: D-58-03 (entity-type-as-shape, not explicitly blessed) and
 `--chart-1..5` (needs a user decision: fold into the identity or keep as a bounded exemption).
-Next: Phase 60 (per-surface redesign, first SURF-* phase).
+**Phase 60 (per-surface redesign, first SURF-* phase) is now executing: Plan 01 (frozen structural
+baseline + per-fact provenance chip) EXECUTED — see the Plan 01 History entry below and
+`60-01-SUMMARY.md`.** Next: Phase 60 Plan 02 (row/thread-group restructure + the anti-re-token gate).
 
 **Done so far in v1.10:**
 
@@ -67,12 +69,34 @@ Next: Phase 60 (per-surface redesign, first SURF-* phase).
 - Phase 59 Plan 01 — EXECUTED (identity ladder ported, shadcn mapping complete, both gates rewritten + re-proven able to fail)
 - Phase 59 Plan 02 — EXECUTED (6-step type scale + serif role + density scale + provenance-mark/entity-type-shape utilities + new law-1 `colour-law.test.ts` gate, proven able to fail twice; Archivo self-hosted successfully, no fallback needed)
 - Phase 59 Plan 03 — EXECUTED (brand guide gained §3 "Visual identity"; SKILL.md's stale stock-teal claim fixed + D-58-01 pointer + comment-collision gotcha documented; design-data.json regenerated) — **Phase 59 COMPLETE, IDNT-03 + IDNT-04 both marked complete**
+- Phase 60 Plan 01 — EXECUTED (colour-blind `fingerprintTree` + frozen `inbox-pre-60.json` baseline for the anti-re-token gate; `entitySummary` rewritten to a per-FACT contract with `totalCount`; `EntityChips` now a tier-only provenance mark, zero entity-type hue)
 
 Migrations 0037 (chat_source_ledger + chat_context_edges), 0038 (entity_type_corrections),
 0039 (entity-resolution dismiss filter) are AUTHORED + journal-coherent, APPLIED NOWHERE.
 
 **Still owed from v1.9 (user declined twice):** LIVE-03 (§A OAuth), LIVE-04 (§B.3-6 real email),
 CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
+
+## Phase 60 -- Surface Redesign: Inbox & Email Detail -- Plan 01 History -- frozen structural baseline + per-fact provenance chip
+
+- **60-01 EXECUTED** (`29517b6` feat, `870838f` test+feat combined — see 60-01-SUMMARY.md's "TDD
+  Gate Compliance" section, `1bb84e3` feat): Task 1 froze the pre-Phase-60 `InboxThreePane` DOM
+  shape as a committed, regeneration-guarded artifact (`inbox-pre-60.json`: elementCount=81,
+  leafTextCount=32, maxDepth=10) via a new colour-blind `fingerprintTree` helper
+  (`structural-fingerprint.ts`) that reads no className/style/data-* — the linchpin Plan 02's
+  anti-re-token gate is built on. Task 2 rewrote `aggregateEntitySummary` from a distinct-entity-
+  TYPE rollup into a per-FACT list (`componentId`/`typeLabel`/`value`/`tier`, capped at
+  `MAX_ENTITIES_PER_EMAIL=8` with a truthful `totalCount`) — TDD RED confirmed 9/12 new tests
+  failing against the old implementation before the rewrite. Task 3 rewrote `EntityChips` to
+  render `value · typeLabel` (value in `font-serif`+`tabular`, typeLabel a subordinate sans
+  qualifier), coloured only by tier via the Phase-59 `pmark`/`pmark-confirmed`/`pmark-suggested`
+  utilities — zero `graph-entity`, zero `rounded-pill`, no `tshape` glyph (Chanel rule). Two
+  blocking issues auto-fixed: `packages/api-client`'s stale `dist/*.d.ts` had to be rebuilt
+  (`npx tsc`) for `apps/web`'s typecheck to see Task 2's new shape (types resolve to `dist/`, not
+  `src/` — a project gotcha for any future phase touching api-client's public types); a doc-comment
+  literally matched Task 3's own grep-ban gate and was reworded. `apps/web`: tsc clean, 66/66 files
+  731/731+1skipped green. `packages/api-client`: tsc clean, 36/36 files 442/442 green. See
+  `60-01-SUMMARY.md` for the full RED evidence and deviation detail.
 
 ## Phase 55 -- Platform Migration — Tailwind v4 + React 19 -- Plan 04 History -- React 18->19 core bump + six low-risk dependency bumps
 
@@ -4402,6 +4426,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-15 (60-01): `fingerprintTree` reads role attribute VALUES (structural, stable across renders) but only PRESENCE for the aria-expanded/pressed/selected/hidden allowlist (values flip with component state) — this split, not just "exclude all attributes but className/style/data-*", is what keeps the fingerprint stable across otherwise-identical renders while still closing the colour/marker-attribute loophole criterion 1 exists to prevent.
+- 2026-07-15 (60-01): `EntityChips`' `totalCount` prop is REQUIRED (matches Plan 02's own interfaces §A), but `inbox-row.tsx`'s call site currently passes `entities.length` as an honest-for-now stand-in since `inbox-three-pane.tsx`'s `entitiesByEmailId` map does not yet carry the server's real per-email `totalCount` — documented as a stopgap for 60-02 to resolve, not silently left as the final state.
+- 2026-07-15 (60-01): [Rule 3] Deleted `packages/api-client/src/router/__tests__/entity-summary.test.ts` outright (rather than updating in place) since it exhaustively tested the pre-60 collapse-by-type contract Task 2's `<action>` explicitly replaces; `entity-summary-aggregation.test.ts` at the plan's own declared path supersedes it.
+- 2026-07-15 (60-01): [Rule 3] `packages/api-client`'s `dist/*.d.ts` (gitignored build output) had to be manually rebuilt (`npx tsc`) after Task 2's type changes for `apps/web`'s `tsc --noEmit` to see the new `EntitySummaryEntry` shape — its `package.json` `types` condition resolves to `dist/`, not `src/`. Flagged as a project gotcha for any future phase editing api-client's public types.
+
 - 2026-07-15 (59-03): The two open flags (D-58-03 entity-type-as-shape, `--chart-1..5`) live in a new subsection under `docs/design/brand-guide.md`'s renumbered §6 "NOT done — user-gated" ("Open flags carried from §3") rather than inside the new §3 "Visual identity" itself, per the plan's explicit instruction to use that existing home — both remain deliberately unresolved, not silently inherited as decided.
 - 2026-07-15 (59-03): `apps/web/src/app/dev/design/design-data.json` (a tracked build artifact) is included in this docs-only plan's diff per the plan's own `<verification>` exception ("docs-only... and any build-design-data.mjs output") — regenerated cleanly, no manual edit.
 - 2026-07-15 (59-03): [Rule 1] Two self-caught deviations, both found by running the plan's own acceptance-criteria grep commands against the draft before committing rather than by visual read-through: (1) a draft heading ("Open flags from the visual identity (§3)") double-matched the plan's `^#+ .*[Vv]isual identity` heading-count regex, inflating the count from the required 1 to 2 — reworded to "Open flags carried from §3"; (2) SKILL.md's own explanatory sentence describing the DELETED stock-teal reintroduced its literal oklch value (`38.9% 0.053 173.7`), failing the blunt string-presence acceptance check that has no semantic awareness of "this value is gone" — reworded to describe the removal without repeating the literal number.
@@ -4819,6 +4848,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 56 P03 | ~30min | 2 tasks | 4 files — assertSourceRefOwnership dispatcher + chat.createContextEdge/removeContextEdge/listContextEdges (RCNV-04), 33-test adversarial two-user suite (all sourceRef types), D-56-A ownership-only tier-agnostic knowledge_node check |
 | Phase 59 P02 | ~30min | 3 tasks | 4 files — 6-step type scale + serif role + density scale + Archivo self-host (landed, no fallback) + provenance-mark/entity-type-shape utilities + colour-law.test.ts law-1 gate (proven able to fail twice) |
 | Phase 59 P03 | ~25min | 2 tasks | 3 files — brand guide §3 "Visual identity" (palette/type-scale/spacing/signature + gate citations + both open flags) + SKILL.md stale-teal fix/D-58-01 pointer/comment-collision gotcha + regenerated design-data.json — PHASE 59 COMPLETE, IDNT-03/IDNT-04 both marked complete |
+| Phase 60 P01 | ~90min | 3 tasks | 9 files — colour-blind fingerprintTree + frozen inbox-pre-60.json baseline (elementCount=81/leafText=32/depth=10) + entitySummary per-fact rewrite (MAX_ENTITIES_PER_EMAIL=8, totalCount) + EntityChips provenance-mark rewrite (zero graph-entity, zero rounded-pill) |
 
 ## Operator Next Steps
 
