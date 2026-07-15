@@ -4,14 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { Badge } from "@polytoken/ui/badge";
 import { Button } from "@polytoken/ui/button";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@polytoken/ui/card";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
 import { api } from "~/trpc/react";
@@ -44,12 +37,43 @@ const FULL_PAGE_POLYGON: Polygon = [
 const fmt = (d: Date | string | null) =>
   d ? new Date(d).toLocaleString() : "—";
 
-const parseStatusVariant = (
-  status: string,
-): "default" | "secondary" | "destructive" => {
-  if (status === "parsed") return "default";
-  if (status === "failed") return "destructive";
-  return "secondary";
+/**
+ * The parse-status marker (60-06 Task 2, law 1).
+ *
+ * WHAT WAS WRONG: "failed" drove the madder variant. Law 1 spends madder on
+ * the irreversible and on nothing else — "never errors, never warnings"
+ * (58-IDENTITY). A failed parse is a STATUS, and it is the most reversible
+ * thing on this page: the header four lines below renders a Reprocess button
+ * that undoes it. Painting it madder told the user a retryable machine
+ * hiccup was a point of no return.
+ *
+ * WHY "parsed" IS NOT VERDIGRIS, though it is tempting: `REGION_TIER` was the
+ * obvious home for these, but `parseStatus` is a different domain from
+ * `extractionStatus` and it does not map cleanly. Two ways it breaks:
+ *   - `tierOf("parsed")` returns "suggested" (its deliberate unknown-status
+ *     default), so routing through it would paint a SUCCEEDED parse in
+ *     pencil-amber — the tier vocabulary answering a question nobody asked.
+ *   - Verdigris means one thing: "a human verified this fact". A parse
+ *     succeeding is a MACHINE fact that no human confirmed. Spending the
+ *     confirmed hue on it would make verdigris mean two things, which is the
+ *     one thing law 1 cannot survive.
+ * So a parse status earns no hue at all: it is chrome, and it reads on the
+ * ink ladder. The plan's own escape hatch ("otherwise a plain text-faded
+ * marker") is the correct branch here.
+ *
+ * The shape is the inbox header's `.count` marker, so the two surfaces state
+ * a small fact the same way.
+ */
+const PARSE_STATUS_MARKER =
+  "tabular rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold whitespace-nowrap";
+
+const parseStatusTone = (status: string): string => {
+  // A clean parse has nothing to announce — it is the expected case.
+  if (status === "parsed") return "text-faded";
+  // A failure is loud in INK WEIGHT, not in hue. It survives greyscale, and
+  // it makes no claim to being irreversible, because it is not.
+  if (status === "failed") return "text-ink";
+  return "text-pencil";
 };
 
 /** Signed URL entry with expiry tracking (WR-01). */
@@ -314,30 +338,49 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
   }, [data, activeAttachmentId]);
 
   if (isLoading) {
+    // The skeleton predicts the frame it stands in — a header bar, then the
+    // canvas zone — so the load reads as this page assembling rather than as
+    // three slabs that resemble nothing which ever arrives.
     return (
-      <main className="h-full p-6">
-        <div className="space-y-3" aria-busy="true" aria-label="Loading…">
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
-          <Skeleton className="h-28 w-full rounded-xl" />
+      <main className="h-full">
+        <div
+          className="flex h-full flex-col"
+          aria-busy="true"
+          aria-label="Loading…"
+        >
+          <div className="flex shrink-0 items-center gap-4 border-b border-hair px-row-x py-row-y">
+            <Skeleton className="h-4 w-28 rounded-sm" />
+            <Skeleton className="h-6 max-w-md flex-1 rounded-sm" />
+            <Skeleton className="h-5 w-14 rounded-sm" />
+            <Skeleton className="h-8 w-32 rounded-sm" />
+          </div>
+          <div className="min-h-0 flex-1 p-4">
+            <Skeleton className="h-full w-full rounded-card" />
+          </div>
         </div>
       </main>
     );
   }
 
   if (isError) {
+    // An error is not irreversible, so it earns no madder (law 1: "never
+    // errors, never warnings"). It is ink on a rule — the same framed block
+    // the inbox uses, so a failure reads the same way on both surfaces.
+    //
+    // T-60-10: the copy stays generic on purpose. The underlying error is
+    // NOT interpolated here — a tRPC message or a raw error object would
+    // leak server-side detail to the client for no user benefit. Whatever
+    // went wrong, the user's move is the same: refresh.
     return (
       <main className="h-full p-6">
-        <Card className="border-destructive" role="alert">
-          <CardHeader>
-            <CardTitle className="text-destructive text-base">
-              Failed to load email
-            </CardTitle>
-            <CardDescription>
-              Unable to load this email. Please try refreshing the page.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div role="alert" className="border border-rule p-panel">
+          <p className="text-sm font-semibold text-ink">
+            Failed to load email
+          </p>
+          <p className="mt-1 text-xs text-faded">
+            Unable to load this email. Please try refreshing the page.
+          </p>
+        </div>
       </main>
     );
   }
@@ -345,14 +388,12 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
   if (data === null || data === undefined) {
     return (
       <main className="h-full p-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Email not found</CardTitle>
-            <CardDescription>
-              Email not found. It may have been deleted or the link is invalid.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="border border-rule p-panel">
+          <p className="text-sm font-semibold text-ink">Email not found</p>
+          <p className="mt-1 text-xs text-faded">
+            Email not found. It may have been deleted or the link is invalid.
+          </p>
+        </div>
       </main>
     );
   }
@@ -690,24 +731,35 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
 
   return (
     <main className="flex flex-col h-full">
-      {/* Header row: back link, subject, status badge, reprocess button */}
-      <header className="flex flex-wrap items-center gap-4 border-b px-4 py-3 shrink-0">
+      {/* Header row: back link, subject, parse-status marker, reprocess button.
+          Mirrors the reference's .rp-head — the subject leads, everything
+          else is chrome ranged around it. */}
+      <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-hair px-row-x py-row-y">
         <Link
           href="/"
-          className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+          className="text-sm text-faded transition-colors hover:text-ink"
         >
           ← Back to inbox
         </Link>
+        {/* The subject is the user's own mail, not our label for it — law 2
+            gives the document's words the serif. This is also the page's a11y
+            entry point: h1Ref + tabIndex={-1} + the mount-focus effect are
+            load-bearing, and the subject stays a plain React text node
+            (T-60-02) — never interpolated into a class or a style. */}
         <h1
           ref={h1Ref}
-          className="text-lg font-semibold tracking-tight outline-none truncate flex-1"
+          className="flex-1 truncate font-serif text-xl font-semibold text-ink outline-none"
+          data-evidence
           tabIndex={-1}
         >
           {subject}
         </h1>
-        <Badge variant={parseStatusVariant(email.parseStatus)}>
+        <span
+          data-field="parse-status"
+          className={`${PARSE_STATUS_MARKER} ${parseStatusTone(email.parseStatus)}`}
+        >
           {email.parseStatus}
-        </Badge>
+        </span>
         <Button
           variant="outline"
           size="sm"
