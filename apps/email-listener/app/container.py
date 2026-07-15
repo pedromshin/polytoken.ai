@@ -106,6 +106,7 @@ from app.domain.ports.raw_email_store import RawEmailStore
 from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.retrieval_provider import RetrievalProvider
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
+from app.domain.ports.source_ledger_repository import SourceLedgerRepository
 from app.domain.ports.thread_resolver import ThreadResolver
 from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
 from app.domain.services.chat_provider_router import ChatProviderRouter
@@ -152,6 +153,7 @@ from app.infrastructure.supabase.forwarding_address_repository import SupabaseFo
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.infrastructure.supabase.retrieval_repository import SupabaseRetrievalRepository
+from app.infrastructure.supabase.source_ledger_repository import SupabaseSourceLedgerRepository
 from app.infrastructure.supabase.supabase_chat_conversation_repository import (
     SupabaseChatConversationRepository,
 )
@@ -739,6 +741,7 @@ def _provide_run_chat_turn(
     components: ComponentRepository,
     email_repo: EmailRepository,
     http_client: httpx.AsyncClient,
+    source_ledger: SourceLedgerRepository,
 ) -> RunChatTurn:
     """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
@@ -800,6 +803,13 @@ def _provide_run_chat_turn(
     provider/instance is created; `knowledge_graph=knowledge_repo` (already
     wired for Phase 40-01's confirm-action re-read) doubles as the
     captured-source read collaborator too.
+
+    Phase 56-02 (RCNV-01): `source_ledger` (SupabaseSourceLedgerRepository,
+    bound above) is threaded into RunChatTurn's additive `source_ledger`
+    collaborator — the fail-open `chat_source_ledger` auto-collect write
+    hook fired from inside `_run_server_tool_round` for every gated
+    `web_search` result. Zero knowledge-graph writes; no settings kill-switch
+    (gating is inherited transitively from WEB_SEARCH_TOOL_ENABLED, A4).
     """
     settings = get_settings()
     resolution_repo = SupabaseEntityResolutionRepository(client=client)
@@ -863,6 +873,10 @@ def _provide_run_chat_turn(
         # already built above for search_emails_executor -- the thread+cluster
         # context gathering step's one new read collaborator.
         email_repository=email_repo,
+        # Phase 56-02 (RCNV-01): the fail-open auto-collect ledger write hook's
+        # additive-default collaborator -- unwired in any caller/test that
+        # doesn't pass it, structurally OFF (mirrors email_repository above).
+        source_ledger=source_ledger,
     )
 
 
@@ -1029,6 +1043,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(SupabaseEntityInstanceRepository, provides=EntityInstanceRepository)
     # Retrieval-outcome instrumentation writer (RECALL-02, 31-02) — best-effort.
     provider.provide(_provide_autofill_retrieval_event_repository, provides=AutofillRetrievalEventRepository)
+    # chat_source_ledger auto-collect write adapter (Phase 56-02, RCNV-01) —
+    # additive-default RunChatTurn collaborator, threaded in below.
+    provider.provide(SupabaseSourceLedgerRepository, provides=SourceLedgerRepository)
 
     # ── Ingestion adapters ────────────────────────────────────────────────────
     provider.provide(_provide_raw_email_store, provides=RawEmailStore)

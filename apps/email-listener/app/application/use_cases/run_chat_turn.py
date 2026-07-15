@@ -119,6 +119,7 @@ from app.domain.ports.chat_repositories import (
 from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository, UsageEvent
 from app.domain.ports.knowledge_graph_repository import KnowledgeGraphRepository
+from app.domain.ports.source_ledger_repository import SourceLedgerEntry
 from app.domain.ports.tool_executor import ToolExecutionResult
 from app.domain.services.chat_model_registry import ChatModel, get_model
 from app.domain.services.chat_provider_router import ChatModelNotFoundError, ChatProviderRouter
@@ -137,6 +138,7 @@ if TYPE_CHECKING:
     from app.domain.entities.email import Email
     from app.domain.ports.chat_provider import ChatDelta, ChatProvider
     from app.domain.ports.email_repository import EmailRepository
+    from app.domain.ports.source_ledger_repository import SourceLedgerRepository
     from app.domain.ports.tool_executor import ToolExecutor
 
 logger = structlog.get_logger(__name__)
@@ -151,6 +153,13 @@ _AGENT_ID = "chat-agent-v1"
 # redefinitions elsewhere in this module/package). Used by
 # `_finalize_source_capture`'s persisted-part scan (Phase 54-03, CLUS-04).
 _WEB_SEARCH_TOOL_NAME = "web_search"
+
+# Phase 56-02 (RCNV-01): the ledger-eligible tool allowlist -- only a tool
+# name in this frozenset ever triggers a `chat_source_ledger` auto-collect
+# write. Starts as exactly the one already-gated web_search tool (A4:
+# gating is inherited transitively from WEB_SEARCH_TOOL_ENABLED -- the hook
+# only ever fires for an already-gated tool, no separate settings flag).
+_LEDGER_ELIGIBLE_TOOL_NAMES = frozenset({_WEB_SEARCH_TOOL_NAME})
 
 # D-01: minimal neutral persona — no product identity yet.
 _SYSTEM_PROMPT = "You are a helpful, neutral AI assistant. Respond clearly and concisely to the user's requests."
@@ -342,6 +351,7 @@ class RunChatTurn:
         tool_executors: Mapping[str, ToolExecutor] = MappingProxyType({}),
         server_tool_defs: Mapping[str, dict[str, Any]] = MappingProxyType({}),
         email_repository: EmailRepository | None = None,
+        source_ledger: SourceLedgerRepository | None = None,
     ) -> None:
         self._messages = messages
         self._runs = runs
@@ -379,6 +389,13 @@ class RunChatTurn:
         # _build_cluster_context_block's early return), so every existing
         # test/caller that never passes this stays green.
         self._email_repository = email_repository
+        # Phase 56-02 (RCNV-01): the auto-collect ledger write hook's ONE
+        # collaborator -- additive default (mirrors email_repository above).
+        # None means the feature is structurally OFF: no insert_entries call
+        # is even attempted (see _write_source_ledger_entries's early
+        # return), so every existing test/caller that never passes this
+        # stays green (byte-identical regression guard).
+        self._source_ledger = source_ledger
 
     async def run(
         self,
@@ -1530,6 +1547,53 @@ class RunChatTurn:
             provider_messages=provider_messages,
         )
 
+    async def _write_source_ledger_entries(
+        self,
+        *,
+        conversation_id: str,
+        importer_id: str,
+        tool_name: str,
+        tool_use_id: str,
+        content: str,
+    ) -> None:
+        """Fail-open ledger write (Phase 56-02, RCNV-01) — never raises past the tool round.
+
+        Parses the ALREADY-quarantined+bounded envelope (post `validate_tool_envelope` +
+        `cap_tool_output`) `{"mode": "web_search", "results": [{"title","url","snippet"}, ...]}`,
+        builds one `SourceLedgerEntry` per result carrying a url (urlless entries are skipped,
+        `result_index` is the enumeration position), and upserts them via `insert_entries` when
+        non-empty. Zero writes to the confirm-ceremony knowledge graph — this is a separate
+        candidate pool (999.19), never the `SourceCaptureHandler` path.
+
+        A malformed/unparseable envelope, or ANY failure from `insert_entries` (e.g. the
+        chat_source_ledger table not yet applied to this environment), logs a warning and
+        returns — mirrors `_list_captured_sources`/`_resolve_thread_id`'s exact fail-open
+        idiom (T-56-02-01: never block the model's turn, never raise a 500).
+        """
+        if self._source_ledger is None:
+            return
+        try:
+            envelope = json.loads(content)
+            results = envelope.get("results", []) if isinstance(envelope, dict) else []
+            entries = [
+                SourceLedgerEntry(
+                    conversation_id=conversation_id,
+                    importer_id=importer_id,
+                    tool_name=tool_name,
+                    tool_use_id=tool_use_id,
+                    result_index=index,
+                    url=str(result["url"]),
+                    title=str(result.get("title") or result["url"]),
+                    snippet=str(result.get("snippet")) if result.get("snippet") else None,
+                )
+                for index, result in enumerate(results)
+                if isinstance(result, dict) and result.get("url")
+            ]
+            if entries:
+                await self._source_ledger.insert_entries(entries)
+        except Exception:  # never raise past the tool round (fail-open, T-56-02-01)
+            logger.warning("source_ledger_write_failed", tool_use_id=tool_use_id, tool_name=tool_name)
+
     async def _run_server_tool_round(
         self,
         *,
@@ -1621,6 +1685,23 @@ class RunChatTurn:
             # this; always overridden with the id the model actually streamed.
             result = replace(result, tool_use_id=tool_id, content=cap_tool_output(result.content))
             results.append(result)
+
+            # Phase 56-02 (RCNV-01): fail-open auto-collect write, fires ONLY for an
+            # already-gated, non-error, ledger-eligible tool result -- never raises,
+            # never blocks the round (see _write_source_ledger_entries).
+            if (
+                self._source_ledger is not None
+                and result.is_error is False
+                and tool_name in _LEDGER_ELIGIBLE_TOOL_NAMES
+            ):
+                await self._write_source_ledger_entries(
+                    conversation_id=run.conversation_id,
+                    importer_id=importer_id,
+                    tool_name=tool_name,
+                    tool_use_id=tool_id,
+                    content=result.content,
+                )
+
             result_part = build_tool_invocation_result_part(result, tool_name)
             state = replace(state, parts=(*state.parts, result_part))
             # ToolResultDelta (chat_provider.py) — modeled, never emitted until now
