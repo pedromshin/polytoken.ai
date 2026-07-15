@@ -207,7 +207,7 @@ WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
 
 - [x] Phase 55: Platform Migration — Tailwind v4 + React 19 (completed 2026-07-15)
 - [ ] Phase 56: Research Canvas — Backend & Semantic Context Model
-- [ ] Phase 57: Email Learning Loop
+- [x] Phase 57: Email Learning Loop (completed 2026-07-15)
 - [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
 - [ ] Phase 59: Visual Identity — Designed Token Set & Brand Guide
 - [ ] Phase 60: Surface Redesign — Inbox & Email Detail
@@ -292,8 +292,8 @@ suggest-only entity-resolution stance and never auto-deciding.
 **Plans**: 3 plans (2 waves — capture foundation, then parallel few-shot + dismissal consumption)
 Plans:
 - [x] 57-01-PLAN.md — Capture: entity_type_corrections table + trgm RPC + load-before-mutate capture hook [LEARN-01]
-- [ ] 57-02-PLAN.md — Consume (classification): few-shot examples param + <entity_type_examples> render + importer-scoped retrieval into SuggestEntityTypes [LEARN-02]
-- [ ] 57-03-PLAN.md — Consume (resolution): wire dead was_dismissed into the BlendedRAG RPCs as a symmetric exclusion filter [LEARN-02]
+- [x] 57-02-PLAN.md — Consume (classification): few-shot examples param + <entity_type_examples> render + importer-scoped retrieval into SuggestEntityTypes [LEARN-02]
+- [x] 57-03-PLAN.md — Consume (resolution): wire dead was_dismissed into the BlendedRAG RPCs as a symmetric exclusion filter [LEARN-02]
 
 ### Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
 
