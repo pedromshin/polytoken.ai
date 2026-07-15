@@ -53,7 +53,7 @@ export const DateCellEditor = React.forwardRef<
           mode="single"
           selected={selected}
           onSelect={handleSelect}
-          initialFocus
+          autoFocus
         />
       </PopoverContent>
     </Popover>
