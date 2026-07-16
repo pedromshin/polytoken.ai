@@ -343,3 +343,105 @@ cards — a *state* wearing a madder border, so a real law-1 question and not ju
 plus `thread-cluster-indicator.tsx`'s retired role-as-hue (Phase 45's). **61-08 must clear those
 before appending `chat/` to `SCOPED_DIRS`**, or the gate is red on arrival — the exact failure its
 own header names as how a ratchet gets "allowlisted into meaninglessness within a week".
+
+## D-61-07-A — genui style packs are LIGHT-ONLY, so every genui panel is a white card in dark mode (SYSTEMIC)
+
+**Found:** 61-07 Task 2, by looking at `chat-thread-desktop-dark.png` — after fixing the harness
+so a dark transcript could be photographed at all (see D-61-07-B).
+
+`PanelThemeScope` injects `getStylePack(packId).resolvedVars` — `--card`, `--background`,
+`--foreground`, `--border` and friends — as inline CSS vars. **`packs.ts` has no dark variants**, so
+those values are light in both themes. A genui panel therefore renders as a **blazing white card in
+the dark app**, with dark text, surrounded by dark chrome.
+
+**This is PRE-EXISTING and it is not 61-07's doing**, which is worth stating precisely because
+61-07 makes it visible on a second surface:
+
+- `GenuiPanelNode` has wrapped every panel in `PanelThemeScope` since Phase 23 — including
+  pack-LESS specs, which resolve to `DEFAULT_PACK_ID` via `resolveActivePanel`. So the canvas's
+  panel nodes have been light-on-dark for three milestones. Visible in
+  `.planning/ui-reviews/2026-07-16T06-24-06-201Z/chat-canvas-desktop-dark.png` (the "From turn 0"
+  node, bottom-right).
+- The docked transcript previously rendered a pack-less spec with NO theme scope at all, so it
+  inherited the app's dark tokens. 61-07 mirrors the canvas's chain exactly — as its plan requires
+  in three separate places ("if the canvas and the transcript resolve differently, the bug you
+  shipped is the bug you set out to fix") — so the transcript's panels are now light-on-dark too.
+
+**The two surfaces now AGREE, which is criterion 4's actual requirement**, and the same capture
+shows it: the ChatNode's transcript panel and the genui-panel node render the same content in the
+same pack. Not wrapping pack-less specs would have made the transcript disagree with the canvas for
+the COMMON case (most specs carry no `style_pack_id`) — i.e. it would have re-created 999.17.
+
+**Not actioned because** the fix is to give `packs.ts` dark variants (or to make `ThemedRoot`/
+`PanelThemeScope` theme-aware), which is an architectural change to `packages/genui`'s theme
+contract affecting `/studio`, the catalog, and every genui surface in the app — Rule 4, not a
+restyle. **Whoever picks this up:** the question is whether a style pack is a *light-mode design
+artifact the app frames* (in which case a panel should perhaps sit on its own light plate
+deliberately, and this is a feature) or a *theme that must follow the app* (in which case packs need
+dark ladders). That is a product decision, and it should be made once for both surfaces rather than
+patched on one.
+
+## D-61-07-B — the dark `chat-thread` captures were photographs of the CANVAS (FIXED, recorded as a pattern)
+
+**Found:** 61-07, by opening `chat-thread-desktop-dark.png` and noticing the header toggle read
+**Canvas**.
+
+`chat-thread` and `chat-canvas` are the SAME conversation. `chat-canvas` clicks "Canvas view", and
+`chat-canvas-view-toggle.tsx` PERSISTS that choice to
+`localStorage["polytoken.chat.canvas-view:{conversationId}"]` — correctly; a user's view choice
+should survive a reload. The capture loop reuses one browser context across every surface and both
+theme passes, so the light pass's `chat-canvas` left "canvas" behind and the dark pass's
+`chat-thread` faithfully restored it — capturing the BOARD under the transcript's filename, with
+`select:ok` in `index.md` beside it.
+
+True since `chat-canvas` joined the surface list (61-05). **No gate could see it**: the harness is a
+camera, and the picture was of a real, correctly-rendered surface — just not the one on the label.
+It is the D-61-01 defect's cousin: a verification artifact that returns a confident answer to a
+question nobody asked.
+
+**Fixed** in 61-07 (`screenshot-review.spec.ts`): an `addInitScript` drops every
+`polytoken.chat.canvas-view:*` key before each capture, so each surface renders the mode its own
+definition asks for. Clearing storage rather than clicking "Chat view" because the toggle does not
+exist below `md` and `openTabName`'s wait gates on the React Flow pane only the canvas mounts.
+
+**The pattern worth carrying:** any surface whose state persists to localStorage will BLEED into
+every later capture in the run, in file order, silently. `chat:canvas-view` was one. Phases 62-63
+add more persisted UI state; reset it per capture rather than per run.
+
+## D-61-07-C — the seeded genui-panel node lands OUTSIDE the canvas fixture's viewport
+
+**Found:** 61-07, in `chat-canvas-desktop-dark.png` after seeding a genui_spec part.
+
+The `chat-canvas` fixture seeds a layout row with a chat node + an email-thread node + one edge. It
+does NOT seed a node for the new genui_spec part, so `reconcileNodesFromHistory`'s Pass 2 places one
+itself (dagre-seeded, `offsetCascadePosition`-nudged) — at the board's bottom-right, **half outside
+the seeded viewport**. Its header, pack switcher and card are legible enough to verify against, but
+it is clipped.
+
+**Not actioned because** the canvas board is not 61-07's criterion and the panel node was visible
+enough for the claim being made. **61-08 should fix it**: it redesigns `PanelActionsToolbar`, which
+lives in that node's header, and will want the node fully in frame. The cheap fix is to add a
+`genui-panel` node to `SEEDED_CANVAS_NODES` at a chosen position with
+`id = genuiPanelNodeId(messageId, partIndex)` — the message id is the fixture's own assistant row,
+so it needs reading back after insert.
+
+## D-61-07-D — no MOBILE capture of the transcript with a conversation selected
+
+`chat-thread`/`chat-canvas` record `select:n/a-overlay-rail` on mobile: below `md` the rail is an
+overlay Sheet, so no conversation row exists to click without opening it. Every mobile chat capture
+is therefore the EMPTY STATE, and criterion 4's "docked/**mobile** transcript" half has no
+photograph.
+
+**Deliberately not actioned.** `screenshot-review.spec.ts`'s own header records that **two** prior
+attempts at driving the rail toggle were actively harmful ("NO TOGGLE CLICKING... so the third
+person does not try a fourth"). A third attempt against an explicit warning, in a harness that
+currently passes, is not a trade 61-07 should make for a photograph of a code path that is
+*identical* to the desktop one it did photograph.
+
+**What covers mobile instead, stated honestly:** `effectiveViewMode = isMobile ? "chat" : viewMode`
+means mobile renders the SAME docked branch, the same `TranscriptPanelHost`, the same `MessageTurn`
+— there is no mobile-specific transcript code. And `chat-mobile-feed.test.tsx` proves the host
+genuinely mounts there: its tRPC mock had to learn `getCanvasLayout`/`saveCanvasLayout` in this
+plan, because the mobile docked branch now really queries them. That is mechanism evidence, not a
+picture. **If a picture is wanted**, the honest route is a `Surface` flag that opens the rail Sheet,
+selects, and closes it — designed deliberately, by whoever owns the harness, not bolted on.

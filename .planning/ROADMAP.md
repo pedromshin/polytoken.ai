@@ -401,7 +401,7 @@ Plans:
 - [x] 61-04-PLAN.md — The message stream, tool rounds and citation chip; law 2's hardest case (a real subject is serif, polytoken's fallback is not) [SURF-02]
 - [x] 61-05-PLAN.md — The React Flow chrome finished incl. the never-styled handles + the sketch's board; the stock-ban gate parses the library's own stylesheet (criterion 2) [SURF-02]
 - [x] 61-06-PLAN.md — Five node shells + the edge on the vocabulary; three live law violations cleared; the rendered node/edge law gate [SURF-02]
-- [ ] 61-07-PLAN.md — TranscriptPanelHost + overlays cross to the transcript (criterion 4 / 999.17 read half); the layout-destruction regression test (T-61-21) [SURF-07]
+- [x] 61-07-PLAN.md — TranscriptPanelHost + overlays cross to the transcript (criterion 4 / 999.17 read half); the layout-destruction regression test (T-61-21) [SURF-07]
 - [ ] 61-08-PLAN.md — The editing toolbar reaches the phone (criterion 3 / 999.17 write half); the role-hue ratchet advances over chat/; both-theme screenshot review (HUMAN GATE) [SURF-07, SURF-02]
 **UI hint**: yes
 
