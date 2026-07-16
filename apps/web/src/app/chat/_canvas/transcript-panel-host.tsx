@@ -83,7 +83,7 @@
 // scope for any suite that mounts this file directly (the documented gotcha
 // every provider module in this directory carries; see canvas-store-context.tsx).
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Edge as FlowEdge, Node as FlowNode, Viewport } from "@xyflow/react";
 
 import {
@@ -139,6 +139,44 @@ const PRE_RESTORE_EDGES: readonly FlowEdge[] = [];
  */
 function toRoundTripFlowEdge(edge: PersistedCanvasEdge): FlowEdge {
   return { ...edge, data: { ...edge.data } };
+}
+
+// ---------------------------------------------------------------------------
+// The host MARKER — what a panel control mounts on (61-08's seam)
+// ---------------------------------------------------------------------------
+
+const TranscriptPanelHostContext = createContext(false);
+
+/**
+ * True only inside a `TranscriptPanelHost` that is READY — i.e. its store and
+ * persistence context are both provided and both already backed by a real
+ * restored snapshot.
+ *
+ * A MARKER, NOT A VIEWPORT CHECK, AND NOT A STORE-PRESENCE CHECK. Both of the
+ * obvious alternatives are wrong:
+ *   - A viewport check ("am I on mobile?") answers a question nobody asked. The
+ *     docked transcript exists on the desktop too, and it should get panel
+ *     editing there for free.
+ *   - STORE PRESENCE CANNOT TELL THE TWO TRANSCRIPTS APART. The canvas's own
+ *     ChatNode transcript is inside `chat-canvas.tsx`'s providers, so it has a
+ *     store and a persistence context too — gating on those would grow a SECOND
+ *     panel toolbar on the board, inside a node, next to the real one. This
+ *     context is provided by this host and nothing else, so it is false on the
+ *     canvas by construction.
+ *
+ * IT ALSO CLOSES A REAL CRASH, which is why it lives here rather than in the
+ * plan that needs it: this host renders its children UNWRAPPED until the layout
+ * restores (see the component's doc — the transcript must never block on a
+ * query). `usePanelOverlay` THROWS without a `CanvasPersistenceProvider`, by
+ * design, because a write with nothing wired to persist it is a wiring bug. So
+ * a control that calls `usePanelOverlay` unconditionally inside this host dies
+ * on the pre-restore render — which is EVERY mount's first render, since
+ * `layoutQuery.isPending` starts true. Gating the control's mount on this
+ * marker makes that unreachable rather than merely unlikely. Found by writing
+ * `transcript-overlay.test.tsx`'s T-61-21 case, which threw exactly this way.
+ */
+export function useIsTranscriptPanelHost(): boolean {
+  return useContext(TranscriptPanelHostContext);
 }
 
 /** The restored layout, tagged with the conversation it belongs to so a
@@ -252,9 +290,16 @@ export function TranscriptPanelHost({
     return <>{children}</>;
   }
 
+  // The marker is provided INSIDE the ready branch and nowhere else, so
+  // `useIsTranscriptPanelHost()` is true exactly when a write is safe: store
+  // present, persistence present, both already holding the real snapshot.
   return (
     <CanvasStoreProvider store={canvasStore}>
-      <CanvasPersistenceProvider value={persistenceValue}>{children}</CanvasPersistenceProvider>
+      <CanvasPersistenceProvider value={persistenceValue}>
+        <TranscriptPanelHostContext.Provider value={true}>
+          {children}
+        </TranscriptPanelHostContext.Provider>
+      </CanvasPersistenceProvider>
     </CanvasStoreProvider>
   );
 }
