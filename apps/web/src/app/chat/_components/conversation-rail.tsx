@@ -39,15 +39,34 @@ interface ConversationRailProps {
   readonly creatingConversation: boolean;
 }
 
+/**
+ * The rail's realized width — the sketch's `.convrail` at 208px
+ * (direction-final.html:393), against the 280px this rail shipped at until
+ * 61-03. `w-52` IS 208px (13rem) on Tailwind's own scale, so this is a named
+ * step rather than an arbitrary value.
+ *
+ * The narrowing is a content decision, not a cosmetic one: the rail lists
+ * conversation TITLES, and a title-only registry does not need 280px. It is
+ * declared once because THREE places must agree on it or the collapse animation
+ * tears — the sizing wrapper, the CollapsibleContent, and the body — which is
+ * exactly the kind of triplicated literal that drifts.
+ */
+const RAIL_WIDTH = "w-52";
+
 function RailSkeleton(): React.ReactElement {
   return (
     <div
       aria-busy="true"
       aria-label="Loading conversations…"
-      className="space-y-2 p-2"
+      // `h-8` mirrors the real row's height (a single-line `.citem`, not the
+      // pre-61-03 two-line row), so the loading state is not a taller ghost of
+      // the list it stands in for. The screenshot harness settles on
+      // [aria-busy=true] (61-01/999.24) — these attributes are load-bearing for
+      // the capture pipeline, not decoration.
+      className="space-y-0.5"
     >
       {Array.from({ length: 5 }).map((_, i) => (
-        <Skeleton key={i} className="h-12 w-full rounded-md" />
+        <Skeleton key={i} className="h-8 w-full rounded-md" />
       ))}
     </div>
   );
@@ -126,23 +145,71 @@ export function ConversationRail({
     wrapperClassName: string,
   ): React.ReactElement {
     return (
-      <div className={wrapperClassName}>
-        <div className="shrink-0 p-2">
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="w-full gap-2"
-            onClick={onNewChat}
-            disabled={creatingConversation}
-          >
-            <Plus className="size-4" aria-hidden />
-            New chat
-          </Button>
-        </div>
+      // `.convrail` (direction-final.html:393): `padding:14px 10px`. `py-3.5`
+      // IS 14px and `px-2.5` IS 10px on Tailwind's own scale — the sketch's
+      // measurement, reached through named steps. NOT `p-panel` (20px): that
+      // step was measured off the 236-280px wide panels it landed on
+      // (inbox-entities-rail, kdetail) and would spend 40 of this rail's 208px
+      // on air. Reaching for a named step is the rule; reaching for the WRONG
+      // named step because it is named is not.
+      <div className={cn(wrapperClassName, "px-2.5 py-3.5")}>
+        {/* THE HIERARCHY CORRECTION. This shipped as `variant="default"` — a
+            FILLED INK block, the single loudest control on the surface, spent on
+            the least consequential action on it (a new chat is free and
+            undoable; the rail's genuinely irreversible control, Delete, is a
+            menu item). The sketch's `.newchat` (line 397) is OUTLINED:
+            `--bright` fill, `--rule` border, ink text, `--shade`/`--rule-hi` on
+            hover. A re-token cannot make this change — both are "ink" — which is
+            precisely why Phase 51's re-token left it standing. */}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            // `mb-2.5` IS `.newchat`'s `margin-bottom:10px`. `justify-start` +
+            // `gap-2` is its `text-align:left` + `gap:7px` — a control whose
+            // label starts where the rows' labels start. `size="sm"` gives the
+            // right box (h-8 = the sketch's 7px+13px+7px) but the wrong type
+            // (`text-xs`/`font-normal`); `.newchat` is 13px/600, i.e.
+            // `text-sm font-semibold`. It is the only semibold control in the
+            // rail besides the SELECTED row — which is the intended reading.
+            "mb-2.5 w-full shrink-0 justify-start gap-2 text-sm font-semibold",
+            // `variant="outline"` already gives `border-input` (= --rule) and
+            // the --shade hover well through --accent. Said outright, plus the
+            // two things the variant gets wrong for this identity: it fills with
+            // `bg-background` (the page ground) where the sketch fills with
+            // `--bright`, and it carries `shadow-sm` where the identity's own
+            // note is "flat surfaces, hairline rules, zero shadow anywhere".
+            "bg-bright text-ink shadow-none hover:bg-shade hover:text-ink",
+            // --rule-hi is declared in globals.css for both themes but not
+            // registered in @theme, so no `border-rule-hi` utility exists;
+            // 61-05 owns registration. var() at the call site is the
+            // sanctioned interim (61-03-PLAN §E).
+            //
+            // SYNTAX, and it is not a style preference: this is v4's
+            // `(--custom-property)` form, NOT v3's `[--rule-hi]`. v3 syntax
+            // surviving into v4 emits nothing and fails SILENTLY — it is what
+            // shipped the sidebar at half width through 730 green tests
+            // (`w-[--sidebar-width]` needed `w-(--sidebar-width)`). `border-(…)`
+            // resolves in the COLOUR namespace, so no `color:` type hint is
+            // needed here. The emitted CSS is grepped in 61-03-SUMMARY.md
+            // rather than assumed.
+            "hover:border-(--rule-hi)",
+            "focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1",
+          )}
+          onClick={onNewChat}
+          disabled={creatingConversation}
+        >
+          <Plus className="size-4" aria-hidden />
+          New chat
+        </Button>
 
-        <ScrollArea className="min-h-0 flex-1">
-          <div className="space-y-1 p-2 pt-0">
+        <ScrollArea className="-mx-2.5 min-h-0 flex-1">
+          {/* `-mx-2.5` above + `px-2.5` here: the scrollbar rides the rail's
+              true edge while the rows keep the rail's own 10px gutter, so a
+              scrolling list does not sit visibly inboard of a non-scrolling
+              one. `gap-0.5` is `.convrail`'s `gap:2px` (line 394). */}
+          <div className="flex flex-col gap-0.5 px-2.5">
             {isLoading ? (
               <RailSkeleton />
             ) : conversations && conversations.length > 0 ? (
@@ -162,7 +229,7 @@ export function ConversationRail({
                 />
               ))
             ) : (
-              <p className="px-2 py-4 text-center text-xs text-muted-foreground">
+              <p className="px-2.5 py-4 text-center text-xs text-faded">
                 No conversations yet.
               </p>
             )}
@@ -179,13 +246,17 @@ export function ConversationRail({
 
   return (
     <>
-      {/* Desktop (>=md) — byte-identical inline Collapsible, unchanged. */}
+      {/* Desktop (>=md) — the inline Collapsible. The height chain here is
+          UNCHANGED by 61-03 and deliberately so: only the width, the rule and
+          the ground moved. */}
       <div className="hidden md:block h-full">
         {/* `h-full` is load-bearing: Radix renders this root as a bare <div> with no
          * class of its own, so without it the height chain breaks here — the div grows
          * to fit every conversation, CollapsibleContent's `h-full` resolves against
          * *that* instead of the 856px wrapper, and the page scrolls to ~11,000px
-         * instead of the rail scrolling inside itself. */}
+         * instead of the rail scrolling inside itself (e2a2abf). This is 61-01's
+         * negative proof: `npm run test:geometry` measures 11,296px against a 900px
+         * viewport with this one class removed. Do not remove it. */}
         <Collapsible
           className="h-full"
           open={!collapsed}
@@ -193,13 +264,20 @@ export function ConversationRail({
         >
           <div
             className={cn(
-              "h-full shrink-0 overflow-hidden border-r border-border/50 bg-background/95",
+              // `--hair` right rule, not `border-border/50` — a hairline is a
+              // token in this identity, not an opacity trick on a heavier rule.
+              // `bg-shelf` is the page ground, stated: the reading column beside
+              // it lifts to `--bright` (page.tsx), and that tone step is what
+              // makes this read as a registry BESIDE a column rather than as
+              // more chrome. It shipped as `bg-background/95` — the same colour
+              // as the column, at 95% of it, for no stated reason.
+              "h-full shrink-0 overflow-hidden border-r border-hair bg-shelf",
               "t-panel-reveal",
-              collapsed ? "w-0" : "w-[280px]",
+              collapsed ? "w-0" : RAIL_WIDTH,
             )}
           >
-            <CollapsibleContent forceMount className="h-full w-[280px]">
-              {renderRailBody(onSelect, "flex h-full w-[280px] flex-col")}
+            <CollapsibleContent forceMount className={cn("h-full", RAIL_WIDTH)}>
+              {renderRailBody(onSelect, cn("flex h-full flex-col", RAIL_WIDTH))}
             </CollapsibleContent>
           </div>
         </Collapsible>

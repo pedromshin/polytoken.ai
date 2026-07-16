@@ -31,6 +31,43 @@ import type { SaveStatus } from "./_canvas/use-canvas-persistence";
 import { useConversationController } from "./_hooks/use-conversation-controller";
 import { useWebllmEngine, type UseWebllmEngineResult } from "./_hooks/use-webllm-engine";
 
+/**
+ * ChatHeaderRule (61-03) — the frame's ONE header rule.
+ *
+ * Until 61-03 the frame stacked TWO `h-11` bars: ChatPage's own ("Chat" + the
+ * rail toggle) and ConversationView's (view toggle, model picker, save status,
+ * cost meter). That is 88px of chrome at a 900px viewport, 44px of it spent
+ * saying "Chat" — a word the app's nav rail already says, next to a rail whose
+ * every row is a chat. The sketch's own Chat frame (direction-final.html
+ * `#chat`, lines 992-1032) has no page-title bar at all: the rail runs the full
+ * height of the frame and the column beside it is turns + composer. So there is
+ * one rule here now, it lives in the MAIN COLUMN beside the full-height rail
+ * (never spanning it — that is what made the old page bar read as a third
+ * stacked bar), and it carries the rail toggle and the conversation's controls
+ * together.
+ *
+ * `h-11 shrink-0` is the height budget the rest of the column hangs off: the
+ * body below is `min-h-0 flex-1`. `shrink-0` is load-bearing — a header allowed
+ * to shrink would let the body claim more than the viewport and the document
+ * would scroll (`npm run test:geometry`).
+ *
+ * Chrome sits on the page ground (`--shelf`, this app's frame ground) under a
+ * `--hair` rule; the reading column below lifts to `--bright`. That tone step
+ * is the sketch's own layering (frame `--leaf` -> `.chatcol` `--bright`),
+ * mapped onto this app's ground.
+ */
+function ChatHeaderRule({
+  children,
+}: {
+  readonly children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <div className="flex h-11 shrink-0 items-center gap-2 border-b border-hair px-2">
+      {children}
+    </div>
+  );
+}
+
 interface ConversationViewProps {
   readonly conversationId: string;
   readonly modelId: string;
@@ -38,6 +75,14 @@ interface ConversationViewProps {
    * so switching conversations never re-instantiates or re-downloads the
    * WebLLM engine (D-08). */
   readonly webllm: UseWebllmEngineResult;
+  /** The rail-collapse toggle, CONSTRUCTED BY ChatPage (which owns
+   * `railCollapsed`/`mobileRailOpen`) and rendered into this view's header rule
+   * — the 61-03 frame merge. It stays OUTSIDE the rail's own subtree, so it is
+   * still reachable when the rail is 0px wide (D-11: the rail collapses to 0px,
+   * not to an icon-rail). ChatPage renders the same element into the same rule
+   * on its empty/loading branches, so the toggle never disappears with the
+   * conversation. */
+  readonly railToggle: React.ReactNode;
   /** CLUS-01/CLUS-02 (54-04): EmailThreadNode's "Attach chat" action creates
    * + attaches a new conversation to the thread and needs to switch the app
    * to it — mirrors the rail's own "New chat" open UX (handleNewChat below).
@@ -62,6 +107,7 @@ function ConversationView({
   conversationId,
   modelId,
   webllm,
+  railToggle,
   onOpenConversation,
 }: ConversationViewProps): React.ReactElement {
   const controller = useConversationController({ conversationId, modelId, webllm });
@@ -88,28 +134,34 @@ function ConversationView({
       <span className="sr-only" aria-live="polite">
         {controller.liveAnnouncement}
       </span>
-      <div className="flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/95 px-4">
-        <div className="flex items-center gap-2">
-          {!isMobile && (
-            <ChatCanvasViewToggle
-              conversationId={conversationId}
-              value={viewMode}
-              onChange={setViewMode}
-            />
-          )}
-          <ModelPicker
+      {/* ONE rule (61-03) — the rail toggle and the conversation's controls
+          share it. ChatPage's separate "Chat" title bar above this one is
+          gone; see ChatHeaderRule. */}
+      <ChatHeaderRule>
+        {railToggle}
+        {!isMobile && (
+          <ChatCanvasViewToggle
             conversationId={conversationId}
-            currentModelId={modelId}
-            onSelectBrowserModel={controller.handleSelectBrowserModel}
-            webllm={{
-              supported: webllm.supported,
-              status: webllm.status,
-              progress: webllm.progress,
-              progressText: webllm.progressText,
-            }}
+            value={viewMode}
+            onChange={setViewMode}
           />
-        </div>
-        <div className="flex items-center gap-3">
+        )}
+        <ModelPicker
+          conversationId={conversationId}
+          currentModelId={modelId}
+          onSelectBrowserModel={controller.handleSelectBrowserModel}
+          webllm={{
+            supported: webllm.supported,
+            status: webllm.status,
+            progress: webllm.progress,
+            progressText: webllm.progressText,
+          }}
+        />
+        {/* `ml-auto` rather than a `justify-between` pair of wrappers: the
+            left zone is now three independent children (toggle, view toggle,
+            model picker) whose middle one is conditional, and an empty
+            wrapper div still consumes a `gap`. */}
+        <div className="ml-auto flex items-center gap-3">
           {effectiveViewMode === "canvas" && (
             <SaveStatusIndicator status={canvasSaveStatus} />
           )}
@@ -119,7 +171,7 @@ function ConversationView({
           <ThreadClusterIndicator conversationId={conversationId} />
           <CostMeter conversationId={conversationId} />
         </div>
-      </div>
+      </ChatHeaderRule>
       <div className="min-h-0 flex-1">
         {effectiveViewMode === "canvas" ? (
           <ChatCanvasIsland
@@ -130,7 +182,16 @@ function ConversationView({
             onOpenConversation={onOpenConversation}
           />
         ) : (
-          <div className="flex h-full min-h-0 flex-col">
+          // The sketch's `.chatcol` (direction-final.html:409) — turns +
+          // composer as ONE surface, lifted a tone step above the page ground
+          // (`--bright` against the header's/rail's `--shelf`). Until 61-03 the
+          // rail and this column were the SAME colour, separated only by a
+          // rule, which is a large part of why the frame read as stacked chrome
+          // rather than a registry beside a reading column. The composer inside
+          // it deliberately declares NO background of its own (61-03 Task 2) —
+          // it is part of this surface, divided from the transcript by a
+          // hairline rule, exactly as `.composer` is.
+          <div className="flex h-full min-h-0 flex-col bg-bright">
             <MessageList
               turns={controller.turns}
               streamingTurnId={controller.streamingTurnId}
@@ -159,9 +220,10 @@ function ConversationView({
  * the home empty-state and the streamed ConversationView (22-08 replaces
  * 22-05's placeholder).
  *
- * The rail-collapse toggle lives in this top bar — outside the rail's own
- * 0px-collapsed width — so it stays reachable even when the rail is fully
- * hidden (D-11/UI-SPEC: rail collapses to 0px, not an icon-rail).
+ * The rail-collapse toggle is built here and rendered into the single header
+ * rule (ChatHeaderRule) by whichever branch is live — outside the rail's own
+ * 0px-collapsed width, so it stays reachable even when the rail is fully hidden
+ * (D-11/UI-SPEC: rail collapses to 0px, not an icon-rail).
  */
 export default function ChatPage(): React.ReactElement {
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -217,6 +279,43 @@ export default function ChatPage(): React.ReactElement {
     conversations?.find((conversation) => conversation.id === selectedId) ??
     null;
 
+  // Constructed HERE (this component owns both booleans) and rendered into the
+  // single header rule by whichever branch is live — ConversationView's, or the
+  // empty/loading branch's. One element, one definition, one aria contract, and
+  // it lives outside the rail's own subtree so it survives the rail collapsing
+  // to 0px (D-11).
+  //
+  // The aria-label strings are load-bearing beyond a11y: 61-01's geometry gate
+  // drives the mobile rail open with
+  // `getByRole("button", { name: "Collapse conversation list" })`
+  // (surface-geometry.spec.ts:242). Keyed on the accessible name, not a class —
+  // so a restyle cannot silently repoint it, but a re-WORD would break it.
+  const railToggle = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon"
+      aria-label={
+        railCollapsed ? "Expand conversation list" : "Collapse conversation list"
+      }
+      // Ink chrome, stated (law 1): `faded` at rest, `ink` on the `--shade`
+      // hover well, ink focus ring. `variant="ghost"` already resolves to those
+      // through --accent/--ring, which is the §E trap — compliant by accident of
+      // an indirection rather than by design. Say it.
+      className="size-11 shrink-0 text-faded hover:bg-shade hover:text-ink focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1"
+      onClick={() => {
+        setRailCollapsed((prev) => !prev);
+        setMobileRailOpen((prev) => !prev);
+      }}
+    >
+      {railCollapsed ? (
+        <PanelLeft className="size-4" aria-hidden />
+      ) : (
+        <PanelLeftClose className="size-4" aria-hidden />
+      )}
+    </Button>
+  );
+
   return (
     // Height budget (found by the 61-01 rendered-geometry gate, which measured
     // documentElement.scrollHeight 888 against an 844px mobile viewport): below `md` the app
@@ -228,29 +327,10 @@ export default function ChatPage(): React.ReactElement {
     // underscore form is not needed here — verified by the geometry gate measuring 844, not by
     // assumption: bare `calc(100svh-2.75rem)` would be invalid CSS a browser drops SILENTLY.)
     <div className="flex h-[calc(100svh-2.75rem)] flex-col md:h-svh">
-      <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/50 px-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={
-            railCollapsed ? "Expand conversation list" : "Collapse conversation list"
-          }
-          className="size-11"
-          onClick={() => {
-            setRailCollapsed((prev) => !prev);
-            setMobileRailOpen((prev) => !prev);
-          }}
-        >
-          {railCollapsed ? (
-            <PanelLeft className="size-4" aria-hidden />
-          ) : (
-            <PanelLeftClose className="size-4" aria-hidden />
-          )}
-        </Button>
-        <span className="text-base font-semibold text-foreground">Chat</span>
-      </div>
-
+      {/* The rail is now a FULL-HEIGHT sibling of the column, as in the
+          sketch's frame — no bar spans across the top of both. This wrapper is
+          the root's only flex child, so it is the whole `h-svh` budget, and it
+          is what the rail's own `h-full` chain resolves against. */}
       <div className="flex min-h-0 flex-1">
         <ConversationRail
           selectedId={selectedId}
@@ -271,17 +351,39 @@ export default function ChatPage(): React.ReactElement {
               conversationId={selectedId}
               modelId={selectedConversation.modelId}
               webllm={webllm}
+              railToggle={railToggle}
               onOpenConversation={handleOpenConversation}
             />
-          ) : selectedId ? (
-            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-              Loading conversation…
-            </div>
           ) : (
-            <ChatHomeEmptyState
-              onNewChat={handleNewChat}
-              creating={createConversation.isPending}
-            />
+            <>
+              {/* The same rule, the same toggle element — so collapsing the
+                  rail with no conversation open is still reachable, and the
+                  header does not appear/disappear as conversations are
+                  selected and deleted. */}
+              <ChatHeaderRule>{railToggle}</ChatHeaderRule>
+              {/* HEIGHT CHAIN: both branches below are `h-full` children
+                  (EmptyState's "centered" layout is
+                  `flex h-full flex-col items-center justify-center`,
+                  empty-state.tsx:129). Before 61-03 they were the ONLY child of
+                  the column, so `h-full` meant "the column". Now a 44px header
+                  sits above them, and an unwrapped `h-full` here would resolve
+                  to the FULL column height — 44px + 100% — and scroll the
+                  document by exactly the header's height. This
+                  `min-h-0 flex-1` box is what they resolve against instead; it
+                  mirrors ConversationView's own body wrapper. */}
+              <div className="min-h-0 flex-1">
+                {selectedId ? (
+                  <div className="flex h-full items-center justify-center text-sm text-faded">
+                    Loading conversation…
+                  </div>
+                ) : (
+                  <ChatHomeEmptyState
+                    onNewChat={handleNewChat}
+                    creating={createConversation.isPending}
+                  />
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>
