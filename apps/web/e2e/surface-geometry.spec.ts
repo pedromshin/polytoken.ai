@@ -236,6 +236,20 @@ async function prepareChat(
     const seeded = await seedAuthenticatedContext(context);
     const importerId = await resolveImporterId(dbClient, seeded.userId);
 
+    // Sweep this spec's OWN stale fixtures before seeding. The run-unique title below is a
+    // deliberate anti-race pattern and stays — but it leaks one conversation per run forever, and
+    // this gate runs on every plan: 51 had already accumulated (of 281 total conversations in the
+    // dev DB), which is why /chat's rail is ~11,000px of leaked test data. That is not cosmetic —
+    // it made the rail's query slow enough to miss the screenshot harness's click timeout.
+    //
+    // Age-bounded, NOT title-bounded-only: a concurrent run's fixture is by definition recent, so
+    // the 1-hour floor keeps the anti-race property intact while making growth bounded.
+    await dbClient.query(
+      `DELETE FROM chat_conversations
+        WHERE title LIKE 'surface-geometry fixture %'
+          AND created_at < now() - interval '1 hour'`,
+    );
+
     // Own random id + run-unique title (49-03/live-loop-green.spec.ts's anti-race pattern) so
     // concurrent/previous runs' fixtures can never be the row this test clicks.
     const conversationId = randomUUID();

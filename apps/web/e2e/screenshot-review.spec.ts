@@ -79,7 +79,11 @@ import path from "node:path";
 import { test, type BrowserContext, type Page } from "@playwright/test";
 
 import { seedAuthenticatedContext } from "./helpers/seed-session";
-import { seedEmailFixture } from "./helpers/screenshot-fixtures";
+import {
+  FIXTURE_USER_QUESTION,
+  seedChatThreadFixture,
+  seedEmailFixture,
+} from "./helpers/screenshot-fixtures";
 
 // ---------------------------------------------------------------------------
 // Surfaces + viewports (D-47-05 LOCKED spec + Phase 50 Plan 01 /emails/[id] addition)
@@ -88,6 +92,26 @@ import { seedEmailFixture } from "./helpers/screenshot-fixtures";
 interface Surface {
   readonly name: string;
   readonly path: string;
+  /**
+   * If set, click the conversation row with this title after navigating.
+   *
+   * `/chat` selects a conversation by STATE, not by URL — there is no `?c=` to navigate to. A
+   * harness that only ever visits a path therefore photographs the "Ask me anything" empty state
+   * forever, which is exactly what happened: 61-04 redesigned the message stream, tool rounds and
+   * the citation chip, then found the surface had zero coverage in any committed capture. This is
+   * the one surface whose interesting state costs a click.
+   */
+  readonly selectConversationTitle?: string;
+  /**
+   * After selecting, wait for this text to appear before capturing.
+   *
+   * Selecting the row is NOT enough: `chat.getHistory` is a separate async query that announces
+   * itself through neither a skeleton nor `aria-busy`, so `settle()` is blind to it and the frame
+   * lands on an empty transcript. That is 999.24 one layer deeper than where it was first found —
+   * and it is exactly how the first attempt here produced a `select:ok` frame showing no messages
+   * at all. Gate on a REAL element, never a sleep.
+   */
+  readonly awaitText?: string;
 }
 
 /** The six D-47-05 surfaces reviewed every run — login is public, the rest are auth-gated. */
@@ -332,9 +356,67 @@ async function captureSurface(
   const label = `${surface.name} @ ${viewport.name}/${theme}`;
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
   await page.goto(surface.path, { waitUntil: "load" });
-  const settleResult = await settle(page);
-
   const authStatus = resolveAuthStatus(page.url(), surface.path);
+
+  // Selection is best-effort and NON-FATAL, matching this harness's standing stance: it is a
+  // camera. If the row never arrives we still capture — a picture of the empty state is honest
+  // information, and it is recorded as `select:missed` in index.md rather than passed off as the
+  // thread. Silently capturing the empty state and LABELLING it as the thread is the failure
+  // this whole change exists to end, so the miss has to be visible in the record.
+  let selectNote = "";
+  if (surface.selectConversationTitle !== undefined && authStatus === "captured") {
+    const row = page.getByText(surface.selectConversationTitle, { exact: false }).first();
+
+    // NO TOGGLE CLICKING. Two attempts at "reveal the rail first" were both actively harmful and
+    // are recorded here so the third person does not try a fourth:
+    //
+    //   1. Clicking the toggle by the "Collapse conversation list" label CLOSED an already-open
+    //      rail. The single `railToggle` in page.tsx flips `railCollapsed` AND `mobileRailOpen`
+    //      in one handler, so the mobile capture's click also collapsed the desktop rail.
+    //   2. Falling back to a toggle when the row had not appeared *yet* was worse (4 of 4 missed):
+    //      on desktop the rail is already open and the only visible control reads "Collapse …",
+    //      so the fallback collapsed the very rail it was trying to reveal.
+    //
+    // Measured reality (e2e diagnostics, both viewports, fixture seeded):
+    //   desktop -> row rect {x:266,y:63,w:142,h:31}  — visible, rail open by default
+    //   mobile  -> row rect {x:0,y:0,w:0,h:0}        — in the DOM but boxless (overlay Sheet)
+    //
+    // `railCollapsed` is `useState(false)` and is NOT persisted, so every navigation lands with
+    // the desktop rail open and the row simply present. Waiting is sufficient; touching the
+    // toggle only ever breaks it.
+    //
+    // Mobile is deliberately NOT selected: the rail is a left overlay Sheet, so reaching the row
+    // means opening the Sheet, and a Sheet-over-transcript is a different photograph than the
+    // docked mobile transcript. That surface is SURF-07 / plan 61-07's, and it should capture it
+    // on its own terms rather than have this harness guess.
+    const isOverlayRailViewport = viewport.width < 768;
+    if (isOverlayRailViewport) {
+      selectNote = " select:n/a-overlay-rail";
+    } else {
+      const opened = await row
+        .waitFor({ state: "visible", timeout: 30_000 })
+        .then(() => row.click({ timeout: 10_000 }))
+        .then(() => true)
+        .catch(() => false);
+
+      let loaded = true;
+      if (opened && surface.awaitText !== undefined) {
+        loaded = await page
+          .getByText(surface.awaitText, { exact: false })
+          .first()
+          .waitFor({ state: "visible", timeout: 20_000 })
+          .then(() => true)
+          .catch(() => false);
+      }
+      selectNote = !opened
+        ? " select:missed"
+        : loaded
+          ? " select:ok"
+          : " select:ok-but-transcript-empty";
+    }
+  }
+
+  const settleResult = await settle(page);
   await assertThemeApplied(page, theme, label);
 
   const filename = buildFilename(surface.name, viewport.name, theme, "default");
@@ -345,7 +427,7 @@ async function captureSurface(
     theme,
     pack: "default",
     authStatus,
-    settle: describeSettle(settleResult),
+    settle: describeSettle(settleResult) + selectNote,
     filename,
   });
   return authStatus;
@@ -476,7 +558,20 @@ test.describe("screenshot review capture", () => {
     if (authSeeded) {
       const seeded = await seedAuthenticatedContext(context);
       const fixture = await seedEmailFixture(seeded.userId);
-      surfaces = [...BASE_SURFACES, { name: "emails", path: "/emails/" + fixture.emailId }];
+      const chatFixture = await seedChatThreadFixture(seeded.userId);
+      surfaces = [
+        ...BASE_SURFACES,
+        { name: "emails", path: "/emails/" + fixture.emailId },
+        // `chat` above stays as-is — the empty state is a real state worth reviewing. This is
+        // ADDITIVE: the same surface with a conversation actually open, which is where the
+        // message stream, tool-round rows and citation chips live.
+        {
+          name: "chat-thread",
+          path: "/chat",
+          selectConversationTitle: chatFixture.conversationTitle,
+          awaitText: FIXTURE_USER_QUESTION,
+        },
+      ];
     }
 
     const records: CaptureRecord[] = [];
