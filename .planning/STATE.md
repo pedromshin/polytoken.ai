@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: in-progress
-last_updated: "2026-07-15T22:44:51.954Z"
+last_updated: "2026-07-16T01:55:00.000Z"
 progress:
   total_phases: 9
-  completed_phases: 4
-  total_plans: 25
-  completed_plans: 24
-  percent: 44
+  completed_phases: 5
+  total_plans: 32
+  completed_plans: 27
+  percent: 56
 ---
 
 # State
@@ -111,6 +111,32 @@ inbox rows show serif subjects/tier chips/tabular times, and does `/emails/[id]`
 
 Next: Phase 61 (total UI re-skin part 2) — but fix 999.22 first.
 
+**Phase 61 is now executing. Plan 01 (the two instruments the phase's own verification depends on)
+EXECUTED — see the Plan 01 History entry below and `61-01-SUMMARY.md`. It closes or answers four of
+the items flagged above:**
+
+- **999.22 is now structurally closed for this gate** — `playwright.geometry.config.ts` declares no
+  server-spawning block at all, so it cannot spawn a second `next dev` over the live server's
+  `.next` even if Playwright's port probe misbehaves. (`build:local` itself was already made safe
+  by `7df5ad2` via `NEXT_DIST_DIR=.next-verify`; this plan ran it and the dev server survived.)
+- **999.23 CLOSED — dark mode has been photographed.** 16 dark frames on disk for the first time in
+  this project's history (32 PNGs total, was 16). The applied theme is ASSERTED against `<html>.dark`
+  per capture and throws on a mislabel, so a frame labelled `dark` is dark.
+- **999.24 CLOSED — the harness waits for data.** The fixed 400ms is replaced by a bounded
+  networkidle + skeleton-clear settle, recorded per row in `index.md`. 32/32 `settled`.
+  `inbox-mobile` now shows its real feed (7 rows, serif evidence, entity chips) rather than three
+  grey skeleton rows — the false "the redesign has no tier chips" verdict is retired.
+- **Criterion 4's "dark mode UNPROVEN" gap now has its instrument** (the frames exist; reading them
+  is 61-02+'s / the verifier's job, not this plan's).
+
+**The gate found a REAL bug on its first run, before any negative proof:** `/chat` scrolled its
+document to 888px at an 844px mobile viewport. `SidebarInset` renders a 44px `md:hidden` shell
+header above `{children}` (`layout.tsx:74`), while `ChatPage`'s root claimed the whole viewport with
+a bare `h-svh` — 44 + 844 = 888, so the page sat 44px past the fold below `md`. At `md`+ the header
+is hidden and `h-svh` is exactly right, which is why every desktop check missed it and why **806
+green tests were green before AND after the fix**. Fixed (`733db3e`) as a responsive pair,
+`md`+ path byte-identical. This is the second layout bug in one night that no unit test could see.
+
 **Done so far in v1.10:**
 
 - Phase 55 Platform Migration — VERIFIED passed 4/4 (Tailwind v4 + oklch + React 19; gates rewritten oklch-aware and proven able to fail; Radix-stays decided; @kibo-ui registry install proven)
@@ -132,6 +158,65 @@ Migrations 0037 (chat_source_ledger + chat_context_edges), 0038 (entity_type_cor
 
 **Still owed from v1.9 (user declined twice):** LIVE-03 (§A OAuth), LIVE-04 (§B.3-6 real email),
 CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
+
+## Phase 61 -- Surface Redesign: Chat, Canvas & Mobile Panel Chrome -- Plan 01 History -- the rendered-geometry gate + the harness's two new senses (999.23, 999.24)
+
+Built the two instruments Phases 61-63 inherit, and proved both rather than asserting them.
+
+**The gate (`npm run test:geometry`, `apps/web/e2e/surface-geometry.spec.ts`).** jsdom does no
+layout, so no unit test can ever see a broken height chain — `/chat`'s rail scrolled the document
+to 11,296px at a 900px viewport (`e2a2abf`) while all 44 chat suites (363 tests) passed before AND
+after, and the sidebar shipped at half width through 730 green tests. The gate asserts
+`documentElement.scrollHeight <= innerHeight + 2` at 390 and 1440 (the negative half) plus
+scroll-containment for the rail and transcript via `[data-radix-scroll-area-viewport]` (the positive
+half — without it, a surface that merely CLIPS overflow would pass). It proves hydration (composer
+visible AND enabled) before measuring, so a crashed app cannot report as geometrically perfect.
+
+**Negative proof RED, verbatim in the summary:** removing `className="h-full"` from the
+`<Collapsible>` drove it to `Received: 11296` against a 902 budget — reproducing `e2a2abf`'s
+original number to the pixel. Restored; `git diff --stat` empty.
+
+**T-61-03 by construction:** the config declares no server-spawning block and the file is kept
+literally free of the option's name, so the zero-occurrence check is total. `playwright.config.ts`'s
+`testIgnore` was widened to cover the new spec — its `testMatch` is `/.*\.spec\.ts/`, so a new e2e
+spec rides along BY DEFAULT and would otherwise have run the gate under the one config that DOES
+spawn a server, reintroducing exactly the hazard it exists to remove.
+
+**Bug found by the gate, first run (Rule 1):** `/chat` mobile document scroll, 888 vs 844 — the 44px
+`md:hidden` shell header above a bare `h-svh`. Fixed `733db3e` (`h-[calc(100svh-2.75rem)] md:h-svh`).
+Fixed rather than deferred because the plan requires the gate green at both viewports and 61-03..07
+all run it: a gate that ships RED on a known bug teaches its readers to ignore it.
+
+**The harness (999.23 + 999.24).** Theme is now the outermost axis, one page per theme
+(`addInitScript` is per-page, unremovable, and must land before next-themes' pre-mount script).
+Both levers applied, then the result ASSERTED — the assertion throws where the settle degrades,
+because a mislabelled frame reads as evidence. The settle waits on BOTH `[aria-busy="true"]` and
+`[class*="animate-pulse"]`: the INBOX's loading block — the surface that MOTIVATED 999.24 — is
+`<div aria-hidden>` with no `aria-busy` at all, and `Skeleton` uses `motion-safe:animate-pulse`,
+which v4 emits as that literal class so `.animate-pulse` matches nothing. The plan's own worked
+example (`aria-busy` alone) would have "fixed" 999.24 everywhere except where it was found.
+
+**The `networkidle` claim was re-checked and is FALSE.** The harness header had asserted it was
+"deliberately avoided" because Next dev's HMR websocket stays open. It is reached on 32/32 captures
+(Playwright's networkidle ignores long-lived websockets). Now used, bounded and non-fatal, with the
+outcome recorded per capture so the claim keeps re-checking itself instead of resting on a comment.
+
+**Verification:** tsc clean; `test:geometry` 3 passed; `screenshot:review` 1 passed (1.4m, 32 PNGs);
+vitest **72 files / 806 passed** (unchanged baseline — the src fix regressed nothing); `build:local`
+clean and the dev server survived it. T-61-02: `git check-ignore` verified, no PNG tracked.
+
+**Filed (`deferred-items.md`):** D-61-01 — `.planning/ui-reviews/dark-probe/` (tonight's throwaway
+probe) sorts AFTER every ISO timestamp (`"d" > "2"`), so any sort-based "newest run" lookup reads
+5 stale probe PNGs. **The plan's own Task 2 verify hit this and passed for the WRONG reason**
+(reported the probe's 2 dark frames, not the run's 16); re-verified with an ISO filter. Plans
+61-03..07 and Phases 62-63 all review these captures — filter `/^\d{4}-/` before trusting one.
+D-61-02 — `tsconfig.json`/`next-env.d.ts` auto-generated `.next-verify` drift, left unstaged.
+D-61-03 — 999.25 untouched and NOT made reachable by the settle (captured chips are seeded entity
+regions, not `--sugg` suggestions); flagged for Phase 62 as the plan asked.
+
+**SURF-02 deliberately NOT marked complete:** 7 of Phase 61's 8 plans claim it, and it reads
+"`/chat` + its canvas is redesigned". 61-01 built instruments, not the redesign — marking it now
+would put a false claim in the traceability table.
 
 ## Phase 60 -- Surface Redesign: Inbox & Email Detail -- Plan 01 History -- frozen structural baseline + per-fact provenance chip
 
@@ -4712,6 +4797,11 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 
 ## Decisions Log
 
+- 2026-07-16 (61-01): [Rule 1] `/chat`'s mobile height bug — found by the geometry gate on its FIRST run, before any negative proof — was FIXED (`733db3e`), not deferred to a later plan. `documentElement.scrollHeight` measured 888 at an 844px viewport: `SidebarInset` renders a 44px `md:hidden` shell header above `{children}` (`layout.tsx:74`) while `ChatPage`'s root claimed the whole viewport with a bare `h-svh` (44 + 844 = 888), so the page sat 44px past the fold below `md`. Fixed as a responsive pair (`h-[calc(100svh-2.75rem)] md:h-svh`) leaving the `md`+ path byte-identical. Fixed rather than deferred because the plan requires `test:geometry` green at both viewports and Plans 61-03..07 all run it: a gate that ships RED on a known bug teaches its readers to ignore it, and weakening the assertion to dodge a TRUE red is precisely the anti-pattern the plan forbids ("fix the gate, do not weaken the proof"). A shell-wide fix in `layout.tsx` would touch every route and is Rule 4 (architectural) — not taken unasked. 806 tests were green before AND after, which is the whole thesis of this plan.
+- 2026-07-16 (61-01): `playwright.geometry.config.ts` is kept LITERALLY free of the `webServer` token — in code AND comments — so the plan's zero-occurrence check is total rather than needing "it's only in a comment" reasoning (it also then catches a commented-out block being uncommented later). The plan's action text ("say why in the file header, naming 999.22") and its verify (`grep -c webServer` == 0) are mutually exclusive as literally written; the verify was honored and the header explains the absence in full prose without spelling the option's name. Intent — no server-spawning block, reasoning documented — is fully preserved.
+- 2026-07-16 (61-01): [Rule 1] The capture settle waits on BOTH `[aria-busy="true"]` AND `[class*="animate-pulse"]`, not the plan's worked example of `aria-busy` alone. The INBOX's loading block — the surface whose "three grey skeleton rows" capture MOTIVATED 999.24 — is `<div aria-hidden>` (`inbox-three-pane.tsx:384`) carrying no `aria-busy` at all, and `Skeleton` applies `motion-safe:animate-pulse`, which Tailwind v4 emits as that literal class so a `.animate-pulse` selector matches nothing. Waiting on `aria-busy` alone would have "fixed" 999.24 everywhere except the place it was found. The substring form is already this codebase's own idiom (`genui-part-boundary.test.tsx:80`).
+- 2026-07-16 (61-01): The harness header's claim that `networkidle` is "deliberately avoided" because Next dev's HMR websocket keeps its connection open was RE-CHECKED against the live stack and is FALSE — Playwright's networkidle ignores long-lived websockets, and it was reached on 32/32 captures (the geometry gate reaches it on `/chat` in ~2-3s). It is now used, bounded and non-fatal, and whether it was actually reached is RECORDED per capture in `index.md` — so the claim keeps re-checking itself continuously instead of resting on a comment. The whole reason 999.24 survived so long is that the fixed 400ms LOOKED deliberate.
+- 2026-07-16 (61-01): SURF-02 deliberately NOT marked complete despite being this plan's frontmatter requirement — 7 of Phase 61's 8 plans claim it and it reads "`/chat` + its canvas is redesigned on the new identity". 61-01 built verification instruments, not the redesign; marking it now would put a false claim in the REQUIREMENTS traceability table. It belongs to whichever plan closes the redesign.
 - 2026-07-15 (60-04): [Rule 1] `REGION_ROLE_GEOMETRY.field` is `"border opacity-80"`, not the plan's literal one-line `"border"` — the plan's own per-role description text gives `field` and `none` the identical literal string "border", which would make the two roles structurally indistinguishable and violate the plan's OWN Task 3 requirement that all four roles produce distinct class strings. Fixed forward by adding an opacity nuance to `field` (keeping it honestly "subordinate", the plan's own word for that role) rather than shipping a gate that could never pass by the plan's own literal spec.
 - 2026-07-15 (60-04): Tier and role compose unconditionally now — no `isTerminal` branch in `region-overlay-box.tsx`. `REGION_TIER.terminal`'s own hue-free ghost treatment (opacity-40/bg-shade/border-rule/border-dashed) is sufficient on its own; role geometry never needed suppressing in the first place since it carries zero colour under the new vocabulary.
 - 2026-07-15 (60-04): A known, unresolved cosmetic nuance — a (terminal, field) or (terminal, unrelated) box carries two competing `opacity-*` utility classes simultaneously (tier's opacity-40 + role's opacity-80/60). Not asserted by this plan's tests (class-string presence only, no computed-style check; jsdom doesn't evaluate CSS). Flagged for a future visual-QA pass, not fixed this session.
@@ -5147,6 +5237,7 @@ confirm; the autofill→confirm→embed→index flywheel is verified working liv
 | Phase 59 P03 | ~25min | 2 tasks | 3 files — brand guide §3 "Visual identity" (palette/type-scale/spacing/signature + gate citations + both open flags) + SKILL.md stale-teal fix/D-58-01 pointer/comment-collision gotcha + regenerated design-data.json — PHASE 59 COMPLETE, IDNT-03/IDNT-04 both marked complete |
 | Phase 60 P01 | ~90min | 3 tasks | 9 files — colour-blind fingerprintTree + frozen inbox-pre-60.json baseline (elementCount=81/leafText=32/depth=10) + entitySummary per-fact rewrite (MAX_ENTITIES_PER_EMAIL=8, totalCount) + EntityChips provenance-mark rewrite (zero graph-entity, zero rounded-pill) |
 | Phase 60 P02 | ~75min | 3 tasks | 4 files — inbox row -> four-band registry entry (serif snippet, toInboxSnippet 200-char bound) + thread group -> ruled sub-list (Badge removed) + inbox-structure.test.tsx anti-re-token gate, proven able to fail (2/4 legs RED under restored pre-60 components via git checkout, not stash) |
+| Phase 61 P01 | ~50min | 2 tasks | 6 files — rendered-geometry gate (`npm run test:geometry`) + no-webServer config (999.22 closed by construction) + testIgnore widened; negative proof RED at the exact 11296px; **gate found a REAL mobile bug on first run (888 vs 844, 44px shell header vs bare h-svh) — fixed 733db3e, 806 tests green before AND after it**; harness gained theme axis (999.23 — 16 dark frames, first ever) + real settle (999.24 — 32/32 settled, inbox-mobile now shows its real feed); networkidle's "deliberately avoided" claim re-checked and DISPROVEN (32/32 reached) |
 
 ## Operator Next Steps
 
