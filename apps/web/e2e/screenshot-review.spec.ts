@@ -369,6 +369,37 @@ async function captureSurface(
 ): Promise<AuthStatus> {
   const label = `${surface.name} @ ${viewport.name}/${theme}`;
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
+
+  // 61-07 — DROP /chat's PERSISTED Chat/Canvas CHOICE BEFORE EVERY CAPTURE.
+  //
+  // `chat-thread` and `chat-canvas` are the SAME conversation, and clicking
+  // "Canvas view" makes `chat-canvas-view-toggle.tsx` WRITE that choice to
+  // localStorage (`polytoken.chat.canvas-view:{conversationId}` — the prefix is
+  // read from that file, not guessed; a wrong prefix here would clear nothing
+  // and "work" only by accident of capture order), by design: a user's view
+  // choice should survive a reload. The capture loop then reuses one
+  // browser context across surfaces and both theme passes, so `chat-canvas`
+  // left "canvas" behind and the NEXT pass's `chat-thread` faithfully restored
+  // it: the dark `chat-thread-*.png` were photographs of the BOARD, filed under
+  // the transcript's name, with `select:ok` next to them.
+  //
+  // Found by looking at chat-thread-desktop-dark.png (61-07). It has been true
+  // since `chat-canvas` joined the surface list, and no gate could see it — the
+  // harness is a camera, and the picture WAS of a real, correctly-rendered
+  // surface. Just not the one on the label.
+  //
+  // Clearing the key rather than clicking "Chat view": the toggle only exists
+  // above `md`, so a mobile capture has no tab to click, and `openTabName`'s
+  // own wait gates on the React Flow pane that only the canvas branch mounts.
+  // An `addInitScript` runs before the app's first render, so `readStoredViewMode`
+  // reads a clean slate and each surface gets the mode its OWN definition asks
+  // for.
+  await page.addInitScript(() => {
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith("polytoken.chat.canvas-view:")) window.localStorage.removeItem(key);
+    }
+  });
+
   await page.goto(surface.path, { waitUntil: "load" });
   const authStatus = resolveAuthStatus(page.url(), surface.path);
 

@@ -215,6 +215,54 @@ export async function seedChatThreadFixture(
           "The Q3 renewal quote totals **$1,180.00**. It came in from Example Sender and asks " +
           "you to review and reply with any questions.",
       },
+      // A REAL genui panel in the transcript (61-07).
+      //
+      // WHY IT IS HERE: this is the surface backlog 999.17's read half is about —
+      // the docked/mobile transcript rendering a panel through its overlay — and
+      // until now NO committed capture contained one. The fixture seeded a tool
+      // row and prose only, so `chat-thread-*.png` could not show a genui panel
+      // in either theme, at either viewport. That is D-61-04-A's exact blindness
+      // ("the surface 61-04 redesigned has zero coverage in the committed visual
+      // review"), and 61-07 rewires precisely this branch: `MessageTurn`'s
+      // genui_spec part now resolves through `resolveActivePanel` and renders
+      // inside a `PanelThemeScope`, which themes the panel's card chrome.
+      // Nobody could see that happen.
+      //
+      // It matters beyond 61-07: **Plan 61-08 mounts the editable-panel toolbar
+      // into this very part**, on this very surface. Without a panel here, 61-08
+      // would be redesigning chrome it cannot photograph either.
+      //
+      // No `style_pack_id`: an unthemed spec is the common case, and it lets the
+      // capture show what `PanelThemeScope` itself does to the panel's card
+      // rather than what a pack's own `ThemedRoot` does underneath it (they
+      // stack — see 61-07-SUMMARY.md's note on the two themed wrappers).
+      //
+      // Never invokes a model — `chat.getHistory` replays `parts` VERBATIM
+      // (D-18), so this renders through the identical component path a live
+      // generated panel would, at zero cost and with no nondeterminism.
+      {
+        type: "genui_spec",
+        spec: {
+          v: 1,
+          root: {
+            type: "card",
+            title: "Q3 renewal quote",
+            description: "Example Sender · received 12 March",
+            children: [
+              {
+                type: "key-value-list",
+                label: "Quote summary",
+                items: [
+                  { key: "Subtotal", value: "$1,000.00" },
+                  { key: "Tax", value: "$180.00" },
+                  { key: "Total", value: "$1,180.00" },
+                  { key: "Due", value: "30 days from receipt" },
+                ],
+              },
+            ],
+          },
+        },
+      },
     ];
 
     await client.query(
