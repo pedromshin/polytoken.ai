@@ -157,7 +157,11 @@ import { createCanvasStore } from "../canvas-store";
 import { CanvasStoreProvider } from "../canvas-store-context";
 import { CanvasPersistenceProvider } from "../panel-overlay-context";
 import { CanvasSpecProvider } from "../canvas-spec-context";
-import { CANVAS_EDGE_TIER, CANVAS_EDGE_TIER_STYLE } from "../canvas-vocabulary";
+import {
+  CANVAS_EDGE_TIER,
+  CANVAS_EDGE_TIER_STYLE,
+  CANVAS_NODE_KIND_GEOMETRY,
+} from "../canvas-vocabulary";
 import { ChatControllerProvider, ChatNode } from "../chat-node";
 import { DataEdge } from "../data-edge";
 import { EmailThreadNode } from "../email-thread-node";
@@ -469,7 +473,32 @@ describe("canvas node law — the RENDERED shells (D-58-01 laws 1/2/3)", () => {
   });
 
   describe("KIND IS LEGIBLE, RENDERED — the gate 61-02's map gate structurally cannot be", () => {
-    it("the four real shells produce mutually DISTINCT root class strings", async () => {
+    /**
+     * Every class that any kind's geometry claims. The root's class string also
+     * carries dimensions and the shared card base, so distinctness must be read
+     * over THIS SLICE ALONE.
+     *
+     * WHY THAT MATTERS — this gate's own negative proof caught it: the first
+     * version of this test compared whole root class STRINGS and passed happily
+     * while `GenuiPanelNode` was deliberately mis-wired to the chat kind. The
+     * four shells' dimension classes (`min-h-[320px]` vs `h-[220px]` ...) differ
+     * on their own, so "all four are distinct" was true no matter what the
+     * geometry said. It asserted the shells have different SIZES — a fact nobody
+     * doubted — while reading as if it proved kind legibility. Exactly the
+     * shape of defect this plan keeps finding: green, and about nothing.
+     */
+    const ALL_GEOMETRY_CLASSES = new Set(
+      ALL_KINDS.flatMap((k) => Array.from(classSet(CANVAS_NODE_KIND_GEOMETRY[k]))),
+    );
+
+    function geometrySlice(root: HTMLElement): string {
+      return Array.from(classSet(root.className))
+        .filter((c) => ALL_GEOMETRY_CLASSES.has(c))
+        .sort()
+        .join(" ");
+    }
+
+    it("the four real shells render mutually DISTINCT kind geometry", async () => {
       // 61-02 asserts the MAP's five values differ. This asserts the COMPONENTS
       // actually use them: wire one shell to the wrong key and 61-02 stays green
       // while two kinds become indistinguishable on the board.
@@ -477,14 +506,42 @@ describe("canvas node law — the RENDERED shells (D-58-01 laws 1/2/3)", () => {
       // SEQUENTIALLY, never Promise.all: overlapping `act()` scopes interleave
       // and later mounts in this file then render nothing — a green-looking
       // "rendered nothing" is the vacuity trap, and it bit this very test once.
-      const classStrings: string[] = [];
+      const slices: string[] = [];
       for (const kind of REAL_KINDS) {
-        classStrings.push((await renderShell(kind)).className);
+        slices.push(geometrySlice(await renderShell(kind)));
       }
-      expect(new Set(classStrings).size, `not all distinct:\n${classStrings.join("\n")}`).toBe(
-        REAL_KINDS.length,
-      );
+      expect(
+        new Set(slices).size,
+        `two kinds render the SAME geometry:\n${REAL_KINDS.map((k, i) => `  ${k}: ${slices[i]}`).join("\n")}`,
+      ).toBe(REAL_KINDS.length);
     });
+
+    for (const kind of ALL_KINDS) {
+      it(`${kind}: renders its OWN geometry and no other kind's distinguishing class`, async () => {
+        const rendered = classSet((await renderShell(kind)).className);
+        const own = classSet(CANVAS_NODE_KIND_GEOMETRY[kind]);
+
+        for (const cls of own) {
+          expect(
+            rendered.has(cls),
+            `${kind} does not render its own geometry class "${cls}"`,
+          ).toBe(true);
+        }
+
+        for (const other of ALL_KINDS) {
+          if (other === kind) continue;
+          const otherOnly = Array.from(classSet(CANVAS_NODE_KIND_GEOMETRY[other])).filter(
+            (c) => !own.has(c),
+          );
+          for (const cls of otherOnly) {
+            expect(
+              rendered.has(cls),
+              `${kind} renders "${cls}", which belongs to the ${other} kind — a mis-wire`,
+            ).toBe(false);
+          }
+        }
+      });
+    }
 
     it("kind is carried by RULE/geometry, never by a hue", async () => {
       for (const kind of REAL_KINDS) {
