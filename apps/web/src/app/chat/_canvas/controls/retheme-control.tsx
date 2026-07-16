@@ -142,7 +142,7 @@ export function RethemeControl({
         {inlineError && (
           <div
             role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive"
+            className="rounded-md border border-rule p-2 text-xs text-ink"
           >
             {RETHEME_ERROR_COPY}
           </div>

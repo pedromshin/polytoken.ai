@@ -232,7 +232,7 @@ function EditParamField({ field, value, error, onChange }: EditParamFieldProps):
           Range: {field.min}–{field.max}
         </p>
       )}
-      {error && <p className="text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs font-medium text-ink">{error}</p>}
     </div>
   );
 }
@@ -348,7 +348,7 @@ export function EditParamsControl({
         {serverError && (
           <div
             role="alert"
-            className="rounded-md border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive"
+            className="rounded-md border border-rule p-2 text-xs text-ink"
           >
             {serverError}
           </div>

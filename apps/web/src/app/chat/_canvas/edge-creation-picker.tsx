@@ -178,7 +178,7 @@ export function EdgeCreationPicker({
           </>
         )}
 
-        {error && <p className="text-xs text-destructive">{error}</p>}
+        {error && <p className="text-xs font-medium text-ink">{error}</p>}
 
         <div className="flex items-center justify-between gap-2 pt-1">
           {isEditing && onRemove && (
@@ -186,7 +186,6 @@ export function EdgeCreationPicker({
               type="button"
               variant="ghost"
               size="sm"
-              className="text-destructive"
               onClick={onRemove}
             >
               Remove connection

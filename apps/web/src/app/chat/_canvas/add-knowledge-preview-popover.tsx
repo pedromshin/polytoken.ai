@@ -148,7 +148,7 @@ export function AddKnowledgePreviewPopover({
           <p className="text-xs text-muted-foreground">
             Find an ID on the /knowledge graph, or paste one from a chat citation chip.
           </p>
-          {validationError && <p className="text-xs text-destructive">{validationError}</p>}
+          {validationError && <p className="text-xs font-medium text-ink">{validationError}</p>}
         </div>
         <div className="space-y-1">
           <label htmlFor="kp-label" className="text-xs text-muted-foreground">
