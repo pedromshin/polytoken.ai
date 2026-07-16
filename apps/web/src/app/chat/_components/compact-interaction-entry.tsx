@@ -6,9 +6,18 @@
  * a successful widget submit (24-UI-SPEC.md Copywriting Contract / Component
  * Inventory).
  *
- * Reuses `MessageTurn`'s existing user-bubble classes verbatim (`flex
- * justify-end` + `max-w-[85%] rounded-lg bg-muted px-4 py-2`) — not a new
- * visual treatment, a direct reuse (24-UI-SPEC.md Spacing Scale exceptions).
+ * Reuses `MessageTurn`'s user-bubble treatment — not a new visual treatment, a
+ * direct reuse (24-UI-SPEC.md Spacing Scale exceptions). As of 61-04 that
+ * reuse is REAL rather than promised: both this entry and `MessageTurn` import
+ * the one `USER_BUBBLE_CLASS` (user-bubble-class.ts, which explains why it is
+ * its own module). This header used to name the classes it copied — a
+ * duplicate held true only by discipline, in the one place drift is most
+ * visible, since both bubbles appear in the SAME transcript.
+ *
+ * The alignment is still this component's own: it sits INSIDE a turn, so it
+ * right-aligns with `flex justify-end`, whereas `MessageTurn` is a flex-column
+ * child of the sketch's `.turns` and uses `self-end`. Only the bubble's
+ * appearance is shared.
  *
  * proposal_cards: `Selected "{chosenTitle}"`. confirm_action (Phase 40-02,
  * CONF-02) reuses this SAME `ProposalSummary` path verbatim — its server-side
@@ -29,13 +38,13 @@ import * as React from "react";
 import type { SpecRoot } from "@polytoken/genui/schema";
 
 import { GenuiPartBoundary } from "./genui-part-boundary";
+import { USER_BUBBLE_CLASS } from "./user-bubble-class";
 
 export interface CompactInteractionEntryProps {
   readonly widgetKind: string;
   readonly summary: Readonly<Record<string, unknown>>;
 }
 
-const BUBBLE_CLASS = "max-w-[85%] rounded-lg bg-muted px-4 py-2";
 const YOUR_RESPONSE_LABEL = "Your response";
 
 function ProposalSummary({ summary }: { readonly summary: Readonly<Record<string, unknown>> }): React.ReactElement {
@@ -76,9 +85,10 @@ function ClarifySummary({ summary }: { readonly summary: Readonly<Record<string,
     return <span className="text-sm text-muted-foreground">{YOUR_RESPONSE_LABEL}</span>;
   }
   const specJson = JSON.stringify(buildClarifyCompactSpec(fields));
-  // "bare" — this already sits inside the compact bubble's own bg-muted/rounded-lg
-  // shell; GenuiPartBoundary's default GenuiCard wrapper would add an unwanted
-  // second bordering layer (24-UI-SPEC.md's no-more-nesting posture).
+  // "bare" — this already sits inside the compact bubble's own filled, rounded
+  // shell (USER_BUBBLE_CLASS); GenuiPartBoundary's default GenuiCard wrapper
+  // would add an unwanted second bordering layer (24-UI-SPEC.md's
+  // no-more-nesting posture).
   return <GenuiPartBoundary specJson={specJson} isStreaming={false} variant="bare" />;
 }
 
@@ -88,7 +98,7 @@ export function CompactInteractionEntry({
 }: CompactInteractionEntryProps): React.ReactElement {
   return (
     <div className="flex justify-end">
-      <div className={BUBBLE_CLASS}>
+      <div className={USER_BUBBLE_CLASS}>
         {widgetKind === "proposal_cards" || widgetKind === "confirm_action" ? (
           <ProposalSummary summary={summary} />
         ) : (

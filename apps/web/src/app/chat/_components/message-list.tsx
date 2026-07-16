@@ -121,7 +121,34 @@ export function MessageList({
   return (
     <div className="relative min-h-0 flex-1">
       <ScrollArea ref={scrollAreaRootRef} className="h-full">
-        <div className="mx-auto max-w-3xl space-y-8 px-4 py-6">
+        {/* THE SKETCH'S `.turns` (direction-final.html:415):
+              flex; flex-direction:column; gap:16px; padding:20px 18px
+            `space-y-8` (32px) spaced this like a DOCUMENT; `gap-4` (16px)
+            spaces it like a conversation, which is what it is. The flex
+            column is also what lets a turn place itself — `.uturn` is
+            `align-self:flex-end` (message-turn.tsx's `self-end`) — instead of
+            every turn carrying its own full-width `flex justify-*` wrapper.
+
+            `px-4` IS A PAIR DECISION, NOT THE SKETCH'S 18px (D-61-04-A). The
+            sketch pads `.turns` 18px and `.composer` 16px — it never had to
+            align them, because its `.chatcol` is a fixed 388px box with no
+            centred reading column in it. Ours are two `mx-auto max-w-3xl`
+            columns stacked on each other, so 18-vs-16 would offset the
+            composer's field from the prose directly above it by 2px, forever.
+            The composer (61-03, committed) is `px-4 py-3.5`; alignment of the
+            pair beats 2px of fidelity to a number the sketch never had to
+            make true. `py-5` IS the sketch's 20px — it pairs with nothing.
+
+            `w-full` IS LOAD-BEARING (D-61-06). Radix's ScrollArea Viewport
+            wraps its children in an inline `{min-width:100%; display:table}`
+            div, and `display:table` SHRINK-WRAPS TO CONTENT. `mx-auto`
+            centres against that content box, so without `w-full` this column
+            centres against whatever the widest turn happens to be rather than
+            against the viewport. That wrapper is what put the conversation
+            rail's Rename/Delete 144px off-screen (61-03-SUMMARY.md), and
+            `npm run test:geometry` now measures `scrollWidth <= clientWidth`
+            on this very viewport. */}
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-5">
           {turns.map((turn) => (
             <MessageTurn
               key={turn.id}
@@ -164,6 +191,19 @@ export interface GeneratingIndicatorProps {
  * idiom (22-UI-SPEC.md Interaction Contracts) rather than inventing a new
  * motif. Rendered above the composer only while state === 'streaming';
  * disappears on any terminal state.
+ *
+ * Same register as `ToolRoundActivityRow` (61-04): machine bookkeeping, so
+ * `--pencil` at the small step, on a `--hair` rule. It carried
+ * `border-border/50` + `text-muted-foreground` — a hairline stated as 50% of a
+ * heavier rule, and a tone one step LOUDER than the sketch's status lines ask
+ * for (`--muted-foreground` resolves to `--faded`, post-59). It sits directly
+ * between the transcript and the composer's own `border-hair` dock, so the two
+ * rules were visibly disagreeing about what a hairline is.
+ *
+ * `--pencil` IS LEGAL HERE, and that needed checking rather than assuming
+ * (brand-guide §3): pencil is below the AA floor on `--shade` (4.23:1 light /
+ * 4.02:1 dark) but fine on `--bright`, and this row renders in the chat column,
+ * which page.tsx lifts to `bg-bright` (the sketch's `.chatcol`).
  */
 export function GeneratingIndicator({
   state,
@@ -172,12 +212,13 @@ export function GeneratingIndicator({
     return null;
   }
   return (
-    <div className="flex shrink-0 items-center gap-2 border-t border-border/50 px-4 py-2">
-      <Loader2
-        className="size-4 animate-spin text-muted-foreground"
-        aria-hidden
-      />
-      <span className="text-sm text-muted-foreground">Generating…</span>
+    <div className="flex shrink-0 items-center gap-2 border-t border-hair px-4 py-2">
+      {/* `motion-safe:` guarded, like every other spinner in this column
+          (ToolRoundActivityRow, the composer). This one shipped unguarded, so
+          two spinners a few pixels apart disagreed about honouring
+          prefers-reduced-motion. */}
+      <Loader2 className="size-4 text-pencil motion-safe:animate-spin" aria-hidden />
+      <span className="text-sm text-pencil">Generating…</span>
     </div>
   );
 }
