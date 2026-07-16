@@ -83,6 +83,62 @@ plans quote `npm run build:local` bare. From the repo ROOT that fails with
 (`dotenv -e ../../.env.local -v NEXT_DIST_DIR=.next-verify -- next build`). Always run it from
 `apps/web/`. Cheap fix for a later plan: add a root passthrough script.
 
+## D-61-06 — EVERY `ScrollArea` in the app has Radix's `display:table` content wrapper (SYSTEMIC)
+
+**Found:** 61-03 Task 1, by looking at a screenshot — not by any gate.
+
+`@polytoken/ui/scroll-area`'s `ScrollAreaPrimitive.Viewport` wraps its children in a div Radix
+styles **inline** with `{min-width:100%; display:table}`. `display:table` shrink-wraps to CONTENT,
+so that div grows past the viewport whenever any child is naturally wider — and every descendant
+then lays out against the grown width, so `flex-1 min-w-0 truncate` silently stops binding and
+absolutely-positioned/`shrink-0` siblings land outside the clip.
+
+61-03 hit this in the conversation rail: the overflow-menu button (the rail's ONLY route to Rename
+and Delete) sat at x=608 against a rail whose right edge is x=464. **It was invisible, and it
+predates Phase 61** (visible in 61-01's own 280px capture). Fixed at that ONE call site with
+`[&>[data-radix-scroll-area-viewport]>div]:block!` — the `!` is required because Radix's `display`
+is an inline style.
+
+**Why this is logged rather than fixed globally:** the honest fix is in the shared primitive
+(`packages/ui/src/scroll-area.tsx`), which every surface in the app consumes — a blast radius no
+restyle plan should take unasked (`table` is load-bearing for any ScrollArea that genuinely wants a
+HORIZONTAL scrollbar, which the primitive cannot know from the inside).
+
+**Who should care, concretely:**
+- **61-04** — `message-list.tsx` renders `<ScrollArea className="h-full">` around
+  `<div className="mx-auto max-w-3xl …">`. `mx-auto` centres against the CONTENT box, so if any turn
+  (a wide table, a long unbroken URL, a genui panel) exceeds the viewport, the whole transcript
+  column silently de-centres and the composer below it — which is bounded normally — stops lining
+  up. Worth measuring before restyling turns.
+- **61-05 / 62** — the rail/legend/detail ScrollAreas on `/knowledge` and the canvas have the same
+  wrapper.
+- **A shared decision:** either fix the primitive (and let a horizontal-scroll consumer opt back
+  in), or make the override an explicit, named prop. Repeating the arbitrary variant at each call
+  site is the third option and the worst one.
+
+**No gate sees it.** jsdom computes no layout; `test:geometry` measures VERTICAL document/scroller
+geometry, so a horizontal overflow inside a correctly-bounded box is exactly its blind spot. Both
+were green through this bug. A cheap, high-value extension for a later plan: assert
+`viewport.scrollWidth <= viewport.clientWidth + ε` for the rail and the transcript — one line,
+catches this entire class.
+
+## D-61-07 — two "New chat" controls now disagree on weight (61-03 finding)
+
+`ChatHomeEmptyState` renders its CTA through the shared `EmptyState` primitive's `action`, which
+builds a FILLED ink button. 61-03 made the rail's New-chat control OUTLINED (the sketch's
+`.newchat`, a hierarchy correction). So the two New-chat controls on the same route now carry
+different weights.
+
+This is arguably correct — the empty state's CTA is the only action on an otherwise empty surface,
+while the rail's sits above a list where picking an existing conversation is equally valid — but it
+was not a decided choice, and it is visible in
+`.planning/ui-reviews/2026-07-16T01-56-41-998Z/chat-desktop-{light,dark}.png`.
+
+**Not actioned because** `EmptyState` is a shared primitive (`~/components/empty-state`) consumed by
+`entities-gallery` and others; changing its action's variant is a cross-surface decision, and
+`chat-home-empty-state.tsx` is outside 61-03's `files_modified`. Whoever owns the empty/landing
+surfaces should decide deliberately.
+
 ## D-61-03 — 999.25 remains open (explicitly out of scope, per 61-01-PLAN)
 
 The screenshot fixture seeds zero entities/extractions, so pencil-amber `--sugg` has still never
