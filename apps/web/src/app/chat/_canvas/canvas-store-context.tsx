@@ -132,6 +132,27 @@ export function useCanvasStore(): CanvasStore {
   return useCanvasStoreContext().store;
 }
 
+/**
+ * Non-throwing accessor for the store — `null` when no provider wraps the
+ * tree (61-07). The split mirrors `useOptionalChatController` (chat-node.tsx)
+ * and `useIncomingEdgesForPanel` above, and the reason is the same one both of
+ * them state: a MISSING provider is a host-wiring bug for a component that can
+ * only legitimately exist inside the canvas host (so `useCanvasStore` throws),
+ * but a degraded/standalone mount of a SHARED component is a real case (so this
+ * returns null).
+ *
+ * Its caller is `useOptionalPanelOverlay` (panel-overlay-context.tsx), read by
+ * `MessageTurn` — which renders in three different trees: the docked transcript
+ * (inside `TranscriptPanelHost`), a ChatNode ON the canvas (inside this host's
+ * own providers), and bare in unit tests (no providers at all). Read-only by
+ * construction: this returns the store, and the WRITE path (`usePanelOverlay`)
+ * still goes through `useCanvasStore` and still throws, because a write with no
+ * persistence wired IS a wiring bug.
+ */
+export function useOptionalCanvasStore(): CanvasStore | null {
+  return useContext(CanvasStoreContext)?.store ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // CanvasEdgesContext — the STATE-02 seam: maps a target panelId to its
 // currently-wired incoming data-carrying edges. React Flow's `NodeProps`

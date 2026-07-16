@@ -48,8 +48,8 @@ import { useShallow } from "zustand/react/shallow";
 
 import type { StylePackId } from "@polytoken/genui/theme";
 
-import { resolveCanvasPath } from "./canvas-store";
-import { useCanvasStore } from "./canvas-store-context";
+import { createCanvasStore, resolveCanvasPath, type CanvasStore } from "./canvas-store";
+import { useCanvasStore, useOptionalCanvasStore } from "./canvas-store-context";
 import type { Provenance } from "./node-data-schemas";
 import { parseOverlay, type PanelOverlay } from "./panel-overlay";
 
@@ -165,6 +165,71 @@ export function usePanelOverlay(panelId: string): UsePanelOverlayResult {
   );
 
   return { overlay, writeOverlay };
+}
+
+// ---------------------------------------------------------------------------
+// useOptionalPanelOverlay — the NON-THROWING read (61-07, criterion 4)
+// ---------------------------------------------------------------------------
+
+/**
+ * A permanently-empty store, used ONLY as `useStore`'s subject when no
+ * `CanvasStoreProvider` wraps the tree.
+ *
+ * It exists because of the rules of hooks, not because of a design preference:
+ * `useStore` must be called unconditionally, and it needs a store. Selecting
+ * from this one always yields `undefined`, so `parseOverlay` degrades to "no
+ * overlay" — exactly the answer a provider-less tree should get.
+ *
+ * NOTHING EVER WRITES TO IT, and that is what makes a module-level singleton
+ * safe here: `useOptionalPanelOverlay` returns a value and no writer (see
+ * below), so this store cannot accumulate state or leak it between two trees
+ * that both happen to lack a provider. A future writer added to the optional
+ * read would break that property — route writes through `usePanelOverlay`,
+ * which requires a real store and a real persistence context.
+ */
+const EMPTY_FALLBACK_STORE: CanvasStore = createCanvasStore();
+
+/**
+ * useOptionalPanelOverlay(panelId) — the read half of `usePanelOverlay` for a
+ * component that renders in more than one tree. Returns the parsed overlay, or
+ * `undefined` when there is no overlay, when the stored record fails schema
+ * validation (degrade, never throw — T-52-01-01), OR when no
+ * `CanvasStoreProvider` wraps the tree at all.
+ *
+ * THE THREE TREES this exists for (61-07, §D) — `MessageTurn` renders:
+ *   1. DOCKED, inside `TranscriptPanelHost` — reads that host's store.
+ *   2. ON THE CANVAS, inside a `ChatNode`, which is a node on the board whose
+ *      body is a `MessageList` — reads the CANVAS's own live store, because it
+ *      is already inside `chat-canvas.tsx`'s provider stack. The canvas grows
+ *      no second host: two stores for one conversation is the exact drift
+ *      criterion 4 exists to end.
+ *   3. BARE, in unit tests / any future standalone mount — no providers, no
+ *      overlay, the base spec. This is the case that keeps the pre-existing
+ *      chat suites green, and it is why this read must not throw.
+ *
+ * Mirrors `useOptionalChatController`'s (chat-node.tsx) split verbatim: a
+ * missing provider is a wiring bug for a component that can only legitimately
+ * live inside the host, but a real case for a SHARED component. `MessageTurn`
+ * is the second kind.
+ *
+ * READ-ONLY BY DESIGN — it returns no writer. `usePanelOverlay` keeps throwing
+ * without a `CanvasPersistenceProvider`, because a write with nothing wired to
+ * persist it IS a host-wiring bug, not a degraded mount.
+ *
+ * The raw-reference memo below is NOT a style choice — see `usePanelOverlay`'s
+ * own doc: `useSyncExternalStore` requires a reference-stable snapshot, and a
+ * fresh `parseOverlay` per render loops forever ("getSnapshot should be cached"
+ * / "Maximum update depth exceeded", found live in 23-06 Task 3).
+ */
+export function useOptionalPanelOverlay(panelId: string): PanelOverlay | undefined {
+  const store = useOptionalCanvasStore();
+
+  const rawOverlay = useStore(
+    store ?? EMPTY_FALLBACK_STORE,
+    useShallow((state) => resolveCanvasPath(state.values, `shared.panelOverlays.${panelId}`)),
+  );
+
+  return useMemo(() => parseOverlay(rawOverlay), [rawOverlay]);
 }
 
 // ---------------------------------------------------------------------------

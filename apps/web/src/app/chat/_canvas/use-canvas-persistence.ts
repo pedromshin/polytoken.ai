@@ -219,6 +219,55 @@ export function withDefaultChatNode(
 }
 
 // ---------------------------------------------------------------------------
+// toFlowNode — ReconciledNode -> the React Flow node shape
+//
+// MOVED HERE FROM chat-canvas.tsx (61-07). It lives beside `ReconciledNode`,
+// the type it converts, because it now has TWO callers: `chat-canvas.tsx` (the
+// real board) and `transcript-panel-host.tsx` (the docked transcript's overlay
+// seam, which feeds the restored layout straight back as its live state so a
+// transcript-scheduled save round-trips it — T-61-21).
+//
+// It is deliberately ONE function rather than a copy per caller: the two
+// surfaces share one `chat_canvas_layouts` row and `saveCanvasLayout` UPSERTS
+// it whole, so any drift between two conversions is a silent layout rewrite
+// the next time the quieter surface saves.
+//
+// It is HERE and not imported from `chat-canvas.tsx` for a bundling reason
+// that is load-bearing, not cosmetic: `chat-canvas.tsx` is reached exclusively
+// through `chat-canvas-island.tsx`'s `dynamic(ssr: false)` import, so React
+// Flow's runtime AND `@xyflow/react/dist/style.css` are NOT part of the /chat
+// route's static graph today. `page.tsx` statically imports the transcript
+// host, so importing this one function from `chat-canvas.tsx` would drag the
+// whole xyflow bundle — and its UNLAYERED stylesheet, which beats every
+// layered utility in the app before specificity is even consulted (61-06's
+// finding) — onto the docked chat route, for a 12-line conversion.
+// ---------------------------------------------------------------------------
+
+/** React Flow's `dragHandle` selector — a node is dragged by its header row
+ * only, never by its body (whose content is interactive). */
+export const DRAG_HANDLE_SELECTOR = ".node-drag-handle";
+
+/** New-panel materialization fade (23-UI-SPEC.md Interaction Contracts) —
+ * `motion-safe:` gates it out entirely under prefers-reduced-motion. Applied
+ * ONLY to a node `reconcileNodesFromHistory` just marked `isNew` — a node
+ * restored from a saved layout must NOT replay this entrance on every reload. */
+export const GENUI_PANEL_CLASS_NAME = "motion-safe:animate-in fade-in duration-200";
+
+export function toFlowNode(reconciled: ReconciledNode): FlowNode {
+  return {
+    id: reconciled.id,
+    type: reconciled.type,
+    position: reconciled.position,
+    dragHandle: DRAG_HANDLE_SELECTOR,
+    className:
+      reconciled.isNew && reconciled.type === "genui-panel"
+        ? GENUI_PANEL_CLASS_NAME
+        : undefined,
+    data: reconciled.data,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // buildSnapshot — the CanvasSnapshotSchema-valid save payload (D-05/D-06)
 // ---------------------------------------------------------------------------
 

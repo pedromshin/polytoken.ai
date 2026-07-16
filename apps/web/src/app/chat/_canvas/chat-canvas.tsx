@@ -97,10 +97,11 @@ import {
   type CanvasPersistenceContextValue,
 } from "./panel-overlay-context";
 import {
+  DRAG_HANDLE_SELECTOR,
   reconcileNodesFromHistory,
+  toFlowNode,
   withDefaultChatNode,
   type PersistedCanvasEdge,
-  type ReconciledNode,
   type SaveStatus,
   useCanvasPersistence,
 } from "./use-canvas-persistence";
@@ -132,12 +133,13 @@ import {
  */
 const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)" } as const;
 
-const DRAG_HANDLE_SELECTOR = ".node-drag-handle";
-// New-panel materialization fade (23-UI-SPEC.md Interaction Contracts) —
-// `motion-safe:` gates it out entirely under prefers-reduced-motion. Applied
-// ONLY to a node `reconcileNodesFromHistory` just marked `isNew` — a node
-// restored from a saved layout must NOT replay this entrance on every reload.
-const GENUI_PANEL_CLASS_NAME = "motion-safe:animate-in fade-in duration-200";
+// DRAG_HANDLE_SELECTOR / GENUI_PANEL_CLASS_NAME / toFlowNode MOVED to
+// use-canvas-persistence.ts (61-07) — they now have a second caller
+// (`transcript-panel-host.tsx`), and the two surfaces share ONE persisted row
+// that `saveCanvasLayout` upserts whole, so a second copy of the conversion is
+// a silent layout rewrite waiting to happen (T-61-21). Imported back here so
+// this file's behaviour is byte-for-byte unchanged; see their own docs for why
+// the persistence module (and not this one) is the shared home.
 
 /** `messageId:partIndex` — mirrors canvas-spec-context.tsx's own provenance
  * lookup key convention exactly. */
@@ -197,20 +199,6 @@ function toPersistedShape(node: FlowNode): {
     type: node.type ?? "unknown-node-type",
     position: { x: node.position.x, y: node.position.y },
     data: (node.data ?? {}) as Record<string, unknown>,
-  };
-}
-
-function toFlowNode(reconciled: ReconciledNode): FlowNode {
-  return {
-    id: reconciled.id,
-    type: reconciled.type,
-    position: reconciled.position,
-    dragHandle: DRAG_HANDLE_SELECTOR,
-    className:
-      reconciled.isNew && reconciled.type === "genui-panel"
-        ? GENUI_PANEL_CLASS_NAME
-        : undefined,
-    data: reconciled.data,
   };
 }
 
