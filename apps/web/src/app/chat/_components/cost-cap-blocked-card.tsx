@@ -1,5 +1,13 @@
 "use client";
 
+// Explicit React import — Next.js's SWC automatic JSX runtime tolerates its
+// absence, but vitest's classic-runtime esbuild JSX transform needs `React`
+// in scope for any suite that mounts this file directly (documented gotcha —
+// see message-list.tsx / genui-panel-node.tsx / 53-03 / 53-04's identical
+// fix). message-stream-law.test.tsx (61-04) mounts MessageTurn across every
+// part type and status, which reaches this file for the first time.
+import * as React from "react";
+
 import { AlertTriangle } from "lucide-react";
 
 /**
