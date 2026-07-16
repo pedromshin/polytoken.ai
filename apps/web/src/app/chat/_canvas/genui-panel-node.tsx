@@ -11,18 +11,34 @@
  * never lifted into the React Flow `nodes` array (D-07: a streamed token must
  * never force a full-array `setNodes` identity change).
  *
- * Chrome per 23-UI-SPEC.md, revised by 26-UI-SPEC.md FIX-04: the `h-9`
- * header row is the ONLY drag handle (`.node-drag-handle` — plan 23-03 sets
- * `dragHandle=".node-drag-handle"` on the mounted `<ReactFlow>`), a
- * `bg-muted/40` fill (one step lighter than `ChatNode`'s `bg-muted/60` — a
- * neutral tonal shift, never a second hue) with `border-border/60`, a
- * `PanelsTopLeft` icon + provenance caption ("From turn {n}"), and — while
- * streaming — an animated `text-primary` pulsing dot with
- * `aria-label="Streaming"`. The outer shell carries no left-edge accent
- * (that stripe is `ChatNode`-only). The body is a fixed-min-dimension
- * (320x240) `ScrollArea` with inner scroll only — the node's own dimensions
- * never change while its spec streams, so the graph never relayouts
- * mid-stream.
+ * CHROME (61-06, on 58-IDENTITY.md's locked laws — supersedes 23-UI-SPEC.md
+ * and 26-UI-SPEC.md FIX-04's chrome clauses). This is criterion 1's fourth
+ * named component.
+ *
+ * The shell is the sketch's flat `.card` via `canvasNodeShellClass`, exactly as
+ * every other node kind wears it. This node's kind reads from the WEIGHT of its
+ * left rule — `CANVAS_NODE_KIND_GEOMETRY["genui-panel"]`, the lightest of the
+ * three ruled kinds, because a generated panel carries none of the user's own
+ * words: it is polytoken's rendering OF material that lives elsewhere (law 3:
+ * kind is shape, never hue). FIX-04's claim that "the outer shell carries no
+ * left-edge accent (that stripe is ChatNode-only)" is superseded — the stripe
+ * was never an accent, and the axis it belongs to is now named in the
+ * vocabulary rather than special-cased per file.
+ *
+ * The `h-9` header row is still the ONLY drag handle (`.node-drag-handle` —
+ * 23-03 sets `dragHandle=".node-drag-handle"` on the mounted `<ReactFlow>`).
+ * Its `bg-muted/40` fill is gone with `ChatNode`'s `bg-muted/60`: those two
+ * shades of one grey were FIX-04's way of separating two node kinds before the
+ * system had geometry to do it with. The row is now the sketch's `.ch` — a
+ * `--hair` bottom rule on the card's own ground, a `--faded` icon, and the
+ * provenance caption ("From turn {n}") on the sketch's `.cap` register
+ * (`--pencil`, micro step, sans — it is polytoken's caption, not the mail's
+ * words). While streaming, an ink pulsing dot keeps its `aria-label="Streaming"`
+ * and its `motion-safe:` guard.
+ *
+ * The body is a fixed-min-dimension (320x272) `ScrollArea` with inner scroll
+ * only — the node's own dimensions never change while its spec streams, so the
+ * graph never relayouts mid-stream (D-07).
  *
  * STATE-01 (23-05): the panel's own `panels.{id}.*` canvas-store slice feeds
  * into the UNMODIFIED `SpecRenderer` via `GenuiPartBoundary`'s `data` prop —
@@ -74,6 +90,8 @@ import {
   InteractiveWidgetBoundary,
   type InteractiveWidgetPart,
 } from "../_components/interactive-widget-boundary";
+import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { usePanelData, useIncomingEdgesForPanel } from "./canvas-store-context";
 import { usePanelActionRegistry } from "./panel-action-bridge";
 import { useCanvasPart, useCanvasSpec } from "./canvas-spec-context";
@@ -86,8 +104,6 @@ import { usePanelOverlay } from "./panel-overlay-context";
 import type { GenuiPanelNodeData } from "./node-data-schemas";
 
 export type GenuiPanelNodeType = Node<GenuiPanelNodeData, "genui-panel">;
-
-const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
 
 /**
  * GenuiPanelNodeBody — heavy content (spec render) split from the node shell:
@@ -135,19 +151,19 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
 
   return (
     <>
-      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-border/60 bg-muted/40 px-3 active:cursor-grabbing">
+      {/* The sketch's `.ch` — a --hair rule, a --faded icon, no fill. */}
+      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center justify-between gap-2 border-b border-hair px-3 active:cursor-grabbing">
         <span className="flex min-w-0 items-center gap-2">
-          <PanelsTopLeft
-            className="size-3 shrink-0 text-muted-foreground"
-            aria-hidden
-          />
-          <span className="truncate text-xs font-normal text-muted-foreground">
+          <PanelsTopLeft className="size-3 shrink-0 text-faded" aria-hidden />
+          {/* The sketch's `.cap` — polytoken's own caption for where this panel
+              came from, so: sans, --pencil, micro step. */}
+          <span className="truncate text-2xs font-normal text-pencil">
             From turn {turnIndex}
           </span>
         </span>
         {isStreaming && (
           <span
-            className="text-primary motion-safe:animate-pulse"
+            className="text-ink motion-safe:animate-pulse"
             aria-label="Streaming"
           >
             ●
@@ -167,7 +183,13 @@ const GenuiPanelNodeBody = memo(function GenuiPanelNodeBody({
       )}
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="p-4">
+        {/* The sketch's `.cbody` rhythm (padding:10px 12px 11px) on Phase 59's
+            named step — `p-4`'s 16px was an inherited default, never a chosen
+            density. `w-full` is D-61-06's obligation, not decoration: Radix's
+            Viewport wraps children in an inline {min-width:100%;display:table}
+            div that shrink-wraps to CONTENT, so a body that does not claim the
+            full width lets a wide spec de-bound every descendant inside it. */}
+        <div className="w-full p-row-y">
           {isInteractiveWidget ? (
             <InteractiveWidgetBoundary
               part={part as unknown as InteractiveWidgetPart}
@@ -221,10 +243,10 @@ export const GenuiPanelNode = memo(function GenuiPanelNode({
 
   return (
     <div
-      className={`flex h-full min-h-[272px] w-full min-w-[320px] flex-col overflow-hidden rounded-lg border border-border/60 bg-background transition-shadow duration-150 animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] motion-reduce:animate-none ${selected ? `${SELECTED_RING} shadow-elevation-2` : "shadow-elevation-1"}`}
+      className={`h-full min-h-[272px] w-full min-w-[320px] animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] motion-reduce:animate-none ${canvasNodeShellClass(CANVAS_NODE_KIND_GEOMETRY["genui-panel"], selected === true)}`}
     >
       <Handle type="target" position={Position.Left} />
-      <GeneratingRing active={generating} className="flex min-h-0 w-full flex-1 flex-col rounded-lg">
+      <GeneratingRing active={generating} className="flex min-h-0 w-full flex-1 flex-col rounded-card">
         <GenuiPanelNodeBody
           panelId={id}
           provenance={data.provenance}

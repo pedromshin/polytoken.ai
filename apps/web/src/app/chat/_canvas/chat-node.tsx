@@ -13,15 +13,35 @@
  * `useConversationController` — it only ever reads the shared instance
  * through context.
  *
- * Chrome per 23-UI-SPEC.md, revised by 26-UI-SPEC.md FIX-04: `h-9
- * node-drag-handle` header (`bg-muted/60 border-border/60`) now carries a
- * `MessageSquare` icon + a `border-l-2 border-l-primary` left-edge stripe on
- * the outer shell — the one accent-allowlist member this phase adds — so
- * `ChatNode` reads distinct from `GenuiPanelNode`'s neutral chrome at a
- * glance (FIX-04 supersedes 23-UI-SPEC.md's "never special-case chat" shell
- * clause; drag-handle, dimensions, and selection ring are unchanged).
- * `min-w-[400px] min-h-[320px]` body with internal scroll (`MessageList`'s
- * own `ScrollArea`), `ring-2 ring-primary ring-offset-1` selection idiom.
+ * CHROME (61-06, on 58-IDENTITY.md's locked laws — supersedes 23-UI-SPEC.md
+ * and 26-UI-SPEC.md FIX-04's chrome clauses):
+ *
+ * The shell is the sketch's flat `.card` via `canvasNodeShellClass` — one
+ * recipe shared with every other node kind. What makes this node a CHAT node is
+ * its left rule's WEIGHT, taken from `CANVAS_NODE_KIND_GEOMETRY.chat` (law 3:
+ * kind is shape, never hue). FIX-04's `border-l-2 border-l-primary` had the
+ * right IDEA — a left rule saying "this is the conversation" — and the wrong
+ * spelling: `--primary` resolves to ink, so the stripe was already hueless on
+ * screen while still READING as an accent to anyone editing the file. The idea
+ * survives; the indirection does not.
+ *
+ * FIX-04 also gave this header `bg-muted/60` against every other node's
+ * `bg-muted/40` — a "neutral tonal shift" invented when the system had nothing
+ * else to differentiate node kinds with. It has geometry now, so both fills are
+ * gone: the header is the sketch's `.ch`, a `--hair` bottom rule on the card's
+ * own ground, and the kind is legible from the rule weight instead of from two
+ * shades of the same grey.
+ *
+ * LAW 2 — THE TITLE STAYS SANS, and this is the deliberate half of a pair with
+ * `email-thread-node.tsx`'s opposite call. Law 2's test is "where did the words
+ * come from?", not "which element holds them". A conversation title is
+ * user-authored or polytoken-generated — it is NOT the user's mail — and the
+ * `?? "Chat"` fallback is unambiguously polytoken's own word. So it is chrome,
+ * and chrome speaks sans. The sketch's serif `.ct2` sits on cards whose titles
+ * ARE the mail's own words (a thread subject, a source title); this is not one.
+ *
+ * `min-w-[400px] min-h-[320px]` body with internal scroll (`MessageList`'s own
+ * `ScrollArea`). Selection is an ink outline (see `canvas-node-shell-class.ts`).
  */
 
 import * as React from "react";
@@ -35,6 +55,8 @@ import { api } from "~/trpc/react";
 import { Composer } from "../_components/composer";
 import { GeneratingIndicator, MessageList } from "../_components/message-list";
 import type { ConversationController } from "../_hooks/use-conversation-controller";
+import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import type { ChatNodeData } from "./node-data-schemas";
 
 export type ChatNodeType = Node<ChatNodeData, "chat">;
@@ -91,8 +113,6 @@ export function useOptionalChatController(): ConversationController | null {
   return useContext(ChatControllerContext);
 }
 
-const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
-
 /**
  * ChatNodeBody — the HEAVY content (title query + full message list +
  * composer), split out of the node shell so dragging stays smooth: React Flow
@@ -114,11 +134,14 @@ const ChatNodeBody = memo(function ChatNodeBody({
 
   return (
     <>
-      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center gap-2 border-b border-border/60 bg-muted/60 px-3 active:cursor-grabbing">
-        <MessageSquare className="size-3 shrink-0 text-primary" aria-hidden />
-        <span className="truncate text-sm font-semibold text-foreground">
-          {title}
-        </span>
+      {/* The sketch's `.ch`: a --hair bottom rule, a --faded icon, no fill.
+          The icon is faded on EVERY kind — it is not the differentiator, the
+          geometry is (law 3, and .ch svg{color:var(--faded)} verbatim). */}
+      <div className="node-drag-handle flex h-9 shrink-0 cursor-grab items-center gap-2 border-b border-hair px-3 active:cursor-grabbing">
+        <MessageSquare className="size-3 shrink-0 text-faded" aria-hidden />
+        {/* SANS — a conversation title is polytoken's/the user's word for this
+            chat, never the mail's own words. See the file header's law-2 note. */}
+        <span className="truncate text-xs font-semibold text-ink">{title}</span>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col">
@@ -147,7 +170,7 @@ export const ChatNode = memo(function ChatNode({
 }: NodeProps<ChatNodeType>) {
   return (
     <div
-      className={`flex h-full min-h-[320px] w-full min-w-[400px] flex-col overflow-hidden rounded-lg border border-border/60 border-l-2 border-l-primary bg-background transition-shadow duration-150 ${selected ? `${SELECTED_RING} shadow-elevation-2` : "shadow-elevation-1"}`}
+      className={`h-full min-h-[320px] w-full min-w-[400px] ${canvasNodeShellClass(CANVAS_NODE_KIND_GEOMETRY.chat, selected === true)}`}
     >
       <Handle type="target" position={Position.Left} />
       <ChatNodeBody conversationId={data.conversationId} />
