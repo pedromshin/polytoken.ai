@@ -66,6 +66,7 @@ import type {
 import { AddEmailThreadPopover } from "./add-email-thread-popover";
 import { AddKnowledgePreviewPopover } from "./add-knowledge-preview-popover";
 import { CanvasEmptyState } from "./canvas-empty-state";
+import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   CanvasKeyboardHint,
   KEYBOARD_HINT_DISMISSED_KEY,
@@ -104,7 +105,32 @@ import {
   useCanvasPersistence,
 } from "./use-canvas-persistence";
 
-const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed } as const;
+/**
+ * The data edge's arrowhead. `color` is 61-05's and it is NOT decoration:
+ * without it React Flow paints the marker with its own hardcoded blue-grey
+ * (#b1b1b7). Measured on the live canvas — the wire rendered ink while its own
+ * arrowhead rendered stock grey.
+ *
+ * It is the one piece of stock chrome that `globals.css`'s theming block CANNOT
+ * reach, and the reason is worth knowing: React Flow computes the marker colour
+ * in JS and applies it as an INLINE STYLE on the polyline, so the `--xy-*`
+ * variable the stylesheet reads is never consulted. Verified directly — the var
+ * resolves correctly AT the arrowhead element (`--xy-edge-stroke` = the edge
+ * token) and is simply ignored, because an inline style outranks it.
+ *
+ * That also makes it react-flow-stock-ban.test.ts's blind spot, stated plainly
+ * in that gate's header: a stylesheet parser cannot see a colour the library
+ * hardcodes in JavaScript.
+ *
+ * `--edge` (not ink) because canvas edges are NEUTRAL by decision: a data wire
+ * is plumbing, not provenance, so it earns no hue, and `--edge` is the sketch's
+ * own `.e-neutral` stroke. NOTE for 61-06, which owns `data-edge.tsx`: the
+ * PATH still says `!stroke-primary` (ink at 2px), so the wire and its arrowhead
+ * currently disagree. That `!` is a cascade-LAYER workaround, not a design
+ * choice (see globals.css's React Flow header) — the sketch's neutral edge is
+ * `--edge` at 1.5px, which makes the pair agree in one line.
+ */
+const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)" } as const;
 
 const DRAG_HANDLE_SELECTOR = ".node-drag-handle";
 // New-panel materialization fade (23-UI-SPEC.md Interaction Contracts) —
@@ -779,7 +805,43 @@ export function ChatCanvas({
                     proOptions={{ hideAttribution: false }}
                     aria-label="Conversation canvas"
                   >
-                    <Background gap={16} size={1} color="var(--border)" />
+                    {/*
+                      THE BOARD. 58-IDENTITY's ban #12 (no decorative pattern)
+                      carries an explicit exception written for exactly this
+                      surface, in the sketch's own CSS and its own words:
+
+                        "ban #12 exception: this surface IS a canvas, so a grid
+                         is the working surface, not decoration."
+
+                      (direction-final.html:445-446). That is D-58-01
+                      PRE-AUTHORIZING this grid — a monochrome-chrome identity
+                      with a visible grid looks like a violation and someone
+                      WILL try to remove it. It is the one place the identity
+                      says a pattern earns its keep.
+
+                      22px is the sketch's own background-size. The token is
+                      `--grid`, which exists for precisely this: the value here
+                      used to be the structural boundary token (via `--border`,
+                      which resolves to `--rule`) doing decorative duty at 16px,
+                      and it read as noise rather than as a surface. React Flow
+                      takes `color` as a raw CSS value, so this works at the call
+                      site regardless of @theme registration; globals.css also
+                      sets the system default behind it, so a Background with no
+                      colour prop is on the identity too.
+
+                      `size` IS the sketch's dot, and it is NOT the inherited 1.
+                      React Flow's `size` is the dot DIAMETER (it renders a
+                      circle at r = size/2 — measured, not assumed). The sketch
+                      draws `radial-gradient(var(--grid) 1px, transparent 1px)`,
+                      which is solid out to a 1px RADIUS: a 2px dot. Inheriting
+                      size={1} therefore drew the sketch's grid at HALF its
+                      diameter, and at `--grid`'s 10%/8% alpha a 1px dot is not
+                      subtle, it is invisible — measured at r=0.375px on screen,
+                      a sub-pixel dot nobody can see. A grid that cannot be seen
+                      is not a working surface, it is a dead call site that
+                      passes every gate.
+                    */}
+                    <Background gap={22} size={2} color="var(--grid)" />
                     <Controls showZoom showFitView showInteractive />
                     {showMiniMap && (
                       <MiniMap
@@ -791,7 +853,18 @@ export function ChatCanvas({
                       />
                     )}
                     <Panel position="top-right">
-                      <div className="flex items-center gap-2">
+                      {/*
+                        ONE CARD, three segments — the same chrome language as
+                        the Controls card (globals.css): the CONTAINER carries
+                        the `--bright` fill and the `--rule` hairline, the
+                        buttons sit transparent inside it. This replaced three
+                        free-floating `bg-background/95` ghosts — an opacity
+                        trick, not a designed control, through which the board's
+                        grid showed faintly. No shadow: "flat surfaces, hairline
+                        rules, zero shadow anywhere". `overflow-hidden` clips
+                        each segment's hover fill to the card's radius.
+                      */}
+                      <div className="flex items-center overflow-hidden rounded-card border border-rule bg-bright">
                         <AddEmailThreadPopover onAdd={handleAddEmailThread} />
                         <AddKnowledgePreviewPopover onAdd={handleAddKnowledgePreview} />
                         <Button
@@ -800,7 +873,7 @@ export function ChatCanvas({
                           size="icon"
                           aria-pressed={showMiniMap}
                           aria-label="Toggle minimap"
-                          className="size-11 bg-background/95"
+                          className={CANVAS_PANEL_BUTTON_CLASS}
                           onClick={handleToggleMiniMap}
                         >
                           <MapIcon className="size-4" aria-hidden />

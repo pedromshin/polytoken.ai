@@ -24,6 +24,8 @@ import { Share2 } from "lucide-react";
 import { z } from "zod";
 
 import { Button } from "@polytoken/ui/button";
+
+import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import { Input } from "@polytoken/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@polytoken/ui/popover";
 import {
@@ -99,7 +101,7 @@ export function AddKnowledgePreviewPopover({
                 variant="ghost"
                 size="icon"
                 aria-label="Add knowledge preview"
-                className="size-11 bg-background/95"
+                className={CANVAS_PANEL_BUTTON_CLASS}
               >
                 <Share2 className="size-4" aria-hidden />
               </Button>

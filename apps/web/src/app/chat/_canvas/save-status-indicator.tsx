@@ -44,18 +44,30 @@ export function SaveStatusIndicator({
   }, [status]);
 
   if (status === "error") {
+    // INK, not madder and not pencil (61-05). Law 1: madder means
+    // "irreversible — this cannot be undone", never an error or a status, and
+    // a save that failed is neither (the debounce auto-retries on the next
+    // change). But it is not bookkeeping either, so it does NOT drop to the
+    // pencil the "Saved" label wears: ink is one step up, which reads as more
+    // important without spending the identity's loudest colour. Same reasoning
+    // as D-61-04-E's errored tool round.
     return (
-      <span role="status" className="text-xs text-muted-foreground">
+      <span role="status" className="text-2xs text-ink">
         Not saved — retrying…
       </span>
     );
   }
 
   if (status === "saved" && showSaved) {
+    // The sketch's `.savestatus`: 11.5px in `--pencil` (direction-final.html:
+    // 452-457), i.e. the micro step. `text-xs text-muted-foreground` was 12px
+    // in `--faded` — a step louder than the sketch asks for a label whose whole
+    // job is to be ambient. Pencil is legal on this bar's ground (never on
+    // `--shade`).
     return (
       <span
         role="status"
-        className="text-xs text-muted-foreground motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
+        className="text-2xs text-pencil motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200"
       >
         Saved
       </span>

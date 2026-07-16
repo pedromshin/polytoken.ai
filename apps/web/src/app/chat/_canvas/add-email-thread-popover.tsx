@@ -10,6 +10,8 @@ import { Mail } from "lucide-react";
 
 import type { RouterOutputs } from "@polytoken/api-client";
 import { Button } from "@polytoken/ui/button";
+
+import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   Command,
   CommandEmpty,
@@ -92,7 +94,7 @@ export function AddEmailThreadPopover({
                 variant="ghost"
                 size="icon"
                 aria-label="Add thread"
-                className="size-11 bg-background/95"
+                className={CANVAS_PANEL_BUTTON_CLASS}
               >
                 <Mail className="size-4" aria-hidden />
               </Button>
