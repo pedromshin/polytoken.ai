@@ -87,11 +87,12 @@ summary below exists only so this file stops being wrong, not to replace it.
   source). Run `cd apps/web && npx vitest run src/app/__tests__/` before/after any `globals.css`
   edit.
 
-## Realized surface patterns (Phase 60) — pointer, not a duplicate
+## Realized surface patterns (Phases 60-61) — pointer, not a duplicate
 
 Phase 59 shipped the token SET; Phase 60 shipped the first realized surface PATTERNS (inbox +
-email-detail). **Full reference: [`docs/design/brand-guide.md`](../../../docs/design/brand-guide.md)
-§3 "Realized surface patterns".** Inherit these — do not re-derive them from the sketch.
+email-detail); Phase 61 added `/chat` and its canvas. **Full reference:
+[`docs/design/brand-guide.md`](../../../docs/design/brand-guide.md) §3 "Realized surface patterns".**
+Inherit these — do not re-derive them from the sketch.
 
 - **Tier/role orthogonality** — `apps/web/src/app/emails/[id]/_components/region-vocabulary.ts`.
   **Tier owns colour + solid-vs-dashed; role owns weight/style/opacity, never hue.** `tierOf`
@@ -108,11 +109,36 @@ email-detail). **Full reference: [`docs/design/brand-guide.md`](../../../docs/de
 - **`font-serif` ⇔ `data-evidence`** mutually imply each other; the gates enforce the pair.
 - **Madder** — `variant="destructive"`/`bg-destructive` on an irreversible CONTROL is fine;
   `text-destructive`/`border-destructive` on a STATE is banned. Gate: `role-hue-ban.test.ts`, whose
-  exported `SCOPED_DIRS` is a **ratchet — append your surface root as you sweep**. It reads LINES,
-  not prose: never name a banned literal in a comment. Its madder rule is a proxy that cannot read
-  intent — a `variant="destructive"` status badge passed it and still violated law 1.
+  exported `SCOPED_DIRS` is a **ratchet — append your surface root as you sweep**. It now covers
+  `_components`, `emails/[id]`, **`chat`** (the whole subtree, 61-08) and **`_vocabulary`**;
+  **Phase 62 appends `knowledge/` + `entities/`**, which is why the ban is still scoped. `ALLOWLIST`
+  is EMPTY and an entry amends D-58-01 (LOCKED). **The append is the LAST step of a sweep** — `chat/`
+  was red on arrival with 11 violations. It reads LINES, not prose: never name a banned literal in a
+  comment (construct patterns from parts). Its madder rule is a proxy that cannot read intent — a
+  `variant="destructive"` status badge passed it and still violated law 1, so **read, then gate**.
+  Swept treatment: an error is `border-rule` + `text-ink`, the glyph carries the role.
+- **The canvas card language** — `chat/_canvas/canvas-node-shell-class.ts` + `canvas-vocabulary.ts`.
+  Flat `.card` (`bg-bright`, NOT `bg-background` — that resolves to the page ground), **zero shadow**,
+  hover is a rule change. **Selection is an ink `outline`, not a `ring`** (`--tw-ring-offset-color`
+  defaults `#fff` → a white halo in dark; and `focus-visible:outline-none` survives tailwind-merge
+  and kills `outline-2` — evict with `outline-solid`). Kind = left-rule WEIGHT, never hue; a
+  `DataEdge` is `neutral` because plumbing states no tier.
+- **⚠ xyflow's stylesheet is UNLAYERED**, so it beats ANY layered utility *before specificity* — a
+  `className` on a React Flow primitive can be a **dead string that agrees by accident**. `!` cannot
+  save you (v4 scans LITERAL strings, so a runtime-composed `` `!${cls}` `` emits nothing). Project
+  the fact as CSS **values** (`CANVAS_EDGE_TIER_STYLE`) and gate that the two projections agree.
+- **⚠ Custom utilities need `@utility`, NOT `@layer utilities`** — the latter is plain CSS Tailwind
+  never learns the name of, so the bare class works and **every variant silently emits nothing**.
+  `pointer-coarse:touch-target` emitted nothing for three milestones (44px WCAG floor, never
+  applied, class-string gate green throughout). **Prove new classes EMIT in the built sheet.**
+- **Chrome must sit OUTSIDE `PanelThemeScope`** — it injects the *pack's* palette, and packs have no
+  dark variants (D-61-07-A). A toolbar inside it is light on a dark app.
+- **The `TranscriptPanelHost` seam** — `chat/_canvas/transcript-panel-host.tsx`. Readiness travels in
+  **values, never in shape** (`ready ? <Providers>{c}</Providers> : <>{c}</>` remounts everything
+  below it). A **marker**, not store presence, tells the docked transcript from the canvas's own
+  ChatNode transcript — both have the providers.
 - **Density** — reach for the named step: `px-row-x`/`py-row-y` (list rows), `px-chip-x`/`py-chip-y`
-  (chips), `p-panel` (rails/panels).
+  (chips), `p-panel` (rails/panels, framed error/empty states).
 
 ## Component discovery — read the catalog, don't search
 
@@ -235,10 +261,42 @@ from `packages/ui/`.
   SSR HTML whose client JS never executes (skeletons that never resolve, `Cannot find module
   './N.js'`). Recovery: stop the dev server, `rm -rf apps/web/.next`, restart `npm run web:dev`.
 - **The harness photographs a crash and still reports `1 passed`** — it is a camera, not a gate.
-  Read the PNGs; check the app actually hydrated (skeletons everywhere = it did not).
-- **It has NO theme axis** — it varies surface × viewport only, so **dark mode has never once been
-  captured** despite `globals.css` shipping a full `.dark` block. Don't claim "verified in both
-  themes" off this harness.
+  Read the PNGs; check the app actually hydrated (skeletons everywhere = it did not). The decisive
+  liveness proof is not artifact archaeology: `curl` the linked `layout.css` and confirm it contains
+  something you *just changed*. That proves the server is compiling current source. (`BUILD_ID`
+  inside `.next/` is the one real corruption tell-tale — `prerender-manifest.json` and
+  `server/pages/_document.js` are normal `next dev` output, and `build:local` targets `.next-verify`
+  since `7df5ad2`.)
+- **It HAS a theme axis since 61-01** — surface × viewport × {light, dark}, ~40 PNGs. The applied
+  theme is asserted, never trusted. Phase 61 reviewed `/chat` and its canvas in **both** themes; that
+  claim is now honest off this harness. Two live caveats:
+  - **Persisted UI state BLEEDS across captures in file order** (D-61-07-B). `chat-canvas` writes its
+    tab choice to `localStorage`, so the dark `chat-thread` pass restored it and photographed the
+    **canvas** under the transcript's filename — with `select:ok` beside it. No gate can see this:
+    the picture is of a real, correctly-rendered surface, just not the labelled one. Reset persisted
+    state **per capture**. **Verify a frame is the surface it claims before drawing conclusions.**
+  - **Mobile chat captures are the EMPTY STATE** (`select:n/a-overlay-rail`, D-61-07-D): below `md`
+    the rail is an overlay Sheet, so no row exists to click. There is still no mobile photograph of
+    the transcript. The harness header records two prior rail-driving attempts as actively harmful —
+    do not try a fourth *there*; give the surface its own terms instead (see `test:geometry` below,
+    which reaches it).
+- **The rendered-geometry gate: `cd apps/web && npm run test:geometry`** (61-01, extended 61-08).
+  A real browser measuring real boxes against the ALREADY-RUNNING dev server — its config declares
+  **no webServer at all**, by construction, so it cannot spawn a second compiler. What it catches:
+  - **A broken height chain** — `documentElement.scrollHeight <= innerHeight + ε`, plus
+    scroll-containment for the rail/transcript. `/chat`'s rail once scrolled the document to
+    **11,296px at a 900px viewport** with all 44 chat suites green.
+  - **Radix ScrollArea's `display:table` content wrapper** (D-61-06, SYSTEMIC — every ScrollArea in
+    the app has it). It shrink-wraps to CONTENT, so a wide child silently de-bounds every descendant
+    and pushes controls off-screen. Fix the CONTENT (`w-full`/`min-w-0`); never widen the container,
+    never weaken the gate.
+  - **A React reconciliation bug presenting as a layout symptom** — it caught a provider host
+    remounting the whole transcript (0px viewport while the height chain measured 783px) that 15
+    green unit assertions could not see.
+  - **Touch targets on a real coarse pointer** (61-08) — `hasTouch`/`isMobile`, not a 390px viewport:
+    `pointer-coarse:` is keyed on pointer CAPABILITY, and a mouse-driven 390px window correctly gets
+    the compact chrome. It measured the panel toolbar's buttons at **24×24px** on a phone.
+  **jsdom does no layout.** Anything about a rendered box belongs here, not in a unit suite.
 - GSD integration: this file is auto-read by `gsd-ui-researcher` during
   `/gsd:ui-phase` and by `gsd-ui-auditor` during `/gsd:ui-review`. Keep it
   current when tokens or conventions change.

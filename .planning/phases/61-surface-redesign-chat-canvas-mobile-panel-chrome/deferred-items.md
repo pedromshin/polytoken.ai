@@ -425,6 +425,67 @@ lives in that node's header, and will want the node fully in frame. The cheap fi
 `id = genuiPanelNodeId(messageId, partIndex)` — the message id is the fixture's own assistant row,
 so it needs reading back after insert.
 
+## D-61-08-A — 60-07's `.next`-corruption tell-tale is OVER-BROAD (would order a needless `rm -rf`)
+
+**Found:** 61-08 Task 3, running 60-07's own liveness check before reviewing frames.
+
+61-08-PLAN §G (inheriting 60-07) names the tell-tale of a corrupted `.next` as "production
+artifacts (`BUILD_ID`, `prerender-manifest.json`, `server/pages/_document.js` — a Pages-Router file
+in an App-Router app) beside `.next/static/development`", with the recovery "stop the server,
+`rm -rf apps/web/.next`, restart".
+
+**Two of those three are normal `next dev` output**, and following the heuristic literally would
+have had me destroy a perfectly healthy dev server mid-plan:
+
+| Artifact | Measured | Verdict |
+|---|---|---|
+| `.next/BUILD_ID` | **absent** | the real discriminator — this is what a production build writes |
+| `.next/prerender-manifest.json` | `2026-07-15 20:22:04.202` | **dev output** — same second as `.next/static/development` (`20:22:04.134`) and `.next/package.json` (`20:22:03.520`), i.e. written by the dev server at startup |
+| `.next/server/pages/_document.js` | `2026-07-16 03:09:56` | **dev output** — Next compiles a default Pages-Router document even in an App-Router app |
+| `.next-verify/BUILD_ID` | `2026-07-16 03:18:17` | `build:local`'s target since `7df5ad2`, working correctly |
+
+**The rule that actually holds: `BUILD_ID` inside `.next/` is the discriminator.** Since `7df5ad2`,
+`build:local` runs with `NEXT_DIST_DIR=.next-verify`, so a production `BUILD_ID` should never appear
+in `.next` — and if it does, a second compiler really did write there (999.22). The other two
+artifacts carry no signal at all.
+
+**Also worth keeping**: the decisive liveness proof is not artifact archaeology, it is
+`curl`ing the linked stylesheet and confirming it contains something you *just changed*. 61-08 did
+that (the `@utility touch-target` rule appeared in the served sheet within seconds of the edit),
+which proves the dev server is compiling current source — a much stronger claim than any file's
+presence.
+
+**Not actioned because** §G's wording lives in 60-07's summary and this phase's plans, not in a
+committed gate. Whoever writes the Phase 62 briefs: carry the corrected rule, not the original list.
+
+## D-61-08-B — `touch-target`'s three OTHER call sites were dead too (fixed at the root, verify if you move them)
+
+**Found:** 61-08 Task 1, measuring the built stylesheet.
+
+`pointer-coarse:touch-target` emitted NOTHING because `touch-target` was declared with
+`@layer utilities` (plain CSS, name never registered) instead of `@utility`. Fixed at the root in
+`globals.css`, which repairs **all four** call sites at once:
+
+1. `controls/panel-action-button-class.ts` — the panel toolbar's four icon buttons. **This one was
+   live and reachable**: 61-08 mounts that toolbar in the mobile transcript, and the buttons
+   measured **24×24px** on a touch device before the fix.
+2. `canvas-keyboard-hint.tsx` — canvas only.
+3. `email-thread-node.tsx:183` — canvas only.
+4. `knowledge-preview-node.tsx:136` — canvas only.
+
+2–4 are canvas-only, and the canvas never mounts below `md` (`effectiveViewMode = isMobile ? "chat"
+: viewMode`), so they were unreachable by a phone — but they are reachable by a **touch laptop or a
+tablet ≥768px**, where `(pointer: coarse)` matches at a desktop width. They are now genuinely
+44px for the first time. **Not separately verified by measurement** (61-08's e2e gate measures the
+toolbar's four, which share the same constant and the same root fix); if a later phase moves any of
+them onto a different recipe, measure it rather than trusting the class string.
+
+**The generalisable warning:** `touch-target-pointer-coarse.test.tsx` asserted the class STRING and
+was green for three milestones while the rule never rendered. Its own header called a class-string
+assertion "the correct, and only testable, contract at this layer". Any custom utility reached only
+through a variant has this failure mode. If you add one, declare it with `@utility` and prove it
+emits in the built sheet.
+
 ## D-61-07-D — no MOBILE capture of the transcript with a conversation selected
 
 `chat-thread`/`chat-canvas` record `select:n/a-overlay-rail` on mobile: below `md` the rail is an

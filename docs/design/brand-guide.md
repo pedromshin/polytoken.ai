@@ -220,13 +220,13 @@ Nothing else checks these — they are the guide's job alone, and the reason thi
 Finish this section knowing which rules CI will catch for you, and which ones are yours alone to
 hold the line on.
 
-### Realized surface patterns (Phase 60)
+### Realized surface patterns (Phases 60-61)
 
-Everything above this line is the token SET. This subsection is the first realized surface
-PATTERNS built on it — inbox (`/`) and email-detail (`/emails/[id]`), by Phase 60. **Phases 61-63
-inherit these rather than re-deriving them from the static sketch**, which is how two surfaces end
-up disagreeing about the same fact. Each pattern names the file that owns it; read that file, do
-not re-implement it.
+Everything above this line is the token SET. This subsection is the realized surface PATTERNS built
+on it — inbox (`/`) and email-detail (`/emails/[id]`) by Phase 60; `/chat` and its canvas by Phase
+61. **Phases 62-63 inherit these rather than re-deriving them from the static sketch**, which is how
+two surfaces end up disagreeing about the same fact. Each pattern names the file that owns it; read
+that file, do not re-implement it.
 
 #### The provenance chip
 
@@ -313,11 +313,24 @@ structurally unable to obey law 2.
 warning is ink weight; an uncertain read is `--pencil`.
 
 Gate: **`apps/web/src/app/__tests__/role-hue-ban.test.ts`**, with an exported **`SCOPED_DIRS`**
-ratchet (today: `_components`, `emails/[id]`). **Each of Phases 61-63 appends its own surface root
-as it sweeps.** The scope only ever grows; a pinning test makes *narrowing* it break a test instead
-of passing as a one-word diff nobody reviews. `graph-*` is still legitimately in use across
-`knowledge/`, `entities/`, and `chat/`, which is why the ban is scoped rather than global — a gate
-that is red on arrival gets allowlisted into meaninglessness within a week.
+ratchet (today: `_components`, `emails/[id]`, `chat`, `_vocabulary`). **Phase 62 appends
+`knowledge/` and `entities/` as it sweeps them.** The scope only ever grows; a pinning test makes
+*narrowing* it break a test instead of passing as a one-word diff nobody reviews. `graph-*` is still
+legitimately in use across `knowledge/` and `entities/`, which is why the ban is scoped rather than
+global — a gate that is red on arrival gets allowlisted into meaninglessness within a week.
+
+**The append is the LAST step of a sweep, never the first** (61-08). `chat/` was red on arrival with
+11 real violations — 10 madder-on-a-state (both inline error cards, the widget error row, a WebGPU
+warning) and one retired role hue — every one a *state* talking, so every one was swept rather than
+allowlisted. `ALLOWLIST` is still **empty** and should stay that way: an entry is an amendment to
+D-58-01 (LOCKED), which requires a demonstrated usability failure of the monochrome treatment, not a
+preference.
+
+**The swept treatment, landed on independently by Phase 60 and Phase 61:** an error is
+`border-rule` + `text-ink`, the glyph carries the role (shape survives greyscale), `role="alert"`
+carries it accessibly, and `p-panel` is the density step. A *retryable* failure is the sharpest test
+of the rule — a card with a Retry button beside it is the one thing that must not say "this cannot be
+undone".
 
 **The gate is a floor, not a ceiling — its blind spot is real, not theoretical.** The
 fill-vs-text rule is a *proxy* for intent, and it cannot read intent. `pdf-preview-pane.tsx`
@@ -342,6 +355,104 @@ Reach for the named step, not a fresh number:
 | `px-row-x` / `py-row-y` | List rows and header bars | `inbox-row.tsx`, `email-detail.tsx`'s header |
 | `px-chip-x` / `py-chip-y` | Chips (and the `+N` overflow chip) | `entity-chips.tsx` |
 | `p-panel` | Rails, panels, framed error/empty states | `inbox-entities-rail.tsx`, `email-detail.tsx` |
+
+---
+
+#### The canvas card language (Phase 61)
+
+**Owner: `chat/_canvas/canvas-node-shell-class.ts`.** Every node shell on the board is the sketch's
+flat `.card` — `rounded-card border-rule bg-bright`, **zero shadow**, hover is a RULE change
+(`--rule-hi`), never a lift. Three things it fixes that each shipped for milestones:
+
+1. **`--bright`, not `bg-background`.** `--background` resolves to `--shelf`, the PAGE ground — so
+   every node card was the exact colour of the board behind it. A card sits ABOVE the page.
+2. **Selection is an ink OUTLINE, not a ring.** `--tw-ring-offset-color` defaults to `#fff`, so
+   `ring-offset-1` paints a **white halo** around every selected node in dark. Prefer `outline-*`
+   over `ring-*` anywhere a dark ground is possible. Note `focus-visible:outline-none` survives
+   tailwind-merge and silently kills `outline-2` — evict it with `outline-solid`.
+3. **Kind is stated as ink, not routed through `--primary`.** `border-l-primary` resolved to ink
+   only by indirection, which is exactly how a hue lived in those files unread for three milestones.
+
+**Chrome that sits on a genui panel must live OUTSIDE `PanelThemeScope`** (61-08). The scope injects
+the *pack's* `--card`/`--border`/`--background` as inline vars, and packs have **no dark variants**
+(D-61-07-A), so anything inside it is light in both themes. The panel toolbar is polytoken's own
+chrome → the app's ink, outside the scope; the rendered spec is the pack's → inside it. Getting this
+backwards produces a light toolbar on a dark app, and no class-string gate can see it.
+
+#### Tier on edges — and why a data wire is neutral (Phase 61)
+
+**Owner: `chat/_canvas/canvas-vocabulary.ts`.** The tier/role rule above, applied to the board:
+tier owns colour + solid-vs-dashed (`--conf-line` solid / `--sugg-line` dashed); a node's KIND owns
+left-rule WEIGHT (chat `border-l-4` → email-thread `border-l-2` → genui-panel `border-l`, the axis
+being *how much of the user's own material this node carries*), and **DOTTED, never dashed** — tier
+owns dashed on every surface.
+
+**A `DataEdge` is `neutral`, and `neutral` is deliberately NOT a `Tier`:** it is the *absence* of a
+tier claim. A wire from `sourcePath` to `targetKey` is plumbing, not provenance, and law 1 says
+colour is earned.
+
+**THE TRAP, and it is the most transferable thing Phase 61 learned:** `@xyflow/react/dist/style.css`
+is imported from a client component, so Next emits it **UNLAYERED** — and an unlayered normal
+declaration beats **any** declaration inside a Tailwind cascade layer, *before specificity is ever
+consulted*. So a `className` on a React Flow primitive can be a **DEAD STRING that agrees by
+accident**: `[stroke:var(--edge)]` lost to the stock rule which happened to resolve to the same
+colour, while `[stroke-width:1.5]` lost to a stock `1` and was simply wrong on screen. And `!` cannot
+rescue it — Tailwind v4 scans for LITERAL strings, so a runtime-composed `` `!${cls}` `` emits
+nothing. The fix is a second projection of the same fact as CSS **values**
+(`CANVAS_EDGE_TIER_STYLE`), with a gate asserting the two projections agree. **Wire it and LOOK at
+it.**
+
+#### Law 2's clearest worked example: two titles, one screen (Phase 61)
+
+On the chat canvas, adjacent cards carry two titles at the same size and weight:
+
+| Element | Treatment | Why |
+|---|---|---|
+| `ChatNode`'s conversation title | **sans**, no `data-evidence` | polytoken's own label for a conversation |
+| `EmailThreadNode`'s subject | **serif + `data-evidence`** | the mail's own words |
+
+**The only thing that differs is where the words came from** — which is the entire law, visible
+without reading source. Ask "where did the WORDS come from?", never "which element holds them".
+`email-thread-node.tsx` applies `font-serif` to the SPANS, never the header row, and deliberately
+avoids `pmark`/`chip` there because those **imply** serif and would smuggle it onto chrome past every
+class-string gate.
+
+#### The `TranscriptPanelHost` seam (Phase 61)
+
+**Owner: `chat/_canvas/transcript-panel-host.tsx`.** The docked/mobile transcript gets the canvas's
+overlay store and persistence **without mounting React Flow**, so a panel re-themed on the board
+renders re-themed in the transcript (999.17) and is EDITABLE there (criterion 3 — the canvas never
+mounts below `md`, so this is the only place those controls can exist on a phone).
+
+Three rules it encodes, all generalisable well beyond this surface:
+
+1. **Readiness travels in VALUES, never in SHAPE.** `ready ? <Providers>{children}</Providers> :
+   <>{children}</>` **remounts the entire subtree** when it flips — React reconciles by element type
+   — discarding composer drafts, scroll position and every effect's state the instant a background
+   query settles. Render ONE tree and put readiness in the values (a placeholder store, a `null`
+   context, a `false` marker). A `null` context value is indistinguishable from an absent provider to
+   any consumer that already null-checks.
+2. **A MARKER, not store presence, tells two transcripts apart.** The canvas's own `ChatNode`
+   transcript has the store *and* the persistence context, so store-presence gating grows a **second**
+   toolbar inside a node on the board. `useIsTranscriptPanelHost()` is provided by that host and
+   nothing else. Not a viewport check either — "can reach on mobile" is not "only on mobile".
+3. **A write with nothing wired to persist it SHOULD throw.** `usePanelOverlay` throws; the optional
+   read is for display only. Gate the control's MOUNT on the marker (a conditional render, never a
+   conditional hook call), because children render before the providers exist.
+
+#### Custom utilities: `@utility`, never `@layer utilities` (Phase 61)
+
+A rule hand-written into `@layer utilities` is plain CSS that Tailwind copies through **without
+learning the name** — so the bare class works and **every variant of it silently emits nothing**.
+`touch-target` (D-48-07's 44px WCAG floor) was declared that way and is reached exclusively as
+`pointer-coarse:touch-target`, so the floor **never applied anywhere, for three milestones**, while
+a class-string gate asserting the substring stayed green. Measured: the app's only two
+`@media (pointer: coarse)` blocks carried `height`/`width` and there was no `min-height` rule in
+158KB of CSS; the panel toolbar's icon buttons rendered **24×24px** on a touch device.
+
+**Declare custom utilities with `@utility`, and prove they EMIT in the built sheet** — a naive grep
+of source proves nothing (`break-words` is v3 and emits nothing in v4; `w-[--x]` is v3, v4 needs
+`w-(--x)`). A class string being present is not the class rendering.
 
 #### Documented deviations from the sketch — and why
 
