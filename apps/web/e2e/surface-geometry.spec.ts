@@ -49,7 +49,13 @@
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 
-import { expect, test, type BrowserContext, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type BrowserContext,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { config as loadDotenv } from "dotenv";
 import pg from "pg";
 
@@ -214,6 +220,43 @@ interface PreparedChat {
 }
 
 /**
+ * A settled assistant turn carrying ONE genui_spec part — the panel 61-08's editable-panel
+ * toolbar mounts into (SURF-07, criterion 3).
+ *
+ * Never invokes a model: `chat.getHistory` replays `parts` VERBATIM (D-18), so this renders
+ * through the identical component path a live generated panel would, at zero cost and with no
+ * nondeterminism. Mirrors `screenshot-fixtures.ts`'s seeded part, deliberately — that is the one
+ * this surface's captures show, and a gate measuring a DIFFERENT panel than the one in the
+ * photographs would be answering a question nobody asked.
+ *
+ * No `style_pack_id`: a pack-less spec is the common case, and it keeps the toolbar's own chrome
+ * (which is what is being measured) on the app's tokens rather than under a pack's ThemedRoot.
+ */
+const GENUI_PANEL_PARTS = [
+  {
+    type: "genui_spec",
+    spec: {
+      v: 1,
+      root: {
+        type: "card",
+        title: "Q3 renewal quote",
+        description: "Example Sender · received 12 March",
+        children: [
+          {
+            type: "key-value-list",
+            label: "Quote summary",
+            items: [
+              { key: "Subtotal", value: "$1,000.00" },
+              { key: "Total", value: "$1,180.00" },
+            ],
+          },
+        ],
+      },
+    },
+  },
+] as const;
+
+/**
  * Seeds a session + one fixture conversation, opens /chat at `viewport`, selects the
  * conversation, and PROVES the app hydrated before anything is measured.
  *
@@ -221,11 +264,16 @@ interface PreparedChat {
  * had crashed on boot. A geometrically-perfect empty page is the easiest way for this gate to
  * report green about nothing at all, so the composer textarea must be visible AND enabled — a
  * skeleton-only or crashed render fails here, loudly, before a single box is measured.
+ *
+ * `withGenuiPanel` (61-08) seeds a settled turn carrying a genui panel. OPT-IN and default-off,
+ * so the three existing geometry tests measure exactly the surface they always did — a fixture
+ * change under a passing gate is how a gate quietly starts measuring something else.
  */
 async function prepareChat(
   page: Page,
   context: BrowserContext,
   viewport: { readonly width: number; readonly height: number },
+  options: { readonly withGenuiPanel?: boolean } = {},
 ): Promise<PreparedChat> {
   await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
@@ -259,6 +307,19 @@ async function prepareChat(
        VALUES ($1, $2, $3, $4, $5)`,
       [conversationId, seeded.userId, importerId, conversationTitle, CHAT_MODEL_ID],
     );
+
+    if (options.withGenuiPanel === true) {
+      await dbClient.query(
+        `INSERT INTO chat_messages (conversation_id, role, parts, turn_index, status)
+         VALUES ($1, 'user', $2::jsonb, 0, 'completed')`,
+        [conversationId, JSON.stringify([{ type: "text", text: "Summarize the Q3 quote." }])],
+      );
+      await dbClient.query(
+        `INSERT INTO chat_messages (conversation_id, role, parts, turn_index, status)
+         VALUES ($1, 'assistant', $2::jsonb, 0, 'completed')`,
+        [conversationId, JSON.stringify(GENUI_PANEL_PARTS)],
+      );
+    }
   } finally {
     await dbClient.end();
   }
@@ -369,5 +430,177 @@ test.describe("rendered-geometry gate: /chat (SURF-02, 61-01)", () => {
       transcriptViewport(page),
       "/chat @ 1440x900 message transcript",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// CRITERION 3 — the editable-panel toolbar is OPERABLE on a phone (SURF-07, 61-08)
+// ---------------------------------------------------------------------------
+
+/**
+ * "Reachable" is a claim about a THUMB, not about a media query — 61-CONTEXT says so explicitly,
+ * and this is the only place in the repo that can measure it.
+ *
+ * WHY THIS LIVES IN THE GEOMETRY GATE AND NOT IN A UNIT SUITE: a touch target is a RENDERED
+ * BOX. jsdom does no layout, so `transcript-panel-toolbar.test.tsx` can prove the four controls
+ * MOUNT and can prove their aria contract, and it cannot prove a single pixel of their size.
+ * The existing class-string gate (`touch-target-pointer-coarse.test.tsx`) is weaker still and
+ * said so in its own header — "asserting the CLASS STRING is present is the correct, and only
+ * testable, contract at this layer". It was green for three milestones while the floor it
+ * asserted emitted NOTHING (`touch-target` was declared with `@layer utilities`, so Tailwind
+ * never learned the name and could not compose `pointer-coarse:` onto it — 61-08 measured the
+ * built sheet and fixed it with `@utility`). This suite is the answer to that: it measures the
+ * boxes the browser actually lays out.
+ *
+ * WHY `hasTouch`/`isMobile` AND NOT JUST A 390px VIEWPORT: `pointer-coarse:` is a media FEATURE
+ * keyed on pointer CAPABILITY, not on width — and that is correct, not a bug. A 390px-wide
+ * desktop window driven by a mouse can hit a 24px button perfectly well and gets the compact
+ * chrome by design. Only a real touch pointer earns the 44px floor. A width-only test would
+ * measure 24px, be right to, and prove nothing about a phone. So this project emulates the
+ * device, which is what makes `@media (pointer: coarse)` actually match.
+ */
+test.describe("criterion 3: the panel toolbar is operable on a phone (SURF-07, 61-08)", () => {
+  test.describe.configure({ mode: "serial" });
+
+  // A real touch device. `isMobile` + `hasTouch` are what make Chromium report
+  // `(pointer: coarse)` — asserted in the first test rather than assumed.
+  //
+  // NOT `...devices["Pixel 7"]`: a device descriptor carries `defaultBrowserType`, which
+  // Playwright refuses inside a describe group ("forces a new worker"). Naming the two options
+  // that actually matter is also the more honest spelling — this suite's claim is about pointer
+  // CAPABILITY, not about one vendor's handset.
+  test.use({ hasTouch: true, isMobile: true });
+
+  test.beforeEach(async ({ baseURL }) => {
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const resolvedBaseURL = baseURL ?? "http://localhost:3000";
+    test.skip(
+      !isLocalTarget(resolvedBaseURL, supabaseUrl),
+      "requires the local Supabase/dev stack (T-61-01 safety gate)",
+    );
+  });
+
+  test("all four controls are reachable AND meet the 44px touch floor at 390px", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await prepareChat(page, context, MOBILE_VIEWPORT, { withGenuiPanel: true });
+
+    // FIXTURE PRECONDITION. Without this the floor assertions below would pass for free on an
+    // empty set — 61-06's negative proof found exactly that shape: a gate that was green and
+    // about nothing.
+    const coarse = await page.evaluate(() => window.matchMedia("(pointer: coarse)").matches);
+    expect(
+      coarse,
+      "the emulated device does not report (pointer: coarse), so the 44px floor this test " +
+        "exists to measure is not even in play — every assertion below would be vacuous",
+    ).toBe(true);
+
+    // THE CLAIM: on a phone, the canvas cannot mount at all (`effectiveViewMode = isMobile ?
+    // "chat" : viewMode`), so this toolbar existing here IS 999.17's write half closing.
+    const toolbar = page.getByRole("toolbar", { name: "Panel actions" });
+    await expect(
+      toolbar,
+      "the editable-panel toolbar is absent from the mobile transcript — the canvas never " +
+        "mounts below md, so this is the ONLY place these four controls can exist on a phone " +
+        "(999.17's write half, criterion 3)",
+    ).toBeVisible({ timeout: 30_000 });
+
+    // Every control criterion 3 names, by the accessible name a user reaches it through.
+    const CONTROLS = ["Style pack", "Edit parameters", "Regenerate", "Re-theme"] as const;
+    const TOUCH_FLOOR_PX = 44; // WCAG 2.5.8 / D-48-07
+
+    for (const name of CONTROLS) {
+      const control = toolbar.getByRole(/^Style pack$/.test(name) ? "combobox" : "button", {
+        name,
+      });
+      await expect(control, `'${name}' is not reachable in the mobile transcript`).toBeVisible();
+
+      const box = await control.boundingBox();
+      expect(box, `'${name}' has no rendered box`).not.toBeNull();
+
+      // The floor, measured — not a class string. `size-6` (24px) is the base recipe; the
+      // coarse-pointer floor is the only thing standing between a thumb and a 24px target.
+      expect(
+        Math.round(box!.height),
+        `'${name}' renders ${Math.round(box!.width)}x${Math.round(box!.height)}px on a touch ` +
+          `device — below the ${TOUCH_FLOOR_PX}px floor (WCAG 2.5.8 / D-48-07). "Reachable" ` +
+          `means operable with a thumb, not merely present in the DOM.`,
+      ).toBeGreaterThanOrEqual(TOUCH_FLOOR_PX);
+      expect(
+        Math.round(box!.width),
+        `'${name}' renders ${Math.round(box!.width)}x${Math.round(box!.height)}px on a touch ` +
+          `device — below the ${TOUCH_FLOOR_PX}px floor (WCAG 2.5.8 / D-48-07).`,
+      ).toBeGreaterThanOrEqual(TOUCH_FLOOR_PX);
+    }
+  });
+
+  test("the pack dropdown OPENS and its options are on-screen and tappable at 390px", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await prepareChat(page, context, MOBILE_VIEWPORT, { withGenuiPanel: true });
+
+    const toolbar = page.getByRole("toolbar", { name: "Panel actions" });
+    await expect(toolbar).toBeVisible({ timeout: 30_000 });
+
+    // Mounted is not operable. A Radix Select renders its content in a PORTAL positioned against
+    // the trigger — on a 390px screen a panel-anchored popover is exactly the thing that lands
+    // half off-viewport, and no unit test and no screenshot of the closed toolbar can see it.
+    await toolbar.getByRole("combobox", { name: "Style pack" }).click();
+
+    const option = page.getByRole("option").first();
+    await expect(
+      option,
+      "the pack dropdown did not open on a touch device — the control is present but not operable",
+    ).toBeVisible({ timeout: 10_000 });
+
+    const box = await option.boundingBox();
+    expect(box).not.toBeNull();
+    expect(
+      box!.x,
+      `a pack option is off the LEFT of a ${MOBILE_VIEWPORT.width}px screen (x=${box!.x})`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      box!.x + box!.width,
+      `a pack option overflows the RIGHT of a ${MOBILE_VIEWPORT.width}px screen ` +
+        `(right edge ${Math.round(box!.x + box!.width)})`,
+    ).toBeLessThanOrEqual(MOBILE_VIEWPORT.width);
+  });
+
+  test("the Edit-parameters popover OPENS and stays on-screen at 390px", async ({
+    page,
+    context,
+  }) => {
+    test.setTimeout(120_000);
+    await prepareChat(page, context, MOBILE_VIEWPORT, { withGenuiPanel: true });
+
+    const toolbar = page.getByRole("toolbar", { name: "Panel actions" });
+    await expect(toolbar).toBeVisible({ timeout: 30_000 });
+
+    await toolbar.getByRole("button", { name: "Edit parameters" }).click();
+
+    // `w-80` is 320px against a 390px screen — it fits, but only just, and only if Radix's
+    // collision handling is actually doing its job at this width. Measured, not assumed.
+    const surface = page.getByRole("dialog").first();
+    await expect(
+      surface,
+      "the Edit-parameters popover did not open on a touch device — the control is present but " +
+        "not operable, so criterion 3 is not met",
+    ).toBeVisible({ timeout: 10_000 });
+
+    const box = await surface.boundingBox();
+    expect(box).not.toBeNull();
+    expect(
+      box!.x,
+      `the params popover is off the LEFT of a ${MOBILE_VIEWPORT.width}px screen (x=${box!.x})`,
+    ).toBeGreaterThanOrEqual(0);
+    expect(
+      box!.x + box!.width,
+      `the params popover overflows the RIGHT of a ${MOBILE_VIEWPORT.width}px screen ` +
+        `(right edge ${Math.round(box!.x + box!.width)}) — a user cannot reach what is off-screen`,
+    ).toBeLessThanOrEqual(MOBILE_VIEWPORT.width);
   });
 });
