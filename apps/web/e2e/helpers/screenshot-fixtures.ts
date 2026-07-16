@@ -236,3 +236,88 @@ export async function seedChatThreadFixture(
     await client.end();
   }
 }
+
+/**
+ * Seeds a canvas layout for the chat fixture: the conversation's chat node, an email-thread node
+ * pointing at the existing seeded thread, and one data edge wiring them together.
+ *
+ * WHY: the canvas only mounts on the "Canvas view" tab, so — even after `chat-thread` made the
+ * transcript reviewable — every committed PNG of /chat showed the empty state or the stream,
+ * never the board. That is not academic. 61-05 found FOUR pieces of stock React Flow chrome
+ * living there (white controls, white minimap, navy handles, a stock-grey arrowhead), each one
+ * invisible in light and glaring in dark, and each one shipped since Phase 26 because xyflow's
+ * stylesheet loads UNLAYERED and silently beat every layered override. It took a throwaway probe
+ * to see them. 61-06 redesigns four node components and the wire on this same surface.
+ *
+ * `nodeRegistryVersion` MUST match the app's current `NODE_REGISTRY_VERSION` or every node
+ * degrades to the inert placeholder and the capture is worthless. It is passed in rather than
+ * imported so this helper stays free of app-module imports (it runs under Playwright's own
+ * runner, not Next's) — the caller reads it from the registry.
+ *
+ * Direct fixture seed — deliberately NOT the app's save path. Do not route this through
+ * `saveCanvasLayout` (T-61-21: it upserts the whole row with no partial save).
+ */
+export async function seedChatCanvasFixture(nodeRegistryVersion: string): Promise<void> {
+  const client = new Client({ connectionString: requireEnv("POSTGRES_URL_NON_POOLING") });
+  await client.connect();
+  try {
+    // Same id as `withDefaultChatNode` synthesizes (`chat:<conversationId>`), so the board shows
+    // ONE chat node rather than the seeded one plus an auto-added duplicate.
+    const chatNodeId = `chat:${FIXTURE_CONVERSATION_ID}`;
+    const threadNodeId = "email-thread:screenshot-review";
+
+    // Positions are load-bearing for a REVIEW artifact, not decoration, and are STACKED for a
+    // measured reason. The chat node is ~745px wide inside a ~975px canvas pane, so the two nodes
+    // cannot sit side by side at zoom 1: placing them beside each other either overlaps (thread at
+    // 220 clipped the chat node — reads as a node-layout bug) or pushes the thread node off the
+    // right edge (thread at 560 left a sliver). Dropping the zoom to fit would defeat the capture's
+    // whole purpose — see the viewport note below. Stacking fits both nodes AND the wire between
+    // them at a true 1:1.
+    const nodes = [
+      {
+        id: chatNodeId,
+        type: "chat",
+        position: { x: -300, y: -300 },
+        data: { conversationId: FIXTURE_CONVERSATION_ID },
+      },
+      {
+        id: threadNodeId,
+        type: "email-thread",
+        position: { x: 60, y: 120 },
+        data: { threadId: FIXTURE_THREAD_ID },
+      },
+    ];
+    const edges = [
+      {
+        id: "screenshot-review-edge",
+        source: threadNodeId,
+        target: chatNodeId,
+        data: { sourcePath: "thread", targetKey: "context" },
+      },
+    ];
+    // zoom 1 matters (D-61-05-A): at 0.75 the grid is sub-pixel and unjudgeable — and the grid is
+    // the thing 61-05 had to fix (`size` is a DIAMETER; the sketch's dot is a 1px RADIUS, so
+    // `size={1}` drew it at half and a 4x crop of the board was blank parchment in both themes).
+    // Judging it at anything but 1:1 defeats the point.
+    const viewport = { x: 380, y: 360, zoom: 1 };
+
+    await client.query(
+      `INSERT INTO chat_canvas_layouts (conversation_id, nodes, edges, viewport, node_registry_version)
+       VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5)
+       ON CONFLICT (conversation_id) DO UPDATE
+         SET nodes = EXCLUDED.nodes,
+             edges = EXCLUDED.edges,
+             viewport = EXCLUDED.viewport,
+             node_registry_version = EXCLUDED.node_registry_version`,
+      [
+        FIXTURE_CONVERSATION_ID,
+        JSON.stringify(nodes),
+        JSON.stringify(edges),
+        JSON.stringify(viewport),
+        nodeRegistryVersion,
+      ],
+    );
+  } finally {
+    await client.end();
+  }
+}

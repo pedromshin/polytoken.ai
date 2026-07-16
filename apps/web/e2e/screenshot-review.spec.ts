@@ -79,8 +79,15 @@ import path from "node:path";
 import { test, type BrowserContext, type Page } from "@playwright/test";
 
 import { seedAuthenticatedContext } from "./helpers/seed-session";
+// Safe to import from app source: this module and its one dependency pull in `zod` and types
+// only — no React components — so Playwright's runner loads them without Next's pipeline. Taking
+// the version from the registry itself (rather than pasting a hash) is what keeps the fixture
+// from silently degrading every node to the inert placeholder when the registry changes.
+import { NODE_REGISTRY_VERSION } from "~/app/chat/_canvas/node-registry-version";
+
 import {
   FIXTURE_USER_QUESTION,
+  seedChatCanvasFixture,
   seedChatThreadFixture,
   seedEmailFixture,
 } from "./helpers/screenshot-fixtures";
@@ -112,6 +119,13 @@ interface Surface {
    * at all. Gate on a REAL element, never a sleep.
    */
   readonly awaitText?: string;
+  /**
+   * After selecting (and after `awaitText`), click the tab with this accessible name.
+   *
+   * The canvas only mounts on "Canvas view", so without this the board is in no capture at all —
+   * which is how four pieces of stock React Flow chrome survived on it since Phase 26.
+   */
+  readonly openTabName?: string;
 }
 
 /** The six D-47-05 surfaces reviewed every run — login is public, the rest are auth-gated. */
@@ -413,6 +427,25 @@ async function captureSurface(
         : loaded
           ? " select:ok"
           : " select:ok-but-transcript-empty";
+
+      if (opened && loaded && surface.openTabName !== undefined) {
+        const tabOk = await page
+          .getByRole("tab", { name: surface.openTabName })
+          .click({ timeout: 10_000 })
+          .then(() => true)
+          .catch(() => false);
+        // React Flow mounts and runs its own layout pass; gate on the pane it renders rather
+        // than a sleep, then let the shared settle() finish the job.
+        const paneOk = tabOk
+          ? await page
+              .locator(".react-flow__pane")
+              .first()
+              .waitFor({ state: "visible", timeout: 15_000 })
+              .then(() => true)
+              .catch(() => false)
+          : false;
+        selectNote += paneOk ? " tab:ok" : " tab:missed";
+      }
     }
   }
 
@@ -559,6 +592,7 @@ test.describe("screenshot review capture", () => {
       const seeded = await seedAuthenticatedContext(context);
       const fixture = await seedEmailFixture(seeded.userId);
       const chatFixture = await seedChatThreadFixture(seeded.userId);
+      await seedChatCanvasFixture(NODE_REGISTRY_VERSION);
       surfaces = [
         ...BASE_SURFACES,
         { name: "emails", path: "/emails/" + fixture.emailId },
@@ -570,6 +604,16 @@ test.describe("screenshot review capture", () => {
           path: "/chat",
           selectConversationTitle: chatFixture.conversationTitle,
           awaitText: FIXTURE_USER_QUESTION,
+        },
+        // The board. Same conversation, header toggle flipped to Canvas — the surface where
+        // 61-05 found four pieces of stock chrome that had survived since Phase 26 precisely
+        // because no committed capture could see it.
+        {
+          name: "chat-canvas",
+          path: "/chat",
+          selectConversationTitle: chatFixture.conversationTitle,
+          awaitText: FIXTURE_USER_QUESTION,
+          openTabName: "Canvas view",
         },
       ];
     }
