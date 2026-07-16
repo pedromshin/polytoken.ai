@@ -397,8 +397,8 @@ the docked/mobile transcript honoring panel overlays — closing backlog 999.17.
 Plans:
 - [x] 61-01-PLAN.md — The rendered-geometry gate (no-webServer config; the 11,296px bug 363 green tests missed) + the harness grows a theme axis (999.23) and learns to settle (999.24) [SURF-02]
 - [x] 61-02-PLAN.md — The tier truth promoted to one shared home; canvas-vocabulary.ts grown from it (tier on edges, kind as geometry); the edge-tier x node-kind matrix gate [SURF-02]
-- [ ] 61-03-PLAN.md — The chat frame, conversation rail and composer redesigned (one header rule, registry rail, ink send); the frame structure gate [SURF-02]
-- [ ] 61-04-PLAN.md — The message stream, tool rounds and citation chip; law 2's hardest case (a real subject is serif, polytoken's fallback is not) [SURF-02]
+- [x] 61-03-PLAN.md — The chat frame, conversation rail and composer redesigned (one header rule, registry rail, ink send); the frame structure gate [SURF-02]
+- [x] 61-04-PLAN.md — The message stream, tool rounds and citation chip; law 2's hardest case (a real subject is serif, polytoken's fallback is not) [SURF-02]
 - [ ] 61-05-PLAN.md — The React Flow chrome finished incl. the never-styled handles + the sketch's board; the stock-ban gate parses the library's own stylesheet (criterion 2) [SURF-02]
 - [ ] 61-06-PLAN.md — Five node shells + the edge on the vocabulary; three live law violations cleared; the rendered node/edge law gate [SURF-02]
 - [ ] 61-07-PLAN.md — TranscriptPanelHost + overlays cross to the transcript (criterion 4 / 999.17 read half); the layout-destruction regression test (T-61-21) [SURF-07]

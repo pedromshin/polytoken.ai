@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.10
 milestone_name: Product Design & Research Canvas
 status: in-progress
-last_updated: "2026-07-16T02:25:00.000Z"
+last_updated: "2026-07-16T02:56:22.087Z"
 progress:
   total_phases: 9
   completed_phases: 5
   total_plans: 32
-  completed_plans: 28
+  completed_plans: 29
   percent: 56
 ---
 
@@ -119,13 +119,16 @@ the items flagged above:**
   server-spawning block at all, so it cannot spawn a second `next dev` over the live server's
   `.next` even if Playwright's port probe misbehaves. (`build:local` itself was already made safe
   by `7df5ad2` via `NEXT_DIST_DIR=.next-verify`; this plan ran it and the dev server survived.)
+
 - **999.23 CLOSED — dark mode has been photographed.** 16 dark frames on disk for the first time in
   this project's history (32 PNGs total, was 16). The applied theme is ASSERTED against `<html>.dark`
   per capture and throws on a mislabel, so a frame labelled `dark` is dark.
+
 - **999.24 CLOSED — the harness waits for data.** The fixed 400ms is replaced by a bounded
   networkidle + skeleton-clear settle, recorded per row in `index.md`. 32/32 `settled`.
   `inbox-mobile` now shows its real feed (7 rows, serif evidence, entity chips) rather than three
   grey skeleton rows — the false "the redesign has no tier chips" verdict is retired.
+
 - **Criterion 4's "dark mode UNPROVEN" gap now has its instrument** (the frames exist; reading them
   is 61-02+'s / the verifier's job, not this plan's).
 
@@ -169,11 +172,90 @@ was touched — 61-04/61-05 wire six of them onto these maps.** 74 files / 874 t
 - Phase 61 Plan 01 — EXECUTED (rendered-geometry gate + no-webServer config: 999.22 closed by construction, 999.23 + 999.24 CLOSED; gate found a REAL mobile bug on first run and fixed it, 806 green before AND after)
 - Phase 61 Plan 02 — EXECUTED (ONE `tierOf`: promoted to `_vocabulary/tier.ts`, re-exported so Phase 60's surface compiles byte-unchanged; shared module holds FACTS not classes — the Tailwind-purge constraint made executable by a drift test; `canvas-vocabulary.ts` grown from it — tier on edges, kind as ink geometry on nodes; 53-test matrix gate, all 3 negative proofs RED then reverted clean; **no component touched — 61-04/05 wire them**; **D-61-04 filed: `/knowledge`'s "tier" is EXTRACTED/INFERRED/AMBIGUOUS, a DIFFERENT axis from confirmed/suggested/terminal — Phase 62 must decide, not rename**)
 
+- Phase 61 Plan 04 — EXECUTED (the message stream on the sketch's rhythm: v1.4's assistant role rail DELETED — the roles are told apart by hierarchy, not a border; the citation chip's `label ?? fallbackLabel()` collapse — which made law 2 STRUCTURALLY impossible on it — replaced by `chipLabelFor()` provenance discrimination; **D-61-04-B: the chip COMPOSES and does NOT use `pmark`** (pmark implies serif on the container + is the TIER mark, and this chip makes no tier claim); **D-61-04-A: the reading column STAYS `max-w-3xl`** — it is a LAYOUT number (composer pair + 61-07's panels), and the real ~120-char measure problem belongs to the PROSE, not the column; **law-1 violation found BY READING: the errored tool round has spoken in madder since Phase 39** — `isError` is a STATE, now ink; the in-flight row's `hover:bg-accent` + focus ring stripped off a non-focusable `role="status"` div; **`break-words` is the v3 name and emits NOTHING in v4** — caught in the built sheet, would have shipped the D-61-06 guard as a silent no-op; 29-test gate, all 3 negative proofs RED then reverted clean — 76 files / 910 green; **SURF-02 NOT marked complete**; **the citation chip's evidence branch has NO production caller** — the envelope carries no label, so "a real subject reaches a chat answer in serif" does NOT hold and is fenced by T-61-13; **`chat/` still CANNOT join role-hue-ban's SCOPED_DIRS — measured: 24 madder + 3 graph- across 12 files**)
+
 Migrations 0037 (chat_source_ledger + chat_context_edges), 0038 (entity_type_corrections),
 0039 (entity-resolution dismiss filter) are AUTHORED + journal-coherent, APPLIED NOWHERE.
 
 **Still owed from v1.9 (user declined twice):** LIVE-03 (§A OAuth), LIVE-04 (§B.3-6 real email),
 CLUS-07 (§H) — `phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md`.
+
+## Phase 61 -- Surface Redesign: Chat, Canvas & Mobile Panel Chrome -- Plan 04 History -- the message stream, the tool rounds, and law 2's hardest case
+
+**Plan 04 EXECUTED** — see `61-04-SUMMARY.md`. Commits `1611496` (the turn), `64c80e4` (the chip +
+the rounds), `f733bc5` (the gate). 76 files / 910 tests green (baseline 75/881 + 29), `tsc` clean,
+`test:geometry` 3/3 after every structural edit, `build:local` clean.
+
+**THE DECISION 61-03 HANDED OVER — the reading column STAYS `max-w-3xl` (D-61-04-A).** Measured with
+the turns in front of it, as 61-03 asked. The measure IS too long — 736px at Phase 59's 13px body
+step is **~120 characters**, past the 45-75 ideal, and the cause is traceable: `max-w-3xl` was picked
+when the body step was larger, and **Phase 59 lengthened the measure ~20% without the column being
+re-decided**. Kept anyway, because the column is a **LAYOUT** number, not a prose measure: the
+composer aligns to it (61-03) and **61-07 renders panels into it**; `max-w-2xl` only reaches ~103
+chars while squeezing every table/code fence/panel; a real measure needs ~550px. **The right
+instrument is a cap on the paragraph in `markdown-renderer.tsx`** (which 61-04's plan scopes out).
+**61-07: the column and the composer pair are unchanged.**
+
+**THE `pmark` DECISION, for 61-07 (D-61-04-B).** The citation chip **composes** `border`/`bg` and
+puts `font-serif` on the evidence span **only** — it does **not** use `pmark`. `pmark` implies serif
+on the CONTAINER (so: on the icon and on the fallback label, invisible to every className gate
+because it is INHERITED), and `pmark` is the **tier** mark whose colour comes from
+`pmark-confirmed`/`pmark-suggested` — a citation chip makes **no tier claim**. The sketch agrees:
+`.srcchip` sets no font and puts serif on `.st` alone. The container states `font-sans` anyway
+because `ProvenanceLink` is SHARED and a future consumer may nest it in a `pmark`'d context.
+**61-07: do not wrap this chip in `pmark`.**
+
+**LAW 2 WAS STRUCTURALLY IMPOSSIBLE ON THE CHIP, NOT MERELY UNSTYLED.** `label ?? fallbackLabel(kind,
+id)` collapsed an email's real subject (the user's material → evidence) and polytoken's
+`Email · 1a2b3c4d` placeholder (chrome) into ONE string — the same defect `regionLabelFor` was
+written to fix one surface over. `chipLabelFor()` discriminates; the treatment follows the BRANCH,
+never the text's content (T-61-11).
+
+**THE LAW-1 VIOLATION, FOUND BY READING — the gate did not find it.** `tool-invocation-result-row`'s
+`isError` AlertTriangle has worn the madder TEXT token since Phase 39. **`isError` is a STATE**, and
+58-IDENTITY says madder is "never errors, never warnings". Now ink — the triangle carries the meaning
+by SHAPE. This is 60-06's `pdf-preview-pane` pattern repeating: **the gate is a proxy; reading is what
+finds these.** The gate's own header says so.
+
+**THE AFFORDANCE LIE.** `ToolRoundActivityRow` is a `role="status"` div with no handler and no
+tabindex, and it wore `hover:bg-accent` + a `focus-visible:ring` for **two milestones** — a hover
+inviting a click that does nothing, a focus ring on an element that can never focus. Stripped.
+
+**`break-words` IS THE TAILWIND v3 NAME AND EMITS NOTHING IN v4 (D-61-04-F).** It was the user
+bubble's D-61-06 overflow guard — i.e. it would have shipped as **a comment describing a class that
+does not exist**, in the file whose whole justification is that guard. v4 spells it
+`wrap-break-word`. Caught ONLY in the built sheet (negative control: `.break-words` → `None`). Same
+shape as the sidebar-at-half-width bug. **All 26 new classes were verified emitted by exact escaped
+selector — and a naive shell grep lied THREE times** (`head -1` picked a 1.3KB sheet over the 114KB
+one; `grep -c` counts LINES on single-line minified CSS).
+
+**THE GATE CAUGHT ITSELF**: `/\bchip\b/` matches `px-chip-x` — the NAMED SPACING STEP every chip
+uses — so Leg 6 **failed on the correctly-built chip**. Exactly the trap `role-hue-ban`'s header
+warns about ("widen the pattern and this gate will execute its own siblings"). Now matched as a whole
+class TOKEN, with the trap pinned by an assertion.
+
+**Filed (`deferred-items.md`):**
+- **D-61-04-A — the committed capture harness CANNOT SEE the message stream.**
+  `screenshot-review.spec.ts` never selects a conversation, so all 4 chat PNGs show the EMPTY STATE
+  only. **The surface this plan redesigned has zero coverage in the committed visual review** — every
+  visual claim rests on a throwaway probe. Recipe is in the summary; the fix is ~30 lines but it is a
+  harness decision (it changes what "the chat surface" means for Phases 62-63 too).
+- **D-61-04-B — `chat/` still cannot join `role-hue-ban`'s `SCOPED_DIRS`, MEASURED.** 61-03 assigned
+  it to "61-04/61-05". **It cannot be 61-04**: 24 madder-on-a-state occurrences across 12 files (13
+  `_canvas/`, 11 `_components/`) + 3 `text-graph-email`. Adding it now = **red on arrival**, the
+  failure that gate's own header names. 61-04's two tool rows are **pre-cleared**. Two `_components/`
+  offenders (`cost-cap-blocked-card`, `inline-error-card`) carry a madder BORDER on a state — a real
+  law-1 question, not a chore. **The append belongs to the LAST plan that sweeps `chat/`, as a task.**
+- **D-61-04-C — the prose measure is ~120 chars. Fix the paragraph, not the column.**
+
+**Also found:** D-19's retry card and D-21's cost-cap card had **zero unit coverage** — mounting them
+for the first time surfaced four components with no explicit React import (Rule 3, the documented
+vitest classic-JSX gotcha). `uat-48-token-surfaces.spec.ts` asserted the chip's 9999px pill and was
+re-baselined to the sketch's 4px — **an e2e spec, outside `vitest run`, that no gate in this plan's
+verification would have caught.**
+
+**SURF-02 deliberately NOT marked complete** — 61-05..08 still own the canvas, mobile and panel
+chrome.
 
 ## Phase 61 -- Surface Redesign: Chat, Canvas & Mobile Panel Chrome -- Plan 02 History -- the shared tier truth + the canvas's vocabulary
 
