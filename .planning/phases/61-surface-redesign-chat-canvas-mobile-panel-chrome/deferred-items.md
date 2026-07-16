@@ -506,3 +506,30 @@ genuinely mounts there: its tRPC mock had to learn `getCanvasLayout`/`saveCanvas
 plan, because the mobile docked branch now really queries them. That is mechanism evidence, not a
 picture. **If a picture is wanted**, the honest route is a `Surface` flag that opens the rail Sheet,
 selects, and closes it — designed deliberately, by whoever owns the harness, not bolted on.
+
+## D-61-02 — RESOLVED: `next-env.d.ts` churns between `.next` and `.next-verify`
+
+61-01 flagged this drift and left it unstaged. Diagnosed and settled 2026-07-16.
+
+**Cause, and it is mine.** `7df5ad2` gave verification builds their own `distDir`
+(`NEXT_DIST_DIR=.next-verify`) because `build:local` was silently corrupting the live dev server —
+`next dev` and `next build` both defaulted to `.next`, so a verification build overwrote the running
+server's chunks and left it serving HTML whose client JS never executed. That fix stands; it is why
+`60-06`'s green `build:local` broke the server at 19:40 and `60-07` then photographed a dead app.
+
+**The side-effect:** Next rewrites `next-env.d.ts` to reference whatever `distDir` it just used, and
+there is no option to disable that. So `build:local` points it at `.next-verify`, and the next
+`next dev` points it back at `.next`. It flip-flops.
+
+**Disposition: leave it in the DEV state (`.next`), which is what a fresh checkout plus `next dev`
+produces and what `tsc --noEmit` wants.** Committing the `.next-verify` reference would point dev's
+types at a directory that only exists after a verification build.
+
+**Consequence to expect, so nobody re-diagnoses it:** after any `npm run build:local`,
+`git status` shows `apps/web/next-env.d.ts` modified. That is cosmetic churn — `git checkout --
+apps/web/next-env.d.ts` clears it, and running the dev server clears it too. Do not commit the
+`.next-verify` variant, and do not "fix" it by reverting the distDir split: silent dev-server
+corruption is a far worse trade than a churning generated file.
+
+(`tsconfig.json` also reformats its `lib` array multi-line on a build — same class, same
+disposition.)
