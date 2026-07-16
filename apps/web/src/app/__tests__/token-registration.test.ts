@@ -36,6 +36,26 @@ import { readTokenBlock } from "./token-contrast.test";
  * No JS build-config file is imported anywhere in this test -- CSS is the
  * single source of truth in v4, and this gate reads exactly the same CSS
  * the build pipeline reads.
+ *
+ * ────────────────────────────────────────────────────────────────────────
+ * 61-05: THE CONTRACT ABOVE IS NOW TRUE. IT WAS NOT BEFORE.
+ * ────────────────────────────────────────────────────────────────────────
+ *
+ * This header has claimed since 28-01 that it "asserts every token FAMILY
+ * that globals.css declares vars for is registered". It did not: every
+ * assertion below was a HAND-LIST, so a token declared without a
+ * registration was invisible to it. The prose over-claimed and the gate was
+ * silently wrong -- exactly the shape of defect it exists to catch.
+ *
+ * The cost was real and compounding. NINE palette tokens (bad-hi, ink-05,
+ * ink-08, ink-14, edge, grid, fill-hi, rule-hi, shimmer) were declared in
+ * BOTH themes and registered in neither. 61-03 hit it and worked around it,
+ * 61-04 hit it and worked around it, and each flagged "register the missing
+ * ones" to the next plan while this gate reported green.
+ *
+ * `PALETTE_TOKENS` below is now DERIVED from globals.css itself, so the
+ * hand-list cannot drift from reality again. Adding a palette token without
+ * a registration is red on arrival.
  */
 
 const selfPath = fileURLToPath(import.meta.url);
@@ -53,6 +73,38 @@ const themeInlineTokens = readTokenBlock(css, "@theme inline");
 // steps (55-02-SUMMARY.md's "native @theme port of borderRadius/
 // boxShadow/fontFamily").
 const themeTokens = readTokenBlock(css, "@theme");
+
+// The `:root` block -- every token globals.css DECLARES, which is what the
+// derived palette assertion below is computed from.
+const rootTokens = readTokenBlock(css, ":root");
+
+/**
+ * A raw `oklch(...)` literal. THIS IS THE WHOLE DERIVATION, and it is exact
+ * rather than clever -- verified against the file, not assumed:
+ *
+ *   - Every identity-ladder token (D-58-01) and every chart-N token is
+ *     declared as a raw oklch literal. Those 31 tokens ARE the palette: the
+ *     colours this design system actually owns.
+ *   - Every shadcn semantic alias (`--primary`, `--border`, `--sidebar-*`,
+ *     the tier/graph ladders, ...) is declared as a `var(--x)` REFERENCE
+ *     onto that palette (59-01 Task 1 rewrote them all this way). They are
+ *     registered under their own names already and must not be required to
+ *     register under a raw palette name.
+ *   - The non-colour tokens (`--radius*`, `--font-code`, `--elevation-*`)
+ *     are neither oklch nor colour families and belong to the native
+ *     `@theme` block's own assertions below.
+ *
+ * So "declared as a raw oklch in :root" selects exactly the set that MUST
+ * have a `--color-*` mapping, with no allowlist to rot. A future palette
+ * token is caught automatically; a future alias is correctly ignored.
+ */
+const RAW_OKLCH_VALUE = /^oklch\(/;
+
+/** The palette, derived from globals.css itself. Exported so a reader can
+ * see the set the assertion is computed over rather than trust a hand-list. */
+export const PALETTE_TOKENS: readonly string[] = Object.entries(rootTokens)
+  .filter(([, value]) => RAW_OKLCH_VALUE.test(value))
+  .map(([name]) => name);
 
 /** Asserts `tokens["--" + key]` exists and its mapped value matches `pattern`. */
 function expectRegistered(
@@ -80,6 +132,43 @@ function expectPresent(tokens: Record<string, string>, key: string): void {
 }
 
 describe("token family registration (guards the unregistered-utility bug class)", () => {
+  /**
+   * THE TOTAL ASSERTION (61-05). Every hand-list below is a readable spec of
+   * intent; THIS is the one that cannot drift.
+   */
+  it("registers EVERY palette token declared in :root (derived, not hand-listed)", () => {
+    // VACUITY GUARD. A gate that inspects nothing passes everything. If a
+    // future refactor moves the ladder out of `:root`, renames the block, or
+    // switches the palette off raw oklch literals, this assertion must go RED
+    // rather than silently certify an empty set. 31 tokens today; 20 is a
+    // floor that cannot be reached by accident.
+    expect(
+      PALETTE_TOKENS.length,
+      "the derived palette is empty or implausibly small, so this gate is " +
+        "inspecting nothing and would pass on anything. Check that globals.css " +
+        "still declares its ladder as raw oklch literals inside `:root`.",
+    ).toBeGreaterThan(20);
+
+    const missing = PALETTE_TOKENS.filter(
+      (token) => themeInlineTokens[`color-${token}`] === undefined,
+    );
+
+    expect(
+      missing,
+      missing.length === 0
+        ? ""
+        : `globals.css declares ${missing.length} palette token(s) with NO ` +
+            `\`--color-*\` mapping in its \`@theme inline\` block:\n` +
+            missing.map((t) => `  --${t}: ${rootTokens[t]}`).join("\n") +
+            `\n\nAn unregistered family emits NO CSS: a consumer reaching for ` +
+            `bg-${missing[0]} / text-${missing[0]} / border-${missing[0]} gets ` +
+            `nothing, with no build error and no console warning. Add ` +
+            `\`--color-${missing[0]}: var(--${missing[0]});\` to the @theme inline ` +
+            `block. Do NOT add an exemption here -- if a declared palette token ` +
+            `genuinely must not be a utility, it does not belong in the palette.`,
+    ).toEqual([]);
+  });
+
   it("registers the full sidebar family against the --sidebar-* vars", () => {
     const sidebarKeys = [
       "color-sidebar",

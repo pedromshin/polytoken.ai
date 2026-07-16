@@ -36,10 +36,21 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  /* IDENTITY LADDER FAMILIES (D-58-01, 59-01-PLAN.md Task 1) -- registered
-     so bg-conf / text-sugg-wash / border-hair / etc. utilities exist for
-     Phases 60-62 (guarded by token-registration.test.ts's identity-family
-     assertion, added Task 3). */
+  /* IDENTITY LADDER FAMILIES (D-58-01, 59-01-PLAN.md Task 1; COMPLETED by
+     61-05 Task 1) -- registered so bg-conf / text-sugg-wash / border-hair /
+     stroke-edge / hover-border-rule-hi utilities EXIST. An unregistered
+     family emits no CSS at all and fails silently, which is precisely the
+     bug class token-registration.test.ts exists to catch.
+
+     61-05 closed a NINE-token gap here, not the four its plan named. All of
+     bad-hi, ink-05, ink-08, ink-14, edge, grid, fill-hi, rule-hi and
+     shimmer were declared in BOTH themes and registered in neither, so
+     61-03 and 61-04 each had to reach them through v4's
+     `(--custom-property)` escape hatch at the call site. The gate no longer
+     hand-lists what to check: it DERIVES the required set from the palette
+     itself (every raw oklch value declared in the :root block), so the next
+     token declared without a registration is red on arrival instead of
+     being discovered by the third plan that trips over it. */
   --color-conf: var(--conf);
   --color-conf-wash: var(--conf-wash);
   --color-conf-line: var(--conf-line);
@@ -47,14 +58,28 @@
   --color-sugg-wash: var(--sugg-wash);
   --color-sugg-line: var(--sugg-line);
   --color-bad: var(--bad);
+  --color-bad-hi: var(--bad-hi);
   --color-ink: var(--ink);
   --color-faded: var(--faded);
   --color-pencil: var(--pencil);
+  /* Ink alpha ramps. These do NOT retract D-61-03-B: bg-ink/5 and bg-ink-05
+     are the SAME colour by construction, and both spellings are legal. The
+     ramps are registered because they are declared palette values like any
+     other -- their first-class consumers are var() call sites (the React
+     Flow theming block below reaches for two of them). */
+  --color-ink-05: var(--ink-05);
+  --color-ink-08: var(--ink-08);
+  --color-ink-14: var(--ink-14);
+  --color-edge: var(--edge);
+  --color-grid: var(--grid);
+  --color-fill-hi: var(--fill-hi);
+  --color-shimmer: var(--shimmer);
   --color-shelf: var(--shelf);
   --color-leaf: var(--leaf);
   --color-bright: var(--bright);
   --color-shade: var(--shade);
   --color-rule: var(--rule);
+  --color-rule-hi: var(--rule-hi);
   --color-hair: var(--hair);
   --color-on-fill: var(--on-fill);
   --color-chart-1: var(--chart-1);
@@ -706,32 +731,199 @@
   }
 }
 
-/* FIX-01 (26-05-PLAN.md): React Flow's stock chrome (Controls/MiniMap/
-   Attribution) restyled from existing tokens — no new custom property,
-   consumes :root/.dark var(...) values declared above as-is. */
+/* ═══════════════════════════════════════════════════════════════════════
+   REACT FLOW CHROME — rewritten 61-05 Task 1 (SURF-02, ROADMAP criterion 2:
+   "zero stock React Flow default styling remaining"). Supersedes FIX-01
+   (26-05) and its 51-02 re-token. SHARED by /chat's canvas and /knowledge's
+   graph — both import the library's stylesheet wholesale, so this block is
+   the system. Gated by src/app/__tests__/react-flow-stock-ban.test.ts, which
+   parses the SHIPPED stylesheet in node_modules rather than a hand-list.
+
+   ── THE CASCADE-LAYER FACT THAT GOVERNS EVERY RULE BELOW ──
+   Measured in a real browser, not reasoned about (61-05-SUMMARY.md):
+
+   `@xyflow/react/dist/style.css` is imported from a client component, so
+   Next emits it as a plain UNLAYERED stylesheet. Everything in this file
+   sits inside a Tailwind v4 cascade layer. Unlayered normal declarations
+   BEAT layered ones regardless of specificity or source order — so a
+   layered rule here can only win a property the library does not itself
+   declare on the same selector.
+
+   Phase 26 wrote this block without knowing that, and most of it has been
+   DEAD ever since. Measured on the live canvas before this rewrite:
+     - the controls buttons rendered the library's own near-white fill and
+       its pale divider in BOTH themes — in dark that is a white brick whose
+       near-white glyphs are effectively invisible;
+     - the minimap rendered pure white in BOTH themes;
+     - the controls' shadow on screen was the library's, not the shadow-sm
+       this block declared — so deleting shadow-sm would have changed
+       nothing while reading as a fix;
+     - the attribution's fill was the library's translucent white.
+   None of it was noticed because dark mode had never once been captured
+   until 61-01 added the theme axis (999.23). In light, white-on-parchment
+   simply looks like a card.
+
+   ── SO: COLOUR IS SET THROUGH THE LIBRARY'S OWN THEMING VARIABLES ──
+   xyflow v12 resolves nearly every visible value through
+   `var(--xy-NAME, var(--xy-NAME-default))`. We set `--xy-NAME`; the library
+   declares only `--xy-NAME-default`. Different property names, so there is
+   no cascade fight to lose — and this is its supported, documented theming
+   API, which survives an upgrade far better than a selector override.
+   Setting ANY non-default var in a chain makes the stock default
+   unreachable, which is exactly what the ban gate checks.
+
+   The few stock values that are hardcoded literals with no variable behind
+   them are the ONLY places a layered rule must force the issue with an
+   important flag. Each one is marked at its site. Do not add one anywhere a
+   variable exists.
+   ═══════════════════════════════════════════════════════════════════════ */
 @layer components {
+  .react-flow {
+    /* GROUND — the board's ground is the PAGE's, deliberately: the canvas
+       host div owns it, so the library must not paint one of its own. Stock
+       would paint a dark grey here on its own dark class. */
+    --xy-background-color: transparent;
+
+    /* THE BOARD. 58-IDENTITY's ban #12 carries an explicit exception for
+       exactly this surface, in the sketch's own words: this surface IS a
+       canvas, so a grid is the working surface, not decoration. The `grid`
+       token exists precisely for it. Call sites pass this value too; this is
+       the SYSTEM default behind them, so a Background with no colour prop is
+       still on the identity. Stock is a mid-grey. */
+    --xy-background-pattern-color: var(--grid);
+
+    /* EDGES — NEUTRAL by decision. The only edge this product draws today is
+       a data wire: plumbing, not provenance, so it earns no hue (law 1).
+       The `conf-line` solid / `sugg-line` dashed pair stays reserved for
+       tier. Stock is a blue-grey. */
+    --xy-edge-stroke: var(--edge);
+    --xy-edge-stroke-selected: var(--ink);
+    --xy-connectionline-stroke: var(--edge);
+    --xy-edge-label-background-color: var(--leaf);
+    --xy-edge-label-color: var(--faded);
+
+    /* HANDLES — the headline. Never styled in this product's entire life:
+       stock paints a dark navy dot with a white ring on every node of the
+       chat canvas (they are opacity-0 on /knowledge, so only chat shows
+       them). A connection point is polytoken's own affordance, so it is ink
+       chrome and carries no hue — it makes no tier claim. The library
+       defines no colour for the connecting/valid states, so there is no
+       state-hue to remove. */
+    --xy-handle-background-color: var(--ink);
+    --xy-handle-border-color: var(--bright);
+
+    /* BUILT-IN NODE TYPES — no surface registers one today (every nodeType
+       is custom), but the library styles them and a future `type: "default"`
+       must land on the identity rather than on shadcn-era React Flow
+       branding. Themed rather than allowlisted: two lines beats a note that
+       rots. Hover/selected are a hairline RULE, never a lift — the identity
+       is "flat surfaces, hairline rules, zero shadow anywhere". */
+    --xy-node-color: var(--ink);
+    --xy-node-border: 1px solid var(--rule);
+    --xy-node-background-color: var(--bright);
+    --xy-node-group-background-color: var(--leaf);
+    --xy-node-border-radius: var(--radius-card);
+    --xy-node-boxshadow-hover: 0 0 0 1px var(--rule-hi);
+    --xy-node-boxshadow-selected: 0 0 0 1px var(--ink);
+
+    /* SELECTION — stock is a BLUE wash with a blue dotted border. Law 1:
+       selection is ink and weight, never a hue. */
+    --xy-selection-background-color: var(--ink-08);
+    --xy-selection-border: 1px dotted var(--edge);
+
+    /* CONTROLS — the sketch's card register: the CONTAINER carries the fill
+       and the hairline rule, the buttons sit transparent inside it. Zero
+       shadow (the stock one is a real drop shadow, and it is what was
+       actually on screen). */
+    --xy-controls-button-background-color: transparent;
+    --xy-controls-button-background-color-hover: var(--shade);
+    --xy-controls-button-color: var(--ink);
+    --xy-controls-button-color-hover: var(--ink);
+    --xy-controls-button-border-color: var(--hair);
+    --xy-controls-box-shadow: none;
+
+    /* MINIMAP. The mask is the dimmed region OUTSIDE the viewport. */
+    --xy-minimap-background-color: var(--leaf);
+    --xy-minimap-mask-background-color: var(--ink-08);
+    --xy-minimap-mask-stroke-color: transparent;
+    --xy-minimap-node-background-color: var(--edge);
+    --xy-minimap-node-stroke-color: var(--rule);
+
+    /* ATTRIBUTION — xyflow's LICENCE REQUIREMENT (T-61-16). Restyled to sit
+       quietly on the identity. Never hidden, never display-none'd, and
+       hideAttribution is never flipped: restyling a licence notice into
+       invisibility is removing it. */
+    --xy-attribution-background-color: var(--leaf);
+
+    /* RESIZE CONTROLS — NodeResizer is mounted by no surface today; themed
+       anyway so the first one that does is on the identity by default. */
+    --xy-resize-background-color: var(--ink);
+  }
+
+  /* The controls' CARD. The library declares no fill/border/radius on this
+     selector, so a layered rule wins them unopposed. overflow-hidden is
+     load-bearing: without it the first/last button's square hover fill pokes
+     out past the card's rounded corners. */
   .react-flow__controls {
-    @apply rounded-md border border-border bg-card shadow-sm;
+    @apply overflow-hidden rounded-card border border-rule bg-bright;
   }
-  .react-flow__controls-button {
-    @apply border-b border-border/60 bg-transparent text-foreground last:border-b-0;
-  }
-  .react-flow__controls-button:hover {
-    @apply bg-muted;
-  }
+
   .react-flow__controls-button svg {
-    /* 55-02: the old hsl()-wrapped foreground -> bare var(--foreground) —
-       --foreground now holds a full oklch(...) function; re-wrapping it in
-       hsl() would be invalid CSS the browser drops silently (55-RESEARCH.md
-       Pitfalls 2/4). Guarded by apps/web/e2e/token-render.spec.ts's
-       /knowledge Controls-fill assertion. */
-    fill: var(--foreground);
+    /* 55-02: a bare var(), NEVER hsl()-wrapped — `foreground` holds a full
+       oklch(...) function and re-wrapping it in hsl() is invalid CSS the
+       browser drops SILENTLY (55-RESEARCH.md Pitfalls 2/4). Guarded by
+       apps/web/e2e/token-render.spec.ts's /knowledge Controls-fill
+       assertion.
+       The important flag is 61-05's: the library sets this same property to
+       currentColor on this same selector, unlayered, so this rule had been
+       LOSING and doing nothing. It resolved to the same ink by accident (the
+       button's colour is inherited ink), which is why the guard above stayed
+       green over a dead rule for two milestones. */
+    fill: var(--foreground) !important;
   }
+
   .react-flow__minimap {
-    @apply overflow-hidden rounded-md border border-border bg-card;
+    /* Fill comes from the theming var above — declaring background here is
+       what silently lost to the library and shipped a white brick. */
+    @apply overflow-hidden rounded-card border border-rule;
   }
+
   .react-flow__attribution {
-    @apply bg-background/70 text-[10px] text-muted-foreground;
+    @apply text-pencil;
+  }
+
+  .react-flow__attribution a {
+    /* LITERAL: stock hardcodes a mid-grey with no variable behind it, so the
+       important flag is the only way past the unlayered rule. Pencil is
+       legal on the leaf ground this sits on (never on shade). */
+    color: var(--pencil) !important;
+  }
+
+  .react-flow__edge.updating .react-flow__edge-path {
+    /* LITERAL: stock hardcodes a grey for an edge mid-reconnect. Kept on the
+       neutral edge token so it agrees with the wire it is updating. No
+       surface enables edge reconnection today, so this never renders — it is
+       here so an upgrade or a future onReconnect cannot ship a stock grey. */
+    stroke: var(--edge) !important;
+  }
+
+  .react-flow__resize-control.handle {
+    /* LITERAL: stock hardcodes a pure-white ring on the resize handle. */
+    border: 1px solid var(--bright) !important;
+  }
+
+  /* KEYBOARD FOCUS — 61-05 Rule 2, not a restyle. The library sets
+     `outline: none` on a focused node and puts nothing back, so Tab-ing
+     between nodes (a documented flow — the canvas's own hint reads "Tab to
+     move between panels") moves an INVISIBLE focus. That is a WCAG 2.4.7
+     failure on a keyboard path this product advertises. Law 1: a focus ring
+     is ink, never a hue. An OUTLINE, not a ring: --tw-ring-offset-color
+     defaults to white, which paints a halo in dark (D-61-03-F). The
+     important flag clears the library's unlayered `outline: none`.
+     focus-visible only, so a mouse click never draws it. */
+  .react-flow__node.selectable:focus-visible {
+    outline: 2px solid var(--ink) !important;
+    outline-offset: 2px;
   }
 }
 
