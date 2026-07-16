@@ -43,6 +43,16 @@
  * inline/compact variant (FIX-11, 26-UI-SPEC.md § "FIX-11").
  */
 
+// Explicit React import (not just the named `memo`) — this file's JSX compiles
+// fine under Next's SWC automatic runtime, but vitest's plain esbuild transform
+// defaults to the CLASSIC runtime (React.createElement) and needs `React` in
+// scope whenever a test mounts this component directly. Every sibling shell
+// carries this import and says so; this one did not, and the reason is telling:
+// until 61-06's `canvas-node-law.test.tsx` **no test had ever mounted this
+// placeholder**, so nothing had forced the gap into the open. The first mount
+// threw `ReferenceError: React is not defined` immediately. (Same note as
+// canvas-store-context.tsx / genui-panel-node.tsx.)
+import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 import { memo } from "react";
 import type { Node, NodeProps } from "@xyflow/react";

@@ -67,6 +67,16 @@
  * `{ sourcePath, targetKey }` everywhere.
  */
 
+// Explicit React import (not just the named hooks) — this file's JSX compiles
+// fine under Next's SWC automatic runtime, but vitest's plain esbuild transform
+// defaults to the CLASSIC runtime (React.createElement) and needs `React` in
+// scope whenever a test mounts this component directly. The `React.ReactElement`
+// / `React.MouseEvent` annotations below resolved through the global UMD
+// namespace at TYPE level, which is why nothing ever complained: until 61-06's
+// `canvas-node-law.test.tsx`, **no test had ever mounted this edge**, so the
+// missing runtime binding had never been exercised. The first mount threw
+// `ReferenceError: React is not defined`. (Same note as genui-panel-node.tsx.)
+import * as React from "react";
 import { createContext, useContext, type ReactNode } from "react";
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
 
