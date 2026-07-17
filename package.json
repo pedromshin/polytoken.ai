@@ -6,7 +6,8 @@
   },
   "workspaces": [
     "packages/*",
-    "apps/web"
+    "apps/web",
+    "apps/daemon"
   ],
   "scripts": {
     "dev": "docker compose -f apps/email-listener/docker-compose.yaml up --build",
@@ -40,6 +41,7 @@
     "api-client:build": "npm run build -w @polytoken/api-client"
   },
   "devDependencies": {
+    "@types/ws": "^8.18.1",
     "jsdom": "^29.1.1",
     "supabase": "^2.106.0"
   }
