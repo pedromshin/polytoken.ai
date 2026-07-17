@@ -5,8 +5,9 @@
 // scope for any suite that mounts this file directly (documented gotcha:
 // genui-panel-node.tsx / 53-03 / 53-04's identical fix).
 import * as React from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import {
   Breadcrumb,
@@ -16,56 +17,71 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@polytoken/ui/breadcrumb";
+import { Button } from "@polytoken/ui/button";
 
 import type { VaultEntry } from "../../../../../../packages/api-client/src/router/files/vault-types";
 import { parseVaultPath } from "../../../../../../packages/api-client/src/router/files/vault-keys";
+import { useVaultDrop } from "../_lib/use-vault-drop";
+import { useVaultUpload } from "../_lib/use-vault-upload";
 import { vaultApi } from "../_lib/vault-api";
+import { DeleteDialog } from "./delete-dialog";
+import { NewFolderRow } from "./new-folder-row";
+import { UploadTray } from "./upload-tray";
+import { VaultDropLayer } from "./vault-drop-layer";
 import { VaultEmpty, VaultError, VaultLoading } from "./vault-states";
 import { VaultListing } from "./vault-listing";
 
 /**
- * VaultSurface — the /files client surface (Phase 66 Plan 03 Task 2).
- *
- * Owns exactly three things: the path (in the URL), the listing query, and the
- * state branch. Everything else is a child's job.
+ * VaultSurface — the /files client surface (Phase 66 Plans 03 + 04).
  *
  * ONE PANE. There is no tree, no metadata rail, and no permanent toolbar
- * (D-66-08 + anti-generic tell #5: "tree + toolbar + breadcrumb + list +
- * preview + metadata rail all permanently visible"). The vault HAS a folder
- * tree — the user authors it — and it is navigated by drilling into folder
- * rows, with the breadcrumb as the way back and `?path=` as its address. A
- * tree PANE's unique value is drag-a-file-into-a-folder and cross-branch
- * jumping; move/copy is OUT tonight, so it would earn a third permanent pane
- * and nothing else.
+ * (D-66-08 + anti-generic tell #5). The vault HAS a folder tree — the user
+ * authors it — and it is navigated by drilling into folder rows, with the
+ * breadcrumb as the way back and `?path=` as its address. A tree PANE's unique
+ * value is drag-a-file-into-a-folder and cross-branch jumping; move/copy is
+ * OUT tonight, so it would earn a third permanent pane and nothing else.
  *
- * The page scrolls. There is NO Radix ScrollArea here (D-66-05) — its Viewport
- * shrink-wraps via `display:table` (D-61-06), and this surface sidesteps that
- * trap by construction rather than managing it.
+ * The page scrolls. No Radix ScrollArea (D-66-05) — its Viewport shrink-wraps
+ * via `display:table` (D-61-06). Sidestepped by construction.
+ *
+ * THE WHOLE PANE IS THE DROP TARGET (D-66-11) — not a card inside it, not a
+ * button. That is why the empty state's copy says "anywhere".
  */
 export function VaultSurface(): React.ReactElement {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   /**
-   * THE PATH LIVES IN THE URL (taste checklist item 7 — view state is
-   * addressable, never trapped in `useState`).
-   *
-   * `parseVaultPath` is Plan 01's — reused, not re-split. It already rejects
-   * traversal and collapses junk to the vault root, so a hand-edited URL shows
-   * the user their own vault rather than an error page. It is UX; the server
-   * re-validates every segment regardless (T-66-12).
+   * THE PATH LIVES IN THE URL (taste item 7 — view state is addressable, never
+   * trapped in `useState`). `parseVaultPath` is Plan 01's — reused, not
+   * re-split. It rejects traversal and collapses junk to the root, so a
+   * hand-edited URL shows the user their own vault rather than an error page.
+   * UX only: the server re-validates every segment regardless (T-66-12).
    */
   const rawPath = searchParams.get("path");
   const path = useMemo(() => parseVaultPath(rawPath), [rawPath]);
 
   const listing = vaultApi.files.list.useQuery({ path });
+  const utils = vaultApi.useUtils();
 
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [folderError, setFolderError] = useState<string | undefined>(undefined);
+  const [pendingDelete, setPendingDelete] = useState<VaultEntry | null>(null);
+
+  // ── Ingest: ONE funnel, two doors (drop and picker) ──────────────────────
+  const { uploads, start, cancel, dismiss } = useVaultUpload({ path });
+  const { isDragging, dropProps } = useVaultDrop(start);
+
+  const openPicker = useCallback(() => fileInputRef.current?.click(), []);
+
+  // ── Navigation ───────────────────────────────────────────────────────────
   const navigateTo = useCallback(
     (segments: readonly string[]) => {
       const query = segments.map(encodeURIComponent).join("/");
-      // `push`, not `replace`: the browser's Back button then walks OUT of a
-      // folder. That is free navigation the user already knows, at zero
-      // interface cost — and it is why there is no "up" button in the chrome.
+      // `push`, not `replace`: Back then walks OUT of a folder — free
+      // navigation the user already knows, which is why there is no "up"
+      // button in the chrome.
       router.push(segments.length === 0 ? "/files" : `/files?path=${query}`);
     },
     [router],
@@ -76,6 +92,7 @@ export function VaultSurface(): React.ReactElement {
     [navigateTo, path],
   );
 
+  // ── Download ─────────────────────────────────────────────────────────────
   const downloadMutation = vaultApi.files.requestDownload.useMutation();
 
   const download = useCallback(
@@ -84,67 +101,152 @@ export function VaultSurface(): React.ReactElement {
         { path, name: entry.name },
         {
           onSuccess: ({ url }) => {
-            // The URL is minted with attachment disposition for every content
-            // type (Plan 01), so navigating to it SAVES the file rather than
-            // rendering it. Nothing uploaded is ever interpreted on our origin.
+            // Minted with attachment disposition for every content type
+            // (Plan 01), so this SAVES the file rather than rendering it.
+            // Nothing uploaded is ever interpreted on our origin.
             window.location.href = url;
           },
+          onError: () => toast("Couldn't start that download."),
         },
       );
     },
     [downloadMutation, path],
   );
 
-  /**
-   * ── PLAN 04 MOUNTS HERE ──────────────────────────────────────────────────
-   * These two are deliberately inert in Plan 03 and are wired by Plan 04, so
-   * that 04 is an INSERTION rather than a restructure:
-   *   - `onUpload`  -> opens the hidden <input type="file"> (04 Task 1)
-   *   - `onDelete`  -> opens the one confirm dialog (04 Task 2)
-   * The drop layer wraps the <section> below, and the upload tray docks at its
-   * foot.
-   *
-   * Stated plainly because it matters at review: until 04 lands, the empty
-   * state's "Upload files" button and the rows' delete triggers RENDER but DO
-   * NOTHING. That is a real (if short-lived) stub, and it is the honest
-   * account of what Plan 03 alone ships.
-   */
-  const onUpload = useCallback(() => undefined, []);
-  const onDelete = useCallback(() => undefined, []);
+  // ── New folder — inline, optimistic ──────────────────────────────────────
+  const createFolder = vaultApi.files.createFolder.useMutation({
+    onSuccess: () => {
+      setCreatingFolder(false);
+      setFolderError(undefined);
+      void utils.files.list.invalidate({ path });
+    },
+    onError: (error) => {
+      // Surface it INLINE and keep the input open with the text intact.
+      // Wiping the user's typing on an error is its own small betrayal.
+      setFolderError(
+        error.data?.code === "CONFLICT"
+          ? "A folder with that name already exists."
+          : "Couldn't create that folder.",
+      );
+    },
+  });
+
+  // ── Delete — the one confirm ─────────────────────────────────────────────
+  const remove = vaultApi.files.remove.useMutation({
+    onSuccess: (_data, variables) => {
+      // A statement, not an offer: there is nothing to undo (no trash).
+      toast(`Deleted ${variables.name}`);
+      void utils.files.list.invalidate({ path });
+    },
+    onError: () => {
+      toast("Couldn't delete that.");
+      void utils.files.list.invalidate({ path });
+    },
+  });
+
+  const entries = listing.data ?? [];
+  const folderName = path.length === 0 ? "Files" : (path[path.length - 1] ?? "Files");
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
-      <VaultBreadcrumb path={path} onNavigate={navigateTo} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <VaultBreadcrumb path={path} onNavigate={navigateTo} />
 
-      {/* The pane: one sheet, on the page's ground. Plan 04 mounts the drop
-          layer HERE — the whole pane is the drop target, never a card inside
-          it. Elevation is the ground ladder (leaf -> bright); there is no
-          shadow on this surface and there is not going to be one. */}
-      <section
-        aria-label="Your files"
-        className="rounded-card border border-rule bg-leaf"
+        {/* Both are plain ink Buttons WITH WORDS ON THEM. No icon-only chrome
+            (anti-generic tell #4: chrome that tests the user's memory instead
+            of teaching). */}
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setFolderError(undefined);
+              setCreatingFolder(true);
+            }}
+            className="border-rule bg-leaf text-ink shadow-none hover:bg-shade pointer-coarse:touch-target"
+          >
+            New folder
+          </Button>
+          <Button
+            type="button"
+            onClick={openPicker}
+            className="shadow-none pointer-coarse:touch-target"
+          >
+            Upload files
+          </Button>
+        </div>
+      </div>
+
+      {/* The picker. Its onChange shares the EXACT same `start(files)` path as
+          the drop handler — one ingest funnel, two doors. No intermediate
+          modal, no card: the budget for the picker is ONE click. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        hidden
+        data-slot="vault-file-input"
+        onChange={(event) => {
+          const files = Array.from(event.target.files ?? []);
+          if (files.length > 0) start(files);
+          // Reset, so re-picking the same file fires onChange again.
+          event.target.value = "";
+        }}
+      />
+
+      <VaultDropLayer
+        isDragging={isDragging}
+        folderName={folderName}
+        dropProps={dropProps}
       >
-        {/* THE STATE BRANCH, IN A FIXED ORDER THAT IS ITSELF A BUG FIX.
-            loading -> error -> empty -> listing. Branching on `isPending`
-            FIRST is what stops a populated folder flashing "empty" on every
-            navigation: react-query returns `data: undefined` while a new query
-            key is in flight, and an empty-check that ran first would read that
-            as "no files" for one frame — on every single folder walk. */}
-        {listing.isPending ? (
-          <VaultLoading />
-        ) : listing.error ? (
-          <VaultError onRetry={() => void listing.refetch()} />
-        ) : (listing.data ?? []).length === 0 ? (
-          <VaultEmpty atRoot={path.length === 0} onUpload={onUpload} />
-        ) : (
-          <VaultListing
-            entries={listing.data ?? []}
-            onOpenFolder={openFolder}
-            onDownload={download}
-            onDelete={onDelete}
-          />
-        )}
-      </section>
+        <section aria-label="Your files">
+          {/* THE STATE BRANCH, IN A FIXED ORDER THAT IS ITSELF A BUG FIX.
+              loading -> error -> empty -> listing. Branching on `isPending`
+              FIRST is what stops a populated folder flashing "empty" on every
+              navigation: react-query returns `data: undefined` while a new
+              query key is in flight, and an empty-check running first would
+              read that as "no files" for one frame, on every folder walk. */}
+          {listing.isPending ? (
+            <VaultLoading />
+          ) : listing.error ? (
+            <VaultError onRetry={() => void listing.refetch()} />
+          ) : entries.length === 0 && !creatingFolder ? (
+            <VaultEmpty atRoot={path.length === 0} onUpload={openPicker} />
+          ) : (
+            <VaultListing
+              entries={entries}
+              onOpenFolder={openFolder}
+              onDownload={download}
+              onDelete={setPendingDelete}
+              leadingRow={
+                creatingFolder ? (
+                  <NewFolderRow
+                    error={folderError}
+                    onCancel={() => {
+                      setCreatingFolder(false);
+                      setFolderError(undefined);
+                    }}
+                    onCommit={(name) => createFolder.mutate({ path, name })}
+                  />
+                ) : null
+              }
+            />
+          )}
+
+          <UploadTray uploads={uploads} onCancel={cancel} onDismiss={dismiss} />
+        </section>
+      </VaultDropLayer>
+
+      <DeleteDialog
+        entry={pendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setPendingDelete(null);
+        }}
+        onConfirm={(entry) => {
+          remove.mutate({ path, name: entry.name, isFolder: entry.isFolder });
+          setPendingDelete(null);
+        }}
+      />
     </div>
   );
 }
@@ -189,7 +291,7 @@ function VaultBreadcrumb({
               <BreadcrumbItem className="min-w-0">
                 {isLast ? (
                   // `aria-current="page"` is BreadcrumbPage's own doing. Not a
-                  // link, and not truncated: this is where you are.
+                  // link, and never truncated: this is where you are.
                   <BreadcrumbPage className="text-ink">{segment}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink

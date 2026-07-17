@@ -11,6 +11,16 @@ interface VaultListingProps {
   readonly onOpenFolder: (name: string) => void;
   readonly onDownload: (entry: VaultEntry) => void;
   readonly onDelete: (entry: VaultEntry) => void;
+  /**
+   * An `<li>` rendered at the TOP of this list — Plan 04's inline new-folder
+   * row (D-66-10: a folder is created where it will live, never in a modal).
+   *
+   * A SLOT rather than the caller wrapping this component: `VaultListing` owns
+   * the `<ul>`, and a caller-side wrapper would nest `<ul>` inside `<ul>`
+   * (invalid HTML) and, worse, would put the new row OUTSIDE the element
+   * carrying the roving-tabindex key handler.
+   */
+  readonly leadingRow?: React.ReactNode;
 }
 
 /**
@@ -34,6 +44,7 @@ export function VaultListing({
   onOpenFolder,
   onDownload,
   onDelete,
+  leadingRow,
 }: VaultListingProps): React.ReactElement {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
@@ -124,6 +135,8 @@ export function VaultListing({
       onKeyDown={handleKeyDown}
       className="flex flex-col"
     >
+      {leadingRow}
+
       {entries.map((entry, index) => (
         <VaultRow
           key={entry.name}
