@@ -133,15 +133,22 @@ function loadSources(opts: { includeTests: boolean }): SourceFile[] {
 /**
  * THE MADDER TOKEN ITSELF, not one syntactic spelling of it.
  *
- * The first draft of this gate looked for `variant="destructive"` — the JSX
- * attribute form — and matched NOTHING, while `delete-dialog.tsx` was sitting
- * right there using `buttonVariants({ variant: "destructive" })`, the object
- * form. A gate looking for one spelling of a rule is a gate that reports
- * safety on every other spelling: `bg-destructive`, `text-destructive`, and
- * `variant: "destructive"` are all madder, and all would have passed.
+ * The first draft of this gate looked for the JSX attribute form of the madder
+ * variant and matched NOTHING, while `delete-dialog.tsx` was sitting right there
+ * using the object form (`buttonVariants({ variant: … })`). A gate looking for
+ * one spelling of a rule is a gate that reports safety on every other spelling:
+ * the bg- utility, the text- utility, and the object form all paint madder, and
+ * all would have passed.
  *
  * So: match the token, in any form. Every one of those spellings paints madder,
  * and on this surface exactly one file is allowed to.
+ *
+ * NOTE — the literals are DESCRIBED here, never written. The repo-wide ratchet
+ * (`app/__tests__/role-hue-ban.test.ts`) walks this directory, so a comment that
+ * spells a banned utility turns the ratchet red on its own documentation. That
+ * is not hypothetical: it happened on this exact docblock the moment `files`
+ * joined SCOPED_DIRS, and 61-06 hit it four times before that. Build patterns
+ * from parts; describe examples in prose.
  */
 const MADDER_TOKEN = ["destruc", "tive"].join("");
 const SERIF = ["font", "serif"].join("-");

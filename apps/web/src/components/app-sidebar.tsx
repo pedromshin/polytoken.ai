@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Boxes,
   FlaskConical,
+  FolderOpen,
   Inbox,
   MessageSquare,
   Moon,
@@ -53,6 +54,7 @@ const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
   { href: "/knowledge", label: "Knowledge", icon: Share2 }, // ← promoted Phase 11
   { href: "/studio", label: "Studio", icon: FlaskConical }, // ← Phase 15: repointed to /studio landing (D-14)
   { href: "/chat", label: "Chat", icon: MessageSquare }, // ← Phase 22 (D-11): single Chat nav item
+  { href: "/files", label: "Files", icon: FolderOpen }, // ← Phase 66: the self-cloud vault (v2.1 slice)
 ];
 
 const SOON_NAV_ITEMS: ReadonlyArray<SoonNavItem> = []; // Knowledge removed

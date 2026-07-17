@@ -93,6 +93,9 @@ export const SCOPED_DIRS: readonly string[] = [
   "emails/[id]",
   "chat",
   "_vocabulary",
+  // Phase 66 (files vault) — earned on arrival: the lane's own scoped law gate was green
+  // before merge, so the ratchet grows without a sweep. The banned area only ever grows.
+  "files",
 ];
 
 /** Structurally excluded from the walk (§E, same set as palette-ban.test.ts). */

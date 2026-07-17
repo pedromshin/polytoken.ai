@@ -136,6 +136,8 @@ const BASE_SURFACES: readonly Surface[] = [
   { name: "knowledge", path: "/knowledge" },
   { name: "studio", path: "/studio" },
   { name: "forwarding", path: "/settings/forwarding" },
+  // Phase 66 — the files vault (v2.1 slice). Path-navigable, so it needs no selection step.
+  { name: "files", path: "/files" },
 ];
 
 /** Hosts allowed to receive the seeded (service_role-minted) session — T-50-01. */
