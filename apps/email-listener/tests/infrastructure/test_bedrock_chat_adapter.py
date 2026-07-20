@@ -246,7 +246,161 @@ async def test_tool_choice_still_not_forced_when_tools_present(
 
     call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
     assert "tool_choice" not in call_kwargs
-    assert call_kwargs["tools"] == [{"name": "emit_ui_spec", "input_schema": {}}]
+    # Tool content passes through unchanged; the adapter only ADDS the cache
+    # breakpoint on the last tool (COST-01 — see cache-point tests below).
+    assert call_kwargs["tools"] == [
+        {"name": "emit_ui_spec", "input_schema": {}, "cache_control": {"type": "ephemeral"}}
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Prompt caching (COST-01/D-21): cachePoint on system block + tools schema,
+# mirroring test_genui_generator_adapter.py's test_cache_control_on_system_prompt.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_string_system_becomes_single_block_with_cache_control(
+    adapter: BedrockChatAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """A plain-string system prompt must be sent as one text block with cache_control ephemeral."""
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
+
+    await _collect(
+        adapter.stream(
+            model_id="us.anthropic.claude-sonnet-4-6",
+            system="You are a helpful assistant.",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=1024,
+        )
+    )
+
+    system = mock_bedrock_client.messages.stream.call_args.kwargs["system"]
+    assert system == [
+        {
+            "type": "text",
+            "text": "You are a helpful assistant.",
+            "cache_control": {"type": "ephemeral"},
+        }
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_system_block_list_gets_cache_control_on_last_block_without_mutating_caller(
+    adapter: BedrockChatAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """List-of-blocks system: LAST block gains cache_control; caller's dicts are never mutated."""
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
+    caller_blocks: list[dict[str, Any]] = [
+        {"type": "text", "text": "core rules"},
+        {"type": "text", "text": "persona"},
+    ]
+
+    await _collect(
+        adapter.stream(
+            model_id="us.anthropic.claude-sonnet-4-6",
+            system=caller_blocks,
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=1024,
+        )
+    )
+
+    system = mock_bedrock_client.messages.stream.call_args.kwargs["system"]
+    assert system[0] == {"type": "text", "text": "core rules"}
+    assert system[1] == {
+        "type": "text",
+        "text": "persona",
+        "cache_control": {"type": "ephemeral"},
+    }
+    # Lossless: only cache_control added, text content byte-identical
+    assert [b["text"] for b in system] == [b["text"] for b in caller_blocks]
+    # Caller's blocks untouched (composition-time dicts are shared)
+    assert "cache_control" not in caller_blocks[1]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_last_tool_gets_cache_control_earlier_tools_untouched(
+    adapter: BedrockChatAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """cachePoint on the LAST tool caches the whole tools prefix; earlier tools stay pristine."""
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
+    caller_tools: list[dict[str, Any]] = [
+        {"name": "emit_ui_spec", "input_schema": {"type": "object"}},
+        {"name": "emit_proposal_cards", "input_schema": {"type": "object"}},
+    ]
+
+    await _collect(
+        adapter.stream(
+            model_id="us.anthropic.claude-sonnet-4-6",
+            system="You are a helpful assistant.",
+            messages=[{"role": "user", "content": "hi"}],
+            tools=caller_tools,
+            max_tokens=1024,
+        )
+    )
+
+    tools = mock_bedrock_client.messages.stream.call_args.kwargs["tools"]
+    assert tools[0] == {"name": "emit_ui_spec", "input_schema": {"type": "object"}}
+    assert tools[1] == {
+        "name": "emit_proposal_cards",
+        "input_schema": {"type": "object"},
+        "cache_control": {"type": "ephemeral"},
+    }
+    # Composition-time tool dicts (built once in container.py) must never be mutated
+    assert "cache_control" not in caller_tools[1]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_preexisting_cache_control_is_not_overwritten(
+    adapter: BedrockChatAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """A caller-supplied cache_control (e.g. 1h TTL) passes through unchanged — no double-marking."""
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
+    system_blocks = [{"type": "text", "text": "rules", "cache_control": {"type": "ephemeral", "ttl": "1h"}}]
+    tool = {"name": "emit_ui_spec", "input_schema": {}, "cache_control": {"type": "ephemeral", "ttl": "1h"}}
+
+    await _collect(
+        adapter.stream(
+            model_id="us.anthropic.claude-sonnet-4-6",
+            system=system_blocks,
+            messages=[{"role": "user", "content": "hi"}],
+            tools=[tool],
+            max_tokens=1024,
+        )
+    )
+
+    call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
+    assert call_kwargs["system"][-1]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+    assert call_kwargs["tools"][-1]["cache_control"] == {"type": "ephemeral", "ttl": "1h"}
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_empty_string_system_passes_through_without_empty_block(
+    adapter: BedrockChatAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """An empty system string must NOT be wrapped into an (invalid) empty text block."""
+    mock_bedrock_client.messages.stream = MagicMock(return_value=_FakeBedrockStream(_make_final_message(10, 5)))
+
+    await _collect(
+        adapter.stream(
+            model_id="us.anthropic.claude-sonnet-4-6",
+            system="",
+            messages=[{"role": "user", "content": "hi"}],
+            max_tokens=1024,
+        )
+    )
+
+    assert mock_bedrock_client.messages.stream.call_args.kwargs["system"] == ""
 
 
 # ---------------------------------------------------------------------------

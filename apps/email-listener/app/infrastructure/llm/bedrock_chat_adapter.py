@@ -11,6 +11,13 @@ asyncio.timeout with per-event reschedule) into a ChatProvider implementation:
     UsageDelta, then a terminal StreamEnd.
   - tool_choice is NEVER forced here (D-02): the agent decides whether/when to
     call a tool. When `tools` is empty the model never even sees a tool exists.
+  - Prompt caching (COST-01/D-21, mirroring genui_generator_adapter): a
+    cache_control ephemeral breakpoint (Bedrock cachePoint) is placed on the
+    LAST system block and on the LAST tool definition. Prompt render order is
+    tools -> system -> messages, so the two breakpoints cache the full static
+    prefix (tool schemas + system prompt) at cache-read pricing on every
+    subsequent turn. Lossless: content is never altered — only cache_control
+    markers are added, on copies (caller-provided dicts are never mutated).
   - Never raises past this boundary: any exception mid-stream surfaces as
     StreamEnd(stop_reason='error') — no unhandled exception escapes.
 """
@@ -32,6 +39,49 @@ if TYPE_CHECKING:
 logger = structlog.get_logger(__name__)
 
 DEFAULT_CHAT_INACTIVITY_TIMEOUT_SECONDS = 90.0
+
+_EPHEMERAL_CACHE_CONTROL: dict[str, str] = {"type": "ephemeral"}
+
+
+def _system_with_cache_point(system: str | list[dict[str, Any]]) -> str | list[dict[str, Any]]:
+    """Return `system` with a cache_control ephemeral breakpoint on its last block.
+
+    A plain string is converted to the list-of-blocks form (cache_control
+    requires block format — same conversion the genui adapter's
+    _build_system_blocks performs, COST-01/D-21). A list gets a COPY of its
+    last dict block with cache_control added; the caller's blocks are never
+    mutated. An empty string/list and a block that already carries
+    cache_control pass through unchanged (max-4-breakpoints budget stays with
+    the caller in that case).
+    """
+    if isinstance(system, str):
+        if not system:
+            return system
+        return [{"type": "text", "text": system, "cache_control": dict(_EPHEMERAL_CACHE_CONTROL)}]
+    if not system:
+        return system
+    blocks = list(system)
+    last = blocks[-1]
+    if isinstance(last, dict) and "cache_control" not in last:
+        blocks[-1] = {**last, "cache_control": dict(_EPHEMERAL_CACHE_CONTROL)}
+    return blocks
+
+
+def _tools_with_cache_point(tools: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return the tool list with a cache_control ephemeral breakpoint on the LAST tool.
+
+    Tools render first in the prompt (tools -> system -> messages), so one
+    breakpoint on the final tool definition caches the entire tools-schema
+    prefix (COST-01). The last tool dict is shallow-copied — the
+    composition-time tool dicts built once in container.py are never mutated.
+    """
+    tool_list = list(tools)
+    if not tool_list:
+        return tool_list
+    last = tool_list[-1]
+    if isinstance(last, dict) and "cache_control" not in last:
+        tool_list[-1] = {**last, "cache_control": dict(_EPHEMERAL_CACHE_CONTROL)}
+    return tool_list
 
 
 class BedrockChatAdapter:
@@ -71,7 +121,10 @@ class BedrockChatAdapter:
             "model": model_id,
             "max_tokens": max_tokens,
             "temperature": temperature,
-            "system": system,
+            # COST-01/D-21: cache_control ephemeral on the last system block —
+            # combined with the tools breakpoint below, the full static prefix
+            # (tools -> system) is served at cache-read pricing on later turns.
+            "system": _system_with_cache_point(system),
             "messages": list(messages),
         }
         # D-02: tool_choice is never forced on the chat path — "auto" (the SDK
@@ -79,7 +132,9 @@ class BedrockChatAdapter:
         # a tool at all. Omitting `tools` entirely when empty means the model
         # never even sees a tool exists.
         if tools:
-            stream_kwargs["tools"] = list(tools)
+            # COST-01: cache_control ephemeral on the LAST tool caches the
+            # entire tools-schema prefix (tools render before system).
+            stream_kwargs["tools"] = _tools_with_cache_point(tools)
 
         tool_use_by_index: dict[int, tuple[str, str]] = {}
         loop = asyncio.get_running_loop()

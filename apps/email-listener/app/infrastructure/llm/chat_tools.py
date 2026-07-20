@@ -56,6 +56,18 @@ composite the model builds itself from ITS OWN prior web_search tool_use id
 that call's `results` array. The server re-reads the actual url/title from
 the PERSISTED tool result by this id — the model never supplies source
 content directly (T-54-03-01).
+
+Cache stability (COST-01/D-21, phase 999.15): every builder here returns a
+DETERMINISTIC dict — static name/description strings and schemas that are
+either module-level constants or loaded from the committed genui artifacts.
+Built once at composition time (container.py) and reused verbatim per turn,
+the tool list is byte-stable across requests, which is what lets
+BedrockChatAdapter place a cache_control ephemeral breakpoint (Bedrock
+cachePoint) on the LAST tool and serve the whole tools-schema prefix at
+cache-read pricing. Do NOT interpolate per-request/per-user values into
+these builders — that would silently invalidate the prompt cache.
+BedrockChatAdapter adds the breakpoint on a COPY, so the dicts returned
+here are never mutated.
 """
 
 from __future__ import annotations
