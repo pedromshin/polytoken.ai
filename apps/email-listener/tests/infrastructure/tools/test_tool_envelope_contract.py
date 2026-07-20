@@ -347,17 +347,19 @@ async def test_envelope_gate_contract(case_name: str, content_factory: _ContentF
 
 
 @pytest.mark.unit
-def test_container_resolves_exactly_the_four_real_tool_executors(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_container_resolves_exactly_the_five_real_tool_executors(monkeypatch: pytest.MonkeyPatch) -> None:
     """EchoToolExecutor is test-only and intentionally excluded from this contract (38-CONTEXT.md).
 
     Mirrors test_container.py's TestSearchKnowledgeExposureGate/
     TestWebSearchExposureGate's exact monkeypatch.setenv(...) +
-    get_settings.cache_clear() before/after pattern -- forces both
-    search_knowledge and web_search into scope so all 4 real executors are
-    resolvable in one assertion (Phase 54-02 added web_search as the 4th).
+    get_settings.cache_clear() before/after pattern -- forces search_knowledge,
+    web_search, and deep_research into scope so all 5 real executors are
+    resolvable in one assertion (Phase 54-02 added web_search as the 4th;
+    Phase 69 added deep_research as the 5th, gated by RESEARCH_TOOL_ENABLED).
     """
     monkeypatch.setenv("SEARCH_KNOWLEDGE_TOOL_ENABLED", "true")
     monkeypatch.setenv("WEB_SEARCH_TOOL_ENABLED", "true")
+    monkeypatch.setenv("RESEARCH_TOOL_ENABLED", "true")
     get_settings.cache_clear()
     try:
         with (
@@ -374,6 +376,7 @@ def test_container_resolves_exactly_the_four_real_tool_executors(monkeypatch: py
             SEARCH_EMAILS_TOOL_NAME,
             SEARCH_KNOWLEDGE_TOOL_NAME,
             WEB_SEARCH_TOOL_NAME,
+            "deep_research",
         }
     finally:
         get_settings.cache_clear()
