@@ -68,3 +68,6 @@ apps/email-listener/listener-*.log
 .claude/skills/
 .claude/agents/
 .claude/gsd-support/
+
+# Windows-path junk from daemon tests running on Linux (pre-existing win32 tests)
+apps/daemon/\\tmp\\daemon-tools-*
