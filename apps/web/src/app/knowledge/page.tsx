@@ -8,10 +8,16 @@ export const metadata: Metadata = {
 };
 
 /**
- * /knowledge route — server-component shell.
+ * /knowledge route — server-component shell (Phase 62 / SURF-03).
+ *
+ * The page-level duplicate header is gone: the first draft spent two chrome
+ * rows ("Knowledge Graph" here, "Knowledge" again in the toolbar) before the
+ * board began. The desktop surface's GraphToolbar is now the ONE chrome row
+ * (title + count + tier filter + fit view); the mobile list leads with its
+ * filter-chip bar. Click-economy: the board is the page.
  *
  * `KnowledgeSurface` (a "use client" wrapper) branches the presentation on
- * `useIsMobileViewport()` (53-06-PLAN.md, MOBL-01): below `md` it renders
+ * `useIsMobileViewport()` (MOBL-01): below `md` it renders
  * `KnowledgeMobileList`; at/above `md` it renders `KnowledgeGraphIsland`,
  * the client island (ssr: false) React-Flow graph.
  *
@@ -22,10 +28,6 @@ export const metadata: Metadata = {
 export default function KnowledgePage(): React.ReactElement {
   return (
     <main className="flex h-[calc(100vh-3.5rem)] w-full flex-col">
-      <div className="flex h-12 shrink-0 items-center border-b border-border/50 px-4">
-        <h1 className="text-sm font-semibold text-foreground">Knowledge Graph</h1>
-      </div>
-
       <div className="relative min-h-0 flex-1">
         <KnowledgeSurface />
       </div>

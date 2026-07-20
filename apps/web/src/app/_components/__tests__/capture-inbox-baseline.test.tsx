@@ -119,6 +119,16 @@ vi.mock("~/trpc/react", () => ({
           isError: false,
         }),
       },
+      // MAIL-01: the rule-suggestion seam — empty result, resolved (keeps
+      // the captured baseline free of suggestion rows).
+      ruleSuggestions: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+        }),
+      },
       listThreads: {
         useQuery: () => ({
           data: undefined,

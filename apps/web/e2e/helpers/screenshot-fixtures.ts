@@ -125,10 +125,139 @@ export async function seedEmailFixture(userId: string): Promise<SeedEmailFixture
       ],
     );
 
+    // 999.25 — the suggestion tier had never been photographed. Every seeded
+    // component in every fixture was 'confirmed', so the dashed INFERRED /
+    // suggested vocabulary (--sugg, pmark-suggested, data-tier="suggested")
+    // appeared in ZERO committed captures: the inbox entity chips, the
+    // entities rail and the email-detail rollup all derive tier from
+    // `extraction_status !== 'confirmed'` (entity-summary.ts:183), and no row
+    // ever satisfied it. Seeding one 'candidate' component alongside one
+    // 'confirmed' component puts BOTH tiers in the same frame, which is the
+    // only capture that lets a reviewer judge the confirmed/suggested
+    // contrast rather than either tier in isolation.
+    await seedSuggestionTierFixture(client, userId);
+
     return { emailId: FIXTURE_EMAIL_ID };
   } finally {
     await client.end();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Suggestion-tier fixture (999.25) — dashed INFERRED/suggested vocabulary
+// ---------------------------------------------------------------------------
+
+// Fixed ids, same idempotency rationale as every other fixture id in this file.
+const FIXTURE_ENTITY_TYPE_SLUG = "screenshot-review-supplier";
+const FIXTURE_ENTITY_TYPE_LABEL = "Supplier";
+const FIXTURE_CONFIRMED_COMPONENT_ID = "aaaa1111-6aaa-4aaa-8aaa-aaaaaaaa1111";
+const FIXTURE_SUGGESTED_COMPONENT_ID = "bbbb2222-6bbb-4bbb-8bbb-bbbbbbbb2222";
+const FIXTURE_KN_EXTRACTED_ID = "cccc3333-6ccc-4ccc-8ccc-cccccccc3333";
+const FIXTURE_KN_INFERRED_ID = "dddd4444-6ddd-4ddd-8ddd-dddddddd4444";
+const FIXTURE_KN_EDGE_ID = "eeee5555-6eee-4eee-8eee-eeeeeeee5555";
+
+/**
+ * Seeds the minimum data that makes the suggestion tier VISIBLE:
+ *
+ * 1. Inbox chips + entities rail + /emails/[id] rollup — one entity type and
+ *    two role='entity' components on the fixture email: one 'confirmed'
+ *    (solid tier badge) and one 'candidate' (extraction_status !== 'confirmed'
+ *    → tier "suggested" → the dashed pmark-suggested treatment). 'candidate'
+ *    is the column's own default and is neither 'rejected' nor 'superseded',
+ *    so entity-summary.ts's WHERE clause keeps it.
+ *
+ * 2. Knowledge graph — two active knowledge_nodes (one EXTRACTED, one
+ *    INFERRED) joined by one active knowledge_node_edges row with
+ *    tier='INFERRED', which is exactly what tier-edge-style.ts renders dashed
+ *    and knowledge-graph.tsx treats as a promotable suggestion. NOTE: these
+ *    rows alone do not reach the default /knowledge capture — see the
+ *    wiring caveat in the plan's seams; knowledge_node is not in the graph's
+ *    DEFAULT_VISIBLE_TYPES, so the edge renders only once a capture (or a
+ *    reviewer) checks the "Knowledge Rules" type filter. The rows are seeded
+ *    anyway so that the moment any capture opens that filter, the dashed
+ *    vocabulary is there to photograph.
+ *
+ * Idempotent: fixed ids + ON CONFLICT DO UPDATE throughout, matching the rest
+ * of this file. Takes the already-open client — never opens its own.
+ */
+async function seedSuggestionTierFixture(client: pg.Client, userId: string): Promise<void> {
+  const importerId = await resolveImporterIdFor(client, userId);
+
+  // Entity type — conflict target is (importer_id, slug), the table's natural
+  // unique key (same idiom as uat-39-tool-round.spec.ts), so a re-run against a
+  // DB that already holds this slug under a different id still resolves.
+  const typeRow = await client.query<{ id: string }>(
+    `INSERT INTO entity_types (importer_id, slug, label, config, is_active)
+     VALUES ($1, $2, $3, '{}'::jsonb, true)
+     ON CONFLICT (importer_id, slug) DO UPDATE SET label = EXCLUDED.label, is_active = true
+     RETURNING id`,
+    [importerId, FIXTURE_ENTITY_TYPE_SLUG, FIXTURE_ENTITY_TYPE_LABEL],
+  );
+  const entityTypeId = typeRow.rows[0]!.id;
+
+  // One confirmed + one suggested component on the SAME email, so the two
+  // tiers sit side by side in a single frame.
+  const components: ReadonlyArray<{ id: string; status: string; text: string }> = [
+    { id: FIXTURE_CONFIRMED_COMPONENT_ID, status: "confirmed", text: "Example Sender Co." },
+    { id: FIXTURE_SUGGESTED_COMPONENT_ID, status: "candidate", text: "Acme Logistics (suggested)" },
+  ];
+  for (const c of components) {
+    await client.query(
+      `INSERT INTO email_components (
+         id, importer_id, email_id, source_type, content_text, extraction_status, role, entity_type_id
+       )
+       VALUES ($1, $2, $3, 'email_body', $4, $5, 'entity', $6)
+       ON CONFLICT (id) DO UPDATE
+         SET content_text = EXCLUDED.content_text,
+             extraction_status = EXCLUDED.extraction_status,
+             role = 'entity',
+             entity_type_id = EXCLUDED.entity_type_id`,
+      [c.id, importerId, FIXTURE_EMAIL_ID, c.text, c.status, entityTypeId],
+    );
+  }
+
+  // Knowledge suggestion slice — one EXTRACTED node, one INFERRED node, one
+  // active INFERRED edge between them (source must be a knowledge node; the
+  // graph procedure scopes the union through the source node's importer).
+  const knowledgeNodes: ReadonlyArray<{
+    id: string;
+    tier: string;
+    title: string;
+    content: string;
+  }> = [
+    {
+      id: FIXTURE_KN_EXTRACTED_ID,
+      tier: "EXTRACTED",
+      title: "Q3 renewal pricing rule",
+      content: "Renewal quotes from Example Sender include tax at 18%.",
+    },
+    {
+      id: FIXTURE_KN_INFERRED_ID,
+      tier: "INFERRED",
+      title: "Suggested: Acme Logistics handles renewals",
+      content: "Synthesis suggests Acme Logistics is the renewal carrier. Unconfirmed.",
+    },
+  ];
+  for (const n of knowledgeNodes) {
+    await client.query(
+      `INSERT INTO knowledge_nodes (id, importer_id, title, content, scope, source, tier, is_active)
+       VALUES ($1, $2, $3, $4, 'importer_global', 'synthesis', $5, true)
+       ON CONFLICT (id) DO UPDATE
+         SET title = EXCLUDED.title, content = EXCLUDED.content, tier = EXCLUDED.tier,
+             is_active = true, updated_at = now()`,
+      [n.id, importerId, n.title, n.content, n.tier],
+    );
+  }
+
+  await client.query(
+    `INSERT INTO knowledge_node_edges (
+       id, source_node_id, target_ref_id, target_ref_type, relation_type, source, tier, is_active
+     )
+     VALUES ($1, $2, $3, 'knowledge_node', 'related', 'synthesis', 'INFERRED', true)
+     ON CONFLICT (id) DO UPDATE
+       SET tier = 'INFERRED', is_active = true`,
+    [FIXTURE_KN_EDGE_ID, FIXTURE_KN_INFERRED_ID, FIXTURE_KN_EXTRACTED_ID],
+  );
 }
 
 // ---------------------------------------------------------------------------

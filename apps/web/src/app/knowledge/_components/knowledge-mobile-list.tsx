@@ -1,30 +1,28 @@
 "use client";
 
 /**
- * knowledge-mobile-list.tsx — mobile-only `/knowledge` presentation (MOBL-01,
- * 53-UI-SPEC.md Component Inventory §3). Below `md`, `knowledge-surface.tsx`
- * renders this INSTEAD of `KnowledgeGraphIsland` (the `dynamic(ssr:false)`
- * React-Flow graph) — the graph's mount cost is never paid on a phone.
+ * knowledge-mobile-list.tsx — mobile-only `/knowledge` presentation (MOBL-01),
+ * on the LOCKED identity (Phase 62 / SURF-03). Below `md`,
+ * `knowledge-surface.tsx` renders this INSTEAD of `KnowledgeGraphIsland` —
+ * the graph's mount cost is never paid on a phone.
  *
- * Self-contained: fetches `api.knowledge.graph.useQuery` itself, since the
- * desktop `KnowledgeGraph` only mounts at `>=md` and there is no shared query
- * to lift. Reuses `filter-rail.tsx`'s EXACT `NODE_TYPE_ROWS` facet data +
- * active-state color recipe (Judgment Call #4) and the UNCHANGED
- * `NodeDetailPane` (Judgment Call #5) inside a full-width right `Sheet` — no
- * second vocabulary, no redesign.
+ * Reuses `filter-rail.tsx`'s EXACT `NODE_TYPE_ROWS` facet data + kind-swatch
+ * recipe (law 3: kind is structure, never hue — the swatch is a miniature of
+ * the node card) and the UNCHANGED `NodeDetailPane` inside a full-width right
+ * Sheet — no second vocabulary, no redesign.
  *
- * Structure, top to bottom (53-UI-SPEC §3):
- *   1. Filter-chip bar — h-11 pill toggles, one per NODE_TYPE_ROWS entry
- *   2. Node list — min-h-16 InboxRow-idiom rows, post-filter
- *   3. Empty states — filtered-to-zero (new copy) / genuinely-empty-graph
- *      (GraphNoSchemaState, reused verbatim)
- *   4. Detail Sheet — full-width right Sheet wrapping the unchanged
- *      NodeDetailPane
+ * Structure, top to bottom:
+ *   1. Filter-chip bar — pill toggles; the active chip is an INK fill
+ *      (law 1: selection carries no hue)
+ *   2. Node list — hairline-ruled rows; instance/email labels are the user's
+ *      own material (serif + data-evidence, law 2)
+ *   3. States — loading skeleton rows / error / genuinely-empty (teaching) /
+ *      filtered-to-zero (SURF-06: production-grade, no first-draft nulls)
+ *   4. Detail Sheet — full-width right Sheet wrapping NodeDetailPane
  *
- * SECURITY (T-53-06-01): reuses the SAME auth-gated `api.knowledge.graph`
- * query and the SAME NodeDetailPane component (T-11-05 escaped-text
- * rendering, no dangerouslySetInnerHTML) as desktop — only the layout
- * differs; no new endpoint or authorization change.
+ * SECURITY (T-53-06-01): same auth-gated `api.knowledge.graph` query and the
+ * same NodeDetailPane (T-11-05 escaped-text rendering) as desktop — only the
+ * layout differs.
  *
  * No font-medium (500) — only font-normal (400) / font-semibold (600).
  */
@@ -34,6 +32,7 @@ import { useMemo, useState } from "react";
 
 import { cn } from "@polytoken/ui";
 import { Sheet, SheetContent, SheetTitle } from "@polytoken/ui/sheet";
+import { Skeleton } from "@polytoken/ui/skeleton";
 
 import { api } from "~/trpc/react";
 
@@ -51,9 +50,11 @@ const DEFAULT_VISIBLE_TYPES = new Set<NodeTypeKey>([
   "knowledge_node",
 ]);
 
+/** Node kinds whose row label is the user's own material (law 2 → serif). */
+const EVIDENCE_LABEL_TYPES = new Set<string>(["entity_instance", "email"]);
+
 // ---------------------------------------------------------------------------
-// Local type mirror of GraphNode (same minimal shape knowledge-graph.tsx uses
-// — no subpath export from @polytoken/api-client for the router internals).
+// Local type mirror of GraphNode (same minimal shape knowledge-graph.tsx uses)
 // ---------------------------------------------------------------------------
 
 interface GraphNode {
@@ -67,15 +68,18 @@ interface GraphNode {
 // Facet lookup helpers — built FROM NODE_TYPE_ROWS, never a second vocabulary
 // ---------------------------------------------------------------------------
 
-const DOT_CLASS_BY_TYPE = new Map<string, string>(
-  NODE_TYPE_ROWS.map((row) => [row.type, row.dotClass]),
+const SWATCH_CLASS_BY_TYPE = new Map<string, string>(
+  NODE_TYPE_ROWS.map((row) => [row.type, row.swatchClass]),
 );
 const LABEL_BY_TYPE = new Map<string, string>(
   NODE_TYPE_ROWS.map((row) => [row.type, row.label]),
 );
 
-function dotClassFor(type: string): string {
-  return DOT_CLASS_BY_TYPE.get(type) ?? "bg-muted-foreground/40 border-border";
+function swatchClassFor(type: string): string {
+  return (
+    SWATCH_CLASS_BY_TYPE.get(type) ??
+    "h-3 w-4 rounded-[2px] border border-rule bg-bright"
+  );
 }
 
 function typeLabelFor(type: string): string {
@@ -111,8 +115,7 @@ export function KnowledgeMobileList(): React.ReactElement {
   const allNodes = (data?.nodes ?? []) as ReadonlyArray<GraphNode>;
 
   const visibleNodes = useMemo(
-    () =>
-      allNodes.filter((node) => visibleTypes.has(node.type as NodeTypeKey)),
+    () => allNodes.filter((node) => visibleTypes.has(node.type as NodeTypeKey)),
     [allNodes, visibleTypes],
   );
 
@@ -141,17 +144,18 @@ export function KnowledgeMobileList(): React.ReactElement {
 
   const isLoading = data == null;
   const isGenuinelyEmpty = !isLoading && allNodes.length === 0;
-  const isFilteredEmpty = !isLoading && !isGenuinelyEmpty && visibleNodes.length === 0;
+  const isFilteredEmpty =
+    !isLoading && !isGenuinelyEmpty && visibleNodes.length === 0;
 
   return (
     <div className="flex h-full w-full flex-col">
-      {/* Filter-chip bar */}
+      {/* Filter-chip bar — active chip is an ink fill (law 1) */}
       <div
         role="group"
         aria-label="Filter by type"
-        className="flex gap-2 overflow-x-auto border-b border-border/50 bg-background px-3 py-1"
+        className="flex gap-2 overflow-x-auto border-b border-hair bg-leaf px-3 py-1.5"
       >
-        {NODE_TYPE_ROWS.map(({ type, label, dotClass }) => {
+        {NODE_TYPE_ROWS.map(({ type, label, swatchClass }) => {
           const active = visibleTypes.has(type);
           return (
             <button
@@ -160,15 +164,15 @@ export function KnowledgeMobileList(): React.ReactElement {
               aria-pressed={active}
               onClick={() => handleToggleType(type)}
               className={cn(
-                "flex h-11 shrink-0 items-center gap-2 rounded-pill border px-3 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+                "flex h-11 shrink-0 items-center gap-2 rounded-pill border px-3 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink",
                 active
-                  ? "border-primary/30 bg-primary/10 text-primary"
-                  : "border-border bg-muted/40 text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "border-ink bg-ink font-semibold text-on-fill"
+                  : "border-rule bg-bright text-faded hover:bg-shade hover:text-ink",
               )}
             >
               <span
                 aria-hidden
-                className={cn("size-2 shrink-0 rounded-full border", dotClass)}
+                className={cn(swatchClass, "shrink-0", active && "opacity-90")}
               />
               {label}
             </button>
@@ -176,41 +180,70 @@ export function KnowledgeMobileList(): React.ReactElement {
         })}
       </div>
 
-      {/* Node list / empty states */}
+      {/* Node list / states */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {isLoading ? null : isGenuinelyEmpty ? (
+        {isLoading ? (
+          /* Loading — skeleton rows in the list's own rhythm (SURF-06) */
+          <div aria-hidden>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 border-b border-hair px-row-x py-row-y"
+              >
+                <Skeleton className="h-3 w-4 rounded-[2px]" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-4 w-40 rounded-sm" />
+                  <Skeleton className="h-3 w-24 rounded-sm" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : isGenuinelyEmpty ? (
           <GraphNoSchemaState />
         ) : isFilteredEmpty ? (
-          <div className="flex h-full flex-col items-center justify-center gap-1 p-8 text-center">
-            <p className="text-sm text-muted-foreground">
-              No nodes match your filters — try showing another type.
+          /* Filtered to zero — the next action is the only prominent thing */
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+            <p className="text-sm font-semibold text-ink">
+              Nothing matches these filters.
+            </p>
+            <p className="text-sm text-faded">
+              Toggle another type above to bring nodes back.
             </p>
           </div>
         ) : (
-          visibleNodes.map((node) => (
-            <button
-              key={node.id}
-              type="button"
-              onClick={() => setSelectedNodeId(node.id)}
-              className="flex min-h-16 w-full items-center gap-3 border-b border-border/50 px-4 py-3 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "size-2 shrink-0 rounded-full border",
-                  dotClassFor(node.type),
-                )}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-normal text-foreground">
-                  {node.label}
+          visibleNodes.map((node) => {
+            const evidence = EVIDENCE_LABEL_TYPES.has(node.type);
+            return (
+              <button
+                key={node.id}
+                type="button"
+                onClick={() => setSelectedNodeId(node.id)}
+                className="flex min-h-16 w-full items-center gap-3 border-b border-hair px-row-x py-row-y text-left transition-colors hover:bg-shade focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink"
+              >
+                <span
+                  aria-hidden
+                  className={cn(swatchClassFor(node.type), "shrink-0")}
+                />
+                <span className="min-w-0 flex-1">
+                  {evidence ? (
+                    <span
+                      data-evidence
+                      className="block truncate font-serif text-sm text-ink"
+                    >
+                      {node.label}
+                    </span>
+                  ) : (
+                    <span className="block truncate text-sm text-ink">
+                      {node.label}
+                    </span>
+                  )}
+                  <span className="block truncate text-xs text-pencil">
+                    {typeLabelFor(node.type)}
+                  </span>
                 </span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  {typeLabelFor(node.type)}
-                </span>
-              </span>
-            </button>
-          ))
+              </button>
+            );
+          })
         )}
       </div>
 
@@ -221,7 +254,7 @@ export function KnowledgeMobileList(): React.ReactElement {
           if (!open) setSelectedNodeId(null);
         }}
       >
-        <SheetContent side="right" className="w-full sm:max-w-full p-0">
+        <SheetContent side="right" className="w-full p-0 sm:max-w-full">
           <SheetTitle className="sr-only">
             {selectedNode?.label ?? "Node details"}
           </SheetTitle>

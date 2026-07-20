@@ -1,30 +1,36 @@
 "use client";
 
 /**
- * tier-filter-control.tsx — 3-segment cumulative radiogroup tier filter (GRAPH-03).
+ * tier-filter-control.tsx — 3-segment cumulative radiogroup tier filter
+ * (GRAPH-03), on the LOCKED identity (Phase 62 / SURF-03).
  *
- * Lives in the graph toolbar row (NOT inside FilterRail — that rail is node-type
- * filtering, a distinct concern from edge-tier filtering). Active state ties to the
- * D-48-04 tier ladder (border-tier-extracted/bg-tier-extracted/text-tier-extracted-foreground)
- * since "Confirmed" IS the EXTRACTED tier — visually coherent with the edge/legend
- * encoding, not a generic primary affordance.
+ * Lives in the graph toolbar row (NOT inside FilterRail — node-type filtering
+ * and edge-tier filtering are distinct concerns).
  *
- * role="radiogroup" of three role="radio" Buttons, arrow-key navigation per the
- * standard radiogroup pattern. Exact UI-SPEC copy: "Confirmed only" / "+ Inferred" /
- * "+ Ambiguous".
+ * LAW 1 — the first draft painted the active segment in the confirmed tier's
+ * verdigris. That spent the earned hue on a SELECTION, which is exactly what
+ * the law forbids: "selected states … carry NO hue". The active segment is
+ * now an ink fill inside a `bright` well — the same selection language every
+ * swept surface speaks. Tier colour stays where tier lives: on the edges and
+ * in the legend.
+ *
+ * role="radiogroup" of three role="radio" buttons, arrow-key navigation per
+ * the standard radiogroup pattern. Copy: "Confirmed only" / "+ Inferred" /
+ * "+ Ambiguous" (cumulative narrow -> wide).
  */
 
 import { useCallback } from "react";
-
-import { Button } from "@polytoken/ui/button";
-
-import type { TierFilterState } from "./tier-filter";
 
 // ---------------------------------------------------------------------------
 // Segments — order is the cumulative narrow -> wide sequence.
 // ---------------------------------------------------------------------------
 
-const SEGMENTS: ReadonlyArray<{ readonly state: TierFilterState; readonly label: string }> = [
+import type { TierFilterState } from "./tier-filter";
+
+const SEGMENTS: ReadonlyArray<{
+  readonly state: TierFilterState;
+  readonly label: string;
+}> = [
   { state: "confirmed", label: "Confirmed only" },
   { state: "inferred", label: "+ Inferred" },
   { state: "ambiguous", label: "+ Ambiguous" },
@@ -64,29 +70,27 @@ export function TierFilterControl({
     <div
       role="radiogroup"
       aria-label="Filter by trust tier"
-      className="flex items-center gap-1"
+      className="inline-flex items-center gap-0.5 rounded-md border border-rule bg-bright p-0.5"
     >
       {SEGMENTS.map((segment, index) => {
         const active = segment.state === value;
         return (
-          <Button
+          <button
             key={segment.state}
             type="button"
             role="radio"
             aria-checked={active}
             tabIndex={active ? 0 : -1}
-            variant="outline"
-            size="sm"
-            className={
+            className={`h-6 rounded-[5px] px-2.5 text-xs transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink ${
               active
-                ? "border-tier-extracted bg-tier-extracted font-semibold text-tier-extracted-foreground hover:bg-tier-extracted hover:text-tier-extracted-foreground"
-                : "border-border bg-background text-muted-foreground"
-            }
+                ? "bg-ink font-semibold text-on-fill"
+                : "text-faded hover:bg-shade hover:text-ink"
+            }`}
             onClick={() => onChange(segment.state)}
             onKeyDown={(event) => handleKeyDown(event, index)}
           >
             {segment.label}
-          </Button>
+          </button>
         );
       })}
     </div>

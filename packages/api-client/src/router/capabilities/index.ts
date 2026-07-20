@@ -12,7 +12,7 @@
  * ## SEAM — server-persisted allowlist (deliberately NOT here yet)
  *
  * The slice calls for `capabilities.allowlist` get/set persisted per-user. There is NO per-user
- * settings table in `@polytoken/db` today (verified: no *settings*/*preferences* schema exists),
+ * settings table in `@polytoken/db` today (verified: no settings- or preferences-shaped schema),
  * and inventing one requires a migration this wave cannot run. Shipping a get/set pair that
  * pretends to persist would be dishonest, so the allowlist is CLIENT-persisted for now
  * (localStorage, `apps/web/src/app/capabilities/_lib/allowlist.ts` — storage key
