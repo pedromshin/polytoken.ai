@@ -13,9 +13,12 @@ id onto the ledger row via `SourceLedgerRepository.set_knowledge_node_id`.
 EXTRACTED. Neither file is modified by this plan -- proven by a git-based
 zero-diff assertion in `test_promote_source_ledger_reuse.py`.
 
-Not wired into DI and no route is registered this phase -- Phase 63's
-canon-curation UX owns that (56-05-PLAN.md's stated scope boundary). The
-reuse test constructs this use case directly with fakes.
+Phase 56-05 left this unwired BY DESIGN (56-05-PLAN.md's stated scope
+boundary); Phase 63's canon-curation UX closed that seam: DI wiring lives in
+`container.py` (`_provide_promote_source_ledger_entry_use_case`) and the
+route is POST /v1/chat/sources/{ledger_id}/promote (`chat_sources.py`, which
+asserts conversation ownership via the ledger row's conversation_id BEFORE
+execute). The reuse test still constructs this use case directly with fakes.
 """
 
 from __future__ import annotations

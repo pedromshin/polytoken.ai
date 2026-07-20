@@ -60,6 +60,7 @@ from app.application.use_cases.manage_entity_types import (
 )
 from app.application.use_cases.promote_edge import PromoteEdgeUseCase
 from app.application.use_cases.promote_entity_on_confirm import PromoteEntityOnConfirmUseCase
+from app.application.use_cases.promote_source_ledger_entry import PromoteSourceLedgerEntryUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailUseCase
 from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
@@ -513,6 +514,29 @@ def _provide_promote_edge_use_case(client: Client, importer_resolver: ImporterRe
     """
     knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
     return PromoteEdgeUseCase(knowledge=knowledge_repo, importers=importer_resolver)
+
+
+def _provide_promote_source_ledger_entry_use_case(
+    client: Client,
+    source_ledger: SourceLedgerRepository,
+) -> PromoteSourceLedgerEntryUseCase:
+    """Factory for PromoteSourceLedgerEntryUseCase (Phase 56-05 seam, wired Phase 63).
+
+    56-05 built the promotion-gate reuse adapter but left it out of DI BY
+    DESIGN — the canon-curation UX owns the wiring (its header's stated
+    intent). This factory closes that seam: it builds a SourceCaptureHandler
+    over a directly-instantiated SupabaseKnowledgeGraphRepository (concrete
+    infrastructure class, not a port — same rationale as
+    _provide_promote_edge_use_case/_provide_submit_widget_interaction) and
+    threads in the already-bound SourceLedgerRepository. ZERO new promotion
+    machinery — the handler and PromoteEdgeUseCase stay untouched (RCNV-01's
+    zero-diff proof in test_promote_source_ledger_reuse.py).
+    """
+    knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
+    return PromoteSourceLedgerEntryUseCase(
+        source_ledger=source_ledger,
+        source_capture=SourceCaptureHandler(knowledge_graph=knowledge_repo),
+    )
 
 
 def _provide_resolve_candidates_use_case(
@@ -1275,6 +1299,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_promote_entity_use_case, provides=PromoteEntityOnConfirmUseCase)
     # Human promotion mechanic (Phase 30-02, TIER-03) — suggest-only gate write.
     provider.provide(_provide_promote_edge_use_case, provides=PromoteEdgeUseCase)
+    # chat_source_ledger canon promotion (Phase 56-05 seam, wired Phase 63) —
+    # reshapes a ledger row onto the UNCHANGED SourceCaptureHandler.
+    provider.provide(_provide_promote_source_ledger_entry_use_case, provides=PromoteSourceLedgerEntryUseCase)
     provider.provide(_provide_resolve_candidates_use_case, provides=ResolveEntityCandidatesUseCase)
     provider.provide(_provide_backfill_use_case, provides=BackfillEntityIdentitiesUseCase)
     # Human curation loop (Phase 10-03, D-20): confirm/reject/unmerge.
