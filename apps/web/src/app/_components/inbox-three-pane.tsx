@@ -26,6 +26,11 @@ import type { EntityChipEntry } from "./entity-chips";
 import { InboxEntitiesRail } from "./inbox-entities-rail";
 import { InboxThreadGroup } from "./inbox-thread-group";
 import type { InboxEmail } from "./inbox-row";
+import {
+  MailRuleReviewPanel,
+  type RuleDecision,
+  type RuleSuggestionEntry,
+} from "./mail-rule-review";
 
 /** The inbox-list projection of an email (a subset of the emails.list row). */
 export interface InboxEmailItem extends InboxEmail {
@@ -135,8 +140,16 @@ function FiltersRail({
 
 function ReadingPreview({
   email,
+  ruleReview,
 }: {
   readonly email: InboxEmailItem | null;
+  /**
+   * MAIL-01: the suggest-only rule-review panel for THIS email, rendered
+   * between the meta line and the body — in-context during triage (HEY
+   * Screener model), never a settings destination. Pre-built by the parent
+   * so this sub-view stays presentational.
+   */
+  readonly ruleReview?: React.ReactNode;
 }): React.ReactElement {
   if (!email) {
     return (
@@ -178,6 +191,8 @@ function ReadingPreview({
       <div className="mt-2.5 border-b border-hair pb-3.5 text-xs text-faded">
         From: {sender} · To: {email.toAddresses.join(", ") || "—"}
       </div>
+
+      {ruleReview}
 
       {email.bodyText ? (
         // .rp-body: --text-lg (15.5px/1.7) is the step Phase 59 anchored
@@ -297,6 +312,82 @@ export function InboxThreePane({
     return map;
   }, [entitySummaryQuery.data]);
 
+  // -------------------------------------------------------------------------
+  // MAIL-01: suggest-only rule review (HEY Screener model — in-context, never
+  // a /settings Rules page).
+  //
+  // THE DATA SEAM: emails.ruleSuggestions — a single batched, READ-ONLY query
+  // over the same visible page of email ids the entity summary uses
+  // (packages/api-client/src/router/emails/rule-suggestions.ts, the TS
+  // projection of the Python matcher in mail_rules/rules.py). Never a
+  // per-row fetch; never a write.
+  // -------------------------------------------------------------------------
+  const ruleSuggestionsQuery = api.emails.ruleSuggestions.useQuery(
+    { emailIds },
+    { enabled: emailIds.length > 0 },
+  );
+
+  const ruleSuggestionsByEmailId = useMemo(() => {
+    const map = new Map<string, ReadonlyArray<RuleSuggestionEntry>>();
+    for (const entry of ruleSuggestionsQuery.data ?? []) {
+      if (entry.suggestions.length > 0) {
+        map.set(entry.emailId, entry.suggestions as ReadonlyArray<RuleSuggestionEntry>);
+      }
+    }
+    return map;
+  }, [ruleSuggestionsQuery.data]);
+
+  // The human's local verdicts, keyed `${emailId}:${ruleId}`. CLIENT state by
+  // design: the backend matcher is suggest-only by construction (rules.py),
+  // and the eventual bless/execute write runs through the capability
+  // registry's permission model (MAIL-02). When that mutation lands it
+  // attaches inside handleRuleDecision — the ONE place a decision is
+  // recorded — without touching the render tree.
+  const [ruleDecisions, setRuleDecisions] = useState<
+    ReadonlyMap<string, RuleDecision>
+  >(new Map());
+
+  const handleRuleDecision = (
+    emailId: string,
+    ruleId: string,
+    decision: RuleDecision,
+  ): void => {
+    setRuleDecisions((prev) => {
+      const next = new Map(prev);
+      next.set(`${emailId}:${ruleId}`, decision);
+      return next;
+    });
+  };
+
+  const handleRuleUndo = (emailId: string, ruleId: string): void => {
+    setRuleDecisions((prev) => {
+      const next = new Map(prev);
+      next.delete(`${emailId}:${ruleId}`);
+      return next;
+    });
+  };
+
+  // Per-email UNDECIDED counts feeding the collapsed dashed mark on each
+  // inbox row (taste doc Lane B point 1). Net of local decisions so the mark
+  // disappears as the user works through the queue — triage progress is
+  // visible from the list itself.
+  const ruleSuggestionCountByEmailId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const [emailId, suggestions] of ruleSuggestionsByEmailId) {
+      const undecided = suggestions.filter(
+        (s) => !ruleDecisions.has(`${emailId}:${s.ruleId}`),
+      ).length;
+      if (undecided > 0) map.set(emailId, undecided);
+    }
+    return map;
+  }, [ruleSuggestionsByEmailId, ruleDecisions]);
+
+  // Teaching empty state gate: only when the query resolved and NO email on
+  // the visible page matched any rule — the panel then teaches (once, on the
+  // selected email) instead of silently not existing.
+  const showRuleTeaching =
+    ruleSuggestionsQuery.isSuccess && ruleSuggestionsByEmailId.size === 0;
+
   // A thread entry is visible under "With entities" if ANY of its member
   // emails carry extracted entities (45-UI-SPEC "Filters / load-more").
   const withEntities = useMemo(
@@ -342,6 +433,36 @@ export function InboxThreePane({
   const selectedEmail = selectedEmailId
     ? (emailsById.get(selectedEmailId) ?? null)
     : null;
+
+  // The selected email's review panel — decisions re-keyed to bare ruleId for
+  // the panel's per-email view. Built once here and handed to BOTH trees
+  // (desktop reading pane + mobile detail) so the two never drift.
+  const selectedRuleSuggestions = selectedEmailId
+    ? (ruleSuggestionsByEmailId.get(selectedEmailId) ?? [])
+    : [];
+  const selectedRuleDecisions = useMemo(() => {
+    const map = new Map<string, RuleDecision>();
+    if (selectedEmailId === null) return map;
+    const prefix = `${selectedEmailId}:`;
+    for (const [key, decision] of ruleDecisions) {
+      if (key.startsWith(prefix)) map.set(key.slice(prefix.length), decision);
+    }
+    return map;
+  }, [ruleDecisions, selectedEmailId]);
+
+  const ruleReviewPanel = selectedEmailId ? (
+    <MailRuleReviewPanel
+      suggestions={selectedRuleSuggestions}
+      decisions={selectedRuleDecisions}
+      onDecide={(ruleId, decision) =>
+        handleRuleDecision(selectedEmailId, ruleId, decision)
+      }
+      onUndo={(ruleId) => handleRuleUndo(selectedEmailId, ruleId)}
+      isLoading={ruleSuggestionsQuery.isLoading}
+      isError={ruleSuggestionsQuery.isError}
+      showTeaching={showRuleTeaching}
+    />
+  ) : null;
 
   // Mobile-only: an explicit row tap resolves the email AND swaps the view to
   // detail. The background default-select effect above intentionally never
@@ -426,6 +547,7 @@ export function InboxThreePane({
                     .map((id) => emailsById.get(id))
                     .filter((email): email is InboxEmailItem => email !== undefined)}
                   entitiesByEmailId={entitiesByEmailId}
+                  ruleSuggestionCountByEmailId={ruleSuggestionCountByEmailId}
                   selectedEmailId={selectedEmailId}
                   onSelectMember={setSelectedEmailId}
                 />
@@ -459,7 +581,7 @@ export function InboxThreePane({
             existing defaultSizes for no design gain). */}
         <div className="flex h-full">
           <div className="min-w-0 flex-1">
-            <ReadingPreview email={selectedEmail} />
+            <ReadingPreview email={selectedEmail} ruleReview={ruleReviewPanel} />
           </div>
           <InboxEntitiesRail
             entities={
@@ -551,6 +673,7 @@ export function InboxThreePane({
                     .map((id) => emailsById.get(id))
                     .filter((email): email is InboxEmailItem => email !== undefined)}
                   entitiesByEmailId={entitiesByEmailId}
+                  ruleSuggestionCountByEmailId={ruleSuggestionCountByEmailId}
                   selectedEmailId={selectedEmailId}
                   onSelectMember={handleSelectMemberMobile}
                 />
@@ -593,7 +716,7 @@ export function InboxThreePane({
               </span>
             </div>
             <div className="min-h-0 flex-1">
-              <ReadingPreview email={selectedEmail} />
+              <ReadingPreview email={selectedEmail} ruleReview={ruleReviewPanel} />
             </div>
           </div>
         )}

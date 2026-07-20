@@ -59,13 +59,20 @@ const PHASE_LABEL: Record<IslandPhase, string> = {
   fallback: "Fell back to safe placeholder",
 };
 
+/**
+ * Status tones on the locked identity (Phase 62 / SURF-05). Every phase here
+ * is a STATE, and law 1 says states carry no hue — the words + glyphs in
+ * PHASE_LABEL carry the role; the frame only shifts weight: in-flight sits
+ * quiet on the leaf ground, terminal states step up to the bright sheet with
+ * a full rule.
+ */
 const PHASE_TONE: Record<IslandPhase, string> = {
-  running: "border-border bg-muted/40 text-foreground",
-  healing: "border-border bg-muted/40 text-foreground",
-  rendered: "border-primary/30 bg-primary/10 text-primary",
-  healed: "border-primary/30 bg-primary/10 text-primary",
-  rejected: "border-destructive/30 bg-destructive/10 text-destructive",
-  fallback: "border-destructive/30 bg-destructive/10 text-destructive",
+  running: "border-hair bg-leaf text-faded",
+  healing: "border-hair bg-leaf text-faded",
+  rendered: "border-rule bg-bright text-ink",
+  healed: "border-rule bg-bright text-ink",
+  rejected: "border-rule bg-bright text-ink",
+  fallback: "border-rule bg-bright text-ink",
 };
 
 export function CodeIslandFrame({
@@ -157,7 +164,7 @@ export function CodeIslandFrame({
         title="Sandboxed code-island output"
         sandbox={ISLAND_SANDBOX}
         srcDoc={srcdoc}
-        className="h-[420px] w-full rounded-lg border border-border/60 bg-background"
+        className="h-[420px] w-full rounded-card border border-rule bg-bright"
       />
 
       {state.phase === "rejected" && state.violations.length > 0 ? (
@@ -213,10 +220,13 @@ function ViolationList({
   readonly items: readonly string[];
   readonly tone: "destructive" | "muted";
 }): React.ReactElement {
+  // Both tones are ink — a violation list is a report, not an action (law 1:
+  // madder is for the irreversible only). "destructive" keeps its callers'
+  // vocabulary but renders as the heavier rule, not a hue.
   const toneClass =
     tone === "destructive"
-      ? "border-destructive/30 bg-destructive/10 text-destructive"
-      : "border-border bg-muted text-foreground";
+      ? "border-rule bg-leaf text-ink"
+      : "border-hair bg-leaf text-faded";
   return (
     <div className={`rounded-md border px-3 py-2 text-xs ${toneClass}`}>
       <p className="mb-1 font-semibold">{heading}</p>

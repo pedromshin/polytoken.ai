@@ -2,23 +2,22 @@
 
 /**
  * catalog-browser-island.tsx — "use client" island that renders the full
- * POLYTOKEN_CATALOG as browsable cards (D-10/D-11, STDO-02).
+ * POLYTOKEN_CATALOG as a browsable registry (D-10/D-11, STDO-02), on the
+ * LOCKED identity (Phase 62 / SURF-05).
  *
- * WHY CLIENT ISLAND (D-10):
- *   POLYTOKEN_CATALOG contains Zod schema objects + React component refs.
- *   Next.js cannot serialize these across the server→client boundary, so the
- *   catalog MUST be imported directly in a client island — not passed as props
- *   from a server component.
+ * The register is the sketch's card: a flat `bright` sheet on the `leaf`
+ * ground, hairline `rule` border, hover is a rule change, ZERO shadow
+ * (58-IDENTITY: "flat surfaces, hairline rules, zero shadow anywhere").
+ * Component types and prop names are code, so they speak mono; counts speak
+ * tabular. No hue anywhere — this is all chrome (law 1).
  *
- * STDO-02 ANTI-STUB:
- *   SpecRendererIsland is imported from the shared studio/_components/ module.
- *   There is exactly ONE dynamic(ssr:false) wrapper in apps/web/src/app/studio.
+ * WHY CLIENT ISLAND (D-10): POLYTOKEN_CATALOG contains Zod schema objects +
+ * React component refs — it cannot cross the server→client boundary as
+ * props, so it is imported directly here.
  *
- * Four facets per card (UI-SPEC §6 / D-11):
- *   1. CardHeader — type chip + description text
- *   2. CardContent — live rendered example via shared SpecRendererIsland
- *   3. CardContent — prop table via describePropsSchema
- *   4. CardContent — slot chips (only when entry has named slots)
+ * STDO-02 ANTI-STUB: SpecRendererIsland is imported from the shared
+ * studio/_components/ module. Exactly ONE dynamic(ssr:false) wrapper exists
+ * in apps/web/src/app/studio.
  *
  * REGISTRY_VERSION must NOT be imported here (T-12-15 — Node crypto).
  * No eval / Function / dangerouslySetInnerHTML anywhere (D-15).
@@ -26,16 +25,13 @@
 
 import React, { useState } from "react";
 
-import { Badge } from "@polytoken/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@polytoken/ui/card";
+import { Button } from "@polytoken/ui/button";
 
 import { POLYTOKEN_CATALOG } from "@polytoken/genui/catalog";
-import { buildCatalogExampleSpec, describePropsSchema } from "@polytoken/genui/studio";
+import {
+  buildCatalogExampleSpec,
+  describePropsSchema,
+} from "@polytoken/genui/studio";
 
 import { SpecRendererIsland } from "./spec-renderer-island";
 
@@ -43,7 +39,7 @@ import { SpecRendererIsland } from "./spec-renderer-island";
 // Sub-components (named exports, immutable patterns, <50 lines each)
 // ---------------------------------------------------------------------------
 
-/** Facet 1 — Type chip + description in the card header. */
+/** Facet 1 — type name (mono) + description in the card header. */
 function EntryCardHeader({
   type,
   description,
@@ -52,18 +48,16 @@ function EntryCardHeader({
   readonly description: string;
 }): React.ReactElement {
   return (
-    <CardHeader className="pb-2">
-      <CardTitle className="flex items-center gap-2 text-sm">
-        <Badge variant="secondary" className="font-mono text-xs">
-          {type}
-        </Badge>
-      </CardTitle>
-      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
-    </CardHeader>
+    <div className="border-b border-hair px-4 py-3">
+      <span className="rounded-sm border border-rule bg-shade px-1.5 py-0.5 font-mono text-xs font-semibold text-ink">
+        {type}
+      </span>
+      <p className="mt-2 text-xs leading-relaxed text-faded">{description}</p>
+    </div>
   );
 }
 
-/** Facet 2 — Live rendered example via the shared SpecRendererIsland. */
+/** Facet 2 — live rendered example via the shared SpecRendererIsland. */
 function EntryLiveExample({
   entry,
 }: {
@@ -72,19 +66,19 @@ function EntryLiveExample({
   const { type } = entry;
   const spec = buildCatalogExampleSpec(entry);
   return (
-    <CardContent className="pb-2">
+    <div className="px-4 py-3">
       <div
         role="region"
         aria-label={`Live example: ${type}`}
-        className="rounded-md border border-border/50 bg-muted/30 p-3 text-sm"
+        className="rounded-md border border-hair bg-leaf p-3 text-sm"
       >
         <SpecRendererIsland spec={spec} />
       </div>
-    </CardContent>
+    </div>
   );
 }
 
-/** Facet 3 — Prop table via describePropsSchema. */
+/** Facet 3 — prop table via describePropsSchema. */
 function EntryPropTable({
   type,
   propsSchema,
@@ -97,43 +91,43 @@ function EntryPropTable({
   const descriptors = describePropsSchema({ propsSchema, lockedProps });
 
   return (
-    <CardContent className="pb-2">
+    <div className="px-4 pb-3">
       <div
         aria-label={`Props for ${type}`}
         role="region"
         className="overflow-x-auto scrollbar-token"
       >
         {descriptors.length === 0 ? (
-          <p className="text-xs text-muted-foreground">No props</p>
+          <p className="text-xs text-pencil">No props</p>
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-border/50 bg-muted/40 text-muted-foreground">
-                <th className="px-2 py-2 text-left font-semibold">Prop</th>
-                <th className="px-2 py-2 text-left font-semibold">Type</th>
-                <th className="px-2 py-2 text-left font-semibold">Req</th>
-                <th className="px-2 py-2 text-left font-semibold">Locked</th>
+              <tr className="border-b border-hair text-pencil">
+                <th className="px-2 py-1.5 text-left font-semibold">Prop</th>
+                <th className="px-2 py-1.5 text-left font-semibold">Type</th>
+                <th className="px-2 py-1.5 text-left font-semibold">Req</th>
+                <th className="px-2 py-1.5 text-left font-semibold">Locked</th>
               </tr>
             </thead>
             <tbody>
               {descriptors.map((d) => (
-                <tr key={d.name} className="border-b border-border/30 odd:bg-muted/20 last:border-0">
-                  <td className="px-2 py-1 font-mono">{d.name}</td>
-                  <td className="px-2 py-1 text-muted-foreground">{d.typeLabel}</td>
+                <tr key={d.name} className="border-b border-hair last:border-0">
+                  <td className="px-2 py-1 font-mono text-ink">{d.name}</td>
+                  <td className="px-2 py-1 text-faded">{d.typeLabel}</td>
                   <td className="px-2 py-1">
                     {d.required ? (
-                      <span className="text-foreground">yes</span>
+                      <span className="text-ink">yes</span>
                     ) : (
-                      <span className="text-muted-foreground/60">—</span>
+                      <span className="text-pencil">—</span>
                     )}
                   </td>
                   <td className="px-2 py-1">
                     {d.locked ? (
-                      <Badge variant="outline" className="px-1 py-0 text-[10px]">
+                      <span className="rounded-sm border border-rule bg-bright px-1 text-2xs font-semibold text-faded">
                         locked
-                      </Badge>
+                      </span>
                     ) : (
-                      <span className="text-muted-foreground/60">—</span>
+                      <span className="text-pencil">—</span>
                     )}
                   </td>
                 </tr>
@@ -142,11 +136,11 @@ function EntryPropTable({
           </table>
         )}
       </div>
-    </CardContent>
+    </div>
   );
 }
 
-/** Facet 4 — Slot chips (only rendered when the entry has named slots). */
+/** Facet 4 — slot chips (only rendered when the entry has named slots). */
 function EntrySlotChips({
   slots,
 }: {
@@ -154,27 +148,32 @@ function EntrySlotChips({
 }): React.ReactElement | null {
   if (slots.length === 0) return null;
   return (
-    <CardContent className="pt-0">
-      <div className="flex flex-wrap gap-1">
-        <span className="text-xs text-muted-foreground mr-1">Slots:</span>
+    <div className="border-t border-hair px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-1">
+        <span className="mr-1 text-2xs font-semibold tracking-[0.05em] text-pencil uppercase">
+          Slots
+        </span>
         {slots.map((slot) => (
-          <Badge key={slot} variant="outline" className="font-mono text-xs">
+          <span
+            key={slot}
+            className="rounded-sm border border-hair bg-leaf px-1.5 py-0.5 font-mono text-xs text-faded"
+          >
             {slot}
-          </Badge>
+          </span>
         ))}
       </div>
-    </CardContent>
+    </div>
   );
 }
 
-/** A single catalog entry card with all four facets. */
+/** A single catalog entry — the sketch's flat card, all four facets. */
 function CatalogEntryCard({
   entry,
 }: {
   readonly entry: (typeof POLYTOKEN_CATALOG)[keyof typeof POLYTOKEN_CATALOG];
 }): React.ReactElement {
   return (
-    <Card className="flex flex-col">
+    <div className="flex flex-col overflow-hidden rounded-card border border-rule bg-bright transition-colors hover:border-rule-hi">
       <EntryCardHeader type={entry.type} description={entry.description} />
       <EntryLiveExample entry={entry} />
       <EntryPropTable
@@ -183,7 +182,7 @@ function CatalogEntryCard({
         lockedProps={(entry.lockedProps ?? []) as ReadonlyArray<string>}
       />
       <EntrySlotChips slots={(entry.slots ?? []) as ReadonlyArray<string>} />
-    </Card>
+    </div>
   );
 }
 
@@ -192,9 +191,7 @@ function CatalogEntryCard({
 // ---------------------------------------------------------------------------
 
 /**
- * Renders all POLYTOKEN_CATALOG entries as a filterable card grid.
- * Imported directly (not passed as server props) because POLYTOKEN_CATALOG
- * contains Zod schemas + React refs that cannot cross the server→client boundary.
+ * Renders all POLYTOKEN_CATALOG entries as a filterable registry grid.
  */
 export function CatalogBrowserIsland(): React.ReactElement {
   const [filter, setFilter] = useState("");
@@ -212,17 +209,22 @@ export function CatalogBrowserIsland(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      {/* Filter input */}
-      <input
-        type="search"
-        placeholder="Filter components…"
-        aria-label="Filter catalog components"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-      />
+      {/* Filter row — input + tabular result count */}
+      <div className="flex items-center gap-3">
+        <input
+          type="search"
+          placeholder="Filter components…"
+          aria-label="Filter catalog components"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className="w-full max-w-xs rounded-md border border-rule bg-bright px-3 py-1.5 text-sm text-ink placeholder:text-pencil focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <span className="tabular text-xs text-pencil" aria-live="polite">
+          {filtered.length} of {entries.length}
+        </span>
+      </div>
 
-      {/* Card grid */}
+      {/* Registry grid */}
       <div
         role="region"
         aria-label="Catalog components"
@@ -230,9 +232,20 @@ export function CatalogBrowserIsland(): React.ReactElement {
         className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3"
       >
         {filtered.length === 0 ? (
-          <p className="col-span-full text-sm text-muted-foreground">
-            No components match &ldquo;{filter}&rdquo;
-          </p>
+          /* Filtered to zero — the next action is the only control */
+          <div className="col-span-full flex flex-col items-center gap-2 rounded-card border border-rule bg-leaf p-panel text-center">
+            <p className="text-sm font-semibold text-ink">
+              No components match &ldquo;{filter}&rdquo;.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setFilter("")}
+            >
+              Clear filter
+            </Button>
+          </div>
         ) : (
           filtered.map((entry) => (
             <CatalogEntryCard key={entry.type} entry={entry} />

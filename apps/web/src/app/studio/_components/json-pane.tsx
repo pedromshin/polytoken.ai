@@ -52,15 +52,15 @@ export function JsonPane({
 
   return (
     <>
-      <div className="shrink-0 flex items-center justify-between gap-2 border-b border-border/50 px-4 py-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-hair px-4 py-2">
+        <span className="text-2xs font-semibold tracking-[0.07em] text-pencil uppercase">
           {label}
         </span>
         <Button
           type="button"
           variant="ghost"
           size="icon"
-          className="size-11 shrink-0"
+          className="size-7 shrink-0 pointer-coarse:touch-target text-faded hover:bg-shade hover:text-ink"
           aria-label="Copy JSON"
           onClick={handleCopy}
         >
@@ -72,7 +72,12 @@ export function JsonPane({
         </Button>
       </div>
       <ScrollArea className="flex-1">
-        <pre className="p-4 font-code text-xs text-foreground">{formatted}</pre>
+        {/* w-full/min-w-0 on the content — Radix ScrollArea's display:table
+            wrapper shrink-wraps wide children and de-bounds descendants
+            (D-61-06, systemic). */}
+        <pre className="w-full min-w-0 p-4 font-code text-xs leading-relaxed text-faded">
+          {formatted}
+        </pre>
       </ScrollArea>
     </>
   );

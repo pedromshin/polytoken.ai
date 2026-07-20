@@ -737,6 +737,9 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
               >
                 <Background gap={16} size={1} />
                 <Controls />
+                {/* MiniMap stays (token-render.spec.ts pins it on this
+                    route) — since 61-05 it is fully on the identity via the
+                    --xy-minimap-* theming block in globals.css. */}
                 <MiniMap nodeStrokeWidth={2} pannable zoomable />
 
                 {/* GRAPH-01 — tier legend, bottom-left, always visible */}

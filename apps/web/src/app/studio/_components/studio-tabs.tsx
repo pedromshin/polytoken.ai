@@ -43,13 +43,13 @@ import { PageIdeasIsland } from "./page-ideas-island";
 type TabValue = "catalog" | "sandbox" | "code-island" | "history" | "page-ideas";
 
 // ---------------------------------------------------------------------------
-// D-48-06 hover/active + focus-visible convention — neutral/ghost segment.
-// Inactive segments move to the accent surface pair on hover; the active
-// (pinned-state) segment reasserts its own border-foreground treatment on
-// hover rather than intensifying further (hover-active-convention.md §2c).
+// The registry tab register, on the locked identity (Phase 62 / SURF-05):
+// an underline-rail tab strip — inactive tabs are faded ink that step onto
+// the shade well on hover; the active tab is an ink underline + ink text,
+// no fill, zero shadow (law 1: selection is ink and weight, never a hue).
 // ---------------------------------------------------------------------------
 const TAB_TRIGGER_CLASS =
-  "rounded-none border-b-2 border-transparent transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 data-[state=active]:border-foreground data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent data-[state=active]:hover:text-foreground";
+  "rounded-none border-b-2 border-transparent text-sm text-faded transition-colors hover:bg-shade hover:text-ink focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 data-[state=active]:border-ink data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-ink data-[state=active]:shadow-none data-[state=active]:hover:bg-transparent data-[state=active]:hover:text-ink";
 
 // ---------------------------------------------------------------------------
 // StudioTabs
@@ -84,7 +84,7 @@ export function StudioTabs(): React.ReactElement {
       className="flex flex-1 min-h-0 flex-col"
     >
       {/* Tab strip — shrink-0, does not scroll */}
-      <TabsList className="shrink-0 justify-start rounded-none border-b border-border/50 bg-transparent px-4 h-auto pb-0">
+      <TabsList className="shrink-0 justify-start rounded-none border-b border-hair bg-transparent px-4 h-auto pb-0">
         <TabsTrigger value="catalog" className={TAB_TRIGGER_CLASS}>
           Catalog
         </TabsTrigger>
@@ -105,7 +105,7 @@ export function StudioTabs(): React.ReactElement {
         <Link
           href="/studio/preview"
           aria-label="Open Component Showcase"
-          className="ml-2 flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+          className="ml-2 flex items-center gap-1 rounded-md px-3 py-1.5 text-sm text-faded transition-colors hover:bg-shade hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         >
           Showcase
           <ExternalLink className="size-3" aria-hidden />

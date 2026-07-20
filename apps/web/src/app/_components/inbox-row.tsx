@@ -9,6 +9,7 @@
 import * as React from "react";
 
 import { EntityChips, type EntityChipEntry } from "./entity-chips";
+import { RuleSuggestionRowMark } from "./mail-rule-review";
 
 /**
  * The inbox-row's view of an email. A narrow projection of the emails.list row
@@ -31,6 +32,15 @@ interface InboxRowProps {
   readonly entities: ReadonlyArray<EntityChipEntry>;
   readonly isSelected: boolean;
   readonly onSelect: (emailId: string) => void;
+  /**
+   * MAIL-01: count of UNDECIDED rule suggestions for this email (already
+   * net of local accept/dismiss decisions). Renders the collapsed dashed
+   * "N rule suggestions" mark (taste doc Lane B point 1 — proposals surface
+   * in-context during triage, never on a settings page). Optional so
+   * existing call sites and tests compile unchanged; 0/absent renders
+   * nothing.
+   */
+  readonly ruleSuggestionCount?: number;
 }
 
 const formatDate = (value: Date | string | null): string =>
@@ -85,6 +95,7 @@ export function InboxRow({
   entities,
   isSelected,
   onSelect,
+  ruleSuggestionCount = 0,
 }: InboxRowProps): React.ReactElement {
   const sender = email.senderName ?? email.senderAddress;
   const snippet = toInboxSnippet(email.bodyText);
@@ -137,6 +148,11 @@ export function InboxRow({
           {snippet}
         </span>
       )}
+
+      {/* MAIL-01: the collapsed rule-suggestion mark — dashed (INFERRED)
+          chrome, non-interactive on purpose: selecting the row is already
+          the one click that opens the review panel in the reading pane. */}
+      <RuleSuggestionRowMark count={ruleSuggestionCount} />
 
       {/* The chips are <a> deep-links — kept as a SIBLING (never nested in an
           interactive element). They stopPropagation so a chip click does not

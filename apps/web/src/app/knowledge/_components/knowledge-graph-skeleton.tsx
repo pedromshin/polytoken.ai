@@ -1,25 +1,24 @@
 "use client";
 
 /**
- * knowledge-graph-skeleton.tsx — loading placeholder for the knowledge graph.
+ * knowledge-graph-skeleton.tsx — loading placeholder for the knowledge graph
+ * (Phase 62 / SURF-06, on the locked identity).
  *
- * Renders static animated ghost divs that approximate the graph layout:
- *   3 tall entity_type ghosts (160×48) + 5 shorter entity_type_field ghosts (128×32).
- * These are plain <div> elements — NOT React Flow nodes — to avoid SSR/canvas issues.
- *
- * UI-SPEC skeleton specification: "3 tall entity_type ghosts + 5 shorter
- * entity_type_field ghosts — static divs, not React Flow."
+ * Ghosts wear the REAL node chrome — the flat `bright` card with a `rule`
+ * hairline and the kind's left-rule weight (graph-nodes.tsx) — so the loading
+ * state teaches the same encoding the loaded board uses, instead of generic
+ * grey lozenges. Plain <div>s, NOT React Flow nodes (SSR/canvas safety).
+ * `motion-reduce:animate-none` per the app-wide reduced-motion contract.
  */
 
-// Entity type ghost dimensions match UI-SPEC Node Visual Language
+// Ghost counts approximate a small schema: 3 entity types + 5 fields.
 const ENTITY_TYPE_GHOSTS = 3;
 const ENTITY_TYPE_FIELD_GHOSTS = 5;
 
-// Explicit typed ghost configs (no hardcoded magic numbers inline)
 interface GhostConfig {
   readonly width: number;
   readonly height: number;
-  readonly color: string;
+  readonly ruleClass: string;
   readonly key: string;
 }
 
@@ -29,7 +28,7 @@ const ENTITY_TYPE_CONFIGS: ReadonlyArray<GhostConfig> = Array.from(
     key: `et-${i}`,
     width: 160,
     height: 48,
-    color: "bg-primary/10",
+    ruleClass: "border-l-4 border-l-ink/40",
   }),
 );
 
@@ -39,15 +38,19 @@ const ENTITY_TYPE_FIELD_CONFIGS: ReadonlyArray<GhostConfig> = Array.from(
     key: `etf-${i}`,
     width: 128,
     height: 32,
-    color: "bg-muted/60",
+    ruleClass: "border-l border-l-ink/40",
   }),
 );
 
-function Ghost({ width, height, color }: Omit<GhostConfig, "key">): React.ReactElement {
+function Ghost({
+  width,
+  height,
+  ruleClass,
+}: Omit<GhostConfig, "key">): React.ReactElement {
   return (
     <div
       style={{ width, height }}
-      className={`${color} animate-pulse rounded-lg border border-border/40`}
+      className={`animate-pulse rounded-card border border-rule bg-bright motion-reduce:animate-none ${ruleClass}`}
       aria-hidden
     />
   );
@@ -55,8 +58,7 @@ function Ghost({ width, height, color }: Omit<GhostConfig, "key">): React.ReactE
 
 /**
  * KnowledgeGraphSkeleton — static div-based loading ghost for the graph area.
- * Displayed via dynamic(ssr:false, loading: <KnowledgeGraphSkeleton />) in the
- * page. role="status" + aria-label for accessibility during loading.
+ * Displayed via dynamic(ssr:false, loading: <KnowledgeGraphSkeleton />).
  */
 export function KnowledgeGraphSkeleton(): React.ReactElement {
   return (
@@ -65,17 +67,27 @@ export function KnowledgeGraphSkeleton(): React.ReactElement {
       aria-label="Loading knowledge graph"
       className="flex h-full w-full flex-col items-center justify-center gap-6"
     >
-      {/* Row 1: entity_type ghosts (3 tall blocks) */}
+      {/* Row 1: entity_type ghosts (3 anchor cards) */}
       <div className="flex flex-row items-center justify-center gap-6">
         {ENTITY_TYPE_CONFIGS.map((cfg) => (
-          <Ghost key={cfg.key} width={cfg.width} height={cfg.height} color={cfg.color} />
+          <Ghost
+            key={cfg.key}
+            width={cfg.width}
+            height={cfg.height}
+            ruleClass={cfg.ruleClass}
+          />
         ))}
       </div>
 
-      {/* Row 2: entity_type_field ghosts (5 shorter blocks) */}
+      {/* Row 2: entity_type_field ghosts (5 lighter cards) */}
       <div className="flex flex-row flex-wrap items-center justify-center gap-4">
         {ENTITY_TYPE_FIELD_CONFIGS.map((cfg) => (
-          <Ghost key={cfg.key} width={cfg.width} height={cfg.height} color={cfg.color} />
+          <Ghost
+            key={cfg.key}
+            width={cfg.width}
+            height={cfg.height}
+            ruleClass={cfg.ruleClass}
+          />
         ))}
       </div>
 

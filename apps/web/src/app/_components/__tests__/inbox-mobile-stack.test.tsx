@@ -91,6 +91,16 @@ vi.mock("~/trpc/react", () => ({
       entitySummary: {
         useQuery: () => ({ data: [], isLoading: false, isError: false }),
       },
+      // MAIL-01: the rule-suggestion seam — empty result, resolved (so the
+      // teaching empty state is the branch under test-by-default).
+      ruleSuggestions: {
+        useQuery: () => ({
+          data: [],
+          isLoading: false,
+          isError: false,
+          isSuccess: true,
+        }),
+      },
       listThreads: {
         useQuery: () => ({
           data: undefined,

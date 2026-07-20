@@ -38,7 +38,7 @@ const CodeIslandFrame = dynamic(
   () => import("./code-island-frame").then((m) => ({ default: m.CodeIslandFrame })),
   {
     ssr: false,
-    loading: () => <div className="text-sm text-muted-foreground">Loading sandboxed runtime…</div>,
+    loading: () => <div className="text-sm text-faded">Loading sandboxed runtime…</div>,
   },
 );
 
@@ -158,16 +158,16 @@ export function CodeSandboxIsland(): React.ReactElement {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
-        <strong className="text-foreground">Jailed-eval code-island.</strong> Generated code runs in a
+      <div className="rounded-md border border-hair bg-leaf px-3 py-2 text-xs text-faded">
+        <strong className="text-ink">Jailed-eval code-island.</strong> Generated code runs in a
         sandboxed opaque-origin iframe (no host DOM/cookies/storage; network blocked by CSP). An AST
         allowlist rejects dangerous APIs before execution; a v0-style repair loop self-heals runtime
         errors (≤2 attempts) then falls back to a safe placeholder.
       </div>
 
       {/* LIVE generation from intent */}
-      <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
-        <span className="text-sm font-semibold">Generate from intent</span>
+      <div className="flex flex-col gap-2 rounded-card border border-rule bg-bright p-3">
+        <span className="text-sm font-semibold text-ink">Generate from intent</span>
         <Textarea
           value={intent}
           onChange={(e) => setIntent(e.target.value)}
@@ -180,7 +180,12 @@ export function CodeSandboxIsland(): React.ReactElement {
             {gen.isFetching ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Sparkles className="size-4" aria-hidden />}
             Generate &amp; run
           </Button>
-          {genError ? <span className="text-xs text-destructive">{genError}</span> : null}
+          {/* An error is a STATE — ink, never madder (law 1). */}
+          {genError ? (
+            <span role="alert" className="text-xs font-semibold text-ink">
+              {genError}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -188,8 +193,8 @@ export function CodeSandboxIsland(): React.ReactElement {
           each holding one island.js leaf. Selecting a leaf calls the SAME
           handlePreset the old <Select> wired; it never auto-runs — "Run
           preset" stays the separate manual trigger (D-06). */}
-      <div className="flex flex-col gap-2 rounded-lg border border-border/60 p-3">
-        <span className="text-sm font-semibold">Or try a preset</span>
+      <div className="flex flex-col gap-2 rounded-card border border-rule bg-bright p-3">
+        <span className="text-sm font-semibold text-ink">Or try a preset</span>
         <FileTree
           data={FILE_TREE_DATA}
           selectedId={`${presetId}/island.js`}
@@ -203,7 +208,7 @@ export function CodeSandboxIsland(): React.ReactElement {
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
-        <span className="text-muted-foreground">Island code (editable — plain JS, runs against a fresh document)</span>
+        <span className="text-faded">Island code (editable — plain JS, runs against a fresh document)</span>
         <Textarea
           value={code}
           onChange={(e) => setCode(e.target.value)}
@@ -216,8 +221,13 @@ export function CodeSandboxIsland(): React.ReactElement {
       {active ? (
         <CodeIslandFrame key={runId} code={active.code} heal={active.heal} />
       ) : (
-        <div className="text-sm text-muted-foreground">
-          Generate from an intent, or pick a preset and press Run.
+        /* Empty state — teaches the two entry points (SURF-06) */
+        <div className="rounded-card border border-rule bg-leaf p-panel text-center">
+          <p className="text-sm font-semibold text-ink">Nothing running yet.</p>
+          <p className="mt-1 text-sm text-faded">
+            Generate from an intent above, or pick a preset and press Run —
+            the jailed frame renders here.
+          </p>
         </div>
       )}
     </div>

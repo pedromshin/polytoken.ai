@@ -26,7 +26,6 @@
 
 import React, { useState } from "react";
 
-import { Badge } from "@polytoken/ui/badge";
 import { Button } from "@polytoken/ui/button";
 import { ScrollArea } from "@polytoken/ui/scroll-area";
 import {
@@ -132,12 +131,13 @@ function HistoryRow({
       aria-label={`View generation: ${intentText}`}
       onClick={(): void => { onSelect(id); }}
       className={[
-        "w-full text-left px-4 py-3 border-b border-border/50 transition-colors",
+        "w-full border-b border-hair px-row-x py-row-y text-left transition-colors",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-        // D-48-06: selected row is the pinned-state exception (hover reasserts
-        // bg-muted rather than intensifying); unselected rows are neutral/ghost
-        // and move to the accent surface pair on hover.
-        isSelected ? "bg-muted hover:bg-muted" : "hover:bg-accent hover:text-accent-foreground",
+        // Selection is a shade fill + weight (law 1: ink, never a hue); the
+        // pinned row reasserts its fill on hover rather than intensifying.
+        isSelected
+          ? "bg-shade font-semibold text-ink hover:bg-shade"
+          : "text-faded hover:bg-shade hover:text-ink",
       ]
         .filter(Boolean)
         .join(" ")}
@@ -145,74 +145,71 @@ function HistoryRow({
       <div className="flex items-start justify-between gap-2">
         <p
           title={intentText}
-          className="text-sm text-foreground leading-snug line-clamp-2 flex-1 min-w-0"
+          className="min-w-0 flex-1 text-sm leading-snug text-ink line-clamp-2"
         >
           {truncatedIntent}
         </p>
-        <Badge
-          variant="outline"
-          className="shrink-0 font-mono text-[10px] px-1 py-0"
-        >
+        <span className="tabular shrink-0 rounded-sm border border-hair bg-bright px-1 py-0 font-mono text-2xs text-pencil">
           {versionBadge}
-        </Badge>
+        </span>
       </div>
-      <div className="mt-1 flex items-center gap-3 flex-wrap">
+      <div className="mt-1 flex flex-wrap items-center gap-3">
         <time
           dateTime={createdAt}
-          className="text-xs text-muted-foreground"
+          className="tabular text-xs text-pencil"
           title={createdAt}
         >
           {relativeTime}
         </time>
-        <span className="text-xs text-muted-foreground">
-          Used {useCount}×
-        </span>
-        <Badge
-          variant={validationStatus === "validated" ? "secondary" : "outline"}
-          className="text-[10px] px-1 py-0"
-        >
+        <span className="tabular text-xs text-pencil">Used {useCount}×</span>
+        <span className="rounded-sm border border-hair bg-bright px-1 py-0 text-2xs font-semibold text-faded">
           {validationStatus}
-        </Badge>
+        </span>
       </div>
     </button>
   );
 }
 
-/** Loading skeleton for the master list. */
+/** Loading skeleton for the master list — the list's own row rhythm. */
 function HistoryListSkeleton(): React.ReactElement {
   return (
     <div aria-busy="true" aria-label="Loading history" className="flex flex-col">
       {Array.from({ length: 5 }).map((_, i) => (
-        <div key={i} className="px-4 py-3 border-b border-border/50">
-          <div className="h-4 w-3/4 rounded bg-muted animate-pulse mb-2" />
-          <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
+        <div key={i} className="border-b border-hair px-row-x py-row-y">
+          <div className="mb-2 h-4 w-3/4 animate-pulse rounded-sm bg-shade motion-reduce:animate-none" />
+          <div className="h-3 w-1/3 animate-pulse rounded-sm bg-shade motion-reduce:animate-none" />
         </div>
       ))}
     </div>
   );
 }
 
-/** Empty state for the master list. */
+/** Empty state for the master list — teaches the one next action. */
 function HistoryListEmpty(): React.ReactElement {
   return (
     <div
       aria-live="polite"
-      className="flex flex-col items-center justify-center py-12 text-sm text-muted-foreground"
+      className="flex flex-col items-center justify-center gap-1 px-4 py-12 text-center"
     >
-      <p>No generations yet.</p>
-      <p className="mt-1 text-xs">Generate something in the Sandbox to see it here.</p>
+      <p className="text-sm font-semibold text-ink">No generations yet.</p>
+      <p className="text-xs text-faded">
+        Generate something in the Sandbox — every run lands here, replayable.
+      </p>
     </div>
   );
 }
 
-/** Error state for the master list. */
+/** Error state for the master list — ink on a rule, never madder (law 1). */
 function HistoryListError(): React.ReactElement {
   return (
     <div
       role="alert"
-      className="px-4 py-6 text-sm text-destructive"
+      className="m-4 rounded-card border border-rule bg-leaf p-panel text-center"
     >
-      Failed to load generation history. Please try again later.
+      <p className="text-sm font-semibold text-ink">
+        Failed to load generation history.
+      </p>
+      <p className="mt-1 text-xs text-faded">Please try again later.</p>
     </div>
   );
 }
@@ -223,33 +220,40 @@ function DetailSkeleton(): React.ReactElement {
     <div
       aria-busy="true"
       aria-label="Loading detail"
-      className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+      className="flex flex-1 items-center justify-center text-sm text-faded"
     >
-      <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+      <div className="h-4 w-32 animate-pulse rounded-sm bg-shade motion-reduce:animate-none" />
     </div>
   );
 }
 
-/** Prompt shown when no row is selected yet. */
+/** Prompt shown when no row is selected yet — select updates in place. */
 function DetailEmpty(): React.ReactElement {
   return (
     <div
       aria-live="polite"
-      className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+      className="flex flex-1 items-center justify-center p-8"
     >
-      Select a row to inspect its rendered spec.
+      <div className="max-w-xs text-center">
+        <p className="text-sm font-semibold text-ink">Nothing selected</p>
+        <p className="mt-1 text-sm text-faded">
+          Pick a run on the left — its rendered spec and JSON appear here.
+        </p>
+      </div>
     </div>
   );
 }
 
-/** Safe-fallback notice rendered inside the detail when the stored spec could not be parsed. */
+/** Safe-fallback notice when the stored spec no longer parses — a state, so
+ *  it speaks ink on a rule; the words carry the severity (law 1). */
 function FallbackNotice(): React.ReactElement {
   return (
     <div
       role="alert"
-      className="shrink-0 border-b border-destructive/30 bg-destructive/5 px-4 py-2 text-xs text-destructive"
+      className="shrink-0 border-b border-rule bg-leaf px-4 py-2 text-xs font-semibold text-ink"
     >
-      This spec no longer parses under the current schema — showing fallback output.
+      This spec no longer parses under the current schema — showing fallback
+      output.
     </div>
   );
 }
@@ -329,7 +333,7 @@ function HistoryMasterList({
 
       {/* Pager — prev / next (offset-based; D-18) */}
       <div
-        className="shrink-0 flex items-center justify-between border-t border-border/50 px-4 py-2"
+        className="flex shrink-0 items-center justify-between border-t border-hair bg-leaf px-4 py-2"
         aria-label="History pagination"
       >
         <Button
@@ -341,7 +345,7 @@ function HistoryMasterList({
         >
           Previous
         </Button>
-        <span className="text-xs text-muted-foreground">
+        <span className="tabular text-xs text-pencil">
           {/* WR-02: show "0" when the list is empty/loading so we never render
               the nonsensical "1–0" range. */}
           {rows !== undefined && rows.length > 0
@@ -384,11 +388,18 @@ function HistoryDetailView({ selectedId }: DetailViewProps): React.ReactElement 
   // can distinguish a transient failure from a genuine 404 "not found".
   if (isError) {
     return (
-      <div
-        role="alert"
-        className="flex flex-1 items-center justify-center text-sm text-destructive px-4 text-center"
-      >
-        Could not load generation details. Please try again.
+      <div className="flex flex-1 items-center justify-center p-8">
+        <div
+          role="alert"
+          className="w-full max-w-sm rounded-card border border-rule bg-leaf p-panel text-center"
+        >
+          <p className="text-sm font-semibold text-ink">
+            Could not load generation details.
+          </p>
+          <p className="mt-1 text-xs text-faded">
+            A transient failure — select the row again to retry.
+          </p>
+        </div>
       </div>
     );
   }
@@ -397,7 +408,7 @@ function HistoryDetailView({ selectedId }: DetailViewProps): React.ReactElement 
     return (
       <div
         role="alert"
-        className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+        className="flex flex-1 items-center justify-center text-sm text-faded"
       >
         Generation not found or no longer available.
       </div>
@@ -408,17 +419,17 @@ function HistoryDetailView({ selectedId }: DetailViewProps): React.ReactElement 
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Read-only badge header */}
-      <div className="shrink-0 flex items-center gap-2 border-b border-border/50 px-4 py-2 bg-muted/30">
+      {/* Read-only header — the run's intent + a quiet chrome chip */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-hair bg-leaf px-4 py-2">
         <span
-          className="text-xs font-normal text-muted-foreground truncate flex-1"
+          className="min-w-0 flex-1 truncate text-xs text-faded"
           title={detail.intentText}
         >
           {truncate(detail.intentText, 120)}
         </span>
-        <Badge variant="outline" className="shrink-0 text-[10px] px-1 py-0">
+        <span className="shrink-0 rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold text-faded">
           Read-only
-        </Badge>
+        </span>
       </div>
 
       {/* Safe-fallback notice when stored spec could not parse */}
@@ -439,12 +450,12 @@ function HistoryDetailView({ selectedId }: DetailViewProps): React.ReactElement 
 
         <ResizableHandle />
 
-        {/* Right (45): spec JSON */}
+        {/* Right (45): spec JSON — a leaf-ground inspector well */}
         <ResizablePanel defaultSize={45} minSize={25}>
           <div
             role="region"
             aria-label="Spec JSON"
-            className="flex h-full flex-col bg-muted"
+            className="flex h-full flex-col border-l border-hair bg-leaf"
           >
             <JsonPane value={spec} />
           </div>
@@ -482,13 +493,13 @@ export function HistoryIsland(): React.ReactElement {
     <div className="flex flex-1 min-h-0">
       {/* Master list — left panel (fixed width, scrollable) */}
       <div
-        className="w-80 shrink-0 flex flex-col border-r border-border/50 min-h-0"
+        className="flex min-h-0 w-80 shrink-0 flex-col border-r border-hair bg-leaf"
         role="navigation"
         aria-label="Past generations"
       >
-        <div className="shrink-0 px-4 py-3 border-b border-border/50">
-          <h2 className="text-sm font-semibold">Generation History</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Newest first</p>
+        <div className="shrink-0 border-b border-hair px-4 py-3">
+          <h2 className="text-sm font-semibold text-ink">Generation History</h2>
+          <p className="mt-0.5 text-xs text-pencil">Newest first</p>
         </div>
         <HistoryMasterList selectedId={selectedId} onSelect={handleSelect} onPageChange={handlePageChange} />
       </div>
