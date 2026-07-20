@@ -61,6 +61,22 @@ export function useVaultUpload({ path }: { path: readonly string[] }) {
   const [uploads, setUploads] = useState<readonly VaultUpload[]>([]);
   const xhrs = useRef(new Map<string, XMLHttpRequest>());
 
+  /**
+   * THE RETRY LEDGER (v2.1 hardening — the gap 66-04 recorded, now closed
+   * deliberately). Retrying a failed upload needs the original `File` handle,
+   * so the ledger keeps it — together with the path CAPTURED AT DROP TIME, so
+   * a retry lands where the drop aimed even if the user has navigated since.
+   *
+   * THE MEMORY DECISION, MADE EXPLICITLY: a handle is held ONLY while its row
+   * is visible in the tray — released on success, on cancel, and on dismiss.
+   * The tray is the ledger's mirror: if the user can see a Retry button, we
+   * hold its file; the moment they can't, we don't. Nothing outlives the UI
+   * that explains why it exists.
+   */
+  const retryable = useRef(
+    new Map<string, { file: File; targetPath: readonly string[] }>(),
+  );
+
   const requestUpload = vaultApi.files.requestUpload.useMutation();
   const utils = vaultApi.useUtils();
 
@@ -73,6 +89,7 @@ export function useVaultUpload({ path }: { path: readonly string[] }) {
   const dismiss = useCallback((id: string) => {
     setUploads((current) => current.filter((upload) => upload.id !== id));
     xhrs.current.delete(id);
+    retryable.current.delete(id);
   }, []);
 
   const cancel = useCallback(
@@ -124,6 +141,10 @@ export function useVaultUpload({ path }: { path: readonly string[] }) {
         });
 
         patch(id, { status: "done", progress: 100 });
+        // Landed: nothing left to retry, so the handle is released NOW rather
+        // than when the done-row's timer clears it (dismiss does both, but
+        // four seconds of pinned file per row of a big drop adds up).
+        retryable.current.delete(id);
         window.setTimeout(() => dismiss(id), DONE_ROW_TTL_MS);
       } catch (err) {
         if (err instanceof Error && err.message === "Cancelled") return;
@@ -191,6 +212,7 @@ export function useVaultUpload({ path }: { path: readonly string[] }) {
 
         queued.push({ id, name: file.name, progress: 0, status: "pending" });
         accepted.push({ id, file });
+        retryable.current.set(id, { file, targetPath });
       }
 
       if (queued.length === 0) return;
@@ -214,21 +236,28 @@ export function useVaultUpload({ path }: { path: readonly string[] }) {
   );
 
   /**
-   * NO `retry` HERE, DELIBERATELY — and this is the honest version of a gap.
+   * RETRY — the gap 66-04 recorded as backlog, now a real affordance.
    *
-   * 66-04-PLAN specifies a per-file "Retry" on a failed tray row. Retrying
-   * needs the original `File` handle kept alive past the failure, and this
-   * queue does not retain one: `start()` takes the files, uploads them, and
-   * lets them go. Adding a `Map<id, File>` that outlives the batch is a real
-   * design decision about how long the vault pins a user's file in memory
-   * after it has already failed — not a line to tack on at the end of a plan.
+   * Phase 66 shipped dismiss-only because retaining a `File` past its failure
+   * is a memory-lifetime decision, not a line to tack onto a plan. The v2.1
+   * hardening pass made the decision (see `retryable`'s header: held only
+   * while the failed row is visible), so the tray's failed rows now carry the
+   * way BACK, not just the way out.
    *
-   * So the tray ships DISMISS, the failed row persists until dismissed with
-   * the reason named, and re-dropping the file is the path. An earlier draft
-   * of this hook exported a `retry` that no component called; a dead export
-   * that advertises a capability is worse than an admitted gap, because the
-   * next reader believes it. Removed, and recorded in 66-04-SUMMARY.md as
-   * backlog rather than quietly left half-built.
+   * Re-runs the SAME funnel as the first attempt — new signed URL and all,
+   * since the failed one may simply have expired — against the path captured
+   * when the file was dropped, then invalidates that folder's listing.
    */
-  return { uploads, start, cancel, dismiss };
+  const retry = useCallback(
+    (id: string) => {
+      const held = retryable.current.get(id);
+      if (!held) return;
+      void uploadOne(id, held.file, held.targetPath).then(() =>
+        utils.files.list.invalidate({ path: [...held.targetPath] }),
+      );
+    },
+    [uploadOne, utils],
+  );
+
+  return { uploads, start, cancel, dismiss, retry };
 }

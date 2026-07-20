@@ -54,11 +54,34 @@ export function VaultListing({
   const shouldFocusRef = useRef(false);
 
   /**
-   * Reset when the FOLDER changes. Keyed on the entries' identity rather than
-   * their length: walking from a 5-row folder into another 5-row folder must
-   * still return focus to the top, and a length check would not notice.
+   * Reset when the CONTENTS change — but not when they merely GROW.
+   *
+   * Keyed on the entries' identity rather than their length: walking from a
+   * 5-row folder into another 5-row folder must still return focus to the
+   * top, and a length check would not notice.
+   *
+   * THE APPEND EXCEPTION (v2.1 pagination): "Show more" hands this component
+   * the same rows plus a new page on the end. Resetting then would teleport
+   * the roving row from the bottom of the list — exactly where the user was
+   * reading — back to the top, on every page. An append is detected by name
+   * prefix: the old first-and-last names still sitting at the same positions.
+   * Cheap (two comparisons), and wrong only for a change that REPLACES rows
+   * while preserving both sentinels and the count-prefix — where keeping the
+   * user's position is a fine outcome anyway.
    */
+  const previousNamesRef = useRef<readonly string[]>([]);
   useEffect(() => {
+    const previous = previousNamesRef.current;
+    previousNamesRef.current = entries.map((entry) => entry.name);
+
+    const isAppend =
+      previous.length > 0 &&
+      entries.length >= previous.length &&
+      entries[0]?.name === previous[0] &&
+      entries[previous.length - 1]?.name === previous[previous.length - 1];
+
+    if (isAppend) return;
+
     setFocusedIndex(0);
     shouldFocusRef.current = false;
   }, [entries]);

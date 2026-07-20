@@ -73,9 +73,11 @@ const SKELETON_ROWS = 5;
  * to be here", which is the true statement and the more useful one.
  *
  * THE GEOMETRY IS COPIED FROM `vault-row.tsx`, deliberately: same `px-row-x
- * py-row-y`, same `size-4` glyph box, same `gap-3`. A skeleton drawn from
- * imagination rather than from the row is a layout shift the moment content
- * lands — and that jump is the tell that nobody compared them.
+ * py-row-y`, same `size-4` glyph box, same `gap-3`, and — since the v2.1
+ * provenance line — the same two-line name column (name bar over a shorter
+ * text-xs-height provenance bar). A skeleton drawn from imagination rather
+ * than from the row is a layout shift the moment content lands — and that
+ * jump is the tell that nobody compared them.
  */
 export function VaultLoading(): React.ReactElement {
   return (
@@ -87,18 +89,95 @@ export function VaultLoading(): React.ReactElement {
           className="flex items-center gap-3 border-b border-hair px-row-x py-row-y last:border-b-0"
         >
           <div className="size-4 shrink-0 rounded-sm bg-shade motion-safe:animate-pulse" />
-          <div
-            className="h-4 flex-1 rounded-sm bg-shade motion-safe:animate-pulse"
-            // Staggered widths so the block reads as a list of names rather
-            // than as a bar chart. Inline style, not a class: these are
-            // per-index values, and Tailwind v4 purges non-literal class
-            // strings SILENTLY — `w-[${n}%]` would emit nothing at all.
-            style={{ maxWidth: `${[42, 68, 30, 55, 48][index] ?? 50}%` }}
-          />
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div
+              className="h-4 rounded-sm bg-shade motion-safe:animate-pulse"
+              // Staggered widths so the block reads as a list of names rather
+              // than as a bar chart. Inline style, not a class: these are
+              // per-index values, and Tailwind v4 purges non-literal class
+              // strings SILENTLY — `w-[${n}%]` would emit nothing at all.
+              style={{ maxWidth: `${[42, 68, 30, 55, 48][index] ?? 50}%` }}
+            />
+            {/* The provenance bar — text-xs line height, narrower than the
+                name above it, same stagger so the two read as one column. */}
+            <div
+              className="h-3 rounded-sm bg-shade motion-safe:animate-pulse"
+              style={{ maxWidth: `${[28, 34, 22, 31, 26][index] ?? 28}%` }}
+            />
+          </div>
           <div className="h-4 w-12 shrink-0 rounded-sm bg-shade motion-safe:animate-pulse" />
         </li>
       ))}
     </ul>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+/**
+ * VaultLoadMore — the listing's foot when the folder has more than one page
+ * (v2.1 hardening: the 500-entry cap became a page, not a truncation).
+ *
+ * Renders NOTHING for the common folder (one page, no failure) — the foot of
+ * an ordinary listing is silence, not chrome.
+ *
+ * The action keeps its name through the flow: "Show more" -> "Loading more…"
+ * (D-66-11's naming rule). A failed page is a STATUS — ink, glyph carries the
+ * role, `role="alert"` — NEVER madder (law 1), and it keeps the rows already
+ * on screen: replacing a loaded listing with a full-pane error because page
+ * two failed would be the interface punishing the user for scrolling.
+ */
+export function VaultLoadMore({
+  hasMore,
+  isLoadingMore,
+  failed,
+  onMore,
+  onRetry,
+}: {
+  readonly hasMore: boolean;
+  readonly isLoadingMore: boolean;
+  /** A page fetch failed while rows are already showing. */
+  readonly failed: boolean;
+  readonly onMore: () => void;
+  readonly onRetry: () => void;
+}): React.ReactElement | null {
+  if (failed) {
+    return (
+      <div
+        role="alert"
+        data-slot="vault-load-more-error"
+        className="flex items-center justify-center gap-3 border-t border-hair px-row-x py-3"
+      >
+        <TriangleAlert className="size-4 shrink-0 text-faded" aria-hidden />
+        <span className="text-sm text-ink">Couldn&apos;t load the rest of this folder.</span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onRetry}
+          className="border-rule bg-leaf text-ink shadow-none hover:bg-shade pointer-coarse:touch-target"
+        >
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  if (!hasMore) return null;
+
+  return (
+    <div className="flex justify-center border-t border-hair py-3">
+      <Button
+        type="button"
+        variant="outline"
+        data-slot="vault-load-more"
+        onClick={onMore}
+        disabled={isLoadingMore}
+        className="border-rule bg-leaf text-ink shadow-none hover:bg-shade pointer-coarse:touch-target"
+      >
+        {isLoadingMore ? "Loading more…" : "Show more"}
+      </Button>
+    </div>
   );
 }
 

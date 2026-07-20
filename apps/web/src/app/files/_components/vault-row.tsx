@@ -10,7 +10,7 @@ import { cn } from "@polytoken/ui";
 import type { VaultEntry } from "../../../../../../packages/api-client/src/router/files/vault-types";
 import {
   formatBytes,
-  formatVaultDate,
+  formatProvenance,
   KIND_GLYPH,
   KIND_LABEL,
 } from "../_lib/vault-format";
@@ -26,12 +26,19 @@ interface VaultRowProps {
 /**
  * VaultRow — one line of the registry (Phase 66 Plan 03 Task 3).
  *
- *   [glyph]  Name of the thing            1.5 KB    12 Jul 2026   [trash]
- *    faded   sans / text-ink, truncate    tabular   tabular       hover
- *                                         pencil    pencil        /focus
+ *   [glyph]  Name of the thing                        1.5 KB    [trash]
+ *    faded   sans / text-ink, truncate                tabular    hover
+ *            Added by you · 12 Jul 2026               pencil    /focus
+ *            provenance: text-xs pencil, tabular date
  *
- * Folder rows: glyph=Folder, no size, primary action = walk in.
- * File rows:   glyph=kind,   size shown, primary action = download.
+ * Folder rows: glyph=Folder, one line, no size, primary action = walk in.
+ * File rows:   glyph=kind, name over PROVENANCE, size, primary = download.
+ *
+ * THE PROVENANCE LINE (v2.1 hardening) replaced the bare date column: it
+ * carries the same "when" plus the "who", and it is visible on EVERY viewport
+ * — the old date column was hidden below `sm`, which made mobile rows
+ * provenance-blind. "Added by you" is a structural fact, not stored metadata;
+ * see formatProvenance's header for the watched-folder seam it becomes.
  *
  * LAW 2: the name is SANS. Nothing on this surface came out of the user's
  * mail, so nothing here is evidence — file names are METADATA/chrome
@@ -79,19 +86,37 @@ export function VaultRow({
         >
           <Glyph className="size-4 shrink-0 text-faded" aria-hidden />
 
-          {/* A plain React text node — escaped by default. File names are
-              attacker-controlled strings (T-66-06); they are never
-              interpolated into a class, a style, or dangerouslySetInnerHTML. */}
-          <span className="min-w-0 flex-1 truncate text-base text-ink">
-            {entry.name}
+          <span className="flex min-w-0 flex-1 flex-col">
+            {/* A plain React text node — escaped by default. File names are
+                attacker-controlled strings (T-66-06); they are never
+                interpolated into a class, a style, or dangerouslySetInnerHTML. */}
+            <span className="min-w-0 truncate text-base text-ink">{entry.name}</span>
+
+            {/* THE PROVENANCE LINE — files only. Folders are implicit
+                (D-66-01): storage records nothing about when one "began", and
+                a provenance the system cannot actually state would be
+                decoration wearing a fact's clothes.
+                `tabular` for the date digits — registry rhythm (D-66-05). */}
+            {!entry.isFolder ? (
+              <span
+                data-slot="vault-row-provenance"
+                className={cn(
+                  "tabular min-w-0 truncate text-xs text-pencil transition-colors",
+                  "group-hover:text-faded",
+                )}
+              >
+                {formatProvenance(entry.updatedAt)}
+              </span>
+            ) : null}
           </span>
 
           {/* THE CONTRAST PAIR, AND IT IS A REAL BUG IF YOU SPLIT IT:
               `text-pencil` is legal on `--leaf`/`--bright` but NOT on
               `--shade` (4.23:1, below AA — brand-guide §3). The row's hover
-              fill IS `bg-shade`, so the meta MUST step up to `text-faded` on
-              hover. Change one of these two without the other and the size and
-              date silently fail AA for as long as the pointer rests there. */}
+              fill IS `bg-shade`, so the meta — the size AND the provenance
+              line above — MUST step up to `text-faded` on hover. Change one
+              of these without the others and the meta silently fails AA for
+              as long as the pointer rests there. */}
           <span
             className={cn(
               "tabular shrink-0 text-sm text-pencil transition-colors",
@@ -99,14 +124,6 @@ export function VaultRow({
             )}
           >
             {formatBytes(entry.size)}
-          </span>
-          <span
-            className={cn(
-              "tabular hidden shrink-0 text-sm text-pencil transition-colors sm:block",
-              "group-hover:text-faded",
-            )}
-          >
-            {formatVaultDate(entry.updatedAt)}
           </span>
         </button>
 

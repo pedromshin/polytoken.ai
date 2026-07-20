@@ -16,17 +16,20 @@ import type { VaultUpload } from "../_lib/use-vault-upload";
  * A FAILURE HERE IS NEVER MADDER. An upload that did not land is a STATUS, and
  * law 1 spends madder only on the irreversible (D-58-01: "Never errors, never
  * warnings"). The glyph carries the role; the copy names the reason; the row
- * offers the way out. The one madder control on this entire surface is
+ * offers the way BACK (Retry — v2.1 hardening, the recovery 66-04 deferred)
+ * and the way out (dismiss). The one madder control on this entire surface is
  * `delete-dialog.tsx`'s confirm button, and `files-law.test.ts` counts it.
  */
 export function UploadTray({
   uploads,
   onCancel,
   onDismiss,
+  onRetry,
 }: {
   readonly uploads: readonly VaultUpload[];
   readonly onCancel: (id: string) => void;
   readonly onDismiss: (id: string) => void;
+  readonly onRetry: (id: string) => void;
 }): React.ReactElement | null {
   if (uploads.length === 0) return null;
 
@@ -42,6 +45,7 @@ export function UploadTray({
           upload={upload}
           onCancel={onCancel}
           onDismiss={onDismiss}
+          onRetry={onRetry}
         />
       ))}
     </ul>
@@ -52,10 +56,12 @@ function UploadRow({
   upload,
   onCancel,
   onDismiss,
+  onRetry,
 }: {
   readonly upload: VaultUpload;
   readonly onCancel: (id: string) => void;
   readonly onDismiss: (id: string) => void;
+  readonly onRetry: (id: string) => void;
 }): React.ReactElement {
   const failed = upload.status === "error";
   const done = upload.status === "done";
@@ -97,6 +103,26 @@ function UploadRow({
           />
         )}
       </div>
+
+      {failed ? (
+        // THE WAY BACK, WITH A WORD ON IT — not a circular-arrow glyph the
+        // user has to decode (anti-generic tell #4). Ink: retrying is
+        // additive and cancellable, so it has earned no colour.
+        <button
+          type="button"
+          data-slot="upload-retry"
+          onClick={() => onRetry(upload.id)}
+          aria-label={`Retry upload of ${upload.name}`}
+          className={cn(
+            "shrink-0 rounded-md px-2 py-1 text-sm text-ink",
+            "transition-colors hover:bg-shade",
+            "outline-solid focus-visible:outline-2 focus-visible:outline-ink",
+            "pointer-coarse:touch-target",
+          )}
+        >
+          Retry
+        </button>
+      ) : null}
 
       {!done ? (
         <button

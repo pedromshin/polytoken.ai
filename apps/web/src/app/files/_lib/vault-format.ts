@@ -109,6 +109,32 @@ export function formatVaultDate(iso: string | null | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// Provenance
+// ---------------------------------------------------------------------------
+
+/**
+ * A file row's provenance line — "Added by you · 12 Jul 2026".
+ *
+ * "you" is a STRUCTURAL FACT, not a guess: every key in this vault is minted
+ * by `vaultKey(ctx.user.id, …)` server-side, so nothing under the caller's
+ * prefix can have been put there by anyone else. That is why no `uploadedBy`
+ * field crosses the wire — shipping one would be shipping a constant.
+ *
+ * THE DAY THIS STOPS BEING A CONSTANT IS THE WATCHED-FOLDER DAEMON: when
+ * `dir.sync_manifest` writes into the vault on the user's behalf, "you" and
+ * "synced from your folder" become different provenances, and this function is
+ * the single seam that has to learn the difference — one function, not a
+ * per-row re-derivation.
+ *
+ * With no date (storage returned none), the line declines to invent one and
+ * states only what it knows.
+ */
+export function formatProvenance(iso: string | null | undefined): string {
+  const when = formatVaultDate(iso);
+  return when ? `Added by you · ${when}` : "Added by you";
+}
+
+// ---------------------------------------------------------------------------
 // Kind -> geometry, kind -> word. No third map, and never a colour.
 // ---------------------------------------------------------------------------
 

@@ -28,7 +28,7 @@ import { DeleteDialog } from "./delete-dialog";
 import { NewFolderRow } from "./new-folder-row";
 import { UploadTray } from "./upload-tray";
 import { VaultDropLayer } from "./vault-drop-layer";
-import { VaultEmpty, VaultError, VaultLoading } from "./vault-states";
+import { VaultEmpty, VaultError, VaultLoading, VaultLoadMore } from "./vault-states";
 import { VaultListing } from "./vault-listing";
 
 /**
@@ -62,7 +62,16 @@ export function VaultSurface(): React.ReactElement {
   const rawPath = searchParams.get("path");
   const path = useMemo(() => parseVaultPath(rawPath), [rawPath]);
 
-  const listing = vaultApi.files.list.useQuery({ path });
+  /**
+   * PAGED, not truncated (v2.1 hardening). Phase 66 fetched one 500-entry
+   * page and silently dropped the rest; the cursor makes every entry
+   * reachable. `getNextPageParam` echoes the server's `nextCursor` — the
+   * client never invents an offset.
+   */
+  const listing = vaultApi.files.list.useInfiniteQuery(
+    { path },
+    { getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined },
+  );
   const utils = vaultApi.useUtils();
 
   const [creatingFolder, setCreatingFolder] = useState(false);
@@ -70,7 +79,7 @@ export function VaultSurface(): React.ReactElement {
   const [pendingDelete, setPendingDelete] = useState<VaultEntry | null>(null);
 
   // ── Ingest: ONE funnel, two doors (drop and picker) ──────────────────────
-  const { uploads, start, cancel, dismiss } = useVaultUpload({ path });
+  const { uploads, start, cancel, dismiss, retry } = useVaultUpload({ path });
   const { isDragging, dropProps } = useVaultDrop(start);
 
   const openPicker = useCallback(() => fileInputRef.current?.click(), []);
@@ -144,7 +153,10 @@ export function VaultSurface(): React.ReactElement {
     },
   });
 
-  const entries = listing.data ?? [];
+  const entries = useMemo(
+    () => listing.data?.pages.flatMap((page) => page.entries) ?? [],
+    [listing.data],
+  );
   const folderName = path.length === 0 ? "Files" : (path[path.length - 1] ?? "Files");
 
   return (
@@ -205,35 +217,55 @@ export function VaultSurface(): React.ReactElement {
               FIRST is what stops a populated folder flashing "empty" on every
               navigation: react-query returns `data: undefined` while a new
               query key is in flight, and an empty-check running first would
-              read that as "no files" for one frame, on every folder walk. */}
+              read that as "no files" for one frame, on every folder walk.
+
+              THE ERROR BRANCH IS GATED ON "NO ROWS" (v2.1): with paging, a
+              failed SECOND page also sets `listing.error` — replacing 500
+              loaded rows with a full-pane error because page two hiccuped
+              would punish the user for scrolling. Rows on screen stay on
+              screen; the failure reports at the foot (VaultLoadMore). */}
           {listing.isPending ? (
             <VaultLoading />
-          ) : listing.error ? (
+          ) : listing.error && entries.length === 0 ? (
             <VaultError onRetry={() => void listing.refetch()} />
           ) : entries.length === 0 && !creatingFolder ? (
             <VaultEmpty atRoot={path.length === 0} onUpload={openPicker} />
           ) : (
-            <VaultListing
-              entries={entries}
-              onOpenFolder={openFolder}
-              onDownload={download}
-              onDelete={setPendingDelete}
-              leadingRow={
-                creatingFolder ? (
-                  <NewFolderRow
-                    error={folderError}
-                    onCancel={() => {
-                      setCreatingFolder(false);
-                      setFolderError(undefined);
-                    }}
-                    onCommit={(name) => createFolder.mutate({ path, name })}
-                  />
-                ) : null
-              }
-            />
+            <>
+              <VaultListing
+                entries={entries}
+                onOpenFolder={openFolder}
+                onDownload={download}
+                onDelete={setPendingDelete}
+                leadingRow={
+                  creatingFolder ? (
+                    <NewFolderRow
+                      error={folderError}
+                      onCancel={() => {
+                        setCreatingFolder(false);
+                        setFolderError(undefined);
+                      }}
+                      onCommit={(name) => createFolder.mutate({ path, name })}
+                    />
+                  ) : null
+                }
+              />
+              <VaultLoadMore
+                hasMore={listing.hasNextPage ?? false}
+                isLoadingMore={listing.isFetchingNextPage}
+                failed={Boolean(listing.error)}
+                onMore={() => void listing.fetchNextPage()}
+                onRetry={() => void listing.refetch()}
+              />
+            </>
           )}
 
-          <UploadTray uploads={uploads} onCancel={cancel} onDismiss={dismiss} />
+          <UploadTray
+            uploads={uploads}
+            onCancel={cancel}
+            onDismiss={dismiss}
+            onRetry={retry}
+          />
         </section>
       </VaultDropLayer>
 

@@ -33,6 +33,7 @@ const removeMutate = vi.fn();
 const requestDownloadMutate = vi.fn();
 const invalidate = vi.fn();
 const toastFn = vi.fn();
+const fetchNextPage = vi.fn();
 
 let listResult: {
   data?: unknown[];
@@ -40,6 +41,9 @@ let listResult: {
   error: unknown;
   refetch: () => void;
 } = { data: [], isPending: false, error: null, refetch: vi.fn() };
+
+/** Whether the mocked folder claims another page (drives VaultLoadMore). */
+let listHasNextPage = false;
 
 vi.mock("sonner", () => ({ toast: (...args: unknown[]) => toastFn(...args) }));
 
@@ -51,7 +55,25 @@ vi.mock("next/navigation", () => ({
 vi.mock("../../_lib/vault-api", () => ({
   vaultApi: {
     files: {
-      list: { useQuery: () => listResult },
+      // The surface pages the listing (v2.1). The fixtures keep their flat
+      // `listResult.data` shape; the mock wraps it into the one-page infinite
+      // result the real hook returns, so every older test reads unchanged.
+      list: {
+        useInfiniteQuery: () => ({
+          data: listResult.data
+            ? {
+                pages: [{ entries: listResult.data, nextCursor: null }],
+                pageParams: [null],
+              }
+            : undefined,
+          isPending: listResult.isPending,
+          error: listResult.error,
+          refetch: listResult.refetch,
+          fetchNextPage,
+          hasNextPage: listHasNextPage,
+          isFetchingNextPage: false,
+        }),
+      },
       requestUpload: {
         useMutation: () => ({ mutateAsync: requestUploadMutateAsync }),
       },
@@ -107,6 +129,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   FakeXHR.instances = [];
   listResult = { data: [], isPending: false, error: null, refetch: vi.fn() };
+  listHasNextPage = false;
   vi.stubGlobal("XMLHttpRequest", FakeXHR);
   container = document.createElement("div");
   document.body.appendChild(container);
