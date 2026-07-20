@@ -19,7 +19,7 @@ export type {
   ActionRegistry,
 } from "./spec-renderer";
 
-export { renderNode, resolveDataRef } from "./render-node";
+export { renderNode, resolveDataRef, resolveTemplateString } from "./render-node";
 
 export type { RenderContext } from "./render-node";
 

@@ -113,6 +113,57 @@ export function resolveDataRef(ref: string, ctx: RenderContext): unknown {
 }
 
 // ---------------------------------------------------------------------------
+// resolveTemplateString — bounded {{mustache}} interpolation for text content
+// (999.8b — declared-state/data refs resolved via resolveDataRef, NO eval)
+// ---------------------------------------------------------------------------
+
+/**
+ * Mustache token pattern: `{{ data.some.path }}` / `{{state.count}}`.
+ * The inner reference is restricted to dotted identifier paths — no spaces,
+ * operators, or expression syntax inside the path. Anything that does not
+ * match (e.g. `{{state.count + 1}}`) is left verbatim, never evaluated.
+ */
+const MUSTACHE_PATTERN = /\{\{\s*([A-Za-z_$][\w$-]*(?:\.[\w$-]+)*)\s*\}\}/g;
+
+/** Bound on substitutions per string — beyond this, tokens pass through verbatim. */
+const MAX_TEMPLATE_SUBSTITUTIONS = 32;
+
+/**
+ * Resolves `{{data.*}}` / `{{state.*}}` mustache tokens inside a text node's
+ * content string using the SAME resolveDataRef walk as list/conditional nodes
+ * (prototype-pollution guard included — D-12). Bounded and eval-free (GR-01):
+ *
+ *   - Only dotted-path refs are recognised — expressions stay verbatim.
+ *   - At most MAX_TEMPLATE_SUBSTITUTIONS tokens are substituted per string.
+ *   - string/number/boolean values interpolate; anything else (undefined,
+ *     null, objects, arrays, functions) becomes "" — never JSON, never code.
+ *
+ * @param template — the raw text content possibly containing mustache tokens
+ * @param ctx — current render context (data + state buckets)
+ * @returns the interpolated string (input returned as-is when no "{{" present)
+ */
+export function resolveTemplateString(
+  template: string,
+  ctx: RenderContext,
+): string {
+  if (!template.includes("{{")) return template;
+
+  let substitutions = 0;
+  return template.replace(MUSTACHE_PATTERN, (match, ref: string) => {
+    substitutions += 1;
+    if (substitutions > MAX_TEMPLATE_SUBSTITUTIONS) return match;
+
+    const resolved = resolveDataRef(ref, ctx);
+    if (typeof resolved === "string") return resolved;
+    if (typeof resolved === "number" || typeof resolved === "boolean") {
+      return String(resolved);
+    }
+    // undefined / null / object / array / function — render nothing (fail-safe)
+    return "";
+  });
+}
+
+// ---------------------------------------------------------------------------
 // evaluateCondition — safe boolean evaluation (NO eval — GR-01 / SPEC-05)
 // ---------------------------------------------------------------------------
 
@@ -339,6 +390,16 @@ export function renderNode(
     //   "colSpan" — consumed by renderPositionalChildren wrapper (Phase 18), not a prop
     if (k === "type" || k === "children" || k === "colSpan" || slotKeys.has(k)) continue;
     props[k] = v;
+  }
+
+  // -------------------------------------------------------------------------
+  // 999.8b — mustache interpolation, text nodes ONLY: resolve {{data.*}} /
+  // {{state.*}} refs inside `content` via resolveDataRef before validation.
+  // Bounded, eval-free (GR-01); string in → string out, so propsSchema still
+  // sees a plain string.
+  // -------------------------------------------------------------------------
+  if (node.type === "text" && typeof props["content"] === "string") {
+    props["content"] = resolveTemplateString(props["content"], ctx);
   }
 
   // -------------------------------------------------------------------------

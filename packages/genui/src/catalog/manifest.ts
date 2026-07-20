@@ -7,10 +7,12 @@
  * SpecNodes — "use client" declared here (house convention, mirrors form-component.tsx /
  * spec-renderer.tsx) since this file now uses a hook directly.
  *
- * Contains exactly 16 catalog entries (D-01, D-02):
+ * Contains exactly 22 catalog entries (D-01, D-02):
  *   - 3 layout primitives: stack, grid, section (house-built, no @polytoken/ui import)
  *   - 8 legacy leaf components: text, badge, button, card, key-value-list, separator, alert, table
  *   - 5 Phase-18 domain components: avatar, input, nav, feed-item, tabs (CTLG-06)
+ *   - 1 Phase-19 form component
+ *   - 5 999.13 vendored components: number-ticker, spinner, avatar-stack, animated-list, marquee
  *
  * Each entry is a fully-real ManifestEntry<TProps>:
  *   - strict Zod propsSchema (Bedrock additionalProperties:false — D-22 / COST-02)
@@ -1349,6 +1351,127 @@ export const POLYTOKEN_CATALOG: ComponentRegistry = Object.freeze({
     lockedProps: [],
     acceptsChildren: false,
     component: FormComponent as unknown as AnyManifestEntry["component"],
+  },
+
+  // ---------------------------------------------------------------------------
+  // 999.13 vendored components: number-ticker, spinner, avatar-stack,
+  // animated-list, marquee (@polytoken/ui vendored imports, CTLG-06 pattern)
+  // ---------------------------------------------------------------------------
+
+  "number-ticker": {
+    type: "number-ticker",
+    description:
+      "Animated numeric counter that counts up (or down) to `value` when it scrolls into view. Use for stat/KPI displays (revenue, counts, percentages). aria-label is required and must describe what the number represents (e.g. 'Total active users'). startValue sets the animation origin (default 0); decimalPlaces (0-6) controls formatting. Numeric display only — pair with a text node for the metric caption.",
+    example: {
+      value: 1284,
+      "aria-label": "Total active users",
+      decimalPlaces: 0,
+    },
+    propsSchema: z
+      .object({
+        value: z.number(),
+        "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11)
+        startValue: z.number().optional(),
+        decimalPlaces: z.number().int().min(0).max(6).optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: NumberTickerComponent as AnyManifestEntry["component"],
+  },
+
+  spinner: {
+    type: "spinner",
+    description:
+      "Spinning loading indicator (role=status). label is required and becomes the accessible aria-label (e.g. 'Loading results'). size controls dimensions: sm (16px), md (24px, default), lg (32px). Use to signal in-progress work — never as a decorative element.",
+    example: {
+      label: "Loading results",
+      size: "md",
+    },
+    propsSchema: z
+      .object({
+        label: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+        size: z.enum(["sm", "md", "lg"]).optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: SpinnerComponent as AnyManifestEntry["component"],
+  },
+
+  "avatar-stack": {
+    type: "avatar-stack",
+    description:
+      "Horizontally overlapping group of avatars for showing participants, team members, or collaborators. aria-label is required and should describe the group (e.g. 'Meeting attendees'). Each item needs alt (initials fallback derives from it); src is an optional image URL. size: sm (32px), md (40px, default), lg (56px). animate:true spreads the stack apart on hover.",
+    example: {
+      "aria-label": "Meeting attendees",
+      items: [
+        { alt: "Alice Johnson", src: "https://i.pravatar.cc/40?u=alice" },
+        { alt: "Bob Smith" },
+        { alt: "Carol Diaz" },
+      ],
+      size: "md",
+    },
+    propsSchema: z
+      .object({
+        "aria-label": z.string(), // a11y-required group label (D-04 / UI-SPEC §11)
+        items: z
+          .array(
+            z
+              .object({
+                alt: z.string(), // a11y-required per avatar (D-04)
+                src: z.string().url().optional(),
+              })
+              .strict(),
+          )
+          .min(1),
+        size: z.enum(["sm", "md", "lg"]).optional(),
+        animate: z.boolean().optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: false,
+    component: AvatarStackComponent as AnyManifestEntry["component"],
+  },
+
+  "animated-list": {
+    type: "animated-list",
+    description:
+      "Vertical container that reveals its children one at a time with a spring animation, newest on top — ideal for live activity feeds and notification demos. Accepts positional children (typically feed-item nodes). delay is the milliseconds between reveals (100-10000, default 1000). Use aria-label when the list acts as a landmark region.",
+    example: {
+      delay: 1500,
+    },
+    propsSchema: z
+      .object({
+        "aria-label": z.string().optional(), // optional landmark (UI-SPEC §11)
+        delay: z.number().int().min(100).max(10000).optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: true,
+    component: AnimatedListComponent as AnyManifestEntry["component"],
+  },
+
+  marquee: {
+    type: "marquee",
+    description:
+      "Infinitely scrolling strip that loops its children — for logo walls, testimonial tickers, or highlight reels. Accepts positional children. pauseOnHover:true stops scrolling on hover (recommended for readable content); reverse flips direction; vertical:true scrolls vertically; repeat (1-10) controls how many copies render (default 4). Decorative motion — never put critical-path actions inside.",
+    example: {
+      pauseOnHover: true,
+      repeat: 4,
+    },
+    propsSchema: z
+      .object({
+        "aria-label": z.string().optional(), // optional landmark (UI-SPEC §11)
+        reverse: z.boolean().optional(),
+        pauseOnHover: z.boolean().optional(),
+        vertical: z.boolean().optional(),
+        repeat: z.number().int().min(1).max(10).optional(),
+      })
+      .strict(),
+    lockedProps: [],
+    acceptsChildren: true,
+    component: MarqueeComponent as AnyManifestEntry["component"],
   },
 } satisfies ComponentRegistry);
 

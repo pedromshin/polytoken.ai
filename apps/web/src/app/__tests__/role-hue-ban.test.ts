@@ -85,8 +85,13 @@ const APP_DIR = path.resolve(__dirname, "..");
  * within a week" — this file's own header names that failure mode, and the
  * append is the LAST step of a sweep, never the first.
  *
- * PHASE 62: `knowledge/` and `entities/` are yours. Append them here as you
- * sweep them. Do not remove one.
+ * PHASE 62: `knowledge/` swept and appended below (SURF-03/04 — the node
+ * chrome moved onto the canvas card language, kind now lives on the
+ * left-rule weight axis, and the tier-filter's verdigris selection fill was
+ * re-inked). `studio/`, `settings/` and `login/` were swept in the same
+ * pass (SURF-05): every madder-on-a-state error banner in the studio
+ * islands became ink-on-a-rule. `entities/` remains for its own sweep —
+ * append it here when it happens. Do not remove one.
  */
 export const SCOPED_DIRS: readonly string[] = [
   "_components",
@@ -96,6 +101,11 @@ export const SCOPED_DIRS: readonly string[] = [
   // Phase 66 (files vault) — earned on arrival: the lane's own scoped law gate was green
   // before merge, so the ratchet grows without a sweep. The banned area only ever grows.
   "files",
+  // Phase 62 (SURF-03/04/05) — swept in the identity redesign pass:
+  "knowledge",
+  "studio",
+  "settings",
+  "login",
 ];
 
 /** Structurally excluded from the walk (§E, same set as palette-ban.test.ts). */

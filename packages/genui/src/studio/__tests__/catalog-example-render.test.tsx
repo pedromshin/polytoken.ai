@@ -49,8 +49,8 @@ const FALLBACK_REASON_RENDER = "render error";
 const entries = Object.values(POLYTOKEN_CATALOG);
 
 describe("catalog example live-render (BUG A regression)", () => {
-  it("covers all 17 catalog entries", () => {
-    expect(entries).toHaveLength(17); // Phase 19 added the `form` entry
+  it("covers all 22 catalog entries", () => {
+    expect(entries).toHaveLength(22); // 999.13 added 5 vendored entries
   });
 
   it.each(entries.map((entry) => [entry.type, entry] as const))(

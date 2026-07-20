@@ -161,6 +161,52 @@ describe("COMPONENT_REGISTRY a11y props are required (D-04 / CTLG-02)", () => {
     });
     expect(result?.success).toBe(false);
   });
+
+  // 999.13 vendored components — D-04 a11y negative tests
+
+  it("number-ticker: omitting aria-label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY["number-ticker"]?.propsSchema.safeParse({
+      value: 42,
+      decimalPlaces: 0,
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("spinner: omitting label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY.spinner?.propsSchema.safeParse({
+      size: "md",
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("avatar-stack: omitting aria-label fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY["avatar-stack"]?.propsSchema.safeParse({
+      items: [{ alt: "Alice Johnson" }],
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("avatar-stack: item without alt fails propsSchema", () => {
+    const result = COMPONENT_REGISTRY["avatar-stack"]?.propsSchema.safeParse({
+      "aria-label": "Team",
+      items: [{ src: "https://i.pravatar.cc/40" }],
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("animated-list: out-of-bounds delay fails propsSchema (bounded 100-10000)", () => {
+    const result = COMPONENT_REGISTRY["animated-list"]?.propsSchema.safeParse({
+      delay: 50,
+    });
+    expect(result?.success).toBe(false);
+  });
+
+  it("marquee: out-of-bounds repeat fails propsSchema (bounded 1-10)", () => {
+    const result = COMPONENT_REGISTRY.marquee?.propsSchema.safeParse({
+      repeat: 50,
+    });
+    expect(result?.success).toBe(false);
+  });
 });
 
 // ===========================================================================
@@ -195,8 +241,8 @@ describe("RegisteredTypeSchema allowlist (D-06)", () => {
     expect(RegisteredTypeSchema.safeParse("").success).toBe(false);
   });
 
-  it("REGISTERED_TYPES has exactly 17 entries", () => {
-    expect(REGISTERED_TYPES.length).toBe(17); // Phase 19 added the `form` entry
+  it("REGISTERED_TYPES has exactly 22 entries", () => {
+    expect(REGISTERED_TYPES.length).toBe(22); // 999.13 added 5 vendored entries
   });
 });
 
@@ -278,7 +324,7 @@ describe("computeRegistryHash content-hash (D-07)", () => {
     // The hash must be a 64-char SHA-256 hex — the mechanism that ties the version
     // to the key set is already proven by the "is sensitive to an added entry" test above.
     expect(REGISTRY_VERSION.version).toMatch(/^[0-9a-f]{64}$/);
-    expect(Object.keys(COMPONENT_REGISTRY).length).toBe(17); // Phase 19 added `form`
+    expect(Object.keys(COMPONENT_REGISTRY).length).toBe(22); // 999.13 added 5 vendored entries
   });
 });
 

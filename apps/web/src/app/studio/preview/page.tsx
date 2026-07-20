@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import React from "react";
 
-import { Badge } from "@polytoken/ui/badge";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -38,23 +37,21 @@ export const metadata: Metadata = {
 export default function StudioPreviewPage(): React.ReactElement {
   return (
     <main className="flex h-[calc(100vh-3.5rem)] w-full flex-col">
-      {/* Header — h-12, matches /knowledge page header exactly */}
-      <div className="flex h-12 shrink-0 items-center border-b border-border/50 px-4">
-        <h1 className="text-sm font-semibold text-foreground">
-          Component Showcase
-        </h1>
+      {/* Header — h-11, matches /studio's chrome row (Phase 62 / SURF-05) */}
+      <div className="flex h-11 shrink-0 items-center border-b border-hair bg-leaf px-4">
+        <h1 className="text-sm font-semibold text-ink">Component Showcase</h1>
 
-        {/* Version chips — ml-auto pushes to right edge */}
+        {/* Version facts — ml-auto, quiet chrome chips */}
         <div className="ml-auto flex items-center gap-2">
           {/* Spec version (v field from spec root) */}
-          <Badge variant="secondary">
+          <span className="tabular rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold text-faded">
             v{SHOWCASE_SPEC.v}
-          </Badge>
+          </span>
 
           {/* Registry content-hash chip (server-only — T-12-15) */}
-          <Badge variant="secondary" className="font-mono text-xs">
+          <span className="tabular rounded-sm border border-rule bg-bright px-1.5 py-0.5 font-mono text-2xs text-faded">
             Registry {REGISTRY_VERSION.version.slice(0, 8)}
-          </Badge>
+          </span>
         </div>
       </div>
 
@@ -78,12 +75,12 @@ export default function StudioPreviewPage(): React.ReactElement {
           {/* Resize handle — NO withHandle per UI-SPEC §6 (developer tool) */}
           <ResizableHandle />
 
-          {/* Right pane: read-only JSON inspector */}
+          {/* Right pane: read-only JSON inspector — leaf-ground well */}
           <ResizablePanel defaultSize={45} minSize={25}>
             <div
               role="region"
               aria-label="Spec JSON"
-              className="flex h-full flex-col bg-muted"
+              className="flex h-full flex-col border-l border-hair bg-leaf"
             >
               <JsonPane value={SHOWCASE_SPEC} />
             </div>
