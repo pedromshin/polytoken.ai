@@ -171,6 +171,20 @@ class BaseAppSettings(BaseSettings):
     # wrapper) -- mirrors SEARCH_KNOWLEDGE_TOOL_ENABLED's own convention.
     WEB_SEARCH_TOOL_ENABLED: bool = True
 
+    # --- deep_research exposure gate (Phase 69, RSRCH-01) ---
+    # Same code-gated-exposure discipline as the two flags above: the
+    # DeepResearch loop + DeepResearchToolExecutor and their test suite
+    # (app/application/use_cases/research/) exist regardless of this flag;
+    # only container.py's production wiring reads it, gating whether
+    # deep_research is ever offered to a real chat turn. Defaults True —
+    # the loop is fail-closed by construction (ResearchBudget hard-caps
+    # tokens AND rounds; an aborted run returns only already-verified
+    # claims), so the flag is a kill-switch, not a quarantine. Setting
+    # RESEARCH_TOOL_ENABLED=false structurally omits the capability from
+    # the registry (never mutation). Plain bool field (no @property
+    # wrapper) -- mirrors WEB_SEARCH_TOOL_ENABLED's own convention.
+    RESEARCH_TOOL_ENABLED: bool = True
+
     # --- Chat turn agent (Phase 22-06, SEAM-04) ---
     # Hard cap on generated tokens for a single chat turn (always set, no implicit
     # default — required by the ChatProvider.stream contract).

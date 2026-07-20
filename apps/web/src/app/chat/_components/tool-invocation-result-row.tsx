@@ -52,6 +52,8 @@ import { AlertTriangle } from "lucide-react";
 
 import { ProvenanceLink, type ProvenanceKind } from "~/components/provenance-link";
 
+import { DEEP_RESEARCH_TOOL_NAME, ResearchTraceRow } from "./research-trace";
+
 export interface ToolInvocationResultRowProps {
   readonly toolName: string;
   readonly content: string;
@@ -177,6 +179,15 @@ export function ToolInvocationResultRow({
   content,
   isError,
 }: ToolInvocationResultRowProps): React.ReactElement {
+  // Phase 69 (RSRCH-02/RSRCH-04): a settled deep-research round renders as
+  // the collapsible research trace (one-line summary -> full trace with
+  // pmark 3-tier citations), not the generic "N results" line. Dispatch on
+  // the SAME part contract — this component's own behavior for every other
+  // tool is unchanged, and the research row inherits the identical
+  // error/degraded discipline (see research-trace.tsx).
+  if (toolName === DEEP_RESEARCH_TOOL_NAME) {
+    return <ResearchTraceRow content={content} isError={isError} />;
+  }
   const copy = COPY_BY_TOOL_NAME[toolName] ?? FALLBACK_COPY;
 
   if (isError) {

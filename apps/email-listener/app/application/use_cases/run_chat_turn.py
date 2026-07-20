@@ -186,6 +186,15 @@ _MAX_TOOL_ROUNDS = 4
 # Per-tool execution ceiling (T-34-01) -- a timeout never raises out of the
 # loop, it becomes an is_error ToolExecutionResult instead.
 _TOOL_EXECUTION_TIMEOUT_SECONDS = 10.0
+# Phase 69 (RSRCH-01): deep_research is a bounded multi-round agentic loop
+# (several LLM steps + web-search rounds), not a lookup -- the flat 10s
+# ceiling above would kill every real run mid-plan. Per-tool override,
+# consulted at the one dispatch point in _run_server_tool_round; every other
+# tool keeps the flat default. This is only the stalled-run backstop -- the
+# loop's own ResearchBudget (token ceiling + round cap, deep_research.py) is
+# the real cost gate, and it aborts fail-closed long before this fires on a
+# healthy run.
+_TOOL_TIMEOUT_OVERRIDES: dict[str, float] = {"deep_research": 600.0}
 _TOOL_TIMEOUT_TEXT = "Tool execution timed out."
 _TOOL_EXECUTION_ERROR_TEXT = "Tool execution failed."
 
@@ -1840,7 +1849,7 @@ class RunChatTurn:
                 try:
                     result = await asyncio.wait_for(
                         executor.execute(name=tool_name, arguments=arguments, importer_id=importer_id),
-                        timeout=_TOOL_EXECUTION_TIMEOUT_SECONDS,
+                        timeout=_TOOL_TIMEOUT_OVERRIDES.get(tool_name, _TOOL_EXECUTION_TIMEOUT_SECONDS),
                     )
                 except TimeoutError:
                     logger.warning("server_tool_execution_timed_out", tool_id=tool_id, tool_name=tool_name)

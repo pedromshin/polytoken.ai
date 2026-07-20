@@ -10,6 +10,7 @@ import pytest
 from app.application.use_cases.confirm_action_dispatch import SourceCaptureHandler
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
+from app.application.use_cases.research.deep_research import DeepResearchToolExecutor
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
@@ -286,6 +287,73 @@ class TestWebSearchExposureGate:
             assert isinstance(executors["web_search"], WebSearchExecutor)
             tool_def = run_chat_turn._server_tool_defs["web_search"]
             assert "query" in tool_def["input_schema"]["properties"]
+            assert "lookup_entity" in executors
+            assert "search_emails" in executors
+        finally:
+            get_settings.cache_clear()
+
+
+class TestDeepResearchExposureGate:
+    """Phase 69 (RSRCH-01) CI guard: deep_research's exposure is settings-driven, never dead code.
+
+    Mirrors `TestWebSearchExposureGate` exactly (37-CONTEXT.md's "Exposure
+    gating" P6 rule): the DeepResearch loop + DeepResearchToolExecutor and
+    their test suite (app/application/use_cases/research/) exist regardless
+    of the flag; only container.py's production capability-registry wiring
+    reads it. RESEARCH_TOOL_ENABLED defaults True (the loop is fail-closed
+    by construction — ResearchBudget hard-caps tokens AND rounds), and the
+    flag stays a REAL, working kill-switch either way.
+    """
+
+    def test_container_deep_research_enabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("RESEARCH_TOOL_ENABLED", raising=False)
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            executors = run_chat_turn._tool_executors
+            assert "deep_research" in executors
+            assert isinstance(executors["deep_research"], DeepResearchToolExecutor)
+            tool_def = run_chat_turn._server_tool_defs["deep_research"]
+            assert "question" in tool_def["input_schema"]["properties"]
+            # Additive, not a regression: the earlier phases' wiring stays intact.
+            assert "lookup_entity" in executors
+            assert "search_emails" in executors
+            assert "web_search" in executors
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_deep_research_can_be_disabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RESEARCH_TOOL_ENABLED", "false")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            assert "deep_research" not in run_chat_turn._tool_executors
+            assert "deep_research" not in run_chat_turn._server_tool_defs
+            # Additive, not a regression: the earlier phases' wiring stays intact.
+            assert "lookup_entity" in run_chat_turn._tool_executors
+            assert "search_emails" in run_chat_turn._tool_executors
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_deep_research_enabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("RESEARCH_TOOL_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            executors = run_chat_turn._tool_executors
+            assert "deep_research" in executors
+            assert isinstance(executors["deep_research"], DeepResearchToolExecutor)
+            tool_def = run_chat_turn._server_tool_defs["deep_research"]
+            assert "question" in tool_def["input_schema"]["properties"]
             assert "lookup_entity" in executors
             assert "search_emails" in executors
         finally:

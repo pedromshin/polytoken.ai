@@ -63,6 +63,7 @@ from app.application.use_cases.promote_entity_on_confirm import PromoteEntityOnC
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailUseCase
 from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
+from app.application.use_cases.research.deep_research import define_research_capability
 from app.application.use_cases.resolve_entity_candidates import ResolveEntityCandidatesUseCase
 from app.application.use_cases.resolve_retheme import ResolveRethemeUseCase
 from app.application.use_cases.run_chat_turn import RunChatTurn
@@ -782,6 +783,7 @@ def _provide_run_chat_turn(
     runs: ChatRunRepository,
     conversations: ChatConversationRepository,
     router: ChatProviderRouter,
+    bedrock: BedrockChatAdapter,
     breaker: CostCircuitBreaker,
     ledger: CostLedgerRepository,
     widget_interactions: ChatWidgetInteractionRepository,
@@ -864,6 +866,16 @@ def _provide_run_chat_turn(
     `web_search` result. Zero knowledge-graph writes; no settings kill-switch
     (gating is inherited transitively from WEB_SEARCH_TOOL_ENABLED, A4).
 
+    Phase 69 (RSRCH-01): `bedrock` (the BedrockChatAdapter singleton bound
+    below, same instance the ChatProviderRouter routes to) is injected as the
+    deep-research loop's internal ChatProvider — deep_research is the first
+    capability that is ITSELF an LLM consumer, so the factory now takes the
+    concrete adapter directly, exactly how _provide_chat_provider_router
+    receives it. The capability is registered via its own module's
+    define_research_capability (no container-core construction) behind the
+    RESEARCH_TOOL_ENABLED exposure gate, mirroring web_search's structural
+    omission pattern.
+
     Phase 56-04 (RCNV-04): `context_edges` (SupabaseChatContextEdgeRepository,
     bound above) is threaded into RunChatTurn's additive `context_edges`
     collaborator — the SECOND, INDEPENDENT fail-open linked-context injection
@@ -941,6 +953,30 @@ def _provide_run_chat_turn(
                     )
                 ]
                 if settings.WEB_SEARCH_TOOL_ENABLED
+                else []
+            ),
+            # Phase 69 (RSRCH-01): deep_research — the bounded multi-round
+            # research loop, packaged as ONE Capability by its own module's
+            # registration helper (define_research_capability declares
+            # risk="read"/cost="expensive" itself). Mirrors the web_search
+            # exposure-gate pattern above: structural omission (never
+            # mutation) when RESEARCH_TOOL_ENABLED is off. Collaborators are
+            # all ALREADY-built instances — the DI-provided BedrockChatAdapter
+            # singleton (the curated chat models are Bedrock-transport; the
+            # loop's internal plan/draft/verify/synthesize calls pin the
+            # settings model id rather than the user's per-turn pick) and the
+            # SAME web_search_executor wired above (the loop's search rounds
+            # reach the open internet through the identical SSRF-checked
+            # seam, whether or not web_search itself is exposed to the model).
+            *(
+                [
+                    define_research_capability(
+                        chat_provider=bedrock,
+                        search_executor=web_search_executor,
+                        model_id=settings.bedrock_model_id,
+                    )
+                ]
+                if settings.RESEARCH_TOOL_ENABLED
                 else []
             ),
         ]

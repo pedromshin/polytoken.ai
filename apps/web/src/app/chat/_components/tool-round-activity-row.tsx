@@ -40,6 +40,8 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 
+import { DEEP_RESEARCH_TOOL_NAME, ResearchActivityRow } from "./research-trace";
+
 export interface ToolRoundActivityRowProps {
   readonly toolName: string;
 }
@@ -59,6 +61,13 @@ const FALLBACK_LABEL = "Running a lookup…";
 export function ToolRoundActivityRow({
   toolName,
 }: ToolRoundActivityRowProps): React.ReactElement {
+  // Phase 69 (RSRCH-04): a deep-research round is minutes, not seconds — it
+  // gets its own two-line status row (same register, honest expectation)
+  // rather than a gerund label. Dispatch, not a parallel path: the part
+  // contract and this component's role are unchanged.
+  if (toolName === DEEP_RESEARCH_TOOL_NAME) {
+    return <ResearchActivityRow />;
+  }
   const label = LABEL_BY_TOOL_NAME[toolName] ?? FALLBACK_LABEL;
   return (
     // The sketch's `.tool`: flex, gap 7px (`gap-1.5` = 6px, the named step),
