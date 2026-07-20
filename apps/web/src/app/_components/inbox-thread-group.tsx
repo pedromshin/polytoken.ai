@@ -27,6 +27,13 @@ interface InboxThreadGroupProps {
    */
   readonly members: ReadonlyArray<InboxEmail>;
   readonly entitiesByEmailId: ReadonlyMap<string, ReadonlyArray<EntityChipEntry>>;
+  /**
+   * MAIL-01: per-email UNDECIDED rule-suggestion counts (already net of the
+   * user's local accept/dismiss decisions), forwarded to each member
+   * `InboxRow`'s collapsed dashed mark. Optional so existing call sites and
+   * tests compile unchanged.
+   */
+  readonly ruleSuggestionCountByEmailId?: ReadonlyMap<string, number>;
   readonly selectedEmailId: string | null;
   readonly onSelectMember: (emailId: string) => void;
 }
@@ -59,6 +66,7 @@ export function InboxThreadGroup({
   latestSnippet,
   members,
   entitiesByEmailId,
+  ruleSuggestionCountByEmailId,
   selectedEmailId,
   onSelectMember,
 }: InboxThreadGroupProps): React.ReactElement | null {

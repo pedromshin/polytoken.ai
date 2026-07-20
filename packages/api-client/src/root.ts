@@ -7,6 +7,7 @@ import { filesRouter } from "./router/files";
 import { forwardingRouter } from "./router/forwarding";
 import { genuiRouter } from "./router/genui";
 import { knowledgeRouter } from "./router/knowledge";
+import { referencesRouter } from "./router/references";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({

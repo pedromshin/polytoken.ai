@@ -26,7 +26,11 @@ import {
   sessionStartRequestSchema,
 } from "./sessions.js";
 import { fsWatchEventSchema } from "./watch.js";
-import { toolRequestSchema, toolResultSchema } from "./tools.js";
+// v2.0: the EXTENDED unions are strict supersets of the frozen `toolRequestSchema` /
+// `toolResultSchema` — every frame legal before this import change is legal after it, and the
+// frozen 5 are tried FIRST inside the extended request union, so their parse behavior is
+// byte-for-byte unchanged. The browser tools ride the same `tool.request` MsgType.
+import { extendedToolRequestSchema, extendedToolResultSchema } from "./browser.js";
 import { permDecisionSchema, permRequestSchema } from "./perms.js";
 
 /** Client → daemon. Note the absences: perm.request, tool.result, session.output/exit, fs.watch.event. */
@@ -36,7 +40,7 @@ export const clientToDaemon = {
   "session.attach": sessionAttachRequestSchema,
   "session.input": sessionInputSchema,
   "session.resize": sessionResizeSchema,
-  "tool.request": toolRequestSchema,
+  "tool.request": extendedToolRequestSchema,
   "perm.decision": permDecisionSchema,
 } as const satisfies Partial<Record<MsgType, ZodTypeAny>>;
 
@@ -52,7 +56,7 @@ export const daemonToClient = {
   "session.output": sessionOutputEventSchema,
   "session.exit": sessionExitEventSchema,
   "fs.watch.event": fsWatchEventSchema,
-  "tool.result": toolResultSchema,
+  "tool.result": extendedToolResultSchema,
   "perm.request": permRequestSchema,
 } as const satisfies Partial<Record<MsgType, ZodTypeAny>>;
 

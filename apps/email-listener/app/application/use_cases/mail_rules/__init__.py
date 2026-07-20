@@ -12,12 +12,35 @@ The suggest-only stance mirrors entity resolution: a suggestion is INFERRED
 apply an action; blessing + execution happen downstream through the registry's
 permission model (INV-4: `risk` is data).
 
+The acting half lives in `execute_blessed_action`: once a human blesses a
+suggestion (a `BlessRecord` with actor + timestamp, suggest-only stance),
+`ExecuteBlessedAction` resolves the referenced capability through the registry
+(fail closed on unregistered ids) and enacts it against the fixture corpus as a
+recorded intent (no live mail -- LIVE-04 is user-gated), returning a
+`BlessedActionAuditTrail` (INV-7). Un-blessed suggestions refuse to execute.
+
 Entry helper for the composition root: `define_mail_rule_capabilities()`.
 """
 
 from __future__ import annotations
 
 from app.application.use_cases.mail_rules.capabilities import define_mail_rule_capabilities
+from app.application.use_cases.mail_rules.execute_blessed_action import (
+    BlessedActionAuditTrail,
+    BlessedActionExecutionError,
+    BlessedActionRefusedError,
+    BlessMismatchError,
+    BlessRecord,
+    ExecuteBlessedAction,
+    FixtureActionRecorder,
+    MalformedActionArgumentsError,
+    RecordedActionIntent,
+    RecordedForwardIntent,
+    RecordedLabelMutation,
+    RecordedSheetRowIntent,
+    UnblessedSuggestionError,
+    UnsupportedBlessedActionError,
+)
 from app.application.use_cases.mail_rules.rules import (
     Rule,
     RuleCondition,
@@ -28,10 +51,24 @@ from app.application.use_cases.mail_rules.rules import (
 )
 
 __all__ = [
+    "BlessMismatchError",
+    "BlessRecord",
+    "BlessedActionAuditTrail",
+    "BlessedActionExecutionError",
+    "BlessedActionRefusedError",
+    "ExecuteBlessedAction",
+    "FixtureActionRecorder",
+    "MalformedActionArgumentsError",
+    "RecordedActionIntent",
+    "RecordedForwardIntent",
+    "RecordedLabelMutation",
+    "RecordedSheetRowIntent",
     "Rule",
     "RuleCondition",
     "RulesMatcher",
     "Suggestion",
+    "UnblessedSuggestionError",
+    "UnsupportedBlessedActionError",
     "assert_rules_reference_registered_capabilities",
     "default_mail_rules",
     "define_mail_rule_capabilities",

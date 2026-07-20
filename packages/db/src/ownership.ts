@@ -42,6 +42,7 @@ import { Emails } from "./schema/emails";
 import { ForwardingAddresses } from "./schema/forwarding-addresses";
 import { Importers } from "./schema/importers";
 import { KnowledgeNodes } from "./schema/knowledge-nodes";
+import { References } from "./schema/references";
 import { Threads } from "./schema/threads";
 
 /** The Drizzle handle every ownership function accepts as its first parameter. */
@@ -237,6 +238,31 @@ export async function assertDocumentOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("document", documentId);
+  }
+}
+
+/**
+ * assertReferenceOwnership — resolves when references.user_id = userId.
+ * Direct user_id, no join (mirrors assertDocumentOwnership — references is
+ * NOT an importer-descendant, 999.35). Throws OwnershipError
+ * otherwise/missing (fail-closed, no existence oracle). This is the ONLY
+ * path any tRPC procedure uses to gate a single reference read/delete —
+ * never an ad-hoc per-call-site user_id filter.
+ */
+export async function assertReferenceOwnership(
+  db: OwnershipDb,
+  referenceId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: References.userId })
+    .from(References)
+    .where(eq(References.id, referenceId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("reference", referenceId);
   }
 }
 

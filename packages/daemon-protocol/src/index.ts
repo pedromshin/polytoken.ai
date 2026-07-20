@@ -63,6 +63,24 @@ export type {
   ToolResultPayload,
 } from "./tools.js";
 
+// browser (v2.0 additive module — the frozen 5 above are untouched)
+export {
+  browserToolNameSchema,
+  browserToolRequestSchema,
+  browserToolOutputSchema,
+  extendedToolRequestSchema,
+  extendedToolOutputSchema,
+  extendedToolResultSchema,
+} from "./browser.js";
+export type {
+  BrowserToolName,
+  BrowserToolRequestPayload,
+  BrowserToolOutput,
+  ExtendedToolRequestPayload,
+  ExtendedToolOutput,
+  ExtendedToolResultPayload,
+} from "./browser.js";
+
 // perms
 export { permRequestSchema, permDecisionSchema } from "./perms.js";
 export type { PermRequestPayload, PermDecisionPayload } from "./perms.js";
