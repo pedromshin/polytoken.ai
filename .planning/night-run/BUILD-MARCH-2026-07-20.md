@@ -77,3 +77,34 @@ VISION.md` (E0–E7), `research/two-epoch-endgame/ENDGAME-PLAN.md` (v2.0), `nigh
 - **Iron rule:** snapshot BEFORE any revert/clean/reset of agent output. (Two earlier partial-file reverts were unrecoverable — that class of loss is now closed.)
 - **Recovery:** `git fetch origin claude/gsd-plugin-marketplace-s6us9d-wip-snapshots && git log --first-parent FETCH_HEAD`, then `git checkout <snap> -- path` per file. Full recipes in scratchpad/snapshot.sh header.
 - **Residual risk, stated honestly:** work created and lost BETWEEN two ticks (≤4 min window) if the container dies mid-tick; and the loop itself dies with the container (restart is RELAUNCH-PLAN Step 0 — the scheduled 00:26 UTC resume does this).
+
+## 2026-07-20 ~23:xx UTC — ALL WAVES INTEGRATED (consolidated verification green)
+
+Fable relaunch swept every wave to completion. Branch tip: c38bcfd + wiring/verify commits.
+Cross-cutting sweep: 7/7 TS packages tsc clean; vitest capabilities 22, daemon-protocol 52,
+genui 626, canvas 537, daemon browser 26 (12 daemon failures are PRE-EXISTING Windows-path
+tests, zero regression); listener full suite 91.40% coverage (floor 80 held), import-linter 3/3,
+ruff clean — only the 4 credential-gated live-OCR tests fail (session baseline).
+
+DONE this session:
+- v1.11 spine (capabilities registry) + all four consumers + genui×registry binding (D2 proof)
+- Research: deep_research wired end-to-end + trace UI + pmark citations + envelope-shrink fix + evals
+- Documents (pages+canvas node+DB+PDF), Source nodes, Canon curation + promote path end-to-end
+- Mail: suggest-only review IN the inbox + blessed-action execution (bless gate, audit trail)
+- Phase 62: /knowledge /studio /settings /login redesigned + production states (v1.10 code swept)
+- v2.0: browser.* daemon capabilities, /capabilities allowlist panel, directory/browser/editor
+  canvas panels (registered), daemon ?token= browser-WS gate, sidebar nav
+- v2.2: /sessions terminal surface
+- v2.1: files vault hardening
+- Backlog: 999.31 carve, 999.15 caching, 999.13/8b/2 genui, 999.27 vetting seam, 999.32 CLAUDE.md,
+  999.33 mail actions, 999.35 /references, 999.25 fixtures, 999.39 Cloud Desktop RFC, INV-4 confirm card
+
+BLOCKED / PARKED (needs explicit user direction or a machine):
+- Daemon PTY sessions + dir-watch (session.start/write/kill): BLOCKED by safety layer as an
+  unnamed RCE surface. Not retried. Needs the user to specifically authorize persistent
+  arbitrary-command daemon sessions before it can be built.
+- Pixel review of every visual surface; v1.9 live legs; v1.12 real-mail switch; 999.20 infra purge;
+  D2 bless; Cloud Desktop provisioning account.
+- Open SEAMS (recorded in commit bodies): panel add-affordances + daemon intent bridge (browser
+  screenshot stream / fs live tree into panels); directory attach-chat procedure; allowlist
+  enforcement into broker+chat loop; live daemon manifest merge; server-persisted allowlist table.
