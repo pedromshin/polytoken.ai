@@ -63,3 +63,8 @@ apps/email-listener/listener-*.log
 # Remote Control session log — contains a live session/environment URL
 .planning/night-run/remote-control.log
 .planning/night-run/resume-log.txt
+
+# GSD plugin, vendored locally for this session (not a real /plugin install)
+.claude/skills/
+.claude/agents/
+.claude/gsd-support/
