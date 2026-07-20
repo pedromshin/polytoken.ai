@@ -455,6 +455,83 @@ const FormNodeSchema = z
   .strict();
 
 // ===========================================================================
+// SECTION 4c: 999.13 — vendored-motion node schemas
+// (number-ticker, spinner, avatar-stack, animated-list, marquee)
+//
+// Same wire rules as Section 4b: every schema ends in .strict(); a11y-required
+// fields are NON-optional (D-04 / UI-SPEC §11); numeric knobs are bounded;
+// container schemas (animated-list, marquee) use z.lazy(lazySpecNode).array().
+// ===========================================================================
+
+/** number-ticker — animated count-up numeric display. aria-label REQUIRED (D-04). */
+const NumberTickerNodeSchema = z
+  .object({
+    type: z.literal("number-ticker"),
+    value: z.number(),
+    "aria-label": z.string(), // a11y-required (D-04 / UI-SPEC §11) — animated text needs a stable label
+    startValue: z.number().optional(),
+    decimalPlaces: z.number().int().min(0).max(6).optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/** spinner — loading indicator. label REQUIRED (D-04) — becomes the aria-label. */
+const SpinnerNodeSchema = z
+  .object({
+    type: z.literal("spinner"),
+    label: z.string(), // a11y-required (D-04 / UI-SPEC §11)
+    size: z.enum(["sm", "md", "lg"]).optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/** avatar-stack — overlapping avatar group. aria-label + per-item alt REQUIRED (D-04). */
+const AvatarStackNodeSchema = z
+  .object({
+    type: z.literal("avatar-stack"),
+    "aria-label": z.string(), // a11y-required group label (D-04 / UI-SPEC §11)
+    items: z
+      .array(
+        z
+          .object({
+            alt: z.string(), // a11y-required per avatar (D-04)
+            src: z.string().optional(),
+          })
+          .strict(),
+      )
+      .min(1),
+    size: z.enum(["sm", "md", "lg"]).optional(),
+    animate: z.boolean().optional(),
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/** animated-list — container revealing children sequentially. delay bounded (ms). */
+const AnimatedListNodeSchema = z
+  .object({
+    type: z.literal("animated-list"),
+    "aria-label": z.string().optional(), // optional landmark label (UI-SPEC §11)
+    delay: z.number().int().min(100).max(10000).optional(),
+    children: z.lazy(lazySpecNode).array() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+/** marquee — infinite-scroll container. repeat bounded 1-10. */
+const MarqueeNodeSchema = z
+  .object({
+    type: z.literal("marquee"),
+    "aria-label": z.string().optional(), // optional landmark label (UI-SPEC §11)
+    reverse: z.boolean().optional(),
+    pauseOnHover: z.boolean().optional(),
+    vertical: z.boolean().optional(),
+    repeat: z.number().int().min(1).max(10).optional(),
+    children: z.lazy(lazySpecNode).array() as z.ZodTypeAny,
+    colSpan: z.number().int().min(1).max(12).optional(),
+  })
+  .strict();
+
+// ===========================================================================
 // SECTION 5: SpecNodeSchema — discriminated union
 //
 // All 12 options are ZodObject instances (leaf schemas are plain ZodObject;
@@ -485,6 +562,11 @@ const SpecNodeSchema = z.discriminatedUnion("type", [
   TabsNodeSchema,
   SectionNodeSchema,
   FormNodeSchema,
+  NumberTickerNodeSchema,
+  SpinnerNodeSchema,
+  AvatarStackNodeSchema,
+  AnimatedListNodeSchema,
+  MarqueeNodeSchema,
 ]);
 
 // Wire the lazy reference immediately after construction.

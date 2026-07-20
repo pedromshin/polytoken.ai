@@ -53,6 +53,12 @@ import {
 import { Avatar, AvatarImage, AvatarFallback } from "@polytoken/ui/avatar";
 import { Input } from "@polytoken/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@polytoken/ui/tabs";
+// 999.13 — vendored motion/utility components registered as spec types (CTLG-06 pattern)
+import { NumberTicker } from "@polytoken/ui/number-ticker";
+import { Spinner } from "@polytoken/ui/spinner";
+import { AvatarStack } from "@polytoken/ui/avatar-stack";
+import { AnimatedList } from "@polytoken/ui/animated-list";
+import { Marquee } from "@polytoken/ui/marquee";
 
 import type { AnyManifestEntry, ComponentRegistry } from "./types";
 import { ActionSchema } from "../schema/action-schema";
@@ -212,6 +218,50 @@ type TabsProps = {
   readonly tabs: ReadonlyArray<TabItem>;
   readonly defaultValue?: string;
   readonly children?: React.ReactNode; // injected by renderer for TabsContent slots
+};
+
+// 999.13 — vendored-component prop types ------------------------------------
+
+/** number-ticker — @polytoken/ui/number-ticker leaf; aria-label a11y-required (D-04) */
+type NumberTickerProps = {
+  readonly value: number;
+  readonly "aria-label": string; // a11y-required (D-04 / UI-SPEC §11)
+  readonly startValue?: number;
+  readonly decimalPlaces?: number;
+};
+
+/** spinner — @polytoken/ui/spinner leaf; label a11y-required (D-04) */
+type SpinnerProps = {
+  readonly label: string; // a11y-required (D-04 / UI-SPEC §11) — rendered as aria-label
+  readonly size?: "sm" | "md" | "lg";
+};
+
+/** avatar-stack — @polytoken/ui/avatar-stack leaf; aria-label + item alt required (D-04) */
+type AvatarStackProps = {
+  readonly "aria-label": string; // a11y-required group label (D-04 / UI-SPEC §11)
+  readonly items: ReadonlyArray<{
+    readonly alt: string;
+    readonly src?: string;
+  }>;
+  readonly size?: "sm" | "md" | "lg";
+  readonly animate?: boolean;
+};
+
+/** animated-list — @polytoken/ui/animated-list container */
+type AnimatedListProps = {
+  readonly "aria-label"?: string; // optional landmark label (UI-SPEC §11)
+  readonly delay?: number; // ms between reveals, bounded 100-10000
+  readonly children?: React.ReactNode;
+};
+
+/** marquee — @polytoken/ui/marquee container */
+type MarqueeProps = {
+  readonly "aria-label"?: string; // optional landmark label (UI-SPEC §11)
+  readonly reverse?: boolean;
+  readonly pauseOnHover?: boolean;
+  readonly vertical?: boolean;
+  readonly repeat?: number; // bounded 1-10
+  readonly children?: React.ReactNode;
 };
 
 // ---------------------------------------------------------------------------

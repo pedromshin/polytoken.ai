@@ -57,7 +57,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@polytoken/ui/select";
-import { Badge } from "@polytoken/ui/badge";
 
 import { api } from "~/trpc/react";
 import { buildActionRegistry } from "@polytoken/genui/renderer";
@@ -273,7 +272,7 @@ export function GenerationSandboxIsland({
     <div className="flex h-full flex-col">
       {/* Intent input strip — shrink-0, no scroll */}
       <div
-        className="flex shrink-0 flex-col gap-3 border-b border-border/50 p-4"
+        className="flex shrink-0 flex-col gap-3 border-b border-hair bg-leaf p-4"
         role="search"
         aria-label="Generate UI specification"
       >
@@ -332,20 +331,38 @@ export function GenerationSandboxIsland({
         </div>
       </div>
 
-      {/* WR-01: transport/query error alert — shown when generation fails with no spec */}
+      {/* WR-01: transport/query error — an error is a STATE: ink on a rule,
+          never madder (law 1). The retry path is the Generate button, which
+          stays one keystroke away. */}
       {!showChrome && lastError !== undefined && (
-        <div role="alert" className="px-4 pt-2 text-sm text-destructive">
-          {lastError}
+        <div className="flex flex-1 items-start justify-center p-8">
+          <div
+            role="alert"
+            className="w-full max-w-sm rounded-card border border-rule bg-leaf p-panel text-center"
+          >
+            <p className="text-sm font-semibold text-ink">{lastError}</p>
+            <p className="mt-1 text-xs text-faded">
+              Your intent is still above — press Generate to retry.
+            </p>
+          </div>
         </div>
       )}
 
-      {/* Empty state — before any generation (§8) */}
+      {/* Empty state — teaches the one action (SURF-06 / taste item 8) */}
       {!showChrome && lastError === undefined && (
         <div
-          className="flex flex-1 items-center justify-center text-sm text-muted-foreground"
+          className="flex flex-1 items-center justify-center p-8"
           aria-live="polite"
         >
-          Enter an intent above and click Generate to preview the rendered spec.
+          <div className="max-w-sm text-center">
+            <p className="text-sm font-semibold text-ink">
+              Describe a view, press Enter.
+            </p>
+            <p className="mt-1 text-sm text-faded">
+              The generated spec renders here, side by side with its JSON —
+              nothing fires until you ask.
+            </p>
+          </div>
         </div>
       )}
 
@@ -382,15 +399,16 @@ export function GenerationSandboxIsland({
                     aria-label="Rendered output"
                     className="flex h-full flex-col overflow-y-auto scrollbar-token"
                   >
-                    {/* Pack provenance badge — D-04: shows which pack was used */}
+                    {/* Pack provenance — D-04: which pack was used, stated
+                        as a quiet chrome chip (no decorated badge). */}
                     {displayPackName !== undefined && (
                       <div className="shrink-0 px-6 pt-4 pb-2">
-                        <Badge
-                          variant="secondary"
+                        <span
                           aria-label={`Visual theme: ${displayPackName}`}
+                          className="inline-flex items-center rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold text-faded"
                         >
                           Theme: {displayPackName}
-                        </Badge>
+                        </span>
                       </div>
                     )}
                     <div className="flex-1 p-6 pt-2">
@@ -401,12 +419,12 @@ export function GenerationSandboxIsland({
 
                 <ResizableHandle />
 
-                {/* Right: spec JSON */}
+                {/* Right: spec JSON — a leaf-ground inspector well */}
                 <ResizablePanel defaultSize={45} minSize={25}>
                   <div
                     role="region"
                     aria-label="Spec JSON"
-                    className="flex h-full flex-col bg-muted"
+                    className="flex h-full flex-col border-l border-hair bg-leaf"
                   >
                     <JsonPane value={specToRender} />
                   </div>

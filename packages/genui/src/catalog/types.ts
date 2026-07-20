@@ -20,6 +20,8 @@ import type { ZodType } from "zod";
  * Layout primitives (3): stack, grid, section (house-built containers, not @polytoken/ui exports).
  * Iteration + conditional (2): list, conditional (SPEC-01 requirement).
  * Phase 18 additions (5): avatar, input, nav, feed-item, tabs.
+ * 999.13 vendored-motion additions (5): number-ticker, spinner, avatar-stack,
+ * animated-list, marquee (@polytoken/ui vendored components).
  *
  * This exact set is the discriminant for the Zod discriminated-union in
  * packages/genui/src/schema/spec-schema.ts — every literal here MUST have a
@@ -44,7 +46,12 @@ export type SpecNodeType =
   | "feed-item"
   | "tabs"
   | "section"
-  | "form";
+  | "form"
+  | "number-ticker"
+  | "spinner"
+  | "avatar-stack"
+  | "animated-list"
+  | "marquee";
 
 // ---------------------------------------------------------------------------
 // ManifestEntry<TProps> — per-component catalog entry shape (D-03, SPEC-RENDERER §4.1)

@@ -31,9 +31,7 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Shuffle } from "lucide-react";
 
-import { Badge } from "@polytoken/ui/badge";
 import { Button } from "@polytoken/ui/button";
-import { Card, CardContent, CardHeader } from "@polytoken/ui/card";
 import {
   Select,
   SelectContent,
@@ -89,36 +87,37 @@ const ALL_CATEGORIES: readonly string[] = deriveCategories(PAGE_IDEAS);
 // Sub-components
 // ---------------------------------------------------------------------------
 
-/** Badge strip showing category / complexity / tier / curveball chips. */
+/** Meta strip — category (mono) / complexity / tier / curveball, all quiet
+ *  chrome: these are facts about the prompt, not statuses (law 1: no hue). */
 function IdeaChips({ idea }: { readonly idea: PageIdea }): React.ReactElement {
   return (
-    <div className="flex flex-wrap gap-1 mt-2">
-      <Badge variant="secondary" className="text-xs font-mono">
-        {idea.category}
-      </Badge>
-      <Badge variant="outline" className="text-xs">
-        {idea.complexity}
-      </Badge>
-      <Badge variant="outline" className="text-xs">
-        Tier {idea.tier}
-      </Badge>
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-2xs text-pencil">
+      <span className="font-mono">{idea.category}</span>
+      <span aria-hidden>·</span>
+      <span>{idea.complexity}</span>
+      <span aria-hidden>·</span>
+      <span>Tier {idea.tier}</span>
       {idea.curveball && (
-        <Badge variant="outline" className="text-xs">
-          curveball
-        </Badge>
+        <>
+          <span aria-hidden>·</span>
+          <span className="font-semibold">curveball</span>
+        </>
       )}
-    </div>
+    </span>
   );
 }
 
-/** A single idea card with prompt text, chips, and a "Use this idea" button. */
-function IdeaCard({
+/**
+ * A single idea as a registry ROW, not a shadowed card (taste §3: "/studio —
+ * recent work as a plain registry list"). The whole row is the button — one
+ * click seeds the Sandbox (interaction economy item 1); the affordance label
+ * is hover/focus-revealed rather than 76 permanent buttons (item 5).
+ */
+function IdeaRow({
   idea,
-  index,
   onUseIdea,
 }: {
   readonly idea: PageIdea;
-  readonly index: number;
   readonly onUseIdea: (prompt: string) => void;
 }): React.ReactElement {
   const handleUse = useCallback((): void => {
@@ -126,26 +125,27 @@ function IdeaCard({
   }, [idea.prompt, onUseIdea]);
 
   return (
-    <Card
-      className="flex flex-col gap-0 animate-in fade-in-0 slide-in-from-bottom-1 duration-200 motion-reduce:animate-none"
-      style={{ animationDelay: `${Math.min(index, 5) * 40}ms` }}
+    <button
+      type="button"
+      onClick={handleUse}
+      aria-label={`Use idea: ${idea.prompt}`}
+      className="group flex w-full items-start gap-3 border-b border-hair px-row-x py-row-y text-left transition-colors hover:bg-shade focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
     >
-      <CardHeader className="pb-2 pt-4 px-4">
-        <p className="text-sm leading-relaxed text-foreground">{idea.prompt}</p>
-        <IdeaChips idea={idea} />
-      </CardHeader>
-      <CardContent className="px-4 pb-4 pt-0">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleUse}
-          aria-label={`Use idea: ${idea.prompt}`}
-          className="text-xs"
-        >
-          Use this idea
-        </Button>
-      </CardContent>
-    </Card>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm leading-relaxed text-ink">
+          {idea.prompt}
+        </span>
+        <span className="mt-1 block">
+          <IdeaChips idea={idea} />
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className="shrink-0 pt-0.5 text-xs font-semibold text-ink opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+      >
+        Use →
+      </span>
+    </button>
   );
 }
 
@@ -186,7 +186,7 @@ function FilterBar({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-2 shrink-0 px-4 py-3 border-b border-border/50">
+    <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-hair bg-leaf px-4 py-2.5">
       {/* Category select */}
       <Select
         value={filter.category}
@@ -318,10 +318,10 @@ export function PageIdeasIsland({
   return (
     <div className="flex flex-1 min-h-0 flex-col">
       {/* Header strip: title + Surprise me button */}
-      <div className="flex shrink-0 items-center justify-between px-4 py-3 border-b border-border/50">
+      <div className="flex shrink-0 items-center justify-between border-b border-hair bg-leaf px-4 py-3">
         <div>
-          <span className="text-sm font-semibold">Page Ideas</span>
-          <span className="ml-2 text-xs text-muted-foreground" aria-live="polite">
+          <span className="text-sm font-semibold text-ink">Page Ideas</span>
+          <span className="tabular ml-2 text-xs text-pencil" aria-live="polite">
             {resultCount === totalCount
               ? `${totalCount} ideas`
               : `${resultCount} of ${totalCount} ideas`}
@@ -342,26 +342,34 @@ export function PageIdeasIsland({
       {/* Filter bar */}
       <FilterBar filter={filter} onFilterChange={setFilter} />
 
-      {/* Card grid — aria-live so screen readers announce count changes */}
+      {/* Registry list — aria-live so screen readers announce count changes */}
       <div
         role="region"
-        aria-label="Page idea cards"
+        aria-label="Page ideas"
         aria-live="polite"
-        className="flex-1 overflow-y-auto scrollbar-token p-4"
+        className="flex-1 overflow-y-auto scrollbar-token"
       >
         {resultCount === 0 ? (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            No ideas match these filters. Try broadening your selection.
+          /* Filtered to zero — the next action is the only control */
+          <div className="flex h-full items-center justify-center p-8">
+            <div className="flex flex-col items-center gap-2 text-center">
+              <p className="text-sm font-semibold text-ink">
+                No ideas match these filters.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={(): void => setFilter(INITIAL_FILTER)}
+              >
+                Clear filters
+              </Button>
+            </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((idea, index) => (
-              <IdeaCard
-                key={idea.id}
-                idea={idea}
-                index={index}
-                onUseIdea={onUseIdea}
-              />
+          <div className="mx-auto w-full max-w-3xl">
+            {filtered.map((idea) => (
+              <IdeaRow key={idea.id} idea={idea} onUseIdea={onUseIdea} />
             ))}
           </div>
         )}
