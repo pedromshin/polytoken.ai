@@ -90,6 +90,19 @@ export function genuiPanelNodeId(messageId: string, partIndex: number): string {
   return `genui-panel:${messageId}:${partIndex}`;
 }
 
+/**
+ * sourceNodeId — the canonical id for an auto-collected source node
+ * (RCNV-02/RSRCH-03), keyed on the chat_source_ledger row's id. THE WIRING
+ * SEAM anchors here: the reconcile step that materializes ledger rows as
+ * canvas nodes (the source counterpart of `buildExpectedGenuiPanelSpecs`'s
+ * Pass-2 auto-placement — sources appear WITHOUT the user asking) must derive
+ * node ids through this function so a row is placed exactly once and a saved
+ * placement is recognized on restore, never re-derived ad hoc.
+ */
+export function sourceNodeId(sourceLedgerId: string): string {
+  return `source:${sourceLedgerId}`;
+}
+
 // ---------------------------------------------------------------------------
 // reconcileNodesFromHistory — Pass 1 (restore + degrade) + Pass 2 (place new)
 // ---------------------------------------------------------------------------

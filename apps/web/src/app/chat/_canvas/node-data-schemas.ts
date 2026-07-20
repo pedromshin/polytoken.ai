@@ -113,3 +113,63 @@ export const DocumentNodeDataSchema = z
   .strict();
 
 export type DocumentNodeData = z.infer<typeof DocumentNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// SourceNodeDataSchema — source node.data (RCNV-02/RSRCH-03: auto-collected
+// research sources as canvas nodes, zero capture ceremony).
+//
+// THE DELIBERATE DEVIATION from the sibling ref-only discipline, stated so
+// nobody "fixes" it into a broken fetch: EmailThreadNode/DocumentNode carry a
+// ref and rehydrate via tRPC because their content is authoritative elsewhere
+// and can CHANGE. A chat_source_ledger row is the opposite shape — an
+// INSERT-only capture (url/title/snippet written once, deduped on
+// (conversation, tool_use_id, result_index), never edited), and it has NO
+// per-row web read procedure today. So node.data carries the tiny immutable
+// display payload itself: the node renders synchronously with zero fetch,
+// which is what "sources appear WITHOUT the user asking" needs — N sources
+// must not cost N queries for static data. `sourceLedgerId` remains the
+// provenance anchor (context-edges' sourceRef type "source_ledger" and the
+// Phase 63 promotion gate both key on it).
+//
+// THE URL IS THE THREAT SURFACE (T-61-04 restated): node.data arrives from
+// chat_canvas_layouts, a user-writable row, and the restore path re-validates
+// only the generic CanvasSnapshotSchema — NOT this per-type schema. The
+// refine below gates writes to http(s) only, and source-node.tsx's
+// `safeSourceHref` re-guards at render time (defense in depth) so a tampered
+// row can never mount a javascript:/data: href.
+//
+// `tier` mirrors the suggest-only stance (tier.ts's tierOf): "suggested" =
+// auto-collected, nobody confirmed; "confirmed" = promoted into the knowledge
+// graph (ledger row's knowledgeNodeId set). OPTIONAL, and a consumer resolves
+// an absent/unknown value to "suggested", NEVER "confirmed" — an auto-captured
+// source must not silently claim a confirmation the user never gave.
+// ---------------------------------------------------------------------------
+
+/** Accepts only an absolute http(s) URL — the one write-side gate against a
+ * javascript:/data:/file: href riding a persisted layout row into an <a>. */
+function isHttpUrl(value: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "https:" || parsed.protocol === "http:";
+}
+
+export const SourceNodeDataSchema = z
+  .object({
+    sourceLedgerId: z.string().uuid(),
+    url: z
+      .string()
+      .max(2048)
+      .refine(isHttpUrl, { message: "url must be an absolute http(s) URL" }),
+    title: z.string().min(1).max(300),
+    // The ledger's `snippet`, renamed to what it is on screen. The wiring seam
+    // truncates to this cap when it maps a row into node.data.
+    excerpt: z.string().max(500).optional(),
+    tier: z.enum(["confirmed", "suggested"]).optional(),
+  })
+  .strict();
+
+export type SourceNodeData = z.infer<typeof SourceNodeDataSchema>;

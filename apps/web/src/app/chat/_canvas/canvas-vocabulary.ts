@@ -175,9 +175,12 @@ export const CANVAS_EDGE_TIER_STYLE: Record<CanvasEdgeTier, EdgeStyle> = {
 };
 
 /**
- * A canvas node's kind. Mirrors `NODE_TYPE_REGISTRY`'s four registered types
- * plus the `unknown` marker `resolveNodeType` already returns for an
- * unregistered/legacy type (CANVAS-03, T-23-05: the canvas "never breaks").
+ * A canvas node's kind. Mirrors `NODE_TYPE_REGISTRY`'s registered types
+ * ONE-FOR-ONE plus the `unknown` marker `resolveNodeType` already returns for
+ * an unregistered/legacy type (CANVAS-03, T-23-05: the canvas "never breaks").
+ * `canvas-vocabulary.test.ts` asserts the two stay in lockstep — register a
+ * node type without growing this vocabulary and that gate goes red rather than
+ * the new node silently rendering a degraded placeholder frame forever.
  */
 export type CanvasNodeKind =
   | "chat"
@@ -185,6 +188,7 @@ export type CanvasNodeKind =
   | "email-thread"
   | "knowledge-preview"
   | "document"
+  | "source"
   | "unknown";
 
 /**
@@ -201,6 +205,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     "email-thread": "email-thread",
     "knowledge-preview": "knowledge-preview",
     document: "document",
+    source: "source",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -238,6 +243,12 @@ export function canvasNodeKindOf(type: string): CanvasNodeKind {
  *                       real material, provenance-marked back to it (rule 2, the
  *                       same evidence-carrying weight as a thread)
  *     genui-panel (1)   polytoken's rendering — it has no words of its own
+ *     source (1)        a web source the agent pulled in (RCNV-02) — its words
+ *                       are real (they earn the serif) but they are NOT the
+ *                       user's own material yet; curation into the canon is
+ *                       what would raise its standing, and that promotion is
+ *                       recorded by TIER (the pmark flips dashed->solid), never
+ *                       by kind — kind is shape, and this card stays a source
  *
  *   DOUBLE RULE = "a bound artifact, a synthesis composed into a standalone
  *   piece" — the one kind that is neither raw evidence nor a mere view:
@@ -248,6 +259,11 @@ export function canvasNodeKindOf(type: string): CanvasNodeKind {
  *   DOTTED FRAME = "this is a VIEW or a guess, not an artifact in its own right".
  *     knowledge-preview  real material (rule 2) but a bounded, non-interactive
  *                        glance at another surface — a view of the thing
+ *     source             a GUESS with words of its own (rule 1): the system's
+ *                        zero-ceremony bet that this source matters to the
+ *                        research — a candidate, not an artifact, until the
+ *                        user curates it (taste-references §3: "arrival is
+ *                        free, promotion is deliberate")
  *     unknown            claims nothing at all: no rule, provisional frame
  *
  * DOTTED/DOUBLE, never DASHED: tier owns solid-vs-dashed on every surface, and
@@ -259,6 +275,7 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   document: "border-l-2 border-l-ink border-double",
   "genui-panel": "border-l border-l-ink",
   "knowledge-preview": "border-l-2 border-l-ink border-dotted",
+  source: "border-l border-l-ink border-dotted",
   unknown: "border-dotted",
 };
 
@@ -285,6 +302,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   "email-thread": "Email thread",
   "knowledge-preview": "Knowledge",
   document: "Document",
+  source: "Source",
   unknown: "Unrecognized",
 };
 

@@ -18,6 +18,7 @@ import {
   EmailThreadNodeDataSchema,
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
+  SourceNodeDataSchema,
 } from "./node-data-schemas";
 
 export interface NodeTypeRegistryEntry {
@@ -62,6 +63,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: DocumentNodeDataSchema,
     description:
       "Document node — renders a stored document's title/generated date anchored on a document id, with an Open-document action into /documents/[id].",
+  },
+  source: {
+    id: "source",
+    dataSchema: SourceNodeDataSchema,
+    description:
+      "Source node — an auto-collected research source (RCNV-02/RSRCH-03): title/domain/excerpt from a chat_source_ledger capture, tier-marked suggested until promoted, with an Open-source external link.",
   },
 };
 

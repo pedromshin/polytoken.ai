@@ -29,6 +29,7 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
   "genui-panel": { width: 320, height: 240 },
   "knowledge-preview": { width: 320, height: 240 },
   "email-thread": { width: 320, height: 220 },
+  source: { width: 300, height: 180 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

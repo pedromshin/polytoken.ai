@@ -167,6 +167,7 @@ import { DataEdge } from "../data-edge";
 import { EmailThreadNode } from "../email-thread-node";
 import { GenuiPanelNode } from "../genui-panel-node";
 import { KnowledgePreviewNode } from "../knowledge-preview-node";
+import { SourceNode } from "../source-node";
 import { UnknownNodeTypePlaceholder } from "../unknown-node-type-placeholder";
 import type { ConversationController } from "../../_hooks/use-conversation-controller";
 import type { Provenance } from "../node-data-schemas";
@@ -197,6 +198,7 @@ const CONVERSATION_ID = "11111111-1111-1111-1111-111111111111";
 const THREAD_ID = "550e8400-e29b-41d4-a716-446655440000";
 const FOCUS_NODE_ID = "00000000-0000-0000-0000-000000000001";
 const MESSAGE_ID = "00000000-0000-0000-0000-0000000000b2";
+const SOURCE_LEDGER_ID = "22222222-2222-2222-2222-222222222222";
 
 const PROVENANCE: Provenance = { messageId: MESSAGE_ID, partIndex: 0, runId: null };
 const SPEC_JSON = JSON.stringify({ v: 1, root: { type: "text", content: "Hello panel" } });
@@ -257,7 +259,10 @@ afterEach(() => {
   containers = [];
 });
 
-/** The five shells, each inside the minimal provider tree it needs. */
+/** The shells, each inside the minimal provider tree it needs. (`document`
+ * is the one registered type NOT mounted here — its shell fetches via
+ * `api.documents.byId`, which this file's trpc mock does not model; its map
+ * facts are still covered by 61-02's vocabulary gate.) */
 const SHELLS = {
   chat: (selected: boolean) => (
     <ReactFlowProvider>
@@ -320,6 +325,24 @@ const SHELLS = {
       />
     </ReactFlowProvider>
   ),
+  source: (selected: boolean) => (
+    <ReactFlowProvider>
+      <SourceNode
+        {...nodeProps({
+          id: `source:${SOURCE_LEDGER_ID}`,
+          type: "source",
+          data: {
+            sourceLedgerId: SOURCE_LEDGER_ID,
+            url: "https://www.example.com/research/q3-pricing",
+            title: "Q3 pricing benchmarks for renewals",
+            excerpt: "Median renewal uplift across the sampled contracts was 4.1%.",
+            tier: "suggested",
+          },
+          selected,
+        })}
+      />
+    </ReactFlowProvider>
+  ),
   unknown: (selected: boolean) => (
     <ReactFlowProvider>
       <UnknownNodeTypePlaceholder
@@ -336,8 +359,14 @@ const SHELLS = {
 
 type ShellKind = keyof typeof SHELLS;
 
-/** The four shells React Flow mounts for a REGISTERED node type. */
-const REAL_KINDS: readonly ShellKind[] = ["chat", "genui-panel", "email-thread", "knowledge-preview"];
+/** The shells React Flow mounts for a REGISTERED node type. */
+const REAL_KINDS: readonly ShellKind[] = [
+  "chat",
+  "genui-panel",
+  "email-thread",
+  "knowledge-preview",
+  "source",
+];
 const ALL_KINDS: readonly ShellKind[] = [...REAL_KINDS, "unknown"];
 
 async function renderShell(kind: ShellKind, selected = false): Promise<HTMLElement> {
@@ -429,7 +458,7 @@ describe("canvas node law — the RENDERED shells (D-58-01 laws 1/2/3)", () => {
       expect(root.textContent).toContain("legacy-widget");
     });
 
-    for (const kind of ["email-thread", "knowledge-preview"] as const) {
+    for (const kind of ["email-thread", "knowledge-preview", "source"] as const) {
       it(`${kind}'s remove control is ink — removing a card from a board is not irreversible (T-61-19)`, async () => {
         const root = await renderShell(kind);
         const remove = Array.from(root.querySelectorAll("button")).find((b) =>
@@ -498,7 +527,7 @@ describe("canvas node law — the RENDERED shells (D-58-01 laws 1/2/3)", () => {
         .join(" ");
     }
 
-    it("the four real shells render mutually DISTINCT kind geometry", async () => {
+    it("the real shells render mutually DISTINCT kind geometry", async () => {
       // 61-02 asserts the MAP's five values differ. This asserts the COMPONENTS
       // actually use them: wire one shell to the wrong key and 61-02 stays green
       // while two kinds become indistinguishable on the board.
@@ -600,6 +629,43 @@ describe("canvas node law — the RENDERED shells (D-58-01 laws 1/2/3)", () => {
       expect(parts!.className).not.toContain("font-serif");
       expect(parts!.hasAttribute("data-evidence")).toBe(false);
       expect(parts!.closest("[data-evidence]")).toBeNull();
+    });
+
+    it("SourceNode: the title and the excerpt are the SOURCE's own words -> serif", async () => {
+      const root = await renderShell("source");
+      const { serif } = serifAndEvidence(root);
+      const text = serif.map((el) => el.textContent ?? "");
+      expect(text.some((t) => t.includes("Q3 pricing benchmarks"))).toBe(true);
+      expect(text.some((t) => t.includes("4.1%"))).toBe(true);
+    });
+
+    it("SourceNode: the domain line is polytoken's summary OF the source -> sans", async () => {
+      const root = await renderShell("source");
+      const domain = Array.from(root.querySelectorAll("span")).find(
+        (el) => (el.textContent ?? "") === "example.com",
+      );
+      expect(domain, "the domain line did not render (or kept its www.)").toBeDefined();
+      expect(domain!.className).not.toContain("font-serif");
+      expect(domain!.hasAttribute("data-evidence")).toBe(false);
+      expect(domain!.closest("[data-evidence]")).toBeNull();
+    });
+
+    it("SourceNode: an auto-collected source wears the SUGGESTED provenance mark — dashed, never solid (RCNV-02)", async () => {
+      // taste-references §3 (Phase 63): sources arrive auto-collected with the
+      // dashed suggested mark — "they're suggestions until curated". The pmark
+      // is THE signature element; a zero-ceremony capture claiming the solid
+      // confirmed mark would be the one unforgivable tier lie on this surface.
+      const root = await renderShell("source");
+      const mark = root.querySelector(".pmark");
+      expect(mark, "the source card renders no provenance mark").not.toBeNull();
+      const markClass = mark!.getAttribute("class") ?? "";
+      expect(markClass).toContain("pmark-suggested");
+      expect(markClass).not.toContain("pmark-confirmed");
+      expect(mark!.getAttribute("data-tier")).toBe("suggested");
+      // pmark implies serif by INHERITANCE (brand-guide §3) — the container
+      // must carry font-sans so chrome inside it never inherits the serif,
+      // with the serif+data-evidence PAIR stated on the value span alone.
+      expect(markClass).toContain("font-sans");
     });
 
     it("ChatNode: the title is chrome -> sans (61-06's explicit call, the pair to the thread's)", async () => {

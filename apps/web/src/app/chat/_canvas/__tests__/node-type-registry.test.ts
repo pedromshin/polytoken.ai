@@ -31,6 +31,7 @@ describe("computeNodeRegistryHash", () => {
 
   it("is insensitive to registration order (sorted keys)", () => {
     const reordered: Record<string, NodeTypeRegistryEntry> = {
+      source: NODE_TYPE_REGISTRY.source!,
       document: NODE_TYPE_REGISTRY.document!,
       "email-thread": NODE_TYPE_REGISTRY["email-thread"]!,
       "knowledge-preview": NODE_TYPE_REGISTRY["knowledge-preview"]!,
@@ -120,6 +121,14 @@ describe("resolveNodeType", () => {
     expect(resolved.kind).toBe("registered");
     if (resolved.kind === "registered") {
       expect(resolved.entry.id).toBe("knowledge-preview");
+    }
+  });
+
+  it("resolves 'source' to its registered entry", () => {
+    const resolved = resolveNodeType("source");
+    expect(resolved.kind).toBe("registered");
+    if (resolved.kind === "registered") {
+      expect(resolved.entry.id).toBe("source");
     }
   });
 });
