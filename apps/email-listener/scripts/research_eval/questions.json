@@ -1,0 +1,116 @@
+[
+  {
+    "id": "rsrch-eval-01",
+    "question": "What does an LLM-as-judge evaluation need to be reliable rather than misleading?",
+    "min_sources": 2,
+    "expected_source_substrings": ["rubric", "judge"],
+    "expected_claims": [
+      {
+        "id": "01-rubric",
+        "keywords": ["rubric"],
+        "note": "A scored rubric with explicit dimensions, not a single vibe score."
+      },
+      {
+        "id": "01-calibration",
+        "keywords": ["calibrat"],
+        "note": "The judge must be calibrated against human labels / anchors."
+      }
+    ],
+    "notes": "Dogfood corpus: how to build the very eval this file is part of."
+  },
+  {
+    "id": "rsrch-eval-02",
+    "question": "How does retrieval-augmented generation reduce hallucination in a research answer?",
+    "min_sources": 2,
+    "expected_source_substrings": ["retrieval", "source"],
+    "expected_claims": [
+      {
+        "id": "02-grounding",
+        "keywords": ["retriev", "source"],
+        "note": "Answers are grounded in retrieved source excerpts."
+      },
+      {
+        "id": "02-citation",
+        "keywords": ["cite"],
+        "note": "Each claim cites the retrieved source it rests on."
+      }
+    ],
+    "notes": "RSRCH-02: every claim resolves to a source excerpt (pmark disclosure)."
+  },
+  {
+    "id": "rsrch-eval-03",
+    "question": "What is adversarial verification in a multi-round research loop, and why is one search-and-summarize pass insufficient?",
+    "min_sources": 2,
+    "expected_source_substrings": ["verif", "round"],
+    "expected_claims": [
+      {
+        "id": "03-multiround",
+        "keywords": ["round"],
+        "note": "A research run executes multiple rounds, not a single pass."
+      },
+      {
+        "id": "03-adversarial",
+        "keywords": ["verif"],
+        "note": "An explicit adversarial-verification step checks the claims."
+      }
+    ],
+    "notes": "Phase 72 acceptance #1: multi-round loop with an adversarial-verification step."
+  },
+  {
+    "id": "rsrch-eval-04",
+    "question": "Why enforce a per-run cost ceiling on a deep-research run, and where should it be declared?",
+    "min_sources": 2,
+    "expected_source_substrings": ["cost", "ceiling"],
+    "expected_claims": [
+      {
+        "id": "04-ceiling",
+        "keywords": ["cost", "ceiling"],
+        "note": "Deep research can burn real money on one action; a hard cap is required."
+      },
+      {
+        "id": "04-attribution",
+        "keywords": ["attribut"],
+        "note": "Cost is attributed to the owner principal (INV-13) and made visible."
+      }
+    ],
+    "notes": "Q5/INV-13: cap first, tune later; declared in the registry entry's cost field."
+  },
+  {
+    "id": "rsrch-eval-05",
+    "question": "Why score research against a fixed golden set instead of judging each answer ad hoc?",
+    "min_sources": 2,
+    "expected_source_substrings": ["golden", "regression"],
+    "expected_claims": [
+      {
+        "id": "05-fixed-set",
+        "keywords": ["golden"],
+        "note": "A fixed, re-runnable question set is the measurement baseline."
+      },
+      {
+        "id": "05-regression",
+        "keywords": ["regress"],
+        "note": "A quality regression becomes detectable, not felt."
+      }
+    ],
+    "notes": "RSRCH-05: re-runnable so a regression is detectable."
+  },
+  {
+    "id": "rsrch-eval-06",
+    "question": "How should a research run expose its sources on the canvas, and what disclosure does a citation get?",
+    "min_sources": 2,
+    "expected_source_substrings": ["canvas", "pmark"],
+    "expected_claims": [
+      {
+        "id": "06-canvas-node",
+        "keywords": ["canvas", "node"],
+        "note": "Sources land as canvas nodes with no per-turn confirm widget."
+      },
+      {
+        "id": "06-disclosure",
+        "keywords": ["hover"],
+        "note": "pmark 3-tier disclosure: hover costs 0 clicks, panel costs 1."
+      }
+    ],
+    "notes": "Phase 72 acceptance #2/#3: pmark disclosure; sources as canvas nodes."
+  }
+]

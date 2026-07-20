@@ -1,0 +1,74 @@
+[
+  {
+    "question_id": "rsrch-eval-01",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/eval/rubric-design", "title": "Designing a scored rubric", "excerpt": "A reliable LLM-as-judge scores each answer against an explicit rubric with named dimensions, not a single opaid score."},
+      {"id": "s2", "url": "https://example.dev/eval/judge-calibration", "title": "Calibrating an LLM judge", "excerpt": "The judge must be calibrated against human-labelled anchors before its scores can be trusted."}
+    ],
+    "claims": [
+      {"text": "A reliable LLM-as-judge scores against an explicit rubric with named dimensions.", "source_ids": ["s1"]},
+      {"text": "The judge must be calibrated against human labels before its scores are trustworthy.", "source_ids": ["s2"]}
+    ],
+    "report": "A reliable judge needs a rubric and calibration."
+  },
+  {
+    "question_id": "rsrch-eval-02",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/rag/grounding", "title": "Retrieval grounding", "excerpt": "Grounding an answer in retrieved source excerpts reduces hallucination."},
+      {"id": "s2", "url": "https://example.dev/rag/citation", "title": "Cite the source", "excerpt": "Each claim should cite the retrieved source it rests on."}
+    ],
+    "claims": [
+      {"text": "Grounding the answer in retrieved source excerpts reduces hallucination.", "source_ids": ["s1"]},
+      {"text": "Each claim must cite the retrieved source that supports it.", "source_ids": ["s2"]}
+    ],
+    "report": "RAG grounds answers in retrieved sources and cites them."
+  },
+  {
+    "question_id": "rsrch-eval-03",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/loop/multi-round", "title": "Multi-round research", "excerpt": "A research run executes multiple rounds rather than a single search-and-summarize pass."},
+      {"id": "s2", "url": "https://example.dev/loop/verification", "title": "Adversarial verification", "excerpt": "An explicit adversarial verification step re-checks each claim against its sources."}
+    ],
+    "claims": [
+      {"text": "A research run executes multiple rounds, not a single pass.", "source_ids": ["s1"]},
+      {"text": "An explicit adversarial verification step re-checks each claim.", "source_ids": ["s2"]}
+    ],
+    "report": "Multi-round loop with an adversarial verification step."
+  },
+  {
+    "question_id": "rsrch-eval-04",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/cost/ceiling", "title": "Per-run cost ceiling", "excerpt": "A deep-research run needs a hard per-run cost ceiling because one action can burn real money."},
+      {"id": "s2", "url": "https://example.dev/cost/attribution", "title": "Cost attribution", "excerpt": "Cost is attributed to the owner principal and surfaced in the trace."}
+    ],
+    "claims": [
+      {"text": "A deep-research run needs a hard cost ceiling because one action can burn real money.", "source_ids": ["s1"]},
+      {"text": "Cost is attributed to the owner principal and made visible.", "source_ids": ["s2"]}
+    ],
+    "report": "Cap declared in the registry entry's cost field, attributed to the owner."
+  },
+  {
+    "question_id": "rsrch-eval-05",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/eval/golden-set", "title": "The golden set", "excerpt": "A fixed golden question set is the re-runnable measurement baseline."},
+      {"id": "s2", "url": "https://example.dev/eval/regression", "title": "Detecting regression", "excerpt": "Scoring against the fixed set makes a quality regression detectable rather than felt."}
+    ],
+    "claims": [
+      {"text": "A fixed golden question set is the re-runnable baseline.", "source_ids": ["s1"]},
+      {"text": "Scoring against it makes a quality regression detectable, not felt.", "source_ids": ["s2"]}
+    ],
+    "report": "A golden set makes regression detectable."
+  },
+  {
+    "question_id": "rsrch-eval-06",
+    "sources": [
+      {"id": "s1", "url": "https://example.dev/canvas/source-node", "title": "Sources on the canvas", "excerpt": "Sources land as canvas nodes with no per-turn confirm widget."},
+      {"id": "s2", "url": "https://example.dev/canvas/pmark", "title": "pmark disclosure", "excerpt": "pmark 3-tier disclosure: hover costs 0 clicks, the panel costs 1 click."}
+    ],
+    "claims": [
+      {"text": "Sources land as canvas nodes without a per-turn confirm widget.", "source_ids": ["s1"]},
+      {"text": "pmark disclosure means a hover costs 0 clicks and the panel costs 1.", "source_ids": ["s2"]}
+    ],
+    "report": "Sources become canvas nodes; citations use pmark disclosure."
+  }
+]
