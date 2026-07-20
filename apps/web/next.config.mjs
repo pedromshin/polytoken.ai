@@ -19,7 +19,13 @@ const config = {
   outputFileTracingRoot: path.join(__dirname, "../../"),
 
   /** Hot-reload local workspace packages without a separate build step. */
-  transpilePackages: ["@polytoken/api-client", "@polytoken/db", "@polytoken/ui"],
+  transpilePackages: [
+    "@polytoken/api-client",
+    // Exposes raw TS (`./src/index.ts`) — the /sessions surface imports its frozen schemas.
+    "@polytoken/daemon-protocol",
+    "@polytoken/db",
+    "@polytoken/ui",
+  ],
 
   /** Linting / typechecking run as separate tasks. */
   eslint: { ignoreDuringBuilds: true },
