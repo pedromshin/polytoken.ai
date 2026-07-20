@@ -70,3 +70,10 @@ VISION.md` (E0–E7), `research/two-epoch-endgame/ENDGAME-PLAN.md` (v2.0), `nigh
 - Mega-wave (Waves 4-6 merged, 9 slices): all agents killed by the limit before returning; partial daemon/protocol/mail files reverted — clean tree. Script preserved for fresh relaunch.
 - Gap-wave (999.33/35/25 + Cloud Desktop RFC 999.39): launch blocked (classifier outage during the limit window); plan saved.
 - Relaunch scheduled via send_later at 00:26 UTC (trigger trig_018ZiHbjYd4RtR3dKpYuyXfW) per scratchpad/RELAUNCH-PLAN.md.
+
+## Work-loss insurance (added 2026-07-20 ~21:56 UTC, user mandate: "guarantee no work loss")
+
+- **Snapshotter live:** a background loop captures the ENTIRE dirty tree (tracked + untracked) every 4 min into chained commits on `origin/claude/gsd-plugin-marketplace-s6us9d-wip-snapshots` — zero-touch (temp index; never disturbs running agents, HEAD, or the real index). Divergence between sessions auto-reconciles with both tips kept. Proven end-to-end incl. the reconcile path.
+- **Iron rule:** snapshot BEFORE any revert/clean/reset of agent output. (Two earlier partial-file reverts were unrecoverable — that class of loss is now closed.)
+- **Recovery:** `git fetch origin claude/gsd-plugin-marketplace-s6us9d-wip-snapshots && git log --first-parent FETCH_HEAD`, then `git checkout <snap> -- path` per file. Full recipes in scratchpad/snapshot.sh header.
+- **Residual risk, stated honestly:** work created and lost BETWEEN two ticks (≤4 min window) if the container dies mid-tick; and the loop itself dies with the container (restart is RELAUNCH-PLAN Step 0 — the scheduled 00:26 UTC resume does this).
