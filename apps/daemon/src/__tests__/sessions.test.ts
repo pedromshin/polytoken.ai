@@ -1,0 +1,259 @@
+/**
+ * The session manager's security + streaming contract.
+ *
+ * `child_process.spawn` is MOCKED with a controllable fake child (an EventEmitter with stdout/stderr
+ * streams and a recording stdin). This makes every assertion deterministic and independent of the
+ * sandbox's real-spawn restrictions, and lets the test drive output byte-for-byte. The GATE is
+ * proven negatively: an outside-roots cwd and a denied permission both refuse and the spawn mock is
+ * NEVER called. The token scrub is proven by inspecting the exact env handed to spawn.
+ */
+import { EventEmitter } from "node:events";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+/** The fake child factory + a handle to the most recently spawned one. */
+type FakeChild = EventEmitter & {
+  stdout: EventEmitter;
+  stderr: EventEmitter;
+  stdin: { write: ReturnType<typeof vi.fn>; destroyed: boolean; end: ReturnType<typeof vi.fn> };
+  kill: ReturnType<typeof vi.fn>;
+  pid: number;
+};
+const spawnCalls: Array<{ command: string; args: readonly string[]; opts: Record<string, unknown> }> = [];
+let lastChild: FakeChild | null = null;
+
+const makeChild = (): FakeChild => {
+  const child = new EventEmitter() as FakeChild;
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  child.stdin = { write: vi.fn(() => true), destroyed: false, end: vi.fn() };
+  child.kill = vi.fn(() => true);
+  child.pid = 4242;
+  return child;
+};
+
+vi.mock("node:child_process", () => ({
+  spawn: (command: string, args: readonly string[], opts: Record<string, unknown>) => {
+    spawnCalls.push({ command, args, opts });
+    lastChild = makeChild();
+    return lastChild;
+  },
+}));
+
+// Import AFTER the mock is registered so the manager binds the mocked spawn.
+const { createSessionManager } = await import("../sessions/manager.js");
+const { createAuditLog } = await import("../permissions/audit.js");
+const { createPermissionBroker } = await import("../permissions/broker.js");
+const { loadAllowlist } = await import("../permissions/store.js");
+const { canonicalizePath } = await import("../permissions/paths.js");
+type CanonicalPath = import("../permissions/paths.js").CanonicalPath;
+type DaemonConfig = import("../config.js").DaemonConfig;
+type AskFn = import("../permissions/broker.js").AskFn;
+
+let tmp: string;
+let rootDir: string;
+let outsideDir: string;
+let config: DaemonConfig;
+
+const canon = (p: string): CanonicalPath => {
+  const r = canonicalizePath(p);
+  if (!r.ok) throw new Error(`canon failed for ${p}: ${r.reason}`);
+  return r.path;
+};
+
+const allowAll: AskFn = async () => ({ allow: true, remember: false });
+const denyAll: AskFn = async () => ({ allow: false, remember: false });
+
+const depsWith = async (ask: AskFn) => {
+  const store = await loadAllowlist(path.join(tmp, "allowlist.json"));
+  const audit = createAuditLog(path.join(tmp, "audit.jsonl"));
+  const broker = createPermissionBroker({ config, store, ask, audit });
+  return { broker, audit };
+};
+
+const makeClient = () => {
+  const sent: Array<{ type: string; payload: Record<string, unknown> }> = [];
+  return {
+    client: { send: (type: string, _id: string, payload: unknown) => sent.push({ type, payload: payload as Record<string, unknown> }) },
+    sent,
+  };
+};
+/** attach() takes (payload, client, emitOutput, emitExit); wire them to a recording client. */
+const attachRecording = (mgr: ReturnType<typeof createSessionManager>, id: string, sinceSeq?: number) => {
+  const rec = makeClient();
+  const result = mgr.attach(
+    { sessionId: id, sinceSeq },
+    rec.client as never,
+    (c, ch) => (c as never as typeof rec.client).send("session.output", "x", { sessionId: id, seq: ch.seq, data: ch.data }),
+    (c) => (c as never as typeof rec.client).send("session.exit", "x", { sessionId: id, code: -1 }),
+  );
+  return { rec, result };
+};
+const outputText = (rec: ReturnType<typeof makeClient>) =>
+  rec.sent.filter((f) => f.type === "session.output").map((f) => String(f.payload.data)).join("");
+
+beforeEach(() => {
+  spawnCalls.length = 0;
+  lastChild = null;
+  tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "daemon-sess-")));
+  rootDir = path.join(tmp, "root");
+  outsideDir = path.join(tmp, "outside");
+  fs.mkdirSync(rootDir, { recursive: true });
+  fs.mkdirSync(outsideDir, { recursive: true });
+  config = Object.freeze({
+    version: 1,
+    roots: [canon(rootDir)],
+    watch: { root: canon(rootDir) },
+    port: 0,
+    permTimeoutMs: 5_000,
+    exec: { defaultTimeoutMs: 10_000, maxOutputBytes: 1_048_576 },
+    stateDir: tmp,
+  }) as DaemonConfig;
+});
+
+afterEach(() => {
+  fs.rmSync(tmp, { recursive: true, force: true });
+  vi.restoreAllMocks();
+});
+
+describe("session.start — THE GATE (nothing spawns before an allow verdict)", () => {
+  it("an outside-roots cwd is denied outside_roots and NEVER spawns", async () => {
+    const mgr = createSessionManager(config);
+    const result = await mgr.start({ cwd: outsideDir }, await depsWith(allowAll));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("outside_roots");
+    expect(spawnCalls).toHaveLength(0); // the crux: no child ever existed
+    expect(mgr.list()).toEqual([]);
+  });
+
+  it("a denied permission refuses and NEVER spawns", async () => {
+    const mgr = createSessionManager(config);
+    const result = await mgr.start({ cwd: rootDir }, await depsWith(denyAll));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("permission_denied");
+    expect(spawnCalls).toHaveLength(0);
+    expect(mgr.list()).toEqual([]);
+  });
+
+  it("a hostile cwd shape (embedded space→NUL-class) is rejected before the broker", async () => {
+    const mgr = createSessionManager(config);
+    const result = await mgr.start({ cwd: `${rootDir} evil` }, await depsWith(allowAll));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe("outside_roots");
+    expect(spawnCalls).toHaveLength(0);
+  });
+
+  it("spawns with the canonical cwd, shell:false, and DAEMON_TOKEN scrubbed from the child env", async () => {
+    process.env.DAEMON_TOKEN = "super-secret-token-value";
+    const mgr = createSessionManager(config);
+    const result = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, await depsWith(allowAll));
+    expect(result.ok).toBe(true);
+    expect(spawnCalls).toHaveLength(1);
+    const call = spawnCalls[0]!;
+    expect(call.command).toBe("/bin/bash");
+    expect(call.opts.cwd).toBe(canon(rootDir));
+    expect(call.opts.shell).toBe(false);
+    const env = call.opts.env as NodeJS.ProcessEnv;
+    expect(env.DAEMON_TOKEN).toBeUndefined(); // the child cannot see the gate's key
+    delete process.env.DAEMON_TOKEN;
+  });
+
+  it("enforces the concurrency cap", async () => {
+    const mgr = createSessionManager(config);
+    const deps = await depsWith(allowAll);
+    for (let i = 0; i < 8; i += 1) await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, deps);
+    const over = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, deps);
+    expect(over.ok).toBe(false);
+    if (!over.ok) expect(over.code).toBe("io_failure");
+    expect(mgr.list().length).toBe(8);
+  });
+});
+
+describe("session lifecycle — stream, resume, input, exit", () => {
+  it("streams output to attached clients and replays buffered scrollback on re-attach (sinceSeq)", async () => {
+    const mgr = createSessionManager(config);
+    const start = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, await depsWith(allowAll));
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const id = start.meta.sessionId;
+
+    const { rec: a, result: attachA } = attachRecording(mgr, id);
+    expect(attachA.ok).toBe(true);
+
+    // Drive real output through the fake child's stdout.
+    lastChild!.stdout.emit("data", Buffer.from("HELLO_SESSION\n"));
+    lastChild!.stdout.emit("data", Buffer.from("second line\n"));
+
+    expect(outputText(a)).toContain("HELLO_SESSION");
+    expect(outputText(a)).toContain("second line");
+    // seq is monotonic from 0.
+    const seqs = a.sent.filter((f) => f.type === "session.output").map((f) => f.payload.seq);
+    expect(seqs).toEqual([0, 1]);
+
+    // A late client re-attaching from the start replays the buffered scrollback.
+    const { rec: b, result: attachB } = attachRecording(mgr, id, -1);
+    expect(attachB.ok).toBe(true);
+    if (attachB.ok) expect(attachB.lastSeq).toBe(1);
+    expect(outputText(b)).toContain("HELLO_SESSION");
+    expect(outputText(b)).toContain("second line");
+
+    // Resume from seq 0 → only the newer chunk replays.
+    const { rec: c } = attachRecording(mgr, id, 0);
+    expect(outputText(c)).not.toContain("HELLO_SESSION");
+    expect(outputText(c)).toContain("second line");
+  });
+
+  it("input writes to the child's stdin; a missing/dead session fails cleanly", async () => {
+    const mgr = createSessionManager(config);
+    const start = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, await depsWith(allowAll));
+    expect(start.ok).toBe(true);
+    if (!start.ok) return;
+    const id = start.meta.sessionId;
+
+    expect(mgr.input({ sessionId: id, data: "ls\n" })).toEqual({ ok: true });
+    expect(lastChild!.stdin.write).toHaveBeenCalledWith("ls\n");
+
+    expect(mgr.input({ sessionId: "ghost", data: "x" }).ok).toBe(false);
+    expect(mgr.resize({ sessionId: "ghost", cols: 80, rows: 24 }).ok).toBe(false);
+    expect(mgr.attach({ sessionId: "ghost" }, makeClient().client as never, () => {}, () => {}).ok).toBe(false);
+  });
+
+  it("a child exit marks the session not-alive, emits session.exit (null→-1), and stops input", async () => {
+    const mgr = createSessionManager(config);
+    const start = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, await depsWith(allowAll));
+    if (!start.ok) return;
+    const id = start.meta.sessionId;
+    const { rec } = attachRecording(mgr, id);
+
+    lastChild!.emit("close", null); // signal-killed child reports null
+
+    const exit = rec.sent.find((f) => f.type === "session.exit");
+    expect(exit).toBeDefined();
+    expect(exit!.payload.code).toBe(-1); // coerced, frozen schema demands a number
+    expect(mgr.list().find((m) => m.sessionId === id)!.alive).toBe(false);
+    expect(mgr.input({ sessionId: id, data: "x" }).ok).toBe(false); // dead session refuses input
+  });
+
+  it("resize is accepted (pipe-mode no-op) for a live session", async () => {
+    const mgr = createSessionManager(config);
+    const start = await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, await depsWith(allowAll));
+    if (!start.ok) return;
+    expect(mgr.resize({ sessionId: start.meta.sessionId, cols: 120, rows: 40 })).toEqual({ ok: true });
+  });
+
+  it("closeAll kills every live session", async () => {
+    const mgr = createSessionManager(config);
+    const deps = await depsWith(allowAll);
+    await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, deps);
+    const kill1 = lastChild!.kill;
+    await mgr.start({ cwd: rootDir, cmd: "/bin/bash" }, deps);
+    const kill2 = lastChild!.kill;
+    expect(mgr.list().length).toBe(2);
+    mgr.closeAll();
+    expect(kill1).toHaveBeenCalledWith("SIGKILL");
+    expect(kill2).toHaveBeenCalledWith("SIGKILL");
+    expect(mgr.list()).toEqual([]);
+  });
+});

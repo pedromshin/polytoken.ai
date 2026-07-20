@@ -23,6 +23,8 @@ import { createPendingAsks, createWsAsk } from "./ask.js";
 import { createRouter, type Router } from "./router.js";
 import { registerToolHandler } from "../tools/handler.js";
 import { startWatcher, type Watcher } from "../watch/watcher.js";
+import { createSessionManager } from "../sessions/manager.js";
+import { registerSessionHandlers } from "../sessions/handlers.js";
 import path from "node:path";
 
 /**
@@ -64,11 +66,10 @@ export const startDaemon = async (opts: {
   const broker = createPermissionBroker({ config, store, ask, audit });
   const router = createRouter({ broker, config, audit });
 
-  // `session.list` answers honestly: no session manager exists tonight (R-06). Lane E replaces
-  // this registration and adds session.start/attach/input/resize through the same seam.
-  router.register("session.list", async (_payload, ctx) => {
-    ctx.client.send("session.list", ctx.envelopeId, { sessions: [] });
-  });
+  // The session manager (v2.0 / E4): persistent streamed shell sessions, every start exec-gated
+  // through the same broker as terminal.exec. Registers session.list/start/attach/input/resize.
+  const sessions = createSessionManager(config);
+  registerSessionHandlers(router, sessions);
 
   // The client half of the ONE permission model.
   router.register("perm.decision", async (payload) => {
@@ -167,6 +168,7 @@ export const startDaemon = async (opts: {
     closed = true;
 
     pending.cancelAll(); // nothing hangs waiting for an answer that will never come
+    sessions.closeAll(); // SIGKILL every live child so no shell outlives the daemon
     await watcher?.close();
 
     for (const socket of wss.clients) socket.terminate();

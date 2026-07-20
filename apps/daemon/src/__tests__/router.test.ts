@@ -278,16 +278,18 @@ describe("dispatch — both-directions validation, socket survives garbage (R-02
     });
   });
 
-  it("session.start answers not_implemented — Lane E's seam, not a lie (R-06)", async () => {
+  it("session.start is implemented and GATES an out-of-roots cwd (outside_roots, no spawn)", async () => {
+    // The session manager (v2.0/E4) replaced the R-06 stub. A cwd outside the daemon's roots is
+    // denied BEFORE the broker even prompts — the same boundary that guards every tool.
     await withDaemon(async (handle) => {
       const socket = await dial(handle.port, { "x-daemon-token": TOKEN });
-      send(socket, { id: "e6", type: "session.start", payload: { cwd: "C:\\repo" } });
+      send(socket, { id: "e6", type: "session.start", payload: { cwd: "C:\\definitely\\outside\\roots" } });
 
       const reply = await nextFrame(socket, (e) => e.type === "tool.result");
       expect(reply.payload).toMatchObject({
         requestId: "e6",
         ok: false,
-        output: { code: "not_implemented" },
+        output: { code: "outside_roots" },
       });
     });
   });
