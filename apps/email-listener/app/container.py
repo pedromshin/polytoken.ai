@@ -19,6 +19,7 @@ from anthropic import AsyncAnthropicBedrock
 from dishka import AsyncContainer, Provider, Scope, make_async_container
 from supabase import Client
 
+from app.application.capabilities.registry import CapabilityRegistry, define_capability
 from app.application.use_cases.autofill import AutofillUseCase
 from app.application.use_cases.autofill_fields import AutofillFieldsUseCase
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
@@ -174,22 +175,18 @@ from app.infrastructure.supabase.supabase_ui_spec_template_repository import Sup
 from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
 from app.infrastructure.tools.duckduckgo_search_provider import DuckDuckGoSearchProvider
 from app.infrastructure.tools.lookup_entity_executor import (
-    LOOKUP_ENTITY_TOOL_NAME,
     LookupEntityExecutor,
     build_lookup_entity_tool,
 )
 from app.infrastructure.tools.search_emails_executor import (
-    SEARCH_EMAILS_TOOL_NAME,
     SearchEmailsExecutor,
     build_search_emails_tool,
 )
 from app.infrastructure.tools.search_knowledge_executor import (
-    SEARCH_KNOWLEDGE_TOOL_NAME,
     SearchKnowledgeExecutor,
     build_search_knowledge_tool,
 )
 from app.infrastructure.tools.web_search_executor import (
-    WEB_SEARCH_TOOL_NAME,
     WebSearchExecutor,
     build_web_search_tool,
     fetch_page_via_httpx,
@@ -898,6 +895,56 @@ def _provide_run_chat_turn(
         provider=DuckDuckGoSearchProvider(client=http_client),
         fetch_page=functools.partial(fetch_page_via_httpx, http_client),
     )
+    # Phase 68 (REG-02): the chat tool loop's ONE source of truth. The old two
+    # hand-maintained parallel dicts (tool_executors + server_tool_defs, whose
+    # keys had to be kept identical by hand) are DELETED here -- each tool is now
+    # declared exactly once as a Capability (its executor + its Bedrock tool_def +
+    # its id/describe/risk/cost/source/trust metadata), and RunChatTurn's two
+    # mappings are DERIVED from the registry (registry.executors()/.tool_defs()),
+    # keyed identically by construction so they can no longer drift. The
+    # exposure-gated tools (search_knowledge, web_search) are conditionally
+    # included in the declaration list exactly as before -- structural omission
+    # (never mutation) when their settings flag is off, so behavior is identical.
+    chat_capabilities = CapabilityRegistry(
+        [
+            define_capability(
+                executor=lookup_entity_executor,
+                tool_def=build_lookup_entity_tool(),
+                risk="read",
+                cost="cheap",
+            ),
+            define_capability(
+                executor=search_emails_executor,
+                tool_def=build_search_emails_tool(),
+                risk="read",
+                cost="cheap",
+            ),
+            *(
+                [
+                    define_capability(
+                        executor=search_knowledge_executor,
+                        tool_def=build_search_knowledge_tool(),
+                        risk="read",
+                        cost="cheap",
+                    )
+                ]
+                if settings.SEARCH_KNOWLEDGE_TOOL_ENABLED
+                else []
+            ),
+            *(
+                [
+                    define_capability(
+                        executor=web_search_executor,
+                        tool_def=build_web_search_tool(),
+                        risk="read",
+                        cost="moderate",
+                    )
+                ]
+                if settings.WEB_SEARCH_TOOL_ENABLED
+                else []
+            ),
+        ]
+    )
     return RunChatTurn(
         messages=messages,
         runs=runs,
@@ -915,26 +962,11 @@ def _provide_run_chat_turn(
             build_emit_confirm_action_tool(),
         ),
         knowledge_graph=knowledge_repo,
-        tool_executors={
-            LOOKUP_ENTITY_TOOL_NAME: lookup_entity_executor,
-            SEARCH_EMAILS_TOOL_NAME: search_emails_executor,
-            **(
-                {SEARCH_KNOWLEDGE_TOOL_NAME: search_knowledge_executor}
-                if settings.SEARCH_KNOWLEDGE_TOOL_ENABLED
-                else {}
-            ),
-            **({WEB_SEARCH_TOOL_NAME: web_search_executor} if settings.WEB_SEARCH_TOOL_ENABLED else {}),
-        },
-        server_tool_defs={
-            LOOKUP_ENTITY_TOOL_NAME: build_lookup_entity_tool(),
-            SEARCH_EMAILS_TOOL_NAME: build_search_emails_tool(),
-            **(
-                {SEARCH_KNOWLEDGE_TOOL_NAME: build_search_knowledge_tool()}
-                if settings.SEARCH_KNOWLEDGE_TOOL_ENABLED
-                else {}
-            ),
-            **({WEB_SEARCH_TOOL_NAME: build_web_search_tool()} if settings.WEB_SEARCH_TOOL_ENABLED else {}),
-        },
+        # Phase 68 (REG-02): both mappings are DERIVED from the single registry
+        # above -- one declaration per tool, no parallel key-duplication to
+        # maintain by hand. Keyed identically by construction.
+        tool_executors=chat_capabilities.executors(),
+        server_tool_defs=chat_capabilities.tool_defs(),
         # Phase 54-05 (CLUS-02/CLUS-06): reuses the SAME `email_repo` instance
         # already built above for search_emails_executor -- the thread+cluster
         # context gathering step's one new read collaborator.
