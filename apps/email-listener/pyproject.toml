@@ -95,7 +95,11 @@ plugins = ["pydantic.mypy"]
 # Pytest
 # ──────────────────────────────────────────────
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+# Collect both the top-level `tests/` suite and the Phase-54 co-located
+# `app/**/__tests__/` suites. Previously only "tests" was listed, so 262 passing
+# co-located tests never ran while still counting against `--cov=app` — which
+# alone depressed repo-wide coverage from ~91% to ~67%.
+testpaths = ["tests", "app"]
 python_files = ["test_*.py"]
 addopts = [
     "-ra",
@@ -105,10 +109,12 @@ addopts = [
     "--tb=short",
     "--cov=app",
     "--cov-report=term-missing:skip-covered",
-    # Ratcheted 80 -> 65 (user decision 2026-07-12, MORNING-CHECKLIST §E.2a):
-    # repo-wide coverage was 68.10% and blocked ECS deploys. Step back up per
-    # .planning/todos/pending/2026-07-12-coverage-ratchet-step-up.md — never lower further.
-    "--cov-fail-under=65",
+    # Restored to the 80% quality bar (2026-07-20). The 80 -> 65 ratchet
+    # (user decision 2026-07-12, MORNING-CHECKLIST §E.2a) was a temporary unblock
+    # for ECS deploys. Root cause of the depressed number was the testpaths bug
+    # above, not thin tests: with the co-located suites collected, real coverage
+    # is ~91%. Ladder rung 3 reached (≥82%) — never lower further.
+    "--cov-fail-under=80",
 ]
 markers = [
     "unit: pure unit tests (no I/O, no network)",
