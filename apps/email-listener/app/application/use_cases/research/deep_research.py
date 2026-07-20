@@ -725,6 +725,13 @@ def build_deep_research_tool() -> dict[str, Any]:
 _EMPTY_QUESTION_TEXT = "I need a research question to run a deep-research pass — please provide one."
 
 
+def _clip(text: str, limit: int) -> str:
+    """Bounded field clip with an ellipsis marker — always valid inside a JSON string."""
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 1)] + "…"
+
+
 class DeepResearchToolExecutor:
     """Adapts `DeepResearch` to the `ToolExecutor` port so it plugs into the registry / chat loop.
 
@@ -745,19 +752,71 @@ class DeepResearchToolExecutor:
             return ToolExecutionResult(tool_use_id="", content=_EMPTY_QUESTION_TEXT, is_error=True)
 
         report = await self._deep_research.run(question=question, importer_id=importer_id)
-        envelope = {
-            "mode": "deep_research",
-            "report": report.report,
-            "aborted": report.aborted,
-            "sources": [{"id": s.id, "url": s.url, "excerpt": s.excerpt, "title": s.title} for s in report.sources],
-            "claims": [{"text": c.text, "source_ids": list(c.source_ids)} for c in report.claims],
-        }
-        content = json.dumps(envelope, separators=(",", ":"))
-        if len(content) > MAX_TOOL_OUTPUT_CHARS:
-            content = content[:MAX_TOOL_OUTPUT_CHARS] + " …[truncated]"
         # An aborted run is not a tool ERROR — it is a valid, honest partial the
         # model should present as such — so is_error stays False.
-        return ToolExecutionResult(tool_use_id="", content=content, is_error=False)
+        return ToolExecutionResult(tool_use_id="", content=self._fit_envelope(report), is_error=False)
+
+    @staticmethod
+    def _fit_envelope(report: ResearchReport) -> str:
+        """Shrink the envelope to VALID JSON under `MAX_TOOL_OUTPUT_CHARS`.
+
+        `cap_tool_output`'s whole-string slice truncates mid-JSON, which breaks
+        the envelope gate and turns every real (>2000-char) research run into a
+        tool error — the exact failure `WebSearchExecutor` documents for its own
+        envelope. So this executor owns its budget: shrink by dropping the least
+        essential data first (uncited sources, excerpts, report tail), re-checking
+        after each stage, ending at a skeleton that always fits. Any shrink sets
+        `"truncated": true` inside the envelope so the UI can degrade honestly.
+        """
+        sources: list[dict[str, Any]] = [
+            {"id": s.id, "url": _clip(s.url, 300), "excerpt": _clip(s.excerpt, 300), "title": _clip(s.title, 120)}
+            for s in report.sources
+        ]
+        claims: list[dict[str, Any]] = [{"text": c.text, "source_ids": list(c.source_ids)} for c in report.claims]
+
+        def dump(report_text: str, srcs: list[dict[str, Any]], cls: list[dict[str, Any]], *, truncated: bool) -> str:
+            envelope: dict[str, Any] = {
+                "mode": "deep_research",
+                "report": report_text,
+                "aborted": report.aborted,
+                "sources": srcs,
+                "claims": cls,
+            }
+            if truncated:
+                envelope["truncated"] = True
+            return json.dumps(envelope, separators=(",", ":"))
+
+        content = dump(report.report, sources, claims, truncated=False)
+        if len(content) <= MAX_TOOL_OUTPUT_CHARS:
+            return content
+
+        # Stage 1: keep only sources a claim actually cites.
+        cited = {source_id for c in report.claims for source_id in c.source_ids}
+        sources = [s for s in sources if s["id"] in cited] or sources[:3]
+        # Stage 2: drop excerpts (tier-2/3 disclosure re-reads the ledger, not this envelope).
+        sources_no_excerpt = [{k: v for k, v in s.items() if k != "excerpt"} for s in sources]
+        # Stage 3+: progressively clip the report body, then bound list lengths.
+        stages: tuple[tuple[str, list[dict[str, Any]], list[dict[str, Any]]], ...] = (
+            (report.report, sources, claims),
+            (report.report, sources_no_excerpt, claims),
+            (_clip(report.report, MAX_TOOL_OUTPUT_CHARS // 2), sources_no_excerpt, claims),
+            (
+                _clip(report.report, MAX_TOOL_OUTPUT_CHARS // 4),
+                sources_no_excerpt[:6],
+                [{"text": _clip(str(c["text"]), 200), "source_ids": list(c["source_ids"])[:3]} for c in claims[:6]],
+            ),
+            (
+                _clip(report.report, MAX_TOOL_OUTPUT_CHARS // 8),
+                [{"id": s["id"], "url": s["url"]} for s in sources_no_excerpt[:3]],
+                [{"text": _clip(str(c["text"]), 120), "source_ids": list(c["source_ids"])[:2]} for c in claims[:3]],
+            ),
+        )
+        for report_text, srcs, cls in stages:
+            content = dump(report_text, srcs, cls, truncated=True)
+            if len(content) <= MAX_TOOL_OUTPUT_CHARS:
+                return content
+        # Absolute floor: a skeleton with no lists — a few hundred chars, always fits.
+        return dump(_clip(report.report, 200), [], [], truncated=True)
 
 
 def define_research_capability(

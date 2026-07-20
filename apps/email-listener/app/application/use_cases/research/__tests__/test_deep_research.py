@@ -35,7 +35,7 @@ from app.application.use_cases.research.deep_research import (
     define_research_capability,
 )
 from app.domain.ports.chat_provider import StreamEnd, TextDelta, UsageDelta
-from app.domain.ports.tool_executor import ToolExecutionResult
+from app.domain.ports.tool_executor import MAX_TOOL_OUTPUT_CHARS, ToolExecutionResult
 
 _MODEL_ID = "test-model"
 _IMPORTER = "importer-abc"
@@ -384,3 +384,31 @@ async def test_capability_executor_rejects_empty_question() -> None:
 
     assert result.is_error is True
     assert search.calls == []
+
+
+@pytest.mark.asyncio
+async def test_capability_executor_oversized_report_stays_valid_json_under_cap() -> None:
+    """A run whose report+sources exceed the cap must shrink to VALID JSON, never a mid-JSON slice.
+
+    The old behavior sliced the dumped string at MAX_TOOL_OUTPUT_CHARS and appended
+    a marker — invalid JSON, rejected by the envelope gate, failing every real
+    (>2000-char) research run end-to-end.
+    """
+    replies = _good_replies()
+    # Make the synthesized report enormous so the raw envelope blows the cap.
+    replies["SYNTHESIZE"] = json.dumps({"report": "polytoken evidence " * 600})
+    chat = FakeChatProvider(replies)
+    search = FakeSearchExecutor(_two_envelopes())
+    capability = define_research_capability(chat_provider=chat, search_executor=search, model_id=_MODEL_ID)
+
+    result = await capability.executor.execute(
+        name="deep_research", arguments={"question": "What makes an LLM judge reliable?"}, importer_id=_IMPORTER
+    )
+
+    assert not result.is_error
+    assert len(result.content) <= MAX_TOOL_OUTPUT_CHARS
+    envelope = json.loads(result.content)  # must parse — the whole point
+    assert envelope["mode"] == "deep_research"
+    assert envelope["truncated"] is True
+    # Claims survive shrinking before the report body does (they carry the citations).
+    assert envelope["claims"], "shrink stages must not silently drop all claims"
