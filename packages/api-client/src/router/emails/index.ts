@@ -11,6 +11,7 @@ import { emailEntitySummaryProcedures } from "./entity-summary";
 import { resolveListScope } from "./list-scope";
 import { emailThreadListProcedures } from "./list-threads";
 import { componentMutationProcedures } from "./mutations";
+import { emailRuleSuggestionProcedures } from "./rule-suggestions";
 import { emailThreadCardProcedures } from "./thread-card";
 
 /**
@@ -40,6 +41,7 @@ export { resolveListScope };
 export const emailsRouter = createTRPCRouter({
   ...emailDetailProcedures,
   ...emailEntitySummaryProcedures,
+  ...emailRuleSuggestionProcedures,
   ...emailThreadListProcedures,
   ...emailThreadCardProcedures,
   ...componentMutationProcedures,
