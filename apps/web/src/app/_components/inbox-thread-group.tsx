@@ -85,6 +85,7 @@ export function InboxThreadGroup({
         entities={entitiesByEmailId.get(only.id) ?? []}
         isSelected={only.id === selectedEmailId}
         onSelect={onSelectMember}
+        ruleSuggestionCount={ruleSuggestionCountByEmailId?.get(only.id) ?? 0}
       />
     );
   }
@@ -155,6 +156,9 @@ export function InboxThreadGroup({
               entities={entitiesByEmailId.get(member.id) ?? []}
               isSelected={member.id === selectedEmailId}
               onSelect={onSelectMember}
+              ruleSuggestionCount={
+                ruleSuggestionCountByEmailId?.get(member.id) ?? 0
+              }
             />
           ))}
         </div>

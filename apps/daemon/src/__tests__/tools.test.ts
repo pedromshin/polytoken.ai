@@ -115,7 +115,20 @@ describe("the capability registry — the D2 seam (INV-1/2/3)", () => {
     expect(builtinRegistry.get("terminal.exec")?.id).toBe("terminal.exec");
     expect(builtinRegistry.get("nope")).toBeUndefined();
     expect([...builtinRegistry.ids].sort()).toEqual(
-      ["fs.list", "fs.read", "fs.write", "git", "terminal.exec"].sort(),
+      [
+        "fs.list",
+        "fs.read",
+        "fs.write",
+        "git",
+        "terminal.exec",
+        // v2.0: the browser capabilities are registry entries like everything else (INV-2)
+        "browser.open",
+        "browser.navigate",
+        "browser.screenshot",
+        "browser.click",
+        "browser.type",
+        "browser.close",
+      ].sort(),
     );
   });
 

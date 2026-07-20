@@ -29,6 +29,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@polytoken/capabilities": "*",
     "@polytoken/db": "*",
     "@polytoken/genui": "*",
     "@trpc/server": "11.8.0",

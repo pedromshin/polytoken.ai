@@ -1,24 +1,30 @@
 "use client";
 
 /**
- * graph-nodes.tsx — six custom React Flow node components for the knowledge graph.
+ * graph-nodes.tsx — six custom React Flow node components for the knowledge
+ * graph, on the LOCKED identity (Phase 62 / SURF-03).
  *
- * Node types (UI-SPEC Node Visual Language):
- *   entity_type        160×48  bg-primary/10 border-primary/40   Shapes icon
- *   entity_type_field  128×32  bg-muted/60 border-border/60      Hash icon
- *   entity_instance    160×44  bg-graph-entity/10 border-graph-entity/40  Box icon
- *   email_component    128×36  bg-graph-email-component/10 border-graph-email-component/40   Layers icon
- *   email              144×40  bg-graph-email/10 border-graph-email/40   Mail icon
- *   knowledge_node     160×48  bg-primary/15 border-primary/60 + glow  Share2 icon
+ * The card language is Phase 61's canvas card, inherited wholesale
+ * (chat/_canvas/canvas-node-shell-class.ts — the sketch's `.card`):
+ *   - flat `bg-bright` sheet (a card sits ABOVE the page ground, never on it)
+ *   - `border-rule` hairline, hover is a RULE change (`rule-hi`), ZERO shadow
+ *   - selection is an ink OUTLINE, never a ring (a ring's offset paints a
+ *     white halo in dark — D-61-03-F)
  *
- * Node-type differentiation uses the closed color.graph.* palette (D-48-05) —
- * a new xyflow node category requires a NEW graph.* alias, never a repurposed one.
+ * LAW 3 — node kind is carried by STRUCTURE, never hue. The retired per-kind
+ * colour family is gone; kind lives on the LEFT-RULE axis Phase 61 named
+ * (weight = how much of the user's own material the node carries):
+ *   entity_type        4px   the taxonomy anchor the whole board hangs off
+ *   entity_instance    2px   a value pulled from the user's own mail
+ *   email              2px   the user's mail itself — raw evidence
+ *   knowledge_node     2px double  a bound synthesis (the canvas's document rule)
+ *   entity_type_field  1px   schema plumbing
+ *   email_component    1px   a fragment of an email, not the evidence itself
  *
- * All nodes: rounded-lg border shadow-sm cursor-pointer
- * Selected: ring-2 ring-primary ring-offset-1
- * Hover: shadow-md transition-shadow duration-150
+ * LAW 2 — an instance label and an email subject are the user's own material:
+ * serif + data-evidence. Type/field/rule labels are polytoken's words: sans.
  *
- * Typography: text-sm font-semibold or text-xs ONLY — never font-medium (UI-SPEC Note #5)
+ * Typography: text-sm font-semibold or text-xs ONLY — never font-medium.
  */
 
 import { Box, Hash, Layers, Mail, Shapes, Share2 } from "lucide-react";
@@ -27,20 +33,39 @@ import { Handle, Position } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 
 // ---------------------------------------------------------------------------
-// Shared base classes
+// The shared card recipe — the sketch's `.card`, restated for this surface.
+// Mirrors CANVAS_NODE_SHELL_BASE / CANVAS_NODE_SELECTED (chat/_canvas); the
+// literal strings are repeated here because Tailwind v4 scans source for
+// literal classes — a cross-surface import of a composed string is exactly
+// the purge hazard `_vocabulary/tier.ts` documents.
 // ---------------------------------------------------------------------------
 
 const BASE =
-  "rounded-lg border shadow-sm cursor-pointer select-none transition-shadow duration-150 hover:shadow-md flex items-center gap-2 px-3";
+  "flex items-center gap-2 overflow-hidden rounded-card border border-rule bg-bright px-3 cursor-pointer select-none transition-colors hover:border-rule-hi";
 
-const SELECTED_RING = "ring-2 ring-primary ring-offset-1";
+const SELECTED_OUTLINE = "outline-2 outline-offset-2 outline-ink";
 
-function nodeClasses(color: string, selected: boolean): string {
-  return `${BASE} ${color}${selected ? ` ${SELECTED_RING}` : ""}`;
+/** Kind geometry — the left-rule weight axis (law 3: shape, never hue). */
+const KIND_GEOMETRY = {
+  entity_type: "border-l-4 border-l-ink",
+  entity_type_field: "border-l border-l-ink",
+  entity_instance: "border-l-2 border-l-ink",
+  email: "border-l-2 border-l-ink",
+  email_component: "border-l border-l-ink",
+  knowledge_node: "border-l-2 border-l-ink border-double",
+} as const;
+
+function nodeClasses(
+  kind: keyof typeof KIND_GEOMETRY,
+  selected: boolean,
+): string {
+  return selected
+    ? `${BASE} ${KIND_GEOMETRY[kind]} ${SELECTED_OUTLINE}`
+    : `${BASE} ${KIND_GEOMETRY[kind]}`;
 }
 
 // ---------------------------------------------------------------------------
-// entity_type — 160×48, teal bg-primary/10
+// entity_type — 160×48, the taxonomy anchor (heaviest rule)
 // ---------------------------------------------------------------------------
 
 export type EntityTypeNodeData = { readonly label: string } & Record<
@@ -56,15 +81,15 @@ export const EntityTypeNode = memo(function EntityTypeNode({
   return (
     <div
       style={{ width: 160, height: 48 }}
-      className={nodeClasses("bg-primary/10 border-primary/40", selected)}
+      className={nodeClasses("entity_type", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Entity Type: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Shapes className="size-4 shrink-0 text-primary" aria-hidden />
-      <span className="truncate text-sm font-semibold text-foreground">
+      <Shapes className="size-4 shrink-0 text-faded" aria-hidden />
+      <span className="truncate text-sm font-semibold text-ink">
         {data.label}
       </span>
       <Handle type="source" position={Position.Bottom} className="!opacity-0" />
@@ -73,7 +98,7 @@ export const EntityTypeNode = memo(function EntityTypeNode({
 });
 
 // ---------------------------------------------------------------------------
-// entity_type_field — 128×32, muted slate
+// entity_type_field — 128×32, schema plumbing (lightest rule)
 // ---------------------------------------------------------------------------
 
 export type EntityTypeFieldNodeData = { readonly label: string } & Record<
@@ -92,22 +117,22 @@ export const EntityTypeFieldNode = memo(function EntityTypeFieldNode({
   return (
     <div
       style={{ width: 128, height: 32 }}
-      className={nodeClasses("bg-muted/60 border-border/60", selected)}
+      className={nodeClasses("entity_type_field", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Field: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Hash className="size-3 shrink-0 text-muted-foreground" aria-hidden />
-      <span className="truncate text-xs text-foreground">{data.label}</span>
+      <Hash className="size-3 shrink-0 text-pencil" aria-hidden />
+      <span className="truncate text-xs text-faded">{data.label}</span>
       <Handle type="source" position={Position.Bottom} className="!opacity-0" />
     </div>
   );
 });
 
 // ---------------------------------------------------------------------------
-// entity_instance — 160×44, graph-entity
+// entity_instance — 160×44, a value from the user's own mail (serif, law 2)
 // ---------------------------------------------------------------------------
 
 export type EntityInstanceNodeData = {
@@ -126,20 +151,23 @@ export const EntityInstanceNode = memo(function EntityInstanceNode({
   return (
     <div
       style={{ width: 160, height: 44 }}
-      className={nodeClasses("bg-graph-entity/10 border-graph-entity/40", selected)}
+      className={nodeClasses("entity_instance", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Instance: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Box className="size-4 shrink-0 text-graph-entity" aria-hidden />
+      <Box className="size-4 shrink-0 text-faded" aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-foreground">
+        <div
+          data-evidence
+          className="tabular truncate font-serif text-sm text-ink"
+        >
           {data.label}
         </div>
         {data.entityTypeName != null && (
-          <div className="truncate text-xs text-muted-foreground">
+          <div className="truncate text-2xs text-pencil">
             {data.entityTypeName}
           </div>
         )}
@@ -150,7 +178,7 @@ export const EntityInstanceNode = memo(function EntityInstanceNode({
 });
 
 // ---------------------------------------------------------------------------
-// email_component — 128×36, graph-email-component
+// email_component — 128×36, a fragment of an email (lightest rule)
 // ---------------------------------------------------------------------------
 
 export type EmailComponentNodeData = { readonly label: string } & Record<
@@ -169,22 +197,22 @@ export const EmailComponentNode = memo(function EmailComponentNode({
   return (
     <div
       style={{ width: 128, height: 36 }}
-      className={nodeClasses("bg-graph-email-component/10 border-graph-email-component/40", selected)}
+      className={nodeClasses("email_component", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Component: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Layers className="size-3 shrink-0 text-graph-email-component" aria-hidden />
-      <span className="truncate text-xs text-foreground">{data.label}</span>
+      <Layers className="size-3 shrink-0 text-pencil" aria-hidden />
+      <span className="truncate text-xs text-faded">{data.label}</span>
       <Handle type="source" position={Position.Bottom} className="!opacity-0" />
     </div>
   );
 });
 
 // ---------------------------------------------------------------------------
-// email — 144×40, graph-email
+// email — 144×40, the user's mail itself (serif subject, law 2)
 // ---------------------------------------------------------------------------
 
 export type EmailNodeData = {
@@ -203,21 +231,20 @@ export const EmailNode = memo(function EmailNode({
   return (
     <div
       style={{ width: 144, height: 40 }}
-      className={nodeClasses(
-        "bg-graph-email/10 border-graph-email/40",
-        selected,
-      )}
+      className={nodeClasses("email", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Email: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Mail className="size-4 shrink-0 text-graph-email" aria-hidden />
+      <Mail className="size-4 shrink-0 text-faded" aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-foreground">{truncated}</div>
+        <div data-evidence className="truncate font-serif text-sm text-ink">
+          {truncated}
+        </div>
         {data.senderDomain != null && (
-          <div className="truncate text-xs text-muted-foreground">
+          <div className="truncate text-2xs text-pencil">
             {data.senderDomain}
           </div>
         )}
@@ -228,7 +255,8 @@ export const EmailNode = memo(function EmailNode({
 });
 
 // ---------------------------------------------------------------------------
-// knowledge_node — 160×48, teal with glow
+// knowledge_node — 160×48, a bound synthesis (double rule, no glow — the
+// identity is "flat surfaces, hairline rules, zero shadow anywhere")
 // ---------------------------------------------------------------------------
 
 export type KnowledgeNodeNodeData = {
@@ -245,27 +273,25 @@ export const KnowledgeNodeNode = memo(function KnowledgeNodeNode({
   selected,
 }: NodeProps<KnowledgeNodeNodeType>) {
   const confLabel =
-    data.confidence != null
-      ? `${Math.round(data.confidence * 100)}%`
-      : null;
+    data.confidence != null ? `${Math.round(data.confidence * 100)}%` : null;
 
   return (
     <div
       style={{ width: 160, height: 48 }}
-      className={`${nodeClasses("bg-primary/15 border-primary/60", selected)} shadow-[0_0_8px_color-mix(in_srgb,var(--primary)_25%,transparent)]`}
+      className={nodeClasses("knowledge_node", selected)}
       role="button"
       tabIndex={0}
       aria-pressed={selected}
       aria-label={`Knowledge Rule: ${data.label}`}
     >
       <Handle type="target" position={Position.Top} className="!opacity-0" />
-      <Share2 className="size-4 shrink-0 text-primary" aria-hidden />
+      <Share2 className="size-4 shrink-0 text-faded" aria-hidden />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-primary">
+        <div className="truncate text-sm font-semibold text-ink">
           {data.label}
         </div>
         {confLabel != null && (
-          <div className="truncate text-xs text-muted-foreground">
+          <div className="tabular truncate text-2xs text-pencil">
             {confLabel}
           </div>
         )}

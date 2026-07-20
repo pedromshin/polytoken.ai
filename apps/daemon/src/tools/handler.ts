@@ -13,11 +13,19 @@ import type { Risk, ToolErrorCode } from "@polytoken/daemon-protocol";
 
 import type { PermissionBroker } from "../permissions/broker.js";
 import type { HandlerCtx, Router } from "../server/router.js";
+import { BROWSER_CAPABILITIES } from "./browser.js";
 import { BUILTIN_CAPABILITIES, gitRiskFor } from "./capabilities.js";
 import { createCapabilityRegistry, type CapabilityRegistry, type ExecCtx } from "./registry.js";
 
-/** The one registry the daemon runs on. Exported so the smoke script can describe it. */
-export const builtinRegistry: CapabilityRegistry = createCapabilityRegistry(BUILTIN_CAPABILITIES);
+/**
+ * The one registry the daemon runs on. Exported so the smoke script can describe it.
+ * v2.0: the six browser.* capabilities are REGISTRY ENTRIES (INV-2) — this spread is the entire
+ * wiring; no dispatch code below knows they exist.
+ */
+export const builtinRegistry: CapabilityRegistry = createCapabilityRegistry([
+  ...BUILTIN_CAPABILITIES,
+  ...BROWSER_CAPABILITIES,
+]);
 
 /**
  * INV-4: risk is DATA. It comes from the descriptor; `git` is the one capability whose risk
