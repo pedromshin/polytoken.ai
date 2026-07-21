@@ -71,3 +71,6 @@ apps/email-listener/listener-*.log
 
 # Windows-path junk from daemon tests running on Linux (pre-existing win32 tests)
 apps/daemon/\\tmp\\daemon-tools-*
+
+# UI review captures — contain signed-in app state (docs/RUN-LOCAL + CLAUDE.md say gitignored; the rule was missing)
+.planning/ui-reviews/
