@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 
@@ -146,6 +146,11 @@ export default function EntityTypesPage(): React.ReactElement {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  // Mobile-only (below md): whether the detail pane is the visible layer.
+  // Desktop renders both panes and ignores this entirely. A tap on a list row
+  // opens the detail full-screen; the back affordance returns to the list —
+  // the same stacked master/detail grammar the inbox mobile tree uses.
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
   const admin = useEntityTypeAdmin();
 
@@ -170,9 +175,11 @@ export default function EntityTypesPage(): React.ReactElement {
   const selected = types.find((t) => t.id === selectedId) ?? null;
 
   return (
-    <div className="flex h-svh">
-      {/* Master list */}
-      <aside className="flex w-72 shrink-0 flex-col border-r border-border/50">
+    <div className="flex h-[calc(100svh-var(--app-tabbar-h))]">
+      {/* Master list — full-width layer on a phone, fixed rail at md+. */}
+      <aside
+        className={`${mobileDetailOpen ? "hidden md:flex" : "flex"} w-full flex-col border-border/50 md:w-72 md:shrink-0 md:border-r`}
+      >
         <div className="flex h-11 items-center justify-between border-b border-border/50 bg-background/95 px-3">
           <span className="text-sm font-semibold">Entity types</span>
           <Button
@@ -215,7 +222,10 @@ export default function EntityTypesPage(): React.ReactElement {
                 <button
                   key={t.id}
                   type="button"
-                  onClick={() => setSelectedId(t.id)}
+                  onClick={() => {
+                    setSelectedId(t.id);
+                    setMobileDetailOpen(true);
+                  }}
                   aria-current={active ? "true" : undefined}
                   className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm ${
                     active
@@ -235,15 +245,33 @@ export default function EntityTypesPage(): React.ReactElement {
         </div>
       </aside>
 
-      {/* Detail */}
-      <section className="flex-1 overflow-hidden">
-        {selected != null ? (
-          <EntityTypeDetail type={selected} admin={admin} />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-            Select an entity type to view and edit its fields.
-          </div>
-        )}
+      {/* Detail — full-width layer on a phone (with a back affordance), the
+          flexible pane at md+. min-w-0 keeps the fields table scrolling inside
+          its own wrapper instead of panning the document. */}
+      <section
+        className={`${mobileDetailOpen ? "flex" : "hidden"} min-w-0 flex-1 flex-col overflow-hidden md:flex`}
+      >
+        <div className="flex h-11 shrink-0 items-center gap-1 border-b border-border/50 px-2 md:hidden">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setMobileDetailOpen(false)}
+            aria-label="Back to entity types"
+            className="gap-1 pointer-coarse:touch-target"
+          >
+            <ArrowLeft className="size-4" aria-hidden />
+            Entity types
+          </Button>
+        </div>
+        <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
+          {selected != null ? (
+            <EntityTypeDetail type={selected} admin={admin} />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Select an entity type to view and edit its fields.
+            </div>
+          )}
+        </div>
       </section>
 
       <CreateTypeDialog

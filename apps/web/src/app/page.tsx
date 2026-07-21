@@ -23,7 +23,7 @@ export default function EmailsPage() {
   // The app shell (SidebarInset) + the three-pane own the layout — the old
   // centered main wrapper is gone. The page slot just fills the content height.
   return (
-    <div className="h-svh">
+    <div className="h-[calc(100svh-var(--app-tabbar-h))]">
       <InboxThreePane data={data} isLoading={isLoading} isError={isError} />
     </div>
   );

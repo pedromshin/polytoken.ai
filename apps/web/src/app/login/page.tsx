@@ -28,7 +28,7 @@ export const metadata: Metadata = {
  */
 export default function LoginPage(): React.ReactElement {
   return (
-    <div className="flex min-h-[100vh] items-center justify-center p-6">
+    <div className="flex min-h-svh items-center justify-center p-6">
       <div className="w-full max-w-xs">
         {/* The mark — ink, like every piece of chrome (law 1) */}
         <BrandMark variant="glyph" size="size-8" className="text-ink" />

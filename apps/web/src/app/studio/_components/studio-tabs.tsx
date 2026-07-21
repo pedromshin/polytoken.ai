@@ -84,7 +84,10 @@ export function StudioTabs(): React.ReactElement {
       className="flex flex-1 min-h-0 flex-col"
     >
       {/* Tab strip — shrink-0, does not scroll */}
-      <TabsList className="shrink-0 justify-start rounded-none border-b border-hair bg-transparent px-4 h-auto pb-0">
+      {/* max-w-full + overflow-x-auto: on a phone the five triggers + the
+          Showcase link exceed the viewport — the STRIP scrolls sideways
+          (standard mobile tab-strip pattern); the document never pans. */}
+      <TabsList className="max-w-full shrink-0 justify-start overflow-x-auto rounded-none border-b border-hair bg-transparent px-4 h-auto pb-0 [scrollbar-width:none]">
         <TabsTrigger value="catalog" className={TAB_TRIGGER_CLASS}>
           Catalog
         </TabsTrigger>

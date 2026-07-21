@@ -91,8 +91,13 @@ export default function RootLayout({
           >
             <SidebarProvider>
               <AppSidebar />
-              <SidebarInset>
-                <div className="flex min-h-0 flex-1 flex-col pb-(--app-tabbar-h) [--app-tabbar-h:calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 md:[--app-tabbar-h:0px]">
+              {/* min-w-0 is LOAD-BEARING: SidebarInset is a flex-row child, and
+                  without it any wide descendant (a table, a chip rail, a <pre>)
+                  stretches the WHOLE shell wider than the phone viewport instead
+                  of scrolling inside its own overflow-x-auto container — the
+                  document itself pans sideways. Same rule one level down. */}
+              <SidebarInset className="min-w-0">
+                <div className="flex min-h-0 w-full min-w-0 flex-1 flex-col pb-(--app-tabbar-h) [--app-tabbar-h:calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 md:[--app-tabbar-h:0px]">
                   {children}
                 </div>
                 <MobileTabBar />
