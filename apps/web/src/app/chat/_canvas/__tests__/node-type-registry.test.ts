@@ -32,6 +32,7 @@ describe("computeNodeRegistryHash", () => {
   it("is insensitive to registration order (sorted keys)", () => {
     const reordered: Record<string, NodeTypeRegistryEntry> = {
       editor: NODE_TYPE_REGISTRY.editor!,
+      desktop: NODE_TYPE_REGISTRY.desktop!,
       source: NODE_TYPE_REGISTRY.source!,
       browser: NODE_TYPE_REGISTRY.browser!,
       document: NODE_TYPE_REGISTRY.document!,

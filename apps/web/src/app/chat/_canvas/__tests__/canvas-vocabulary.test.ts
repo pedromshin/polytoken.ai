@@ -37,6 +37,7 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "directory",
   "browser",
   "editor",
+  "desktop",
   "unknown",
 ];
 

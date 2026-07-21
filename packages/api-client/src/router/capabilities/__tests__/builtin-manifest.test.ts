@@ -25,15 +25,17 @@ const manifestEntrySchema = z
     id: z.string().min(1),
     describe: z.string().min(1),
     risk: z.enum(["read", "write", "exec"]),
+    // Additive (§5.2): optional; present only on the irreversible confirm class.
+    reversibility: z.enum(["reversible", "irreversible"]).optional(),
     cost: z.enum(["free", "cheap", "moderate", "expensive"]),
     source: z.enum(["builtin", "external"]),
     trust: z.enum(["first-party", "verified", "claimed", "unvetted"]),
-    origin: z.enum(["daemon", "chat"]),
+    origin: z.enum(["daemon", "chat", "control-plane"]),
   })
   .strict();
 
 describe("BUILTIN_CAPABILITY_MANIFEST", () => {
-  it("mirrors exactly the frozen builtin id set (13 daemon + 4 chat tools + deep_research)", () => {
+  it("mirrors exactly the frozen builtin id set (13 daemon + 4 desktop + 4 chat tools + deep_research)", () => {
     expect([...BUILTIN_CAPABILITY_MANIFEST].map((e) => e.id).sort()).toEqual(
       [
         // daemon builtins (apps/daemon/src/tools/capabilities.ts BUILTIN_CAPABILITIES)
@@ -52,6 +54,11 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
         // daemon directory tree (apps/daemon/src/tools/dir.ts)
         "dir.list_tree",
         "dir.sync_manifest",
+        // control-plane Cloud Desktop (packages/capabilities/src/desktop.ts)
+        "desktop.spawn",
+        "desktop.destroy",
+        "desktop.hibernate",
+        "desktop.attach",
         // chat (email-listener container.py registry wiring)
         "lookup_entity",
         "search_emails",
@@ -60,6 +67,15 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
         "deep_research",
       ].sort(),
     );
+  });
+
+  it("the irreversible desktop verbs carry reversibility as data (§5.2 confirm-modal trigger)", () => {
+    const byId = new Map(BUILTIN_CAPABILITY_MANIFEST.map((e) => [e.id, e]));
+    expect(byId.get("desktop.spawn")).toMatchObject({ reversibility: "irreversible", risk: "exec", cost: "expensive" });
+    expect(byId.get("desktop.destroy")).toMatchObject({ reversibility: "irreversible", risk: "exec" });
+    // The reversible verbs declare no reversibility key (absent ⇒ reversible).
+    expect(byId.get("desktop.attach")).not.toHaveProperty("reversibility");
+    expect(byId.get("desktop.hibernate")).not.toHaveProperty("reversibility");
   });
 
   it("every entry conforms to the frozen manifest vocabulary", () => {

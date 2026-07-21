@@ -24,6 +24,9 @@
  *   - daemon builtins → `apps/daemon/src/tools/capabilities.ts` (`BUILTIN_CAPABILITIES`)
  *   - daemon browser  → `apps/daemon/src/tools/browser.ts` (the six `browser.*` descriptors)
  *   - daemon dir      → `apps/daemon/src/tools/dir.ts` (`dir.list_tree`, `dir.sync_manifest`)
+ *   - control-plane   → `packages/capabilities/src/desktop.ts` (the four `desktop.*` E5 descriptors;
+ *                       these DO have a real declaring source — `DESKTOP_CAPABILITIES` — so mirroring
+ *                       them keeps the honesty discipline; their executor/provider is control-plane)
  *   - chat tools      → `apps/email-listener/app/infrastructure/tools/*_executor.py`
  *                       (+ `container.py`'s `define_capability(risk=..., cost=...)` wiring)
  *   - deep_research   → `apps/email-listener/app/application/use_cases/research/deep_research.py`

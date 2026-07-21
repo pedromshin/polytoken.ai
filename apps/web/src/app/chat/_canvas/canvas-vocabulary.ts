@@ -351,6 +351,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   directory: "Folder",
   browser: "Browser",
   editor: "Editor",
+  desktop: "Desktop",
   unknown: "Unrecognized",
 };
 
