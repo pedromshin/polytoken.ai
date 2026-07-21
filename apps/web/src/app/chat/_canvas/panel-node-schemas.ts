@@ -133,6 +133,44 @@ export const EditorNodeDataSchema = z
 export type EditorNodeData = z.infer<typeof EditorNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// DesktopNodeDataSchema — a jailed remote-desktop panel shell (Cloud Desktop
+// epoch, VISION E5 / RFC §4)
+// ---------------------------------------------------------------------------
+
+/**
+ * REF-ONLY, and HARDER than the sibling panels: node.data carries an OPAQUE
+ * session id + display-only chrome, and NEVER a gateway URL or a stream token.
+ * Those are minted server-side per session at `desktop.attach` time (RFC §4.3:
+ * short-lived, audience-scoped, delivered in the URL fragment, never persisted)
+ * — a layout row is not a credential store. The sessionId is opaque per INV-11:
+ * it is the anchor `desktop.attach`/`desktop.hibernate`/`desktop.destroy` key
+ * on, but it is NEVER parsed for authorization — a DB ownership assert is
+ * (RFC §4.3 step 4). status/region/shape are DISPLAY TEXT only, feeding the
+ * node's cost/status chrome (RFC §5.3); the control plane is the sole authority
+ * on the real machine's state, so a tampered row can mislead the chrome but can
+ * never change a VM.
+ */
+export const DesktopNodeDataSchema = z
+  .object({
+    /** Opaque session id — the lifecycle-capability anchor. Optional: a node
+     * can exist before its session is provisioned. Never parsed for authz. */
+    sessionId: z.string().min(1).max(255).optional(),
+    /** Lifecycle state for the node's status/cost chrome (RFC §5.3). Display
+     * only — the control plane owns the real machine's state. */
+    status: z
+      .enum(["provisioning", "running", "hibernated", "destroyed"])
+      .optional(),
+    label: z.string().max(120).optional(),
+    /** Display-only provider region (e.g. "eu-central") — chrome, never authz. */
+    region: z.string().max(64).optional(),
+    /** Display-only instance-shape tag (e.g. "CPX41") — chrome, never authz. */
+    shape: z.string().max(64).optional(),
+  })
+  .strict();
+
+export type DesktopNodeData = z.infer<typeof DesktopNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // GEOMETRY/LABELS LIVE IN THE VOCABULARY NOW — the staging maps this module
 // carried while `canvas-vocabulary.ts` was fenced (PANEL_NODE_KIND_GEOMETRY /
 // PANEL_NODE_KIND_LABEL) were PROMOTED at integration: the three kinds are

@@ -40,6 +40,21 @@ const writer = defineCapability<{ path: string }, { bytes: number }, TestCtx, Te
   execute: async () => ({ bytes: 3 }),
 });
 
+/** An irreversible capability — exercises the additive §5.2 reversibility field (E5's desktop.destroy shape). */
+const destroyer = defineCapability<{ id: string }, { deleted: boolean }, TestCtx, TestScope>({
+  id: "test.destroy",
+  input: z.object({ id: z.string() }).strict(),
+  output: z.object({ deleted: z.boolean() }).strict(),
+  risk: "exec",
+  reversibility: "irreversible",
+  cost: "free",
+  describe: "Pretends to permanently delete a resource — exercises the irreversible confirm class.",
+  source: "builtin",
+  trust: "first-party",
+  scope: (input) => ({ touches: [input.id] }),
+  execute: async () => ({ deleted: true }),
+});
+
 describe("defineCapability", () => {
   it("freezes the descriptor so a consumer cannot mutate a shared capability", () => {
     expect(Object.isFrozen(echo)).toBe(true);
@@ -54,6 +69,18 @@ describe("defineCapability", () => {
   it("declares INV-3 source/trust constants", () => {
     expect(echo.source).toBe("builtin");
     expect(echo.trust).toBe("first-party");
+  });
+
+  it("reversibility is additive & optional — absent on a capability that never declares it (§5.2)", () => {
+    // Every capability shipped before the field exists (echo/writer) carries no reversibility:
+    // absent MEANS reversible, so pre-existing descriptors are structurally unchanged.
+    expect(echo).not.toHaveProperty("reversibility", "irreversible");
+    expect(echo.reversibility).toBeUndefined();
+    expect(writer.reversibility).toBeUndefined();
+  });
+
+  it("an irreversible capability declares it as data (the confirm-modal trigger, INV-4)", () => {
+    expect(destroyer.reversibility).toBe("irreversible");
   });
 });
 
@@ -96,6 +123,19 @@ describe("createCapabilityRegistry", () => {
         source: "builtin",
         trust: "first-party",
       });
+    });
+
+    it("projects reversibility ONLY when declared — omitted for reversible, present for irreversible (§5.2)", () => {
+      const withDestroyer = createCapabilityRegistry<TestCtx, TestScope>(
+        [echo, destroyer] as unknown as readonly Capability<never, never, TestCtx, TestScope>[],
+      ).list();
+      const echoEntry = withDestroyer.find((e) => e.id === "test.echo");
+      const destroyEntry = withDestroyer.find((e) => e.id === "test.destroy");
+      // A reversible capability's manifest entry carries NO reversibility key at all (byte-identical
+      // to a pre-§5.2 projection), so nothing downstream sees an `undefined` to special-case.
+      expect(echoEntry).not.toHaveProperty("reversibility");
+      // The irreversible one carries it — the outward projection the confirm widget renders from.
+      expect(destroyEntry).toHaveProperty("reversibility", "irreversible");
     });
 
     it("carries NO executable coupling — an LLM/genui/canvas cannot run anything from the manifest", () => {

@@ -185,12 +185,14 @@ export type SourceNodeData = z.infer<typeof SourceNodeDataSchema>;
 
 export {
   BrowserNodeDataSchema,
+  DesktopNodeDataSchema,
   DirectoryEntrySchema,
   DirectoryNodeDataSchema,
   EditorNodeDataSchema,
 } from "./panel-node-schemas";
 export type {
   BrowserNodeData,
+  DesktopNodeData,
   DirectoryEntry,
   DirectoryNodeData,
   EditorNodeData,

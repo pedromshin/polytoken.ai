@@ -15,6 +15,7 @@ import type { z } from "zod";
 import {
   BrowserNodeDataSchema,
   ChatNodeDataSchema,
+  DesktopNodeDataSchema,
   DirectoryNodeDataSchema,
   DocumentNodeDataSchema,
   EditorNodeDataSchema,
@@ -90,6 +91,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: EditorNodeDataSchema,
     description:
       "Editor node — a jailed textarea editor shell anchored on a filePath ref (never content); load/save travel through the daemon's fs.read/fs.write capabilities.",
+  },
+  desktop: {
+    id: "desktop",
+    dataSchema: DesktopNodeDataSchema,
+    description:
+      "Desktop node — a jailed remote-desktop panel shell anchored on an opaque sessionId (never a gateway url/token); no iframe mounted yet, keyed on the desktop.* control-plane capabilities (spawn/attach/hibernate/destroy).",
   },
 };
 

@@ -192,6 +192,7 @@ export type CanvasNodeKind =
   | "directory"
   | "browser"
   | "editor"
+  | "desktop"
   | "unknown";
 
 /**
@@ -212,6 +213,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     directory: "directory",
     browser: "browser",
     editor: "editor",
+    desktop: "desktop",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -288,6 +290,22 @@ export function canvasNodeKindOf(type: string): CanvasNodeKind {
  *     editor             document's claim (rule 2, double: a bound artifact)
  *                        + live — the artifact still being AUTHORED, written
  *                        back through `fs.write`
+ *     desktop            a WHOLE cloud machine the user owns, streamed live
+ *                        (Cloud Desktop epoch, RFC §4). It has NO words of its
+ *                        own — a streamed screen is pixels, a VIEW not an
+ *                        artifact — so it takes DOTTED, exactly as the browser
+ *                        panel does. But it is weightier than a browser tab's
+ *                        single view: it is the user's own whole computer
+ *                        ("replaces my computer", RFC §1), substantial like the
+ *                        watched folder / knowledge preview, so it takes the
+ *                        rule-2 left weight rather than browser's rule-1. The
+ *                        one bit that separates it from `knowledge-preview`
+ *                        (also rule-2 dotted) is the right seam: a desktop is a
+ *                        LIVE control-plane-backed surface, a preview is a
+ *                        static glance. rule-2 DOTTED + right seam is therefore
+ *                        distinct from every sibling (browser is rule-1;
+ *                        knowledge-preview has no seam; directory/editor are not
+ *                        dotted) without spending a hue (law 3).
  *
  * DOTTED/DOUBLE, never DASHED: tier owns solid-vs-dashed on every surface, and
  * `region-vocabulary.ts` makes the identical concession with `unrelated`.
@@ -302,6 +320,7 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   directory: "border-l-2 border-l-ink border-r-2 border-r-ink",
   browser: "border-l border-l-ink border-r-2 border-r-ink border-dotted",
   editor: "border-l-2 border-l-ink border-r-2 border-r-ink border-double",
+  desktop: "border-l-2 border-l-ink border-r-2 border-r-ink border-dotted",
   unknown: "border-dotted",
 };
 

@@ -41,7 +41,7 @@
 import type { CapabilityManifestEntry } from "@polytoken/capabilities";
 
 /** Which registry actually executes the capability — the panel groups/annotates by this. */
-export type CapabilityOrigin = "daemon" | "chat";
+export type CapabilityOrigin = "daemon" | "chat" | "control-plane";
 
 /**
  * A manifest entry plus its executing surface. Structurally assignable to
@@ -200,6 +200,55 @@ export const BUILTIN_CAPABILITY_MANIFEST: readonly BuiltinManifestEntry[] = Obje
     source: "builtin",
     trust: "first-party",
     origin: "daemon",
+  },
+
+  // ── control-plane: Cloud Desktop lifecycle (packages/capabilities/src/desktop.ts) ────────────
+  {
+    id: "desktop.spawn",
+    describe:
+      "Provision a new cloud desktop: creates a billed virtual machine in the given " +
+      "provider/region with the requested shape and streams its realtime desktop back into " +
+      "polytoken. Costs money continuously while running.",
+    risk: "exec",
+    reversibility: "irreversible",
+    cost: "expensive",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "desktop.destroy",
+    describe:
+      "Delete a cloud desktop and its disk permanently. Everything on the machine is lost — this " +
+      "is the only verb that destroys desktop data, and it cannot be undone.",
+    risk: "exec",
+    reversibility: "irreversible",
+    cost: "free",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "desktop.hibernate",
+    describe:
+      "Snapshot the desktop's disk and power it off — the \"close the lid\" verb. Billing drops " +
+      "to storage-only; the machine, its files, and installed software return on the next attach.",
+    risk: "write",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "desktop.attach",
+    describe:
+      "Open an existing cloud desktop session and return the gateway origin its live stream loads " +
+      "from. No billing effect — it does not create or power on a machine.",
+    risk: "read",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
   },
 
   // ── chat tools (email-listener container.py registry wiring) ─────────────────────────────────
