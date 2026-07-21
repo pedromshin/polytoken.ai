@@ -146,3 +146,32 @@ STILL genuinely pending (user gates or a machine — unchanged):
   decisions before build. This is VISION E5 (whole-machine remote desktop, not a browser panel).
 - Small cleanup seam: reconcile the /capabilities panel's STATIC manifest to mirror the live
   registry (browser.* + dir.* + session.start) — a documented drift seam, not a bug.
+
+## 2026-07-21 ~01:05 UTC — user unblocked A–F; E5 → AWS; deploy authorized
+
+User answered the full gate inventory. Decisions locked:
+- **A (UI plugged-in):** audit run — EVERY capability has a UI consumer in apps/web (fs→editor/dir
+  panels, browser→browser-node, dir→directory-node, session→/sessions, desktop→desktop-node,
+  web_search/deep_research/lookup/search_*→chat tool rows + research-trace). Only `terminal.exec`
+  has no dedicated panel — covered anyway by the interactive `/sessions` PTY (superset) + chat tool
+  rows. No "backend with no UI" gap. User: assume UI correct if surfaced, keep moving.
+- **B (live legs):** user has prod+staging OAuth/email already configured — assume correct, document,
+  proceed. No code gate.
+- **C (Cloud Desktop provider):** AWS, NOT Hetzner. Constraints: AWS-native, no new subscriptions,
+  LEAST latency, realtime Win/Ubuntu feel, least tooling, low-level control, IaC-scalable. AWS creds
+  ARE in this env (AWS_ACCESS_KEY_ID/SECRET set). Recommendation to confirm: EC2 + NICE DCV (AWS's
+  own remote-display protocol, free on EC2, HW-accel, browser-native, sub-frame latency) — collapses
+  3 vendors to 1. gsd-project-researcher dispatched → .planning/research/cloud-desktop/AWS-ARCHITECTURE.md.
+  ACTUAL EC2 spawn stays gated on an explicit user budget go-ahead (bills real money).
+- **D (D2 bless):** user confused by the ask; it's their own directive — kept, no decision needed.
+- **E (infra/launch):** (1) 999.20 infra purge — user does on local machine. (2) single-user NOW but
+  build every multi-tenant seam so a public flip is config, not a rewrite. (3) E7 inference — build to
+  a production-ready gate; RESEARCH the mid-2026 local-inference wave (deepseek/gemma/unsloth/nvidia/
+  bonsai/chrome AI). gsd-project-researcher dispatched → .planning/research/e7-inference/ARCHITECTURE.md.
+- **F (deploy):** push to staging `dev`, verify flows headless + screenshot, then `main` (prod).
+  Topology: email-listener deploys via CI on push to dev/main (path apps/email-listener/**); web is
+  Vercel git-integration (no Vercel token here → deploy = build must compile; Vercel builds on push).
+  Plan: clean green feature branch → merge to dev → Vercel staging deploy → headless-screenshot the
+  live staging URL → document → report → then prod. Deploy waits on a clean green tree.
+
+In flight: desktop-node agent (task #8, canvas node), AWS-architecture research, E7 research.
