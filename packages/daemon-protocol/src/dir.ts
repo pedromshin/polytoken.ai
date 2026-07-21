@@ -10,7 +10,13 @@
  */
 import { z } from "zod";
 
-export const dirToolNameSchema = z.enum(["dir.list_tree", "dir.watch", "dir.sync_manifest"]);
+/**
+ * `dir.watch` is deliberately NOT here: a folder subscription is a stream, not a request/response,
+ * and a capability's `execute()` has no client to stream to — shipping it as a capability would be
+ * a fake. The daemon already streams `fs.watch.event` for its one configured watch root; a future
+ * multi-folder watch rides THAT transport (the registry seam), not this request/response surface.
+ */
+export const dirToolNameSchema = z.enum(["dir.list_tree", "dir.sync_manifest"]);
 export type DirToolName = z.infer<typeof dirToolNameSchema>;
 
 /** Bounds keep a hostile or vast tree from allocating unbounded structures (T-65-02). */
@@ -28,12 +34,6 @@ export const dirToolRequestSchema = z.discriminatedUnion("tool", [
           maxEntries: z.number().int().min(1).max(MAX_ENTRIES).optional(),
         })
         .strict(),
-    })
-    .strict(),
-  z
-    .object({
-      tool: z.literal("dir.watch"),
-      args: z.object({ path: z.string().min(1) }).strict(),
     })
     .strict(),
   z
@@ -71,7 +71,6 @@ export const dirToolOutputSchema = z.discriminatedUnion("kind", [
       truncated: z.boolean(),
     })
     .strict(),
-  z.object({ kind: z.literal("dir.watch"), watchId: z.string(), path: z.string() }).strict(),
   z
     .object({
       kind: z.literal("dir.sync_manifest"),
