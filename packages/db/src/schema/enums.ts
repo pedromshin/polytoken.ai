@@ -28,6 +28,19 @@ export const componentSourceTypeEnum = pgEnum("component_source_type", [
 // superseded MUST be present: it marks records replaced by re-processing
 // the same component (versioned/supersedable reprocessing per D-16).
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// desktop_session_status — the Cloud Desktop (E5) lifecycle state a
+// desktop_sessions row can be in. Mirrors the substrate's DesktopStatus
+// (packages/capabilities/src/desktop.ts) 1:1 — the node chrome, the cost
+// ledger, and the lifecycle capabilities all read this axis (RFC §5.1/§5.3).
+// ---------------------------------------------------------------------------
+export const desktopSessionStatusEnum = pgEnum("desktop_session_status", [
+  "provisioning",
+  "running",
+  "hibernated",
+  "destroyed",
+]);
+
 export const extractionStatusEnum = pgEnum("extraction_status", [
   "candidate",
   "auto_confirmed",

@@ -37,6 +37,7 @@ import { ChatConversations } from "./schema/chat-conversations";
 import { ChatMessages } from "./schema/chat-messages";
 import { ChatSourceLedger } from "./schema/chat-source-ledger";
 import { EmailComponents } from "./schema/components";
+import { DesktopSessions } from "./schema/desktop-sessions";
 import { Documents } from "./schema/documents";
 import { Emails } from "./schema/emails";
 import { ForwardingAddresses } from "./schema/forwarding-addresses";
@@ -263,6 +264,31 @@ export async function assertReferenceOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("reference", referenceId);
+  }
+}
+
+/**
+ * assertDesktopSessionOwnership — resolves when desktop_sessions.user_id = userId. Direct user_id,
+ * no join (mirrors assertDocumentOwnership — a desktop is one-VM-per-owner, RFC §6, NOT an
+ * importer-descendant). Throws OwnershipError otherwise/missing (fail-closed, no existence oracle).
+ * This is the ONLY path any desktop.* lifecycle procedure uses to gate attach/hibernate/destroy on
+ * a single session — never an ad-hoc per-call-site user_id filter, and NEVER by parsing the row's
+ * provider instance id / gateway hostname (INV-11).
+ */
+export async function assertDesktopSessionOwnership(
+  db: OwnershipDb,
+  sessionId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: DesktopSessions.userId })
+    .from(DesktopSessions)
+    .where(eq(DesktopSessions.id, sessionId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("desktop_session", sessionId);
   }
 }
 
