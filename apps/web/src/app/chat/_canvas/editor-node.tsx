@@ -51,6 +51,7 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { FileCode, X } from "lucide-react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useDaemonTool } from "./_lib/use-daemon-tool";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import type { EditorNodeData } from "./panel-node-schemas";
 
@@ -112,23 +113,47 @@ export const EditorNode = memo(function EditorNode({
   selected,
 }: NodeProps<EditorNodeType>) {
   const { deleteElements } = useReactFlow();
+  const daemon = useDaemonTool();
 
   const headerLabel = resolveEditorLabel(data.label, data.filePath);
 
   /** LOCAL draft only — never written into node.data (see header). */
   const [draft, setDraft] = useState<string>("");
   const [dirty, setDirty] = useState<boolean>(false);
-  /** The last Save, parked as an intent until the daemon bridge seam lands. */
+  /** The last Save, parked as an intent when there is no daemon; sent live when there is. */
   const [pendingIntent, setPendingIntent] = useState<EditorCapabilityIntent | null>(
     null,
   );
+  const [status, setStatus] = useState<string | null>(null);
+
+  const live = daemon.status === "ready" || daemon.status === "connecting";
 
   function handleSave(): void {
-    // SEAM (orchestrator): forward to the daemon bridge — resolve
-    // intent.capabilityId against the registry allowlist, let the permission
-    // model read fs.write's declared risk, reconcile on the response
-    // (optimistic UI, taste checklist item 6). Parked locally until then.
     setPendingIntent(editorSaveIntent(data.filePath, draft));
+    if (!live) return;
+    setStatus("Saving…");
+    void (async () => {
+      // fs.write's declared risk is "write" → the daemon's ONE permission model prompts.
+      const r = await daemon.call("fs.write", { path: data.filePath, content: draft });
+      if (r.ok) {
+        setDirty(false);
+        setPendingIntent(null);
+        setStatus("Saved");
+      } else setStatus(`Refused: ${r.error}`);
+    })();
+  }
+
+  function handleLoad(): void {
+    if (!live) return;
+    setStatus("Loading…");
+    void (async () => {
+      const r = await daemon.call("fs.read", { path: data.filePath });
+      if (r.ok && typeof r.output.content === "string") {
+        setDraft(r.output.content);
+        setDirty(false);
+        setStatus(null);
+      } else if (!r.ok) setStatus(`Refused: ${r.error}`);
+    })();
   }
 
   return (
@@ -185,22 +210,35 @@ export const EditorNode = memo(function EditorNode({
         />
       </div>
       <div className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-hair px-3">
-        {/* SANS status chrome. States the parked intent honestly. */}
+        {/* SANS status chrome. States live status, or the parked intent honestly. */}
         <span className="truncate text-2xs text-faded" title={data.filePath}>
-          {pendingIntent !== null
-            ? `Save parked as a ${EDITOR_PANEL_CAPABILITY_IDS.write} intent`
-            : dirty
-              ? "Unsaved draft"
-              : data.filePath}
+          {status !== null
+            ? status
+            : pendingIntent !== null
+              ? `Save parked as a ${EDITOR_PANEL_CAPABILITY_IDS.write} intent`
+              : dirty
+                ? "Unsaved draft"
+                : data.filePath}
         </span>
-        <button
-          type="button"
-          disabled={!dirty}
-          onClick={handleSave}
-          className="nodrag flex h-7 shrink-0 items-center rounded-sm px-2 text-xs text-faded transition-colors hover:bg-ink-05 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
-        >
-          Save
-        </button>
+        <span className="flex shrink-0 items-center gap-1">
+          {live ? (
+            <button
+              type="button"
+              onClick={handleLoad}
+              className="nodrag flex h-7 shrink-0 items-center rounded-sm px-2 text-xs text-faded transition-colors hover:bg-ink-05 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:h-11"
+            >
+              Load
+            </button>
+          ) : null}
+          <button
+            type="button"
+            disabled={!dirty}
+            onClick={handleSave}
+            className="nodrag flex h-7 shrink-0 items-center rounded-sm px-2 text-xs text-faded transition-colors hover:bg-ink-05 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 pointer-coarse:h-11"
+          >
+            Save
+          </button>
+        </span>
       </div>
       <Handle type="source" position={Position.Right} />
     </div>

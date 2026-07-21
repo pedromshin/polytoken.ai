@@ -39,9 +39,10 @@ import * as React from "react";
 import { memo } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
-import { File, Folder, FolderOpen, MessageSquarePlus, X } from "lucide-react";
+import { File, Folder, FolderOpen, MessageSquarePlus, RefreshCw, X } from "lucide-react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useDaemonTool } from "./_lib/use-daemon-tool";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import type { DirectoryEntry, DirectoryNodeData } from "./panel-node-schemas";
 
@@ -97,9 +98,26 @@ export const DirectoryNode = memo(function DirectoryNode({
   selected,
 }: NodeProps<DirectoryNodeType>) {
   const { deleteElements } = useReactFlow();
+  const daemon = useDaemonTool();
 
   const headerLabel = resolveDirectoryLabel(data.label, data.path);
-  const entries = clampDirectoryEntries(data.entries);
+  const [liveEntries, setLiveEntries] = React.useState<ReturnType<typeof clampDirectoryEntries> | null>(null);
+  const entries = liveEntries ?? clampDirectoryEntries(data.entries);
+
+  function handleRefresh(): void {
+    if (daemon.status === "no-daemon" || daemon.status === "error") return;
+    void (async () => {
+      const r = await daemon.call("dir.list_tree", { path: data.path, maxDepth: 3 });
+      if (r.ok && Array.isArray(r.output.entries)) {
+        const mapped = (r.output.entries as Array<{ path: string; kind: "file" | "dir" | "other"; depth: number }>).map((e) => ({
+          name: e.path.split(/[\\/]/).pop() ?? e.path,
+          kind: e.kind === "dir" ? ("dir" as const) : ("file" as const),
+          depth: Math.max(0, e.depth - 1),
+        }));
+        setLiveEntries(clampDirectoryEntries(mapped));
+      }
+    })();
+  }
 
   return (
     <div
@@ -118,17 +136,32 @@ export const DirectoryNode = memo(function DirectoryNode({
             {headerLabel}
           </span>
         </span>
-        <button
-          type="button"
-          aria-label="Remove folder"
-          className="flex size-6 shrink-0 items-center justify-center rounded-sm text-pencil transition-colors hover:bg-ink-08 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:touch-target"
-          onClick={(event) => {
-            event.stopPropagation();
-            void deleteElements({ nodes: [{ id }] });
-          }}
-        >
-          <X className="size-3.5" aria-hidden />
-        </button>
+        <span className="flex shrink-0 items-center gap-1">
+          {daemon.status !== "no-daemon" && daemon.status !== "error" ? (
+            <button
+              type="button"
+              aria-label="Refresh folder from the daemon"
+              className="flex size-6 shrink-0 items-center justify-center rounded-sm text-pencil transition-colors hover:bg-ink-08 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:touch-target"
+              onClick={(event) => {
+                event.stopPropagation();
+                handleRefresh();
+              }}
+            >
+              <RefreshCw className="size-3.5" aria-hidden />
+            </button>
+          ) : null}
+          <button
+            type="button"
+            aria-label="Remove folder"
+            className="flex size-6 shrink-0 items-center justify-center rounded-sm text-pencil transition-colors hover:bg-ink-08 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:touch-target"
+            onClick={(event) => {
+              event.stopPropagation();
+              void deleteElements({ nodes: [{ id }] });
+            }}
+          >
+            <X className="size-3.5" aria-hidden />
+          </button>
+        </span>
       </div>
       <div className="relative flex min-h-0 flex-1 flex-col gap-1 px-3 py-2">
         {/* SANS: the path is polytoken's caption OF the folder (law 2 — same
