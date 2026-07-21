@@ -128,6 +128,9 @@ describe("the capability registry — the D2 seam (INV-1/2/3)", () => {
         "browser.click",
         "browser.type",
         "browser.close",
+        // v2.0: the dir capabilities (bounded filesystem reads) join the same registry
+        "dir.list_tree",
+        "dir.sync_manifest",
       ].sort(),
     );
   });

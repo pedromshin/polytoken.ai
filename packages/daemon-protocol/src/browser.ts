@@ -16,6 +16,7 @@
 import { z } from "zod";
 
 import { toolErrorCodeSchema, toolOutputSchema, toolRequestSchema } from "./tools.js";
+import { dirToolOutputSchema, dirToolRequestSchema } from "./dir.js";
 
 /** The six browser tool names. Additive — deliberately NOT merged into the frozen `toolNameSchema`. */
 export const browserToolNameSchema = z.enum([
@@ -135,13 +136,18 @@ export type BrowserToolOutput = z.infer<typeof browserToolOutputSchema>;
  * The EXTENDED request union: the frozen 5 first (so their parse behavior is untouched), the six
  * browser tools after. This is what a v2.0 wire surface validates against.
  */
-export const extendedToolRequestSchema = z.union([toolRequestSchema, browserToolRequestSchema]);
+export const extendedToolRequestSchema = z.union([
+  toolRequestSchema,
+  browserToolRequestSchema,
+  dirToolRequestSchema,
+]);
 export type ExtendedToolRequestPayload = z.infer<typeof extendedToolRequestSchema>;
 
-/** The EXTENDED output union — every frozen kind plus the six browser kinds, one discriminator. */
+/** The EXTENDED output union — every frozen kind plus the browser + dir kinds, one discriminator. */
 export const extendedToolOutputSchema = z.discriminatedUnion("kind", [
   ...toolOutputSchema.options,
   ...browserToolOutputSchema.options,
+  ...dirToolOutputSchema.options,
 ]);
 export type ExtendedToolOutput = z.infer<typeof extendedToolOutputSchema>;
 

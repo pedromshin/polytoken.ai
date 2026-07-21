@@ -81,6 +81,17 @@ export type {
   ExtendedToolResultPayload,
 } from "./browser.js";
 
+// dir (v2.0 additive module — filesystem-read tools, folded into the extended unions above)
+export {
+  dirToolNameSchema,
+  dirToolRequestSchema,
+  dirToolOutputSchema,
+  dirTreeEntrySchema,
+  dirManifestFileSchema,
+  DIR_TOOL_BOUNDS,
+} from "./dir.js";
+export type { DirToolName, DirToolRequestPayload, DirToolOutput } from "./dir.js";
+
 // perms
 export { permRequestSchema, permDecisionSchema } from "./perms.js";
 export type { PermRequestPayload, PermDecisionPayload } from "./perms.js";

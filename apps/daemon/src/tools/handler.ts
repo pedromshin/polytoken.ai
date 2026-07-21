@@ -15,16 +15,18 @@ import type { PermissionBroker } from "../permissions/broker.js";
 import type { HandlerCtx, Router } from "../server/router.js";
 import { BROWSER_CAPABILITIES } from "./browser.js";
 import { BUILTIN_CAPABILITIES, gitRiskFor } from "./capabilities.js";
+import { DIR_CAPABILITIES } from "./dir.js";
 import { createCapabilityRegistry, type CapabilityRegistry, type ExecCtx } from "./registry.js";
 
 /**
  * The one registry the daemon runs on. Exported so the smoke script can describe it.
- * v2.0: the six browser.* capabilities are REGISTRY ENTRIES (INV-2) — this spread is the entire
+ * v2.0: browser.* and dir.* capabilities are REGISTRY ENTRIES (INV-2) — these spreads are the entire
  * wiring; no dispatch code below knows they exist.
  */
 export const builtinRegistry: CapabilityRegistry = createCapabilityRegistry([
   ...BUILTIN_CAPABILITIES,
   ...BROWSER_CAPABILITIES,
+  ...DIR_CAPABILITIES,
 ]);
 
 /**
