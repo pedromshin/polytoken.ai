@@ -30,6 +30,25 @@ const config = {
   /** Linting / typechecking run as separate tasks. */
   eslint: { ignoreDuringBuilds: true },
   typescript: { ignoreBuildErrors: false },
+
+  /**
+   * Resolve NodeNext-style `.js` specifiers in our source-first workspace packages to their real
+   * `.ts` files. `@polytoken/daemon-protocol` exports raw `./src/index.ts`, whose internal ESM
+   * imports carry `.js` extensions (required for the daemon's own NodeNext build). `tsc` maps
+   * `.js`→`.ts` transparently, but Next's webpack does not by default — so the first web page to
+   * import daemon-protocol for RUNTIME values (the /sessions surface: zod schemas + frame codecs)
+   * broke `next build` with "Can't resolve './tools.js'". `transpilePackages` transpiles the TS but
+   * does not add this resolution rule; `extensionAlias` does. Order: prefer `.ts`/`.tsx`, fall back
+   * to a real `.js` so node_modules `.js` imports still resolve.
+   */
+  webpack: (webpackConfig) => {
+    webpackConfig.resolve.extensionAlias = {
+      ...webpackConfig.resolve.extensionAlias,
+      ".js": [".ts", ".tsx", ".js"],
+      ".mjs": [".mts", ".mjs"],
+    };
+    return webpackConfig;
+  },
 };
 
 export default config;
