@@ -22,12 +22,21 @@
  *
  * Every entry below is copied from the declaring source, not invented:
  *   - daemon builtins → `apps/daemon/src/tools/capabilities.ts` (`BUILTIN_CAPABILITIES`)
+ *   - daemon browser  → `apps/daemon/src/tools/browser.ts` (the six `browser.*` descriptors)
+ *   - daemon dir      → `apps/daemon/src/tools/dir.ts` (`dir.list_tree`, `dir.sync_manifest`)
  *   - chat tools      → `apps/email-listener/app/infrastructure/tools/*_executor.py`
  *                       (+ `container.py`'s `define_capability(risk=..., cost=...)` wiring)
  *   - deep_research   → `apps/email-listener/app/application/use_cases/research/deep_research.py`
  *                       (`define_research_capability`: risk="read", cost="expensive")
  * If a describe/risk/cost changes at its source, change it HERE too — the test file pins the ids
  * and shape so a drift at least trips review.
+ *
+ * DELIBERATE OMISSION — the daemon's `session.*` verbs (session.list/start/attach/input/resize,
+ * `apps/daemon/src/sessions/`) are ROUTER HANDLERS, not `defineCapability` descriptors: only
+ * `session.start` reaches the broker (as `risk:"exec"`), and none declares a manifest
+ * describe/cost/source/trust at a source. Mirroring them here would mean INVENTING those fields,
+ * which this module's honesty discipline forbids. When session verbs become real registry
+ * descriptors, mirror them then — not before.
  */
 import type { CapabilityManifestEntry } from "@polytoken/capabilities";
 
@@ -95,6 +104,99 @@ export const BUILTIN_CAPABILITY_MANIFEST: readonly BuiltinManifestEntry[] = Obje
     // The union's risk is the ceiling (mirrors the descriptor's own comment): add/commit write.
     risk: "write",
     cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+
+  // ── daemon browser session (apps/daemon/src/tools/browser.ts) ────────────────────────────────
+  {
+    id: "browser.open",
+    describe:
+      "Open the daemon's single browser session: launch a chromium (playwright-core) with a " +
+      "persistent profile directory inside a configured root, or attach to an already-running " +
+      "chromium over CDP via cdpUrl. The profile directory is the permission scope for every " +
+      "subsequent browser tool.",
+    risk: "exec",
+    cost: "expensive",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "browser.navigate",
+    describe:
+      "Navigate the open browser session's page to an http(s) URL and report the resolved URL " +
+      "and page title. file:// and other non-web schemes are rejected at the schema.",
+    risk: "write",
+    cost: "moderate",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "browser.screenshot",
+    describe:
+      "Capture a PNG screenshot of the open browser session's page and return it base64-encoded. " +
+      "Raw bytes are capped at the daemon's configured output limit before encoding; `bytes` " +
+      "reports the uncapped size and `truncated` says whether the cap bit.",
+    risk: "read",
+    cost: "moderate",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "browser.click",
+    describe:
+      "Click the element matching a CSS selector in the open browser session's page. Bounded by " +
+      "the daemon's default timeout.",
+    risk: "write",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "browser.type",
+    describe:
+      "Type text into the element matching a CSS selector in the open browser session's page, " +
+      "replacing its current value. Bounded by the daemon's default timeout.",
+    risk: "write",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "browser.close",
+    describe:
+      "Close the daemon's open browser session: a launched chromium is shut down; an attached " +
+      "(CDP) browser is disconnected from. The session slot is freed for a new browser.open.",
+    risk: "exec",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+
+  // ── daemon directory tree (apps/daemon/src/tools/dir.ts) ─────────────────────────────────────
+  {
+    id: "dir.list_tree",
+    describe: "List a directory tree (bounded depth and entry count) inside a configured root.",
+    risk: "read",
+    cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "daemon",
+  },
+  {
+    id: "dir.sync_manifest",
+    describe:
+      "A stable content-hash manifest (path/size/sha256) of a bounded folder — the " +
+      "watched-folder sync seam.",
+    risk: "read",
+    cost: "moderate",
     source: "builtin",
     trust: "first-party",
     origin: "daemon",

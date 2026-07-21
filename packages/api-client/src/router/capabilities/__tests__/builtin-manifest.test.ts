@@ -33,15 +33,25 @@ const manifestEntrySchema = z
   .strict();
 
 describe("BUILTIN_CAPABILITY_MANIFEST", () => {
-  it("mirrors exactly the frozen builtin id set (5 daemon + 4 chat tools + deep_research)", () => {
+  it("mirrors exactly the frozen builtin id set (13 daemon + 4 chat tools + deep_research)", () => {
     expect([...BUILTIN_CAPABILITY_MANIFEST].map((e) => e.id).sort()).toEqual(
       [
-        // daemon (apps/daemon/src/tools/capabilities.ts BUILTIN_CAPABILITIES)
+        // daemon builtins (apps/daemon/src/tools/capabilities.ts BUILTIN_CAPABILITIES)
         "fs.read",
         "fs.write",
         "fs.list",
         "terminal.exec",
         "git",
+        // daemon browser session (apps/daemon/src/tools/browser.ts)
+        "browser.open",
+        "browser.navigate",
+        "browser.screenshot",
+        "browser.click",
+        "browser.type",
+        "browser.close",
+        // daemon directory tree (apps/daemon/src/tools/dir.ts)
+        "dir.list_tree",
+        "dir.sync_manifest",
         // chat (email-listener container.py registry wiring)
         "lookup_entity",
         "search_emails",
@@ -78,5 +88,10 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
     expect(byId.get("git")).toMatchObject({ risk: "write", cost: "cheap" });
     expect(byId.get("deep_research")).toMatchObject({ risk: "read", cost: "expensive" });
     expect(byId.get("web_search")).toMatchObject({ risk: "read", cost: "moderate" });
+    // The new daemon session/dir rows — browser.open is the highest-consequence one.
+    expect(byId.get("browser.open")).toMatchObject({ risk: "exec", cost: "expensive" });
+    expect(byId.get("browser.navigate")).toMatchObject({ risk: "write", cost: "moderate" });
+    expect(byId.get("browser.screenshot")).toMatchObject({ risk: "read", cost: "moderate" });
+    expect(byId.get("dir.list_tree")).toMatchObject({ risk: "read", cost: "cheap" });
   });
 });
