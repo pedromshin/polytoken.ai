@@ -175,3 +175,36 @@ User answered the full gate inventory. Decisions locked:
   live staging URL → document → report → then prod. Deploy waits on a clean green tree.
 
 In flight: desktop-node agent (task #8, canvas node), AWS-architecture research, E7 research.
+
+## 2026-07-21 ~02:10 UTC — E5 Cloud Desktop CD-1 backend spine LANDED (user: "keep building")
+
+After the A–F decisions, built the full CD-1 control-plane spine for Cloud Desktop on AWS
+(per .planning/research/cloud-desktop/AWS-ARCHITECTURE.md: EC2 + Amazon DCV). All fails-closed —
+nothing can spawn a machine until the user supplies an AWS role + budget. Committed + pushed.
+
+DONE (all tsc-clean + tested):
+- **Substrate (b57678f):** additive optional `reversibility` field on Capability (§5.2, no frozen
+  enum widened); the four `desktop.*` defineCapability descriptors + DesktopProvider PORT +
+  failClosedDesktopProvider; mirrored into the /capabilities manifest under a "control-plane" origin.
+- **DB (dd94c13):** `desktop_sessions` table — owner-scoped (user_id → auth.users), status enum,
+  provider_instance_id + gateway_url as opaque DATA (INV-11), hourly_rate/lifetime ceilings,
+  lifecycle timestamps. Migration 0042 with BOTH RLS policies (INV-9). assertDesktopSessionOwnership.
+- **Router (a6b6291):** desktopRouter spawn/attach/hibernate/destroy/list. protectedProcedure
+  (INV-8); ownership asserted first → NOT_FOUND (INV-11); capabilities resolved BY ID (INV-2);
+  concurrent-desktop cap enforced BEFORE the provider (RFC §5.3 layer 1); provider is fails-closed
+  (provider.ts, AWS binding is a documented seam gated on budget go-ahead). 5 tests prove the safety
+  floor: fails-closed spawn writes NO row, cap refuses pre-provider, attach/destroy gate on ownership.
+- **Canvas node (3b688d9, earlier):** the `desktop` panel-as-node shell (render-only, jailed).
+
+CD-1/CD-3 REMAINING (needs a gate, not just code):
+- Node lifecycle UI: wire the desktop node's spawn/attach/hibernate/destroy buttons to api.desktop.*
+  + the confirm-action machinery for the irreversible verbs (INV-4). Testable in jsdom but the UX
+  wants the pixel gate; and it's fails-closed until creds, so unexercisable end-to-end.
+- CD-2 the DCV stream itself + CD-3 the sandboxed-iframe stream surface: need a real spawned VM →
+  need the user's AWS role + budget.
+- The AWS DesktopProvider implementation (EC2 RunInstances + cloud-init DCV, Stop+EBS hibernate,
+  TerminateInstances destroy): built when the user green-lights a budget (bills real money).
+
+What the user must provide to make E5 spawn real machines: a scoped AWS IAM role, budget ceilings
+(hourly/concurrency/monthly/lifetime), and a region (recommend eu-central-1). Everything else is
+built and fails-closed.
