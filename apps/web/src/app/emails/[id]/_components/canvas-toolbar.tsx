@@ -109,7 +109,7 @@ export function CanvasToolbar({
       <div
         role="toolbar"
         aria-label="Canvas tools"
-        className="h-11 flex items-center gap-2 border-b px-3 bg-background shrink-0"
+        className="h-11 flex items-center gap-2 border-b px-3 bg-background shrink-0 min-w-0 overflow-x-auto [scrollbar-width:none] *:shrink-0"
       >
         {/* Tool mode group (D-08) */}
         <div className="flex items-center gap-1" role="group" aria-label="Tool mode">
