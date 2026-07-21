@@ -51,6 +51,19 @@ export type CapabilitySource = "builtin" | "external";
 export type CapabilityTrust = "first-party" | "verified" | "claimed" | "unvetted";
 
 /**
+ * Whether a capability's effect can be undone — the confirm-modal axis (INV-4 taste law: "confirm
+ * modals and `--bad` share exactly one scope, the irreversible").
+ *
+ * This is DELIBERATELY a separate, ADDITIVE, OPTIONAL field rather than a widening of the frozen
+ * `Risk` enum (`"read" | "write" | "exec"`, R-04, a closed set the daemon permission store keys on
+ * — see the Cloud Desktop RFC §5.2). Absent means reversible: every capability shipped before this
+ * field is unchanged, no migration. The ONE permission model treats `reversibility: "irreversible"`
+ * as the confirm-modal trigger, which makes the taste law machine-checkable. E5's `desktop.spawn`/
+ * `desktop.destroy` are the first declared irreversible capabilities.
+ */
+export type CapabilityReversibility = "reversible" | "irreversible";
+
+/**
  * An executable capability: the universal metadata (`id`/`input`/`output`/`risk`/`cost`/`describe`/
  * `source`/`trust`) plus an execution half parameterized by the consumer's context (`TCtx`) and its
  * scope-decision shape (`TScope`). The daemon binds `TCtx = ExecCtx` and `TScope = CapabilityScope`
@@ -72,6 +85,12 @@ export type Capability<
   readonly output: ZodType<TOutput>;
   /** INV-4: drives the ONE permission model's prompt. Data, not code. */
   readonly risk: Risk;
+  /**
+   * INV-4 (additive, §5.2): OPTIONAL undo-ability. Absent ⇒ reversible (every pre-existing
+   * capability unchanged). `"irreversible"` is the confirm-modal trigger the ONE permission model
+   * reads — no capability implements its own confirm flow.
+   */
+  readonly reversibility?: CapabilityReversibility;
   /** INV-1: declared even though nominal today. */
   readonly cost: CapabilityCost;
   /** Human/LLM-readable purpose. This is what an LLM reads to decide whether to call it. */
@@ -93,7 +112,7 @@ export type Capability<
  */
 export type CapabilityMeta<TInput = unknown, TOutput = unknown> = Pick<
   Capability<TInput, TOutput>,
-  "id" | "input" | "output" | "risk" | "cost" | "describe" | "source" | "trust"
+  "id" | "input" | "output" | "risk" | "reversibility" | "cost" | "describe" | "source" | "trust"
 >;
 
 /**
@@ -104,6 +123,8 @@ export type CapabilityManifestEntry = {
   readonly id: string;
   readonly describe: string;
   readonly risk: Risk;
+  /** Additive (§5.2): present only when declared; absent ⇒ reversible. Drives the confirm modal. */
+  readonly reversibility?: CapabilityReversibility;
   readonly cost: CapabilityCost;
   readonly source: CapabilitySource;
   readonly trust: CapabilityTrust;
@@ -149,6 +170,9 @@ export const createCapabilityRegistry = <TCtx = unknown, TScope = unknown>(
             id: d.id,
             describe: d.describe,
             risk: d.risk,
+            // Additive (§5.2): only project the key when declared, so pre-existing entries stay
+            // byte-identical and `exactOptionalPropertyTypes` sees no `undefined` value.
+            ...(d.reversibility !== undefined ? { reversibility: d.reversibility } : {}),
             cost: d.cost,
             source: d.source,
             trust: d.trust,

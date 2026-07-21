@@ -11,6 +11,24 @@ export {
 
 export { vetCandidate, registerExternal } from "./vetting.js";
 
+export {
+  desktopShapeSchema,
+  failClosedDesktopProvider,
+  desktopSpawnCapability,
+  desktopAttachCapability,
+  desktopHibernateCapability,
+  desktopDestroyCapability,
+  DESKTOP_CAPABILITIES,
+} from "./desktop.js";
+
+export type {
+  DesktopStatus,
+  DesktopShape,
+  DesktopProvider,
+  DesktopExecCtx,
+  DesktopScope,
+} from "./desktop.js";
+
 export type {
   ExternalTrust,
   ExternalCapabilityCandidate,
@@ -24,6 +42,7 @@ export type {
   CapabilityCost,
   CapabilitySource,
   CapabilityTrust,
+  CapabilityReversibility,
   CapabilityMeta,
   Capability,
   CapabilityManifestEntry,

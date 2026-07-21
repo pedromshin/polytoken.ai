@@ -59,10 +59,11 @@ export const TRUST_BADGE: Record<
   unvetted: { label: "unvetted", borderStyle: "border-dashed" },
 };
 
-/** Where the capability executes — plain words, no glyph inventory needed at n=2. */
+/** Where the capability executes — plain words. */
 export const ORIGIN_LABEL: Record<ManifestEntry["origin"], string> = {
   daemon: "on your machine",
   chat: "in chat",
+  "control-plane": "in the cloud",
 };
 
 /**
