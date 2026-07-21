@@ -172,3 +172,38 @@ describe("match — deny beats allow, and scope boundaries hold", () => {
     expect(store.match({ capabilityId: "terminal.exec", scope: "nodemon.exe" })).toBe("none");
   });
 });
+
+describe("capability kill-switches — the /capabilities allowlist enforcement state", () => {
+  it("every capability is enabled by default (a disabled set is opt-in)", async () => {
+    const store = await loadAllowlist(file);
+    expect(store.isCapabilityEnabled("fs.read")).toBe(true);
+    expect(store.disabledCapabilities).toEqual([]);
+  });
+
+  it("disable/enable round-trips through a fresh load (survives restart)", async () => {
+    let store = await loadAllowlist(file);
+    store = await store.setCapabilityEnabled("terminal.exec", false);
+    expect(store.isCapabilityEnabled("terminal.exec")).toBe(false);
+
+    const reloaded = await loadAllowlist(file);
+    expect(reloaded.isCapabilityEnabled("terminal.exec")).toBe(false);
+    expect(reloaded.disabledCapabilities).toContain("terminal.exec");
+
+    const reenabled = await (await loadAllowlist(file)).setCapabilityEnabled("terminal.exec", true);
+    expect(reenabled.isCapabilityEnabled("terminal.exec")).toBe(true);
+    expect((await loadAllowlist(file)).isCapabilityEnabled("terminal.exec")).toBe(true);
+  });
+
+  it("disabling is idempotent and does not disturb remembered rules", async () => {
+    let store = await loadAllowlist(file);
+    store = await store.append({
+      id: "r1", capabilityId: "fs.read", risk: "read", scope: "C:\\root",
+      decision: "allow", createdAt: new Date().toISOString(), origin: "seed",
+    });
+    store = await store.setCapabilityEnabled("browser.open", false);
+    store = await store.setCapabilityEnabled("browser.open", false); // idempotent
+    const reloaded = await loadAllowlist(file);
+    expect(reloaded.rules).toHaveLength(1); // the rule survived the toggle
+    expect(reloaded.disabledCapabilities).toEqual(["browser.open"]);
+  });
+})

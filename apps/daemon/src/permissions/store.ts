@@ -41,7 +41,19 @@ export const permissionRuleSchema = z
 export type PermissionRule = z.infer<typeof permissionRuleSchema>;
 
 export const allowlistFileSchema = z
-  .object({ version: z.literal(1), rules: z.array(permissionRuleSchema) })
+  .object({
+    version: z.literal(1),
+    rules: z.array(permissionRuleSchema),
+    /**
+     * The user-facing allowlist panel's kill-switches: capability ids the user has DISABLED. A
+     * disabled capability is denied at the broker BEFORE it can prompt (a stronger, blunter control
+     * than a remembered per-scope rule). Absent = every capability is enabled by default (a
+     * disabled set is opt-in, so an old file with no field keeps working — fail-open on ABSENCE is
+     * correct here because absence means "the user disabled nothing", not "the file is corrupt";
+     * a corrupt file still fail-CLOSES the whole store via loadAllowlist).
+     */
+    disabledCapabilities: z.array(z.string().min(1)).optional().default([]),
+  })
   .strict();
 
 export type MatchQuery = { capabilityId: string; scope: string };
@@ -49,9 +61,14 @@ export type MatchResult = "allow" | "deny" | "none";
 
 export type AllowlistStore = {
   readonly rules: readonly PermissionRule[];
+  readonly disabledCapabilities: readonly string[];
   match(q: MatchQuery): MatchResult;
+  /** The /capabilities panel's enforcement: is this capability currently allowed to run at all? */
+  isCapabilityEnabled(capabilityId: string): boolean;
   /** Persists, then returns a NEW store (immutability rule). */
   append(rule: PermissionRule): Promise<AllowlistStore>;
+  /** Toggle a capability's kill-switch; persists, returns a NEW store. */
+  setCapabilityEnabled(capabilityId: string, enabled: boolean): Promise<AllowlistStore>;
 };
 
 /** terminal.exec scopes are executable names; everything else is a path prefix. */
@@ -88,9 +105,21 @@ const writeAtomic = async (filePath: string, contents: string): Promise<void> =>
   await fs.rename(tmpPath, filePath);
 };
 
-const makeStore = (filePath: string, rules: readonly PermissionRule[]): AllowlistStore =>
-  Object.freeze({
+const makeStore = (
+  filePath: string,
+  rules: readonly PermissionRule[],
+  disabled: readonly string[],
+): AllowlistStore => {
+  const disabledSet = new Set(disabled);
+  const persist = (nextRules: readonly PermissionRule[], nextDisabled: readonly string[]): Promise<void> =>
+    writeAtomic(
+      filePath,
+      JSON.stringify({ version: 1, rules: nextRules, disabledCapabilities: [...nextDisabled] }, null, 2),
+    );
+
+  return Object.freeze({
     rules: Object.freeze([...rules]),
+    disabledCapabilities: Object.freeze([...disabled]),
 
     match(q: MatchQuery): MatchResult {
       const matching = rules.filter((rule) => ruleMatches(rule, q));
@@ -99,12 +128,26 @@ const makeStore = (filePath: string, rules: readonly PermissionRule[]): Allowlis
       return matching.some((rule) => rule.decision === "deny") ? "deny" : "allow";
     },
 
+    isCapabilityEnabled(capabilityId: string): boolean {
+      return !disabledSet.has(capabilityId);
+    },
+
     async append(rule: PermissionRule): Promise<AllowlistStore> {
       const next = [...rules, rule];
-      await writeAtomic(filePath, JSON.stringify({ version: 1, rules: next }, null, 2));
-      return makeStore(filePath, next);
+      await persist(next, disabled);
+      return makeStore(filePath, next, disabled);
+    },
+
+    async setCapabilityEnabled(capabilityId: string, enabled: boolean): Promise<AllowlistStore> {
+      const nextDisabled = new Set(disabled);
+      if (enabled) nextDisabled.delete(capabilityId);
+      else nextDisabled.add(capabilityId);
+      const nextArr = [...nextDisabled];
+      await persist(rules, nextArr);
+      return makeStore(filePath, rules, nextArr);
     },
   });
+};
 
 /**
  * Load the allowlist. A missing file is a normal first run (empty). A CORRUPT file is backed up
@@ -115,7 +158,7 @@ export const loadAllowlist = async (filePath: string): Promise<AllowlistStore> =
   try {
     raw = await fs.readFile(filePath, "utf8");
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return makeStore(filePath, []);
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return makeStore(filePath, [], []);
     throw error;
   }
 
@@ -131,7 +174,7 @@ export const loadAllowlist = async (filePath: string): Promise<AllowlistStore> =
         `Failing CLOSED: starting with ZERO remembered permissions. ` +
         `The previous file was preserved at ${backup}. Every action will be asked again.`,
     );
-    return makeStore(filePath, []);
+    return makeStore(filePath, [], []);
   };
 
   let parsedJson: unknown;
@@ -148,5 +191,5 @@ export const loadAllowlist = async (filePath: string): Promise<AllowlistStore> =
     );
   }
 
-  return makeStore(filePath, parsed.data.rules);
+  return makeStore(filePath, parsed.data.rules, parsed.data.disabledCapabilities);
 };

@@ -378,3 +378,38 @@ describe("audit (T-65-08) — every verdict is recorded, nothing sensitive is", 
     expect(typeof line.ts).toBe("string");
   });
 });
+
+describe("the /capabilities allowlist kill-switch (STEP 2.5) — enforcement", () => {
+  it("a DISABLED capability is denied WITHOUT prompting (never even asks)", async () => {
+    const ask = vi.fn<AskFn>(async () => ({ allow: true, remember: false }));
+    const file = path.join(tmp, "allowlist.json");
+    let store = await loadAllowlist(file);
+    store = await store.setCapabilityEnabled("fs.read", false); // user flipped it off in the panel
+
+    const { broker } = await build({ ask, file });
+    const verdict = await broker.decide({
+      capabilityId: "fs.read",
+      risk: "read",
+      scope: path.join(rootDir, "ok.txt"), // INSIDE roots — so only the kill-switch can deny it
+      pathsToCheck: [path.join(rootDir, "ok.txt")],
+    });
+
+    expect(verdict.kind).toBe("deny");
+    if (verdict.kind === "deny") expect(verdict.code).toBe("permission_denied");
+    // The crux: a disabled capability short-circuits before the prompt. If this fires, the toggle is cosmetic.
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("an ENABLED (default) capability still flows to the normal ask path", async () => {
+    const ask = vi.fn<AskFn>(async () => ({ allow: true, remember: false }));
+    const { broker } = await build({ ask });
+    const verdict = await broker.decide({
+      capabilityId: "fs.read",
+      risk: "read",
+      scope: path.join(rootDir, "ok.txt"),
+      pathsToCheck: [path.join(rootDir, "ok.txt")],
+    });
+    expect(verdict.kind).toBe("allow");
+    expect(ask).toHaveBeenCalledTimes(1); // not short-circuited — enabled is the default
+  });
+})

@@ -129,6 +129,18 @@ export const createPermissionBroker = (opts: {
         }
       }
 
+      // ── STEP 2.5: the /capabilities allowlist kill-switch. A capability the user has DISABLED
+      //    is denied WITHOUT prompting — a disabled capability never even asks. This is the
+      //    enforcement half of the web allowlist panel (its toggles sync to store.disabledCapabilities).
+      //    Runs after the roots boundary (which is never promptable and never overridable) and
+      //    before remembered rules + the ask, so nothing a disabled capability does can reach a prompt.
+      if (!store.isCapabilityEnabled(q.capabilityId)) {
+        return finish(
+          q,
+          deny("permission_denied", `${q.capabilityId} is disabled in the capability allowlist`),
+        );
+      }
+
       // ── STEP 3: remembered decisions. Explicit deny beats allow. ──
       const remembered = store.match({ capabilityId: q.capabilityId, scope: q.scope });
       if (remembered === "deny") {
