@@ -1,28 +1,10 @@
 "use client";
 
 import type { LucideIcon } from "lucide-react";
-import {
-  Bookmark,
-  Boxes,
-  FileText,
-  FlaskConical,
-  FolderOpen,
-  Inbox,
-  MessageSquare,
-  Moon,
-  Share2,
-  Shapes,
-  ShieldCheck,
-  SquareTerminal,
-  Sun,
-} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
 
 import { Badge } from "@polytoken/ui/badge";
-import { Button } from "@polytoken/ui/button";
 import {
   Sidebar,
   SidebarContent,
@@ -34,14 +16,9 @@ import {
 } from "@polytoken/ui/sidebar";
 
 import { BrandMark } from "~/components/brand-mark";
+import { isActiveRoute, LIVE_NAV_ITEMS } from "~/components/nav-items";
 import { SignOutButton } from "~/components/sign-out-button";
-
-/** A navigable destination rendered as a next/link in the rail. */
-interface LiveNavItem {
-  readonly href: string;
-  readonly label: string;
-  readonly icon: LucideIcon;
-}
+import { ThemeToggle } from "~/components/theme-toggle";
 
 /** A future destination rendered as a disabled "Soon" affordance. */
 interface SoonNavItem {
@@ -50,67 +27,9 @@ interface SoonNavItem {
   readonly soon: true;
 }
 
-// D-20 nav order: Inbox · Entity Types · Entities · Knowledge · Studio · Chat (all live).
-const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
-  { href: "/", label: "Inbox", icon: Inbox },
-  { href: "/entity-types", label: "Entity Types", icon: Shapes },
-  { href: "/entities", label: "Entities", icon: Boxes },
-  { href: "/knowledge", label: "Knowledge", icon: Share2 }, // ← promoted Phase 11
-  { href: "/studio", label: "Studio", icon: FlaskConical }, // ← Phase 15: repointed to /studio landing (D-14)
-  { href: "/chat", label: "Chat", icon: MessageSquare }, // ← Phase 22 (D-11): single Chat nav item
-  { href: "/files", label: "Files", icon: FolderOpen }, // ← Phase 66: the self-cloud vault (v2.1 slice)
-  { href: "/documents", label: "Documents", icon: FileText }, // ← integration: living-documents surface
-  { href: "/references", label: "References", icon: Bookmark }, // ← integration: 999.35 reference shelf
-  { href: "/sessions", label: "Sessions", icon: SquareTerminal }, // ← integration: daemon terminal sessions
-  { href: "/capabilities", label: "Capabilities", icon: ShieldCheck }, // ← integration: tool-registry allowlist
-];
-
+// Nav data lives in nav-items.ts (MOBL-02) — the ONE registry this rail, the
+// mobile tab bar, and the "More" sheet all read. Add destinations THERE.
 const SOON_NAV_ITEMS: ReadonlyArray<SoonNavItem> = []; // Knowledge removed
-
-/** Active when the path is the route itself or nested beneath it. */
-function isActiveRoute(pathname: string, href: string): boolean {
-  if (href === "/") return pathname === "/";
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-/**
- * Theme toggle (D-21). The mounted gate prevents a hydration mismatch — on the
- * server `resolvedTheme` is undefined, so we render a neutral, non-throwing
- * placeholder until the client knows the active theme.
- */
-function ThemeToggle(): React.ReactElement {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isDark = mounted && resolvedTheme === "dark";
-
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
-      className="h-11 w-full justify-start gap-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
-      onClick={() => setTheme(isDark ? "light" : "dark")}
-    >
-      {/* Render both icons until mounted to avoid an SSR/client glyph mismatch. */}
-      {mounted ? (
-        isDark ? (
-          <Sun className="size-4" aria-hidden />
-        ) : (
-          <Moon className="size-4" aria-hidden />
-        )
-      ) : (
-        <Sun className="size-4 opacity-0" aria-hidden />
-      )}
-      <span className="text-sm">{isDark ? "Light mode" : "Dark mode"}</span>
-    </Button>
-  );
-}
 
 /**
  * AppSidebar (D-20/D-21) — the persistent frosted left rail wrapping the whole

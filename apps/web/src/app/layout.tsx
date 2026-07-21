@@ -1,15 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Archivo } from "next/font/google";
 
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@polytoken/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@polytoken/ui/sidebar";
 import { Toaster } from "@polytoken/ui/sonner";
 
 import { AppSidebar } from "~/components/app-sidebar";
-import { BrandMark } from "~/components/brand-mark";
+import { MobileTabBar } from "~/components/mobile-tab-bar";
 import { ThemeProvider } from "~/components/theme-provider";
 import { TRPCReactProvider } from "~/trpc/react";
 import "./globals.css";
@@ -39,6 +35,27 @@ export const metadata: Metadata = {
 };
 
 /**
+ * Viewport (MOBL-01, mobile web app shell). `viewportFit: "cover"` lets the
+ * app paint under notches/home indicators so the tab bar's own
+ * env(safe-area-inset-bottom) padding is the thing that clears them —
+ * without it, iOS letterboxes the app and the safe-area env() vars are all
+ * zero. `interactiveWidget: "resizes-content"` keeps bottom-fixed chrome
+ * (composer, tab bar) above the on-screen keyboard on Chrome Android.
+ * themeColor projects the identity's `--shelf` page ground (oklch → hex,
+ * same values as manifest.ts) onto the OS browser chrome per scheme.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#e8e6dc" },
+    { media: "(prefers-color-scheme: dark)", color: "#191512" },
+  ],
+};
+
+/**
  * Root app shell (D-20/D-21). The whole app renders inside a persistent frosted
  * left rail. Provider nesting preserves the original ordering — TRPCReactProvider
  * stays outermost over the UI tree, the Toaster stays a sibling of the shell —
@@ -47,11 +64,15 @@ export const metadata: Metadata = {
  * inside this slot). `suppressHydrationWarning` is required by next-themes, which
  * writes the resolved theme class onto <html> after hydration.
  *
- * Below `md`, a `md:hidden` bar directly above `{children}` (53-01-PLAN.md
- * Task 2, 53-UI-SPEC.md Component Inventory §1) mounts a `SidebarTrigger` —
- * closing a found gap where no trigger existed anywhere in the app, leaving
- * a signed-in phone user with no way to open the app nav. Desktop (`>=md`)
- * stays byte-identical to before this bar was added.
+ * Below `md`, the app is a MOBILE WEB APP (MOBL-02): primary navigation is
+ * the fixed bottom tab bar (`MobileTabBar` — four thumb-reach destinations +
+ * a "More" sheet with full parity), which replaced the 53-01 hamburger top
+ * bar; a bottom bar beats a burger for one-tap reach and glanceable place
+ * (every top mobile app shell made this move). The content wrapper sets
+ * `--app-tabbar-h` (3.5rem below `md`, 0 at `md+`) and pads its own bottom
+ * by it, so scrolling surfaces never hide content under the fixed bar;
+ * fixed-height surfaces subtract the same var in their height calc.
+ * Desktop (`>=md`) keeps the sidebar rail and never mounts the tab bar.
  */
 export default function RootLayout({
   children,
@@ -71,18 +92,10 @@ export default function RootLayout({
             <SidebarProvider>
               <AppSidebar />
               <SidebarInset>
-                <div className="flex h-11 shrink-0 items-center gap-2 border-b border-border/50 bg-background px-2 md:hidden">
-                  <SidebarTrigger className="size-11" />
-                  <BrandMark
-                    variant="glyph"
-                    size="size-5"
-                    className="text-primary"
-                  />
-                  <span className="text-sm font-semibold text-foreground">
-                    Polytoken
-                  </span>
+                <div className="flex min-h-0 flex-1 flex-col pb-(--app-tabbar-h) [--app-tabbar-h:calc(3.5rem+env(safe-area-inset-bottom))] md:pb-0 md:[--app-tabbar-h:0px]">
+                  {children}
                 </div>
-                {children}
+                <MobileTabBar />
               </SidebarInset>
             </SidebarProvider>
           </ThemeProvider>
