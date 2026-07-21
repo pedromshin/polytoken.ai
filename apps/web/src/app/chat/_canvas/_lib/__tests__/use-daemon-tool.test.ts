@@ -148,25 +148,7 @@ describe("permission loop", () => {
  * We drive `call` directly and read pendingPermissions by re-subscribing.
  */
 function harness() {
-  // The hook binds to the module singleton; we replicate its surface via a subscription.
-  const mod = useDaemonToolMod;
-  let permissions: ReturnType<typeof snapshot> = [];
-  function snapshot() {
-    // The connection is private; the hook's return exposes it. We create a hook-equivalent by
-    // calling the exported factory through a fake render: use a module-level getter via call().
-    return permissions;
-  }
-  // Use React-testing-free access: the exported hook can't run outside React, so we reach the
-  // singleton through the exported call path by invoking a no-op call is wrong. Instead the module
-  // exposes __resetDaemonConnectionForTests + the hook; we mount the hook via a minimal renderer.
-  const state = mountHook(mod);
-  return {
-    call: state.call,
-    resolvePermission: state.resolvePermission,
-    pendingPermissions: () => state.pendingPermissions(),
-    tick: state.tick,
-    deliver: state.deliver,
-  };
+  return mountHook(useDaemonToolMod);
 }
 
 // Minimal React hook runner (renderHook-lite) using react's test act.

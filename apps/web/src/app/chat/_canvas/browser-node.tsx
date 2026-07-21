@@ -43,6 +43,7 @@
 
 import * as React from "react";
 import { memo, useState } from "react";
+import { useDaemonTool } from "./_lib/use-daemon-tool";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AppWindow, Camera, X } from "lucide-react";
@@ -114,13 +115,17 @@ export const BrowserNode = memo(function BrowserNode({
 }: NodeProps<BrowserNodeType>) {
   const { deleteElements } = useReactFlow();
 
+  const daemon = useDaemonTool();
   const persistedUrl = safeBrowserUrl(data.url);
   const [urlDraft, setUrlDraft] = useState<string>(persistedUrl ?? "");
-  /** The last submitted intent, parked until the daemon bridge seam lands. */
+  /** The last submitted intent — parked when there is no daemon; live when there is. */
   const [pendingIntent, setPendingIntent] = useState<BrowserCapabilityIntent | null>(
     null,
   );
   const [rejected, setRejected] = useState<boolean>(false);
+  /** The last daemon screenshot as a base64 PNG — the ONLY live surface (rendered as a data: URI). */
+  const [shot, setShot] = useState<string | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
@@ -131,12 +136,28 @@ export const BrowserNode = memo(function BrowserNode({
       return;
     }
     setRejected(false);
-    // SEAM (orchestrator): forward `intent` to the daemon bridge — resolve
-    // intent.capabilityId against the daemon registry allowlist, let the ONE
-    // permission model read its declared risk, then render the returned
-    // `browser.screenshot` frames into the viewport below. Until then the
-    // intent parks here and the status line states it.
     setPendingIntent(intent);
+    setLiveError(null);
+    // LIVE when a daemon is present: navigate, then pull a screenshot frame. The daemon's ONE
+    // permission model reads each capability's declared risk (navigate=write) and prompts; a
+    // returned browser.screenshot base64 renders below as a data: PNG — remote pages never run here.
+    // With no daemon, the intent simply parks (the status line says so).
+    if (daemon.status === "ready" || daemon.status === "connecting") {
+      void (async () => {
+        const nav = await daemon.call("browser.navigate", { url: intent.input.url });
+        if (!nav.ok) {
+          setLiveError(nav.error);
+          return;
+        }
+        const frame = await daemon.call("browser.screenshot", {});
+        if (frame.ok && typeof frame.output.base64 === "string") {
+          setShot(frame.output.base64);
+          setPendingIntent(null);
+        } else if (!frame.ok) {
+          setLiveError(frame.error);
+        }
+      })();
+    }
   }
 
   const headerLabel =
@@ -195,29 +216,42 @@ export const BrowserNode = memo(function BrowserNode({
           will ever have (see THE JAIL, header). No iframe, no img src to a
           remote origin: frames arrive as daemon `browser.screenshot` data
           through the seam and render here as data: PNGs. */}
-      <div
-        role="img"
-        aria-label="Browser viewport placeholder"
-        className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 bg-shade px-4 text-center"
-      >
-        <Camera className="size-5 shrink-0 text-faded" aria-hidden />
-        {rejected ? (
-          <p className="text-xs text-faded">
-            Only http(s) addresses can be opened here.
-          </p>
-        ) : pendingIntent !== null ? (
-          <p className="text-xs text-faded">
-            Waiting on the daemon —{" "}
-            <span className="tabular">{String(pendingIntent.input.url)}</span>{" "}
-            parked as a {BROWSER_PANEL_CAPABILITY_IDS.navigate} intent.
-          </p>
-        ) : (
-          <p className="text-xs text-faded">
-            The live view streams here as screenshots from the daemon&apos;s
-            browser — remote pages never run inside polytoken.
-          </p>
-        )}
-      </div>
+      {shot !== null ? (
+        // THE ONE LIVE SURFACE: a daemon screenshot as a data: PNG. Not a remote src, not an
+        // iframe — a static image of pixels the daemon captured. The jail holds.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`data:image/png;base64,${shot}`}
+          alt="Live browser view (daemon screenshot)"
+          className="min-h-0 w-full flex-1 bg-shade object-contain object-top"
+        />
+      ) : (
+        <div
+          role="img"
+          aria-label="Browser viewport placeholder"
+          className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1.5 bg-shade px-4 text-center"
+        >
+          <Camera className="size-5 shrink-0 text-faded" aria-hidden />
+          {rejected ? (
+            <p className="text-xs text-faded">
+              Only http(s) addresses can be opened here.
+            </p>
+          ) : liveError !== null ? (
+            <p className="text-xs text-faded">The daemon refused: {liveError}</p>
+          ) : pendingIntent !== null ? (
+            <p className="text-xs text-faded">
+              {daemon.status === "no-daemon" || daemon.status === "error" ? "Parked" : "Loading"} —{" "}
+              <span className="tabular">{String(pendingIntent.input.url)}</span>{" "}
+              via {BROWSER_PANEL_CAPABILITY_IDS.navigate}.
+            </p>
+          ) : (
+            <p className="text-xs text-faded">
+              The live view streams here as screenshots from the daemon&apos;s
+              browser — remote pages never run inside polytoken.
+            </p>
+          )}
+        </div>
+      )}
       <div className="flex h-9 shrink-0 items-center justify-between gap-1 border-t border-hair px-3">
         {/* SANS status chrome: which session capability this panel keys on. */}
         <span className="truncate text-2xs text-faded">
