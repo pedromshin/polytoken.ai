@@ -108,3 +108,41 @@ BLOCKED / PARKED (needs explicit user direction or a machine):
 - Open SEAMS (recorded in commit bodies): panel add-affordances + daemon intent bridge (browser
   screenshot stream / fs live tree into panels); directory attach-chat procedure; allowlist
   enforcement into broker+chat loop; live daemon manifest merge; server-persisted allowlist table.
+
+## 2026-07-21 ~00:38 UTC — DAEMON PTY SESSIONS + DAEMON→PANEL BRIDGE LANDED (user: "build the daemon PTY sessions feature and everything else missing" + "Build all three")
+
+The three items previously in BLOCKED/PARKED as "unnamed RCE surface / open seams" are now
+BUILT, tested, committed, and pushed — after the user's explicit, specific authorization.
+
+DONE this session (unblocked → shipped):
+- **Daemon PTY sessions** (`apps/daemon/src/sessions/manager.ts` + `handlers.ts`, wired in
+  `server/daemon.ts`): session.start/attach/input/resize/list. Deny-BEFORE-spawn via
+  `broker.decide({capabilityId:"session.start", risk:"exec"})`; roots boundary; `scrubEnv` strips
+  DAEMON_TOKEN from children; MAX_SESSIONS=8; 256KB scrollback. 10 tests, MOCKED child_process
+  (deterministic, sandbox-independent) — deny-before-spawn proven (spawnCalls empty on deny).
+  The `/sessions` UI (v2.2) already drives all five verbs → the terminal feature is END-TO-END.
+- **Allowlist kill-switch enforcement** (broker STEP 2.5 + `permissions/store.ts`
+  disabledCapabilities): a disabled capability id returns permission_denied BEFORE any prompt.
+  The `/capabilities` panel toggle now has teeth in the broker.
+- **dir.* capabilities** (`packages/daemon-protocol/src/dir.ts` + `apps/daemon/src/tools/dir.ts`):
+  dir.list_tree (BFS, symlinks recorded never descended) + dir.sync_manifest (sha256). 7 tests.
+- **daemon→panel bridge** (`apps/web/.../_canvas/_lib/use-daemon-tool.ts`): ONE module-singleton
+  client WS (ws://127.0.0.1, ?token= gate), tool.request→tool.result by requestId, perm.request
+  surfaced by envelope id (R-03), 30s timeout. 4 transport tests (fake WS drives the full loop).
+  All THREE live panels now consume it:
+    · browser-node → browser.navigate + browser.screenshot renders as a data: PNG (jail holds)
+    · directory-node → dir.list_tree Refresh button maps the tree into bounded preview rows
+    · editor-node → fs.write (Save, risk=write → prompt) + fs.read (Load), parks honestly offline
+
+Verification (00:38 UTC): 7/7 TS packages tsc clean; web 541 canvas tests green; daemon 204 pass /
+12 fail — the SAME 12 pre-existing environment tests (real spawn, real fs, real git, Windows
+junction realpath), zero regression from sessions/allowlist/dir. Branch tip c96f4b8, pushed.
+
+STILL genuinely pending (user gates or a machine — unchanged):
+- Pixel/taste review of every visual surface (D1 gate).
+- v1.9 live legs: OAuth, real inbound email, CLUS-07; v1.12 real-mail switch. User console, no code.
+- 999.20 nauta infra purge (DB + AWS migration); D2 bless (framing decision).
+- Cloud Desktop epoch (999.39 RFC written) — needs a cloud-provisioning account + provider/protocol
+  decisions before build. This is VISION E5 (whole-machine remote desktop, not a browser panel).
+- Small cleanup seam: reconcile the /capabilities panel's STATIC manifest to mirror the live
+  registry (browser.* + dir.* + session.start) — a documented drift seam, not a bug.
