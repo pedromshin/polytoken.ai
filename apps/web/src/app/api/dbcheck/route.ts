@@ -26,10 +26,22 @@ export async function GET() {
     const r = await db.execute(sql`select 1 as ok`);
     return Response.json({ ok: true, info, rows: r });
   } catch (e: unknown) {
-    const err = e as { message?: string; code?: string; errno?: string };
-    return Response.json(
-      { ok: false, info, error: err?.message ?? String(e), code: err?.code ?? err?.errno },
-      { status: 500 },
-    );
+    // Drizzle wraps the real driver error in `.cause`; dig it out fully.
+    const chain: Record<string, unknown>[] = [];
+    let cur: unknown = e;
+    for (let i = 0; i < 4 && cur; i++) {
+      const c = cur as Record<string, unknown>;
+      chain.push({
+        message: c.message,
+        code: c.code,
+        errno: c.errno,
+        severity: c.severity,
+        routine: c.routine,
+        detail: c.detail,
+        name: c.name,
+      });
+      cur = c.cause;
+    }
+    return Response.json({ ok: false, info, chain }, { status: 500 });
   }
 }
