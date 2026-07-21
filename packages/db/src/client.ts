@@ -81,19 +81,37 @@ if (!connectionUrl) {
   }
 }
 
-// Create a new client instance (deferred during CI build when env vars are absent)
+/**
+ * Parse the connection URL into DISCRETE params instead of handing the URL
+ * string to postgres-js (prod-500 fix #2, 2026-07-21). Supabase's pooler
+ * requires the tenant username `postgres.<ref>`, but postgres-js's own URL
+ * parser mangles that dotted username and authenticates as bare `postgres`,
+ * which the pooler rejects ("password authentication failed for user
+ * postgres") — even when the password is correct. Passing host/port/user/pass
+ * discretely (verified live via /api/dbcheck: discrete OK, url-string FAILS)
+ * sends the tenant username intact. decodeURIComponent handles %-encoded chars.
+ */
+function connectionOptions(url: string): postgres.Options<Record<string, never>> {
+  const u = new URL(url);
+  return {
+    host: u.hostname,
+    port: u.port ? Number(u.port) : 5432,
+    database: decodeURIComponent(u.pathname.replace(/^\//, "")) || "postgres",
+    username: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+  };
+}
+
 // `prepare: false` is required by the Supabase transaction pooler. On Vercel we
-// also cap the per-instance pool (each frozen serverless instance otherwise
-// holds idle connections until the DB's connection ceiling is hit, producing
-// intermittent 500s under load) and let idle connections expire quickly so the
-// pooler's slots free up between invocations.
+// also cap the per-instance pool (frozen serverless instances otherwise hold
+// idle connections until the DB's connection ceiling is hit) and expire idle
+// connections quickly.
 const client = connectionUrl
-  ? postgres(
-      connectionUrl,
-      onVercel
-        ? { prepare: false, max: 1, idle_timeout: 20, connect_timeout: 15 }
-        : { prepare: false },
-    )
+  ? postgres({
+      ...connectionOptions(connectionUrl),
+      prepare: false,
+      ...(onVercel ? { max: 1, idle_timeout: 20, connect_timeout: 15 } : {}),
+    })
   : (undefined as unknown as postgres.Sql);
 
 export const db = client
