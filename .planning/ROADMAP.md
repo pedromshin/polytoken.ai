@@ -181,7 +181,7 @@ STATE.md → Deferred Items → v1.9.
 
 </details>
 
-## v1.10 — Product Design & Research Canvas (Phases 55–63) — CURRENT
+## v1.10 — Product Design & Research Canvas (Phases 55–63) — SHIPPED except carried 62/63 (pixel-gated on Pedro)
 
 **Goal:** polytoken stops looking experimental and starts working the way the user described it —
 a *designed* product whose research canvas collects sources without ceremony, lets the user select
@@ -212,7 +212,7 @@ WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
  (completed 2026-07-15)
 - [x] Phase 57: Email Learning Loop
  (completed 2026-07-15)
-- [ ] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE)
+- [x] Phase 58: Visual Identity — Sketch & Pick (HUMAN GATE) — resolved 2026-07-15 via D-58-01; checkbox reconciled 2026-07-22
 - [x] Phase 59: Visual Identity — Designed Token Set & Brand Guide
  (completed 2026-07-15)
 - [x] Phase 60: Surface Redesign — Inbox & Email Detail
@@ -460,11 +460,11 @@ hand-wired surface. Build the registry (`packages/capabilities`) first; the feat
 Kept deliberately cheap — a zod declaration + a lookup, not a platform.
 
 - [x] Phase 64: Research, Documents & Mail Rules — vertical slice (Lane B, built 2026-07-17; ABSORBED as v1.11's first phase, not re-planned)
-- [ ] Phase 68: The Capability Spine — `packages/capabilities`; chat loop + daemon + genui resolve by registry id (REG-01/02/03, MAIL-02; INV-1..5)
-- [ ] Phase 69: Research Depth & Citation Discipline (RSRCH-01 depth, RSRCH-02/03/04)
-- [ ] Phase 70: Documents as First-Class Objects (DOCS-01/02/03)
-- [ ] Phase 71: Genui × Registry Binding — the D2 proof (REG-04)
-- [ ] Phase 72: Research Evals & the Observability Seed (RSRCH-05)
+- [ ] Phase 68: The Capability Spine — `packages/capabilities`; chat loop + daemon + genui resolve by registry id (REG-01/02/03, MAIL-02; INV-1..5) — *built 2026-07-20 night-run (wave commit `bd514b3` per `night-run/BUILD-MARCH-2026-07-20.md`, landed on main via squash-merge `0851cf9`), NOT wired/verified through GSD — verification owed*
+- [ ] Phase 69: Research Depth & Citation Discipline (RSRCH-01 depth, RSRCH-02/03/04) — *built 2026-07-20 night-run (wave commit `3601c5e` per `night-run/BUILD-MARCH-2026-07-20.md`, landed on main via squash-merge `0851cf9`), NOT wired/verified through GSD — verification owed*
+- [ ] Phase 70: Documents as First-Class Objects (DOCS-01/02/03) — *built 2026-07-20 night-run (wave commits `d92f3b9` + `ffd2452` per `night-run/BUILD-MARCH-2026-07-20.md`, landed on main via squash-merge `0851cf9`), NOT wired/verified through GSD — verification owed*
+- [ ] Phase 71: Genui × Registry Binding — the D2 proof (REG-04) — *built 2026-07-20 night-run (wave commit `6c0f4fa` per `night-run/BUILD-MARCH-2026-07-20.md`, landed on main via squash-merge `0851cf9`), NOT wired/verified through GSD — verification owed*
+- [ ] Phase 72: Research Evals & the Observability Seed (RSRCH-05) — *built 2026-07-20 night-run (wave commit `31220f5` per `night-run/BUILD-MARCH-2026-07-20.md`, landed on main via squash-merge `0851cf9`), NOT wired/verified through GSD — verification owed*
 
 **Advance slices already landed (recorded under their own future milestones, not v1.11):**
 Phase 65 (daemon → v2.0), Phase 66 (files vault → v2.1), Phase 67 (session streaming → v2.2).
