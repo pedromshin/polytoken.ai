@@ -164,6 +164,20 @@ export function CirclePack<TLeaf = unknown>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nav.focusId]);
 
+  // Keep the viewBox correct when the CONTAINER RESIZES (no animation). The
+  // layout re-packs to the new width/height, and targetFrame's radius is
+  // min(width, height) / 2 — but the animation effect above only re-runs on a
+  // focus change, so without this the frame stays sized for the previous box
+  // and the circle mis-scales / drifts off-centre. This bit on mobile: the SSR
+  // fallback (720×560) then the ResizeObserver's real size, and every mobile
+  // address-bar show/hide, are pure size changes with no focus change. Snap the
+  // frame to the freshly-derived target so the pack always fills its box.
+  useEffect(() => {
+    if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    setFrame(frameOf(byId.get(nav.focusId), Math.min(width, height) / 2));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [width, height]);
+
   const viewMinX = frame.cx - frame.r;
   const viewMinY = frame.cy - frame.r;
   const viewSize = frame.r * 2;

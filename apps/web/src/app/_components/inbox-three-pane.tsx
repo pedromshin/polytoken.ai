@@ -66,7 +66,7 @@ interface InboxThreePaneProps {
   readonly isError: boolean;
 }
 
-type InboxFilter = "all" | "unread" | "with-entities";
+type InboxFilter = "all" | "with-entities";
 
 const PAGE_SIZE = 50;
 
@@ -97,7 +97,6 @@ function FiltersRail({
 }): React.ReactElement {
   const options: ReadonlyArray<{ value: InboxFilter; label: string }> = [
     { value: "all", label: "All" },
-    { value: "unread", label: "Unread" },
     { value: "with-entities", label: "With entities" },
   ];
 
@@ -641,12 +640,6 @@ export function InboxThreePane({
               className="h-9 flex-1 pointer-coarse:h-11 text-sm data-[state=active]:bg-shade data-[state=active]:text-ink"
             >
               All
-            </TabsTrigger>
-            <TabsTrigger
-              value="unread"
-              className="h-9 flex-1 pointer-coarse:h-11 text-sm data-[state=active]:bg-shade data-[state=active]:text-ink"
-            >
-              Unread
             </TabsTrigger>
             <TabsTrigger
               value="with-entities"
