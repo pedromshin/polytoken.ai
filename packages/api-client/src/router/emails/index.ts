@@ -6,6 +6,7 @@ import { assertEmailOwnership, userOwnedImporterIds } from "@polytoken/db/owners
 
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
+import { emailCirclePackProcedures } from "./circle-pack";
 import { emailDetailProcedures } from "./detail";
 import { emailEntitySummaryProcedures } from "./entity-summary";
 import { resolveListScope } from "./list-scope";
@@ -39,6 +40,7 @@ export { resolveListScope };
  * client-supplied importer/email id directly.
  */
 export const emailsRouter = createTRPCRouter({
+  ...emailCirclePackProcedures,
   ...emailDetailProcedures,
   ...emailEntitySummaryProcedures,
   ...emailRuleSuggestionProcedures,

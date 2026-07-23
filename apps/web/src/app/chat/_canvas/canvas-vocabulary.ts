@@ -193,6 +193,7 @@ export type CanvasNodeKind =
   | "browser"
   | "editor"
   | "desktop"
+  | "circle-pack"
   | "unknown";
 
 /**
@@ -214,6 +215,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     browser: "browser",
     editor: "editor",
     desktop: "desktop",
+    "circle-pack": "circle-pack",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -321,6 +323,12 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   browser: "border-l border-l-ink border-r-2 border-r-ink border-dotted",
   editor: "border-l-2 border-l-ink border-r-2 border-r-ink border-double",
   desktop: "border-l-2 border-l-ink border-r-2 border-r-ink border-dotted",
+  // A VIEW, not an artifact (dotted, like knowledge-preview) — a bounded glance
+  // at a whole surface (the mailbox/entity landscape). The TOP seam distinguishes
+  // it from every sibling: no other kind rules its top edge, so rule-2 dotted +
+  // a top rule is unique without spending a hue (law 3). Real material (rule 2:
+  // the user's own mail, aggregated) but a derived overview, never a bound piece.
+  "circle-pack": "border-l-2 border-l-ink border-t-2 border-t-ink border-dotted",
   unknown: "border-dotted",
 };
 
@@ -352,6 +360,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   browser: "Browser",
   editor: "Editor",
   desktop: "Desktop",
+  "circle-pack": "Landscape",
   unknown: "Unrecognized",
 };
 

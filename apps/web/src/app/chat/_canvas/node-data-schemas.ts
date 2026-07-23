@@ -175,6 +175,34 @@ export const SourceNodeDataSchema = z
 export type SourceNodeData = z.infer<typeof SourceNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// CirclePackNodeDataSchema — circle-pack node.data (FEATURE-CATALOG TM-03).
+//
+// The node renders the shared `CirclePack` primitive (TM-01) over a SCOPE, and
+// like every sibling it carries ONLY a ref, never fetched content: the mailbox
+// landscape rehydrates from `emails.circlePackLandscape` at render time. Two
+// scopes today — the whole mailbox (optionally narrowed to one owned importer)
+// or a single entity — so the agent can drop "show me what's eating my inbox"
+// (AI-01) as a placed node. `.strict()` — no aggregated tree may ride along in
+// node.data (it is derived, owned-scoped server-side, and can change).
+// ---------------------------------------------------------------------------
+
+export const CirclePackNodeDataSchema = z
+  .object({
+    scope: z.enum(["mailbox", "entity"]),
+    /** Required in spirit when scope==="entity"; kept optional at the schema
+     * boundary so a tampered row degrades to the mailbox view rather than
+     * failing restore (the render path treats a missing entityId as mailbox). */
+    entityId: z.string().uuid().optional(),
+    /** Optional narrowing to one importer; validated against ownership by the
+     * query, never trusted from node.data. */
+    importerId: z.string().uuid().optional(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type CirclePackNodeData = z.infer<typeof CirclePackNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // Panel node.data schemas (directory / browser / editor) — authored in
 // `panel-node-schemas.ts` while this module was fenced (v2.0 canvas-panels
 // slice; see that file's header for the per-type ref-only/threat reasoning).

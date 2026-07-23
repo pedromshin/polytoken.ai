@@ -165,6 +165,16 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
       shape: z.string().max(64).optional(),
     })
     .strict(),
+  // FEATURE-CATALOG TM-03 — the circle-pack (mailbox landscape) node. Ref-only:
+  // a scope (mailbox/importer/entity id), never the aggregated tree.
+  "circle-pack": z
+    .object({
+      scope: z.enum(["mailbox", "entity"]),
+      entityId: z.string().uuid().optional(),
+      importerId: z.string().uuid().optional(),
+      label: z.string().max(120).optional(),
+    })
+    .strict(),
 });
 
 /** The allowlisted node type ids — MUST stay id-set-equal with apps/web's NODE_TYPE_REGISTRY
