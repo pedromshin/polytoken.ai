@@ -166,13 +166,35 @@ class FakeChatConversationRepository:
 
 
 class FakeEmailRepository:
+    """Prod-shaped fake: BOTH thread reads hard-filter on importer id(s), like SupabaseEmailRepository.
+
+    The old fake ignored `importer_id` entirely, which masked the exact prod
+    failure this suite must now guard against: real emails live under
+    per-(user, sender-domain) importers, so the single-importer read scoped
+    to the DEFAULT importer returns [] and the LINKED CONTEXT block is
+    silently dropped (fail-open).
+    """
+
     def __init__(self, *, emails_by_thread: dict[str, list[Email]] | None = None) -> None:
         self._emails_by_thread = emails_by_thread or {}
         self.list_by_thread_id_calls: list[dict[str, Any]] = []
+        self.list_by_thread_id_for_importers_calls: list[dict[str, Any]] = []
 
     async def list_by_thread_id(self, *, importer_id: str, thread_id: str, limit: int, offset: int = 0) -> list[Email]:
         self.list_by_thread_id_calls.append({"importer_id": importer_id, "thread_id": thread_id, "limit": limit})
-        return self._emails_by_thread.get(thread_id, [])[:limit]
+        emails = [e for e in self._emails_by_thread.get(thread_id, []) if e.importer_id == importer_id]
+        return emails[:limit]
+
+    async def list_by_thread_id_for_importers(
+        self, *, importer_ids: Any, thread_id: str, limit: int, offset: int = 0
+    ) -> list[Email]:
+        self.list_by_thread_id_for_importers_calls.append(
+            {"importer_ids": tuple(importer_ids), "thread_id": thread_id, "limit": limit}
+        )
+        if not importer_ids:
+            return []
+        emails = [e for e in self._emails_by_thread.get(thread_id, []) if e.importer_id in set(importer_ids)]
+        return emails[:limit]
 
 
 class FakeKnowledgeGraphRepository:
@@ -282,11 +304,18 @@ class _FakeRouter:
 
 
 def _make_email(
-    *, thread_id: str, sender_name: str, sender_address: str, subject: str, body_text: str, minute: int
+    *,
+    thread_id: str,
+    sender_name: str,
+    sender_address: str,
+    subject: str,
+    body_text: str,
+    minute: int,
+    importer_id: str = _IMPORTER_ID,
 ) -> Email:
     return Email(
         id=f"email-{minute}",
-        importer_id=_IMPORTER_ID,
+        importer_id=importer_id,
         message_id=f"msg-{minute}@example.com",
         in_reply_to=None,
         references_ids=(),
@@ -646,6 +675,111 @@ async def test_system_prompt_with_linked_context_appends_block_directly() -> Non
     assert result.startswith("BASE PROMPT")
     assert "LINKED CONTEXT" in result
     assert "Acme Corp" in result
+
+
+# ---------------------------------------------------------------------------
+# 8. PROD SHAPE regression: email's importer differs from default_importer_id
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_email_thread_edge_resolves_via_owned_importer_ids_when_email_importer_differs_from_default() -> None:
+    """The exact prod shape that was silently dropped: the referenced thread's
+    email lives under a per-(user, sender-domain) importer — NOT the use
+    case's default_importer_id — and that importer is in the caller's owned
+    set (importer_ids, resolved from the verified user at the transport).
+    The LINKED CONTEXT block must still appear.
+    """
+    owned_importer_id = "importer-user-domain-1"
+    assert owned_importer_id != _IMPORTER_ID  # differs from default_importer_id — the masked prod shape
+    email = _make_email(
+        thread_id="prod-thread-1",
+        sender_name="Carla",
+        sender_address="carla@vendor.com",
+        subject="Invoice 4471 overdue",
+        body_text="Payment for invoice 4471 is now 30 days overdue.",
+        minute=2,
+        importer_id=owned_importer_id,
+    )
+    edge = ContextEdge(
+        id="edge-thread",
+        target_conversation_id=_CONVERSATION_ID,
+        source_ref={"type": "email_thread", "threadId": "prod-thread-1"},
+        source_ref_key="email_thread:prod-thread-1",
+        is_active=True,
+    )
+    context_edges = FakeChatContextEdgeRepository(edges=[edge])
+    email_repo = FakeEmailRepository(emails_by_thread={"prod-thread-1": [email]})
+    conversations = FakeChatConversationRepository(thread_id=None)
+    provider = FakeChatProvider()
+    use_case = _make_use_case(
+        provider=provider, conversations=conversations, context_edges=context_edges, email_repository=email_repo
+    )
+
+    async for _ in use_case.run(
+        conversation_id=_CONVERSATION_ID,
+        user_text="Hi",
+        model_id=_TEST_MODEL.id,
+        importer_ids=[owned_importer_id],
+    ):
+        pass
+
+    system_prompt = provider.stream_calls[0]["system"]
+    assert "LINKED CONTEXT" in system_prompt
+    assert "Invoice 4471 overdue" in system_prompt
+    assert "Payment for invoice 4471 is now 30 days overdue." in system_prompt
+    # The read went through the multi-importer path scoped to the OWNED set —
+    # never the single-(default-)importer read that returns [] in prod.
+    assert email_repo.list_by_thread_id_for_importers_calls == [
+        {"importer_ids": (owned_importer_id,), "thread_id": "prod-thread-1", "limit": 6}
+    ]
+    assert email_repo.list_by_thread_id_calls == []
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_email_thread_edge_without_importer_ids_keeps_single_importer_fallback() -> None:
+    """No importer_ids (existing non-HTTP callers) -> the original single-importer
+    read runs, scoped to default_importer_id: a foreign-importer email stays
+    invisible (documents the pre-fix masked shape), while a default-importer
+    email still resolves.
+    """
+    foreign_email = _make_email(
+        thread_id="prod-thread-1",
+        sender_name="Carla",
+        sender_address="carla@vendor.com",
+        subject="Invoice 4471 overdue",
+        body_text="Payment for invoice 4471 is now 30 days overdue.",
+        minute=2,
+        importer_id="importer-user-domain-1",
+    )
+    edge = ContextEdge(
+        id="edge-thread",
+        target_conversation_id=_CONVERSATION_ID,
+        source_ref={"type": "email_thread", "threadId": "prod-thread-1"},
+        source_ref_key="email_thread:prod-thread-1",
+        is_active=True,
+    )
+    context_edges = FakeChatContextEdgeRepository(edges=[edge])
+    email_repo = FakeEmailRepository(emails_by_thread={"prod-thread-1": [foreign_email]})
+    provider = FakeChatProvider()
+    use_case = _make_use_case(
+        provider=provider,
+        conversations=FakeChatConversationRepository(thread_id=None),
+        context_edges=context_edges,
+        email_repository=email_repo,
+    )
+
+    async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_TEST_MODEL.id):
+        pass
+
+    system_prompt = provider.stream_calls[0]["system"]
+    assert "LINKED CONTEXT" not in system_prompt
+    assert email_repo.list_by_thread_id_calls == [
+        {"importer_id": _IMPORTER_ID, "thread_id": "prod-thread-1", "limit": 6}
+    ]
+    assert email_repo.list_by_thread_id_for_importers_calls == []
 
 
 @pytest.mark.unit

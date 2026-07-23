@@ -34,7 +34,7 @@ doesn't false-positive-reject legitimate callers.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -48,6 +48,7 @@ from app.application.use_cases.confirm_action_dispatch import KnowledgeEdgeTierP
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.domain.ports.chat_repositories import ChatConversationRepository, ChatRunEvent
+from app.domain.ports.importer_resolver import ImporterResolver
 from app.presentation.api.v1.chat_stream import router as chat_stream_router
 from app.presentation.api.v1.chat_widget import router as chat_widget_router
 from app.presentation.middleware.user_context import USER_ID_HEADER
@@ -213,25 +214,72 @@ async def test_confirm_action_promotion_forwards_caller_user_id() -> None:
 
 
 class _FakeRunChatTurn:
-    """Always succeeds -- proves both endpoints reach the use case for the owner."""
+    """Always succeeds -- proves both endpoints reach the use case for the owner.
 
-    async def run(self, *, conversation_id: str, user_text: str, model_id: str) -> AsyncIterator[ChatRunEvent]:
+    Records `importer_ids` on both entrypoints (chat-context fix): the
+    endpoints must resolve the caller's OWNED importer set from the verified
+    user_id and pass it through -- otherwise RunChatTurn falls back to the
+    default importer and the context email reads silently return [].
+    """
+
+    def __init__(self) -> None:
+        self.run_calls: list[dict[str, Any]] = []
+        self.regenerate_calls: list[dict[str, Any]] = []
+
+    async def run(
+        self,
+        *,
+        conversation_id: str,
+        user_text: str,
+        model_id: str,
+        importer_ids: Sequence[str] | None = None,
+    ) -> AsyncIterator[ChatRunEvent]:
+        self.run_calls.append({"conversation_id": conversation_id, "importer_ids": importer_ids})
         yield ChatRunEvent(type="completed", data={}, id="e1", run_id="r1", seq=0)
 
     async def regenerate(
-        self, *, conversation_id: str, assistant_message_id: str, model_id: str
+        self,
+        *,
+        conversation_id: str,
+        assistant_message_id: str,
+        model_id: str,
+        importer_ids: Sequence[str] | None = None,
     ) -> AsyncIterator[ChatRunEvent]:
+        self.regenerate_calls.append({"conversation_id": conversation_id, "importer_ids": importer_ids})
         yield ChatRunEvent(type="completed", data={}, id="e1", run_id="r1", seq=0)
 
 
-def _make_chat_stream_client(conversations: _FakeChatConversationRepository | None = None) -> TestClient:
-    use_case = _FakeRunChatTurn()
+_OWNED_IMPORTER_IDS = ["importer-owned-1", "importer-owned-2"]
+
+
+class _FakeImporterResolver:
+    """Owned-importer-set resolver double (chat-context fix)."""
+
+    def __init__(self, importer_ids: list[str] | None = None) -> None:
+        self._importer_ids = _OWNED_IMPORTER_IDS if importer_ids is None else importer_ids
+        self.list_calls: list[str] = []
+
+    async def resolve(self, sender_address: str, *, user_id: str | None = None) -> str:
+        raise AssertionError("resolve() must never be called by the chat SSE endpoints")
+
+    async def list_importer_ids_for_user(self, user_id: str) -> list[str]:
+        self.list_calls.append(user_id)
+        return list(self._importer_ids)
+
+
+def _make_chat_stream_client(
+    conversations: _FakeChatConversationRepository | None = None,
+    use_case: _FakeRunChatTurn | None = None,
+) -> TestClient:
+    resolved_use_case = use_case if use_case is not None else _FakeRunChatTurn()
     resolved_conversations = conversations if conversations is not None else _FakeChatConversationRepository()
+    importer_resolver = _FakeImporterResolver()
     app = FastAPI()
     app.include_router(chat_stream_router)
     provider = Provider(scope=Scope.APP)
-    provider.provide(lambda: use_case, provides=RunChatTurn, scope=Scope.APP)
+    provider.provide(lambda: resolved_use_case, provides=RunChatTurn, scope=Scope.APP)
     provider.provide(lambda: resolved_conversations, provides=ChatConversationRepository, scope=Scope.APP)
+    provider.provide(lambda: importer_resolver, provides=ImporterResolver, scope=Scope.APP)
     container = make_async_container(provider)
     setup_dishka(container=container, app=app)
     return TestClient(app, raise_server_exceptions=True)

@@ -94,6 +94,36 @@ describe("FormComponent submit values (24-04 Task 2)", () => {
     cleanup();
   });
 
+  it("Test 1b — a number field submits a REAL number, not the DOM's string (wire {\"type\":\"number\"} contract)", async () => {
+    const spy = vi.fn();
+    const spec = buildFormSpec({
+      fields: [{ name: "amount", label: "Amount", fieldType: "number" }],
+      onSubmit: { type: "setState", key: "clarify.submit", value: null },
+    });
+
+    const { container, cleanup } = await mountSpec(spec, { setState: spy });
+
+    const amountInput = container.querySelector("#field-amount") as HTMLInputElement;
+    expect(amountInput).not.toBeNull();
+    await act(async () => {
+      setNativeInputValue(amountInput, "42");
+    });
+
+    const form = container.querySelector("form") as HTMLFormElement;
+    await act(async () => {
+      form.requestSubmit();
+    });
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith({
+      type: "setState",
+      key: "clarify.submit",
+      value: null,
+      values: { amount: 42 },
+    });
+    cleanup();
+  });
+
   it("Test 2 — an INVALID submit (missing required field) never invokes the registry handler", async () => {
     const spy = vi.fn();
     const spec = buildFormSpec({

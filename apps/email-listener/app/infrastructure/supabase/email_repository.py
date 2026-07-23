@@ -6,6 +6,7 @@ save() upserts on (importer_id, message_id) for idempotent ingestion.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, cast
 
@@ -128,6 +129,23 @@ class SupabaseEmailRepository:
             self._client.table("emails")
             .select("*")
             .eq("importer_id", importer_id)
+            .eq("thread_id", thread_id)
+            .order("received_at", desc=True)
+            .range(offset, offset + limit - 1)
+            .execute()
+        )
+        return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
+
+    async def list_by_thread_id_for_importers(
+        self, *, importer_ids: Sequence[str], thread_id: str, limit: int, offset: int = 0
+    ) -> list[Email]:
+        """Thread read scoped to the caller's OWNED importer set — empty importer_ids returns [], never all rows."""
+        if not importer_ids:
+            return []
+        result = (
+            self._client.table("emails")
+            .select("*")
+            .in_("importer_id", list(importer_ids))
             .eq("thread_id", thread_id)
             .order("received_at", desc=True)
             .range(offset, offset + limit - 1)

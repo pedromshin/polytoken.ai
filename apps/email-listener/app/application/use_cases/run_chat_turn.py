@@ -417,12 +417,22 @@ class RunChatTurn:
         user_text: str,
         model_id: str,
         importer_id: str | None = None,
+        importer_ids: Sequence[str] | None = None,
     ) -> AsyncIterator[ChatRunEvent]:
         """Run one full chat turn for conversation_id, yielding typed ChatRunEvents.
 
         Persists the user message first (next turn_index) regardless of the
         pre-turn cost decision — only the assistant call is withheld on BLOCK
         (fail-closed, D-21).
+
+        `importer_ids` (chat-context fix): the caller's OWNED importer set,
+        resolved from the verified user id at the transport (chat_stream.py).
+        Scopes the thread/cluster + linked-context email reads across ALL of
+        the caller's importers — real emails live under per-(user,
+        sender-domain) importers, so a read scoped to the single resolved
+        importer_id (usually the DEFAULT importer) silently returned [] and
+        the context blocks were fail-open dropped. `importer_id` keeps its
+        existing role (cost attribution + single-importer scoping fallback).
         """
         resolved_importer_id = importer_id or self._default_importer_id
         model = get_model(model_id)
@@ -473,6 +483,7 @@ class RunChatTurn:
             history=history,
             turn_index=turn_index,
             importer_id=resolved_importer_id,
+            importer_ids=importer_ids,
             is_first_turn=is_first_turn,
             user_text=user_text,
             sibling_group_id=str(uuid.uuid4()),
@@ -487,6 +498,7 @@ class RunChatTurn:
         assistant_message_id: str,
         model_id: str,
         importer_id: str | None = None,
+        importer_ids: Sequence[str] | None = None,
     ) -> AsyncIterator[ChatRunEvent]:
         """Regenerate an assistant turn as a NEW active sibling version (D-16).
 
@@ -542,6 +554,7 @@ class RunChatTurn:
             history=prior_history,
             turn_index=target.turn_index,
             importer_id=resolved_importer_id,
+            importer_ids=importer_ids,
             is_first_turn=False,
             user_text="",
             sibling_group_id=sibling_group_id,
@@ -639,7 +652,13 @@ class RunChatTurn:
         return (*tools, *server_tools)
 
     async def _system_prompt_with_cluster_context(
-        self, *, base_system_prompt: str, conversation_id: str, importer_id: str, history: Sequence[ChatMessage]
+        self,
+        *,
+        base_system_prompt: str,
+        conversation_id: str,
+        importer_id: str,
+        importer_ids: Sequence[str] | None = None,
+        history: Sequence[ChatMessage],
     ) -> str:
         """Thin delegator to chat/cluster_context.py (999.31 carve) with this instance's collaborators."""
         return await system_prompt_with_cluster_context(
@@ -649,17 +668,19 @@ class RunChatTurn:
             email_repository=self._email_repository,
             conversation_id=conversation_id,
             importer_id=importer_id,
+            importer_ids=importer_ids,
             history=history,
         )
 
     async def _system_prompt_with_linked_context(
-        self, *, base_system_prompt: str, conversation_id: str, importer_id: str
+        self, *, base_system_prompt: str, conversation_id: str, importer_id: str, importer_ids: Sequence[str] | None = None
     ) -> str:
         """Thin delegator to chat/linked_context.py (999.31 carve) with this instance's collaborators."""
         return await system_prompt_with_linked_context(
             base_system_prompt=base_system_prompt,
             conversation_id=conversation_id,
             importer_id=importer_id,
+            importer_ids=importer_ids,
             context_edges=self._context_edges,
             source_ledger=self._source_ledger,
             knowledge_graph=self._knowledge_graph,
@@ -694,6 +715,7 @@ class RunChatTurn:
         history: Sequence[ChatMessage],
         turn_index: int,
         importer_id: str,
+        importer_ids: Sequence[str] | None = None,
         is_first_turn: bool,
         user_text: str,
         sibling_group_id: str,
@@ -727,6 +749,7 @@ class RunChatTurn:
             base_system_prompt=_system_prompt_for(tool_round_eligible),
             conversation_id=conversation_id,
             importer_id=importer_id,
+            importer_ids=importer_ids,
             history=history,
         )
         # Phase 56-04 (RCNV-04, RESEARCH Pattern 3): a SECOND, INDEPENDENT
@@ -738,6 +761,7 @@ class RunChatTurn:
             base_system_prompt=system_prompt,
             conversation_id=conversation_id,
             importer_id=importer_id,
+            importer_ids=importer_ids,
         )
         # AI-06 (agent memory over the knowledge graph): a THIRD, INDEPENDENT
         # fail-open injection -- recalls the importer's CANON (EXTRACTED-tier,

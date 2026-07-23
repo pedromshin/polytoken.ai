@@ -57,6 +57,21 @@ function initialValues(fields: readonly FormFieldSpec[]): FormValues {
   return values;
 }
 
+/** Coerce a number input's DOM string into a real number FormValue — the wire
+ * contract downstream (clarify_widget submit) validates against a derived
+ * `{"type":"number"}` field, so storing e.target.value (a string) would 422.
+ * NaN (cleared/incomplete input) keeps the empty string so required/empty
+ * checks behave exactly as before. */
+function coerceNumberInputValue(input: HTMLInputElement): FormValue {
+  const parsed = input.valueAsNumber;
+  if (typeof parsed === "number" && !Number.isNaN(parsed)) return parsed;
+  // Fallback for environments without valueAsNumber support.
+  const raw = input.value;
+  if (raw.trim() === "") return "";
+  const n = Number(raw);
+  return Number.isNaN(n) ? "" : n;
+}
+
 function htmlInputType(fieldType: FormFieldSpec["fieldType"]): string {
   switch (fieldType) {
     case "email":
@@ -188,7 +203,12 @@ function FieldView({ field, value, error, required, onChange }: FieldViewProps):
         placeholder={field.placeholder}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        onChange={(e) => onChange(field.name, e.target.value)}
+        onChange={(e) =>
+          onChange(
+            field.name,
+            fieldType === "number" ? coerceNumberInputValue(e.target) : e.target.value,
+          )
+        }
         className={CONTROL_CLASS}
       />
     );

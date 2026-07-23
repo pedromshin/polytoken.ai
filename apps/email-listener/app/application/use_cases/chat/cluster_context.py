@@ -126,12 +126,27 @@ async def _resolve_thread_id(conversations: ChatConversationRepository, conversa
 
 
 async def _list_thread_emails(
-    email_repository: EmailRepository | None, *, importer_id: str, thread_id: str
+    email_repository: EmailRepository | None,
+    *,
+    importer_id: str,
+    thread_id: str,
+    importer_ids: Sequence[str] | None = None,
 ) -> list[Email]:
-    """Fail-open thread-member-email read (T-54-05-04) — [] when unwired or on any failure."""
+    """Fail-open thread-member-email read (T-54-05-04) — [] when unwired or on any failure.
+
+    When the caller supplies its owned `importer_ids`, the read spans that
+    whole owned set (real emails live under per-(user, sender-domain)
+    importers — a single-importer read scoped to the default importer
+    silently returns []). Empty/None falls back to the original
+    single-importer read (existing callers/tests unchanged).
+    """
     if email_repository is None:
         return []
     try:
+        if importer_ids:
+            return await email_repository.list_by_thread_id_for_importers(
+                importer_ids=importer_ids, thread_id=thread_id, limit=_CLUSTER_CONTEXT_EMAIL_LIMIT
+            )
         return await email_repository.list_by_thread_id(
             importer_id=importer_id, thread_id=thread_id, limit=_CLUSTER_CONTEXT_EMAIL_LIMIT
         )
@@ -197,6 +212,7 @@ async def build_cluster_context_block(
     email_repository: EmailRepository | None,
     conversation_id: str,
     importer_id: str,
+    importer_ids: Sequence[str] | None = None,
     history: Sequence[ChatMessage],
 ) -> str | None:
     """Bounded, quarantined thread+cluster context block (Phase 54-05, CLUS-02/CLUS-06).
@@ -214,7 +230,9 @@ async def build_cluster_context_block(
     thread_id = await _resolve_thread_id(conversations, conversation_id)
     if not thread_id:
         return None
-    thread_emails = await _list_thread_emails(email_repository, importer_id=importer_id, thread_id=thread_id)
+    thread_emails = await _list_thread_emails(
+        email_repository, importer_id=importer_id, thread_id=thread_id, importer_ids=importer_ids
+    )
     if not thread_emails:
         return None
     return await _assemble_cluster_block(
@@ -236,6 +254,7 @@ async def system_prompt_with_cluster_context(
     email_repository: EmailRepository | None,
     conversation_id: str,
     importer_id: str,
+    importer_ids: Sequence[str] | None = None,
     history: Sequence[ChatMessage],
 ) -> str:
     """Append the bounded thread+cluster context block to `base_system_prompt` when one exists."""
@@ -245,6 +264,7 @@ async def system_prompt_with_cluster_context(
         email_repository=email_repository,
         conversation_id=conversation_id,
         importer_id=importer_id,
+        importer_ids=importer_ids,
         history=history,
     )
     if cluster_context_block:

@@ -44,6 +44,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.domain.ports.chat_repositories import ChatConversationRepository, ChatRunEvent
+from app.domain.ports.importer_resolver import ImporterResolver
 from app.presentation.middleware.auth import require_api_key
 from app.presentation.middleware.user_context import require_user_id
 
@@ -179,15 +180,29 @@ async def stream_chat(
     request: Request,
     use_case: FromDishka[RunChatTurn],
     conversations: FromDishka[ChatConversationRepository],
+    importer_repo: FromDishka[ImporterResolver],
     user_id: str = Depends(require_user_id),
 ) -> StreamingResponse:
     """Stream one chat turn's run events over text/event-stream (STREAM-01).
 
     Phase 44-09: rejects 401 (no X-User-Id) and 404 (non-owned
     conversation_id) BEFORE the stream opens — see module docstring.
+
+    Chat-context fix: the caller's OWNED importer ids (resolved from the
+    verified user_id, same primitive as emails.py/pipeline_health.py) are
+    passed as `importer_ids` so the thread/cluster + linked-context email
+    reads span every importer the caller owns — without this, RunChatTurn
+    falls back to the DEFAULT importer and those reads silently return []
+    (context blocks fail-open dropped).
     """
     await assert_conversation_owned(conversations, user_id, body.conversation_id)
-    events = use_case.run(conversation_id=body.conversation_id, user_text=body.user_text, model_id=body.model_id)
+    owned_importer_ids = await importer_repo.list_importer_ids_for_user(user_id)
+    events = use_case.run(
+        conversation_id=body.conversation_id,
+        user_text=body.user_text,
+        model_id=body.model_id,
+        importer_ids=owned_importer_ids,
+    )
     return StreamingResponse(
         stream_run_events(request, events),
         media_type="text/event-stream",
@@ -202,18 +217,23 @@ async def regenerate_chat(
     request: Request,
     use_case: FromDishka[RunChatTurn],
     conversations: FromDishka[ChatConversationRepository],
+    importer_repo: FromDishka[ImporterResolver],
     user_id: str = Depends(require_user_id),
 ) -> StreamingResponse:
     """Stream a NEW sibling run regenerating an assistant turn (CHAT-04, D-16).
 
     Phase 44-09: rejects 401 (no X-User-Id) and 404 (non-owned
     conversation_id) BEFORE the stream opens — see module docstring.
+
+    Chat-context fix: same owned-importer scoping as stream_chat above.
     """
     await assert_conversation_owned(conversations, user_id, body.conversation_id)
+    owned_importer_ids = await importer_repo.list_importer_ids_for_user(user_id)
     events = use_case.regenerate(
         conversation_id=body.conversation_id,
         assistant_message_id=body.assistant_message_id,
         model_id=body.model_id,
+        importer_ids=owned_importer_ids,
     )
     return StreamingResponse(
         stream_run_events(request, events),

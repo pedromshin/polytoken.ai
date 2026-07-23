@@ -330,7 +330,9 @@ export interface ConversationController {
 export interface WidgetSurface {
   readonly states: Readonly<Record<string, WidgetDisplayState>>;
   /** The raw submitted_value payload (opaque per widgetKind) — proposal_cards
-   * carries `{optionId}`, clarify_widget carries `{values}` (24-04). */
+   * carries `{optionId}`, clarify_widget carries the flat field-name map
+   * (e.g. `{reason, subscribe}` — no `{values}` wrapper; the listener's
+   * derived schema is flat). */
   readonly submittedValues: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   readonly errorMessages: Readonly<Record<string, string | null>>;
   /** InteractiveWidgetBoundary's onSubmitResult gives the opaque result body;
@@ -710,9 +712,9 @@ export function useConversationController({
       });
 
       // Opaque per widgetKind (24-04): proposal_cards stores {optionId},
-      // clarify_widget stores {values} — InteractiveWidgetBoundary reads the
-      // shape it expects based on part.widgetKind, so this surface just
-      // passes the raw submitted object through unchanged.
+      // clarify_widget stores the flat field-name map — InteractiveWidgetBoundary
+      // reads the shape it expects based on part.widgetKind, so this surface
+      // just passes the raw submitted object through unchanged.
       const submitted = interaction.submittedValue;
       if (submitted !== null && typeof submitted === "object" && !Array.isArray(submitted)) {
         submittedValues[interaction.id] = submitted as Readonly<Record<string, unknown>>;

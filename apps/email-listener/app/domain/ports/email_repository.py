@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from datetime import datetime
 
     from app.domain.entities.email import Email
@@ -49,6 +50,21 @@ class EmailRepository(Protocol):
         token-budget-bounded body must further truncate the returned
         emails' body_text themselves (this port makes no truncation
         decisions).
+        """
+        ...
+
+    async def list_by_thread_id_for_importers(
+        self, *, importer_ids: Sequence[str], thread_id: str, limit: int, offset: int = 0
+    ) -> list[Email]:
+        """Return a thread's member emails across the caller's OWNED importer set, newest first.
+
+        Multi-importer sibling of `list_by_thread_id` (chat-context fix): real
+        emails live under per-(user, sender-domain) importers, so a thread read
+        scoped to one importer id (e.g. the default) silently returns [] for a
+        caller whose emails span several owned importers. An empty importer_ids
+        must return [] — never all rows (same fail-closed contract as
+        `list_by_importer_ids`). A thread_id from a foreign importer still
+        resolves to [] — never a cross-tenant leak.
         """
         ...
 

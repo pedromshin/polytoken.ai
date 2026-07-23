@@ -11,7 +11,10 @@
  * only the LIVE spec builder, the submitted (locked) view, and the
  * setState -> onSubmitResult mapping differ per kind. `onSubmitResult` fires
  * with the schema-conforming result body the 24-02 submit endpoint expects
- * opaquely — `{optionId}` for proposal_cards, `{values}` for clarify_widget.
+ * opaquely — `{optionId}` for proposal_cards, the FLAT field-name map (e.g.
+ * `{reason, subscribe}`) for clarify_widget: the listener derives a flat
+ * response schema with additionalProperties:false, so a `{values:{...}}`
+ * wrapper would 422.
  *
  * pending    — the live catalog spec (proposal cards OR the unmodified
  *              Phase-19 form engine) via GenuiPartBoundary, with a `setState`
@@ -87,7 +90,8 @@ export interface InteractiveWidgetBoundaryProps {
   readonly part: InteractiveWidgetPart;
   readonly displayState: WidgetDisplayState;
   /** The raw submitted_value payload (opaque per widgetKind) — proposal_cards
-   * stores `{optionId}`, clarify_widget stores `{values}`. */
+   * stores `{optionId}`, clarify_widget stores the flat field-name map
+   * (the same shape sent to the listener). */
   readonly submittedValue?: Readonly<Record<string, unknown>>;
   readonly errorMessage?: string | null;
   readonly onSubmitResult: (result: Readonly<Record<string, unknown>>) => void;
@@ -217,8 +221,22 @@ function SubmittedClarifyView({
 function extractSubmittedValues(
   submittedValue: Readonly<Record<string, unknown>> | undefined,
 ): Readonly<Record<string, unknown>> {
-  const values = submittedValue?.values;
-  return values !== null && typeof values === "object" ? (values as Readonly<Record<string, unknown>>) : {};
+  if (submittedValue === undefined) return {};
+  // The submitted_value for clarify_widget IS the flat field-name map.
+  // Defensive unwrap only when the record is EXACTLY {values: {...}} — the
+  // pre-fix wrapped shape — so any such row still reads out correctly.
+  const keys = Object.keys(submittedValue);
+  const inner = submittedValue.values;
+  if (
+    keys.length === 1 &&
+    keys[0] === "values" &&
+    inner !== null &&
+    typeof inner === "object" &&
+    !Array.isArray(inner)
+  ) {
+    return inner as Readonly<Record<string, unknown>>;
+  }
+  return submittedValue;
 }
 
 export function InteractiveWidgetBoundary({
@@ -258,7 +276,10 @@ export function InteractiveWidgetBoundary({
     ? {
         setState: (action?: unknown) => {
           if (isValidClarifySubmitPayload(action)) {
-            onSubmitResult({ values: action.values });
+            // FLAT result body — the listener validates against a derived
+            // per-field schema (additionalProperties:false); wrapping in
+            // {values: ...} 422s every clarify submit.
+            onSubmitResult({ ...action.values });
           }
         },
       }

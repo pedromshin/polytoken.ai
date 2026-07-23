@@ -204,6 +204,34 @@ def test_valid_submit_streams_continuation_events(
     ]
 
 
+@pytest.mark.unit
+def test_valid_clarify_widget_flat_result_streams_continuation_events() -> None:
+    """Cross-boundary regression pin (2026-07-23): the web's clarify_widget submit
+    is a FLAT field-name map — no ``{"values": {...}}`` wrapper. The listener's
+    derived response schema (``_derive_clarify_response_schema``) is flat with
+    ``additionalProperties: false``, so the wrapped shape 422s; this pins the
+    exact shape InteractiveWidgetBoundary now sends reaching prepare() verbatim
+    and streaming 200.
+    """
+    use_case = _FakeSubmitWidgetInteraction(events=_sample_events())
+    client = _make_client(use_case)
+
+    flat_result = {"reason": "Need more time", "subscribe": False}
+    resp = client.post("/v1/chat/widget/submit", json=_valid_body(result=flat_result))
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    assert use_case.prepare_calls == [
+        {
+            "conversation_id": _VALID_UUID_1,
+            "interaction_id": _VALID_UUID_2,
+            "result": flat_result,
+            "model_id": "m1",
+            "user_id": _TEST_USER_ID,
+        }
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Rejections -> pre-stream status codes, never mid-stream (T-24-02/T-24-03)
 # ---------------------------------------------------------------------------

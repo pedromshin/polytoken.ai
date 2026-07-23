@@ -63,7 +63,7 @@ describe("InteractiveWidgetBoundary clarify_widget branch", () => {
     containers = [];
   });
 
-  it("pending: fills the form and submits -> onSubmitResult receives {values: {...}}", async () => {
+  it("pending: fills the form and submits -> onSubmitResult receives the FLAT field-name map", async () => {
     const onSubmitResult = vi.fn();
     const container = await mount(
       <InteractiveWidgetBoundary
@@ -91,12 +91,29 @@ describe("InteractiveWidgetBoundary clarify_widget branch", () => {
     });
 
     expect(onSubmitResult).toHaveBeenCalledTimes(1);
-    expect(onSubmitResult).toHaveBeenCalledWith({
-      values: { reason: "Need more time", subscribe: true },
-    });
+    // FLAT — the exact result body the listener's derived response schema
+    // (additionalProperties: false) accepts; a {values: {...}} wrapper 422s.
+    expect(onSubmitResult).toHaveBeenCalledWith({ reason: "Need more time", subscribe: true });
   });
 
   it("submitted: the live form is GONE and the key-value-list + 'Your response' + Submitted badge render", async () => {
+    const container = await mount(
+      <InteractiveWidgetBoundary
+        part={PART}
+        displayState="submitted"
+        submittedValue={{ reason: "Need more time", subscribe: true }}
+        onSubmitResult={vi.fn()}
+      />,
+    );
+
+    expect(container.querySelector("form")).toBeNull();
+    expect(container.textContent).toContain("Your response");
+    expect(container.textContent).toContain("Submitted");
+    expect(container.textContent).toContain("Need more time");
+    expect(container.textContent).toContain("Yes");
+  });
+
+  it("submitted: a legacy wrapped {values: {...}} submitted_value still reads out (defensive unwrap)", async () => {
     const container = await mount(
       <InteractiveWidgetBoundary
         part={PART}
@@ -106,9 +123,6 @@ describe("InteractiveWidgetBoundary clarify_widget branch", () => {
       />,
     );
 
-    expect(container.querySelector("form")).toBeNull();
-    expect(container.textContent).toContain("Your response");
-    expect(container.textContent).toContain("Submitted");
     expect(container.textContent).toContain("Need more time");
     expect(container.textContent).toContain("Yes");
   });
@@ -142,7 +156,7 @@ describe("InteractiveWidgetBoundary clarify_widget branch", () => {
       form.requestSubmit();
     });
 
-    expect(onSubmitResult).toHaveBeenCalledWith({ values: { reason: "Retry reason", subscribe: false } });
+    expect(onSubmitResult).toHaveBeenCalledWith({ reason: "Retry reason", subscribe: false });
   });
 
   it("superseded: dims the form and never fires onSubmitResult", async () => {

@@ -127,17 +127,35 @@ async def _resolve_genui_panel_ref(
 
 
 async def _resolve_email_thread_ref(
-    email_repository: EmailRepository | None, source_ref: Mapping[str, Any], *, importer_id: str
+    email_repository: EmailRepository | None,
+    source_ref: Mapping[str, Any],
+    *,
+    importer_id: str,
+    importer_ids: Sequence[str] | None = None,
 ) -> LinkedContextEntry | None:
-    """email_thread-typed edge -> EmailRepository.list_by_thread_id (reuses the CLUS-02 read)."""
+    """email_thread-typed edge -> EmailRepository thread read (reuses the CLUS-02 read).
+
+    When the caller supplies its owned `importer_ids` (chat_stream resolves
+    them from the verified user), the read spans that whole owned set — real
+    emails live under per-(user, sender-domain) importers, so the old
+    single-importer read (scoped to the DEFAULT importer) silently returned
+    [] and the LINKED CONTEXT block was dropped. Empty/None importer_ids
+    falls back to the original single-importer path (existing callers/tests
+    unchanged).
+    """
     if email_repository is None:
         return None
     thread_id = source_ref.get("threadId")
     if not thread_id:
         return None
-    emails = await email_repository.list_by_thread_id(
-        importer_id=importer_id, thread_id=str(thread_id), limit=_LINKED_CONTEXT_EMAIL_LIMIT
-    )
+    if importer_ids:
+        emails = await email_repository.list_by_thread_id_for_importers(
+            importer_ids=importer_ids, thread_id=str(thread_id), limit=_LINKED_CONTEXT_EMAIL_LIMIT
+        )
+    else:
+        emails = await email_repository.list_by_thread_id(
+            importer_id=importer_id, thread_id=str(thread_id), limit=_LINKED_CONTEXT_EMAIL_LIMIT
+        )
     if not emails:
         return None
     ordered = sorted(emails, key=lambda email: email.received_at, reverse=True)
@@ -157,6 +175,7 @@ async def _resolve_context_edge(
     edge: ContextEdge,
     *,
     importer_id: str,
+    importer_ids: Sequence[str] | None = None,
     source_ledger: SourceLedgerRepository | None,
     knowledge_graph: KnowledgeGraphRepository | None,
     messages: ChatMessageRepository,
@@ -176,7 +195,9 @@ async def _resolve_context_edge(
         if ref_type == "genui_panel":
             return await _resolve_genui_panel_ref(messages, source_ref)
         if ref_type == "email_thread":
-            return await _resolve_email_thread_ref(email_repository, source_ref, importer_id=importer_id)
+            return await _resolve_email_thread_ref(
+                email_repository, source_ref, importer_id=importer_id, importer_ids=importer_ids
+            )
     except Exception:
         logger.warning("linked_context_edge_resolve_failed", edge_id=edge.id, source_ref_type=ref_type)
         return None
@@ -188,6 +209,7 @@ async def system_prompt_with_linked_context(
     base_system_prompt: str,
     conversation_id: str,
     importer_id: str,
+    importer_ids: Sequence[str] | None = None,
     context_edges: ChatContextEdgeRepository | None,
     source_ledger: SourceLedgerRepository | None,
     knowledge_graph: KnowledgeGraphRepository | None,
@@ -211,6 +233,7 @@ async def system_prompt_with_linked_context(
         entry = await _resolve_context_edge(
             edge,
             importer_id=importer_id,
+            importer_ids=importer_ids,
             source_ledger=source_ledger,
             knowledge_graph=knowledge_graph,
             messages=messages,
