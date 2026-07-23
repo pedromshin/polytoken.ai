@@ -29,10 +29,10 @@ import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { Documents } from "@polytoken/db/schema";
-import { assertDocumentOwnership } from "@polytoken/db/ownership";
+import { assertCanAccess } from "@polytoken/db/access-control";
 
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
-import { assertOwnedOrNotFound } from "../_ownership";
+import { assertAccessOrNotFound } from "../_ownership";
 
 export const documentsRouter = createTRPCRouter({
   /**
@@ -77,14 +77,22 @@ export const documentsRouter = createTRPCRouter({
 
   /**
    * byId — a single document with its full `spec` (the regenerate-from-spec
-   * input the print route / PDF handler consume). Ownership is asserted BEFORE
-   * the read; NOT_FOUND on missing-or-not-yours (fail-closed).
+   * input the print route / PDF handler consume). Access is asserted BEFORE the
+   * read; NOT_FOUND on no-access-or-missing (fail-closed).
+   *
+   * W5 (multiuser): this is the representative resource wired through the
+   * sharing-aware `assertCanAccess` (view) rather than the owner-only
+   * `assertDocumentOwnership`. The OWNER path inside assertCanAccess is
+   * byte-for-byte the old owner check — so owner reads (and the not-yours →
+   * NOT_FOUND case) are unchanged — but a document SHARED with the caller (or a
+   * workspace they belong to) at view/edit is now also readable. Sharing widens;
+   * it never narrows the owner's access.
    */
   byId: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
-      await assertOwnedOrNotFound(() =>
-        assertDocumentOwnership(ctx.db, input.id, ctx.user.id),
+      await assertAccessOrNotFound(() =>
+        assertCanAccess(ctx.db, ctx.user.id, "document", input.id, "view"),
       );
 
       const rows = await ctx.db

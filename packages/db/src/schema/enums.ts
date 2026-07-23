@@ -72,3 +72,42 @@ export const componentRoleEnum = pgEnum("component_role", [
   "field",
   "unrelated",
 ]);
+
+// ---------------------------------------------------------------------------
+// FEATURE-CATALOG W5 (multiuser/teams/workspaces) — sharing + RBAC enums.
+//
+// These back the greenfield tenancy-widening layer (migration 0047). They are
+// ADDITIVE: the single-user `user_id` ownership anchor is untouched — a
+// workspace/share only ever WIDENS access beyond the owner, never narrows it.
+// ---------------------------------------------------------------------------
+
+// workspace_role — a member's RBAC role inside a workspace. Ordered
+// viewer < member < admin < owner (see roleRank in access-control.ts). Only
+// owner/admin may mutate membership; viewer caps any share it receives at view.
+export const workspaceRoleEnum = pgEnum("workspace_role", [
+  "owner",
+  "admin",
+  "member",
+  "viewer",
+]);
+
+// share_permission — what a resource_share grants: read-only (view) or
+// read-write (edit). edit implies view (permissionSatisfies in
+// access-control.ts).
+export const sharePermissionEnum = pgEnum("share_permission", [
+  "view",
+  "edit",
+]);
+
+// shared_resource_type — the kind of resource a resource_shares row points at.
+// Owner-resolution in access-control.ts is wired for document/entity/
+// conversation (DB-resolvable owner). file is path-addressed (owner access
+// stays on the filesRouter prefix rails); it may still be SHARED via the
+// share path. Adding a new shareable resource = extend this enum + add its
+// owner resolver.
+export const sharedResourceTypeEnum = pgEnum("shared_resource_type", [
+  "document",
+  "entity",
+  "file",
+  "conversation",
+]);

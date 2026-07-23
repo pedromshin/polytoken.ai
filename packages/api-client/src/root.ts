@@ -12,6 +12,7 @@ import { knowledgeRouter } from "./router/knowledge";
 import { referencesRouter } from "./router/references";
 import { searchRouter } from "./router/search";
 import { spreadsheetsRouter } from "./router/spreadsheets";
+import { workspacesRouter } from "./router/workspaces";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
@@ -29,6 +30,7 @@ export const appRouter = createTRPCRouter({
   desktop: desktopRouter,
   search: searchRouter,
   spreadsheets: spreadsheetsRouter,
+  workspaces: workspacesRouter,
 });
 
 // export type definition of API

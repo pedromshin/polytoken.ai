@@ -330,6 +330,13 @@
       "when": 1784794878891,
       "tag": "0046_home_canvas_scope",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1784798710647,
+      "tag": "0047_workspaces_teams_rbac",
+      "breakpoints": true
     }
   ]
 }

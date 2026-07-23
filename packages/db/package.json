@@ -15,6 +15,9 @@
     },
     "./ownership": {
       "default": "./src/ownership.ts"
+    },
+    "./access-control": {
+      "default": "./src/access-control.ts"
     }
   },
   "scripts": {
