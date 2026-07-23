@@ -821,3 +821,78 @@ def test_upsert_unions_aliases_for_active_row() -> None:
     assert payload is not None
     assert set(payload["aliases"]) >= {"MSCU Ltd", "MSC United"}
     assert payload["is_active"] is True
+
+
+# ---------------------------------------------------------------------------
+# SupabaseEmailRepository — ST-04 pipeline-health read surface
+# ---------------------------------------------------------------------------
+
+
+def _make_health_chain() -> MagicMock:
+    """Chainable mock covering the ST-04 query shapes (count / not_.is_ / range)."""
+    chain = MagicMock()
+    chain.select.return_value = chain
+    chain.eq.return_value = chain
+    chain.not_.is_.return_value = chain
+    chain.order.return_value = chain
+    chain.range.return_value = chain
+    return chain
+
+
+def test_email_repo_count_emails_uses_exact_server_side_count() -> None:
+    """count_emails must ask PostgREST for count='exact' (head request), never
+    scan rows — the health endpoint's numbers may not silently truncate."""
+    from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
+
+    chain = _make_health_chain()
+    chain.execute.return_value = MagicMock(count=4242, data=None)
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseEmailRepository(client)
+    count = asyncio.run(repo.count_emails("imp-abc", parse_status="failed"))
+
+    assert count == 4242
+    select_kwargs = chain.select.call_args.kwargs
+    assert select_kwargs.get("count") == "exact"
+    assert select_kwargs.get("head") is True
+    eq_calls = " ".join(str(c) for c in chain.eq.call_args_list)
+    assert "importer_id" in eq_calls
+    assert "parse_status" in eq_calls
+
+
+def test_email_repo_count_emails_none_count_is_zero() -> None:
+    from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
+
+    chain = _make_health_chain()
+    chain.execute.return_value = MagicMock(count=None, data=None)
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseEmailRepository(client)
+    assert asyncio.run(repo.count_emails("imp-abc")) == 0
+
+
+def test_email_repo_list_parse_errors_paginates_until_exhausted() -> None:
+    """list_parse_errors must keep ranging past the first page (never a single
+    capped page): 1000 full-page rows followed by a 2-row tail = 1002 errors."""
+    from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
+
+    page1 = MagicMock(data=[{"parse_error": f"propose_regions: boom {i}"} for i in range(1000)])
+    page2 = MagicMock(data=[{"parse_error": "attachment[0]: a.pdf: x"}, {"parse_error": "unknown junk"}])
+    chain = _make_health_chain()
+    chain.execute.side_effect = [page1, page2]
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseEmailRepository(client)
+    errors = asyncio.run(repo.list_parse_errors("imp-abc", parse_status="failed"))
+
+    assert len(errors) == 1002
+    assert chain.execute.call_count == 2
+    # Second page requested the next range window.
+    range_calls = chain.range.call_args_list
+    assert range_calls[0].args == (0, 999)
+    assert range_calls[1].args == (1000, 1999)
+    # NULL parse_error rows are excluded server-side (not_.is_ null filter).
+    assert chain.not_.is_.called

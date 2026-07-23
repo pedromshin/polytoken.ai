@@ -7,7 +7,11 @@ Security contract (D-14):
 
 Retry contract:
   - Up to _MAX_RETRIES attempts with _RETRY_DELAYS seconds between them.
-  - On total failure returns [] (never raises to caller).
+  - On total failure returns [] (never raises to caller). ST-04: the silent
+    [] fallbacks additionally call record_adapter_degradation("segmentation",
+    ...) so a pipeline driver collecting degradations can mark the email
+    'degraded' — a no-op outside a collector, so the never-raise contract and
+    every other caller are unchanged.
 """
 
 from __future__ import annotations
@@ -18,6 +22,7 @@ from typing import TYPE_CHECKING, Any, cast
 import structlog
 
 from app.domain.ports.segmenter_protocol import PageToken, ProposedRegion
+from app.domain.services.pipeline_health import record_adapter_degradation
 
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropicBedrock
@@ -193,6 +198,10 @@ class AnthropicSegmenter:
             max_retries=_MAX_RETRIES,
             page_index=page_index,
         )
+        record_adapter_degradation(
+            "segmentation",
+            f"page {page_index}: {_MAX_RETRIES} attempts failed, no regions proposed",
+        )
         return []
 
     def _parse_response(self, response: Any, *, page_index: int) -> list[ProposedRegion]:
@@ -208,6 +217,10 @@ class AnthropicSegmenter:
                     "segmentation_parse_failed",
                     page_index=page_index,
                     exc_info=True,
+                )
+                record_adapter_degradation(
+                    "segmentation",
+                    f"page {page_index}: malformed model response, regions dropped",
                 )
                 return []
 

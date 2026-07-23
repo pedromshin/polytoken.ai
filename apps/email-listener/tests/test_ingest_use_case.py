@@ -172,8 +172,9 @@ def test_stores_attachment_bytes_and_row() -> None:
     assert storage_key.startswith(f"{IMPORTER_ID}/{email.id}/")
     assert storage_key.endswith("/bl.pdf")
 
-    mocks["attachment_repo"].save.assert_awaited_once()
-    attachment = mocks["attachment_repo"].save.await_args.args[0]
+    # First save persists the row as 'pending' (a second save stamps the
+    # ST-04 'skipped' outcome for this parser-less fixture).
+    attachment = mocks["attachment_repo"].save.await_args_list[0].args[0]
     assert attachment.email_id == email.id
     assert attachment.importer_id == IMPORTER_ID
     assert attachment.filename == "bl.pdf"
@@ -439,8 +440,7 @@ def test_filenameless_attachment_persists_fallback_filename() -> None:
 
     asyncio.run(use_case.execute(SES_MESSAGE_ID))
 
-    mocks["attachment_repo"].save.assert_awaited_once()
-    attachment = mocks["attachment_repo"].save.await_args.args[0]
+    attachment = mocks["attachment_repo"].save.await_args_list[0].args[0]
     assert attachment.filename is not None
     assert attachment.filename == "attachment-0"
 
@@ -610,7 +610,11 @@ def test_clean_ingest_finalizes_parsed_with_parsed_at() -> None:
 
 
 def test_unsupported_attachment_is_not_a_failure() -> None:
-    """No registered parser is a SKIP (inline logos etc.), never a 'failed' email."""
+    """No registered parser is a SKIP (inline logos etc.), never a 'failed' email.
+
+    ST-04: the skip is STAMPED — the attachment row transitions
+    pending -> 'skipped' instead of reading as stuck 'pending' forever.
+    """
     raw = _raw_email(with_attachment=True)
     registry = MagicMock(return_value=None)
 
@@ -619,9 +623,9 @@ def test_unsupported_attachment_is_not_a_failure() -> None:
 
     assert email.parse_status == "parsed"
     assert email.parse_error is None
-    # Skipped attachment keeps its single 'pending' save — no failed stamp.
-    mocks["attachment_repo"].save.assert_awaited_once()
-    assert mocks["attachment_repo"].save.await_args.args[0].parse_status == "pending"
+    saves = [call.args[0] for call in mocks["attachment_repo"].save.await_args_list]
+    assert [a.parse_status for a in saves] == ["pending", "skipped"]
+    assert saves[0].id == saves[1].id  # same row upserted, not a duplicate
 
 
 def test_propose_regions_failure_routes_into_failed_status() -> None:
@@ -670,3 +674,180 @@ def test_ingest_redelivery_still_stable_with_resolver() -> None:
 
     mocks["email_repo"].find_by_message_id.assert_awaited_once_with(resolved_id, "<mime-001@exporter.com>")
     assert second.id == first.id
+
+
+# ---------------------------------------------------------------------------
+# ST-04 — stage-prefixed parse_error, 'degraded' lifecycle, 'skipped' stamps
+# ---------------------------------------------------------------------------
+
+
+def test_corrupt_attachment_failure_entry_carries_stage_prefix() -> None:
+    """parse_error entries are machine-decodable by stage prefix (ST-04):
+    "attachment[<index>]: <filename>: <cause>" — while staying human-readable
+    (the web tooltip renders it verbatim)."""
+    raw = _raw_email(with_attachment=True)
+
+    corrupt_parser = MagicMock()
+    corrupt_parser.parse = AsyncMock(side_effect=RuntimeError("corrupt PDF stream"))
+    registry = MagicMock(side_effect=lambda ext: corrupt_parser if ext == "pdf" else None)
+
+    use_case, _mocks = _make_use_case(raw, parser_registry=registry)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_error is not None
+    assert email.parse_error.startswith("attachment[0]: bl.pdf: ")
+    assert "corrupt PDF stream" in email.parse_error
+
+
+def test_attachment_ingest_crash_entry_carries_stage_prefix() -> None:
+    """The pre-parse crash path (storage/save raising) uses the same
+    "attachment[<index>]: ..." prefix as the parse path."""
+    raw = _raw_email(with_attachment=True)
+
+    use_case, mocks = _make_use_case(raw)
+    mocks["attachment_storage"].store = AsyncMock(side_effect=RuntimeError("Invalid key"))
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_error is not None
+    assert email.parse_error.startswith("attachment[0]: ")
+    assert "Invalid key" in email.parse_error
+
+
+def test_adapter_degradation_marks_email_degraded_and_names_adapter() -> None:
+    """A never-raise adapter falling back deep inside a post-persist stage
+    (recorded via record_adapter_degradation, no signature changes) finalizes
+    the email as 'degraded' — persisted and parsed, but enrichment incomplete —
+    with the degrading adapter named in parse_error (ST-04)."""
+    from app.domain.services.pipeline_health import record_adapter_degradation
+
+    raw = _raw_email(with_attachment=False)
+
+    async def degrading_propose(**_kwargs: object) -> list[object]:
+        # Simulates the segmenter's swallow branch firing inside the stage.
+        record_adapter_degradation("segmentation", "page 0: 3 attempts failed, no regions proposed")
+        return []
+
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=degrading_propose)
+
+    use_case, mocks = _make_use_case(raw, propose_regions=propose_regions)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "degraded"
+    assert email.parse_error is not None
+    assert email.parse_error.startswith("adapter_degraded[segmentation]: ")
+    # A degraded email DID parse — parsed_at is stamped (unlike 'failed').
+    assert email.parsed_at is not None
+
+    args, kwargs = mocks["email_repo"].update_parse_status.await_args
+    assert args[1] == "degraded"
+    assert "adapter_degraded[segmentation]" in args[2]
+    assert kwargs["parsed_at"] is not None
+
+
+def test_repeated_degradations_collapse_into_one_entry_per_adapter() -> None:
+    """A 20-page email must not flood the 2000-char parse_error cap with
+    near-identical lines: events group per adapter with a (+N more) suffix."""
+    from app.domain.services.pipeline_health import record_adapter_degradation
+
+    raw = _raw_email(with_attachment=False)
+
+    async def degrading_propose(**_kwargs: object) -> list[object]:
+        for page in range(3):
+            record_adapter_degradation("segmentation", f"page {page}: retries exhausted")
+        return []
+
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=degrading_propose)
+
+    use_case, _mocks = _make_use_case(raw, propose_regions=propose_regions)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "degraded"
+    assert email.parse_error == "adapter_degraded[segmentation]: page 0: retries exhausted (+2 more)"
+
+
+def test_hard_failure_wins_over_degradation() -> None:
+    """An email with BOTH a hard post-persist failure and adapter degradations
+    stays 'failed' (degradations are appended to parse_error, never masking
+    the failure)."""
+    from app.domain.services.pipeline_health import record_adapter_degradation
+
+    raw = _raw_email(with_attachment=False)
+
+    async def degrading_propose(**_kwargs: object) -> list[object]:
+        record_adapter_degradation("classifier", "5 region(s) left unclassified: APIError")
+        raise RuntimeError("bedrock down")
+
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=degrading_propose)
+
+    use_case, _mocks = _make_use_case(raw, propose_regions=propose_regions)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_error is not None
+    assert email.parse_error.startswith("propose_regions: ")
+    assert "adapter_degraded[classifier]" in email.parse_error
+    assert email.parsed_at is None
+
+
+def test_degraded_finalize_write_failure_keeps_previous_status() -> None:
+    """The 'degraded' transition obeys the same never-claim-an-un-persisted-
+    transition semantics: a finalize-write failure returns the email with its
+    PREVIOUS persisted status ('received'), not 'degraded'."""
+    from app.domain.services.pipeline_health import record_adapter_degradation
+
+    raw = _raw_email(with_attachment=False)
+
+    async def degrading_propose(**_kwargs: object) -> list[object]:
+        record_adapter_degradation("embedding", "zero-vector fallback: ClientError")
+        return []
+
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=degrading_propose)
+
+    use_case, mocks = _make_use_case(raw, propose_regions=propose_regions)
+    mocks["email_repo"].update_parse_status = AsyncMock(side_effect=RuntimeError("db down"))
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "received"
+    assert email.parse_error is None
+
+
+def test_skipped_attachment_email_still_parsed_never_degraded() -> None:
+    """Skips (no extension / no registered parser) neither degrade nor fail
+    the email — the row reads 'skipped' and the email stays 'parsed' (ST-04)."""
+    raw = _raw_email_with_filenameless_attachment()  # no extension -> skip path
+
+    use_case, mocks = _make_use_case(raw)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "parsed"
+    assert email.parse_error is None
+    saves = [call.args[0] for call in mocks["attachment_repo"].save.await_args_list]
+    assert [a.parse_status for a in saves] == ["pending", "skipped"]
+
+
+def test_parse_error_stays_capped_and_human_readable() -> None:
+    """Even a pathological failure list stays within _PARSE_ERROR_MAX_LEN and
+    is plain prefixed text, not JSON (it renders verbatim in the tooltip)."""
+    from app.application.use_cases.ingest_inbound_email import _PARSE_ERROR_MAX_LEN
+
+    raw = _raw_email(with_attachment=True)
+
+    corrupt_parser = MagicMock()
+    corrupt_parser.parse = AsyncMock(side_effect=RuntimeError("x" * 5000))
+    registry = MagicMock(return_value=corrupt_parser)
+
+    use_case, _mocks = _make_use_case(raw, parser_registry=registry)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_error is not None
+    assert len(email.parse_error) <= _PARSE_ERROR_MAX_LEN
+    assert not email.parse_error.lstrip().startswith("{")

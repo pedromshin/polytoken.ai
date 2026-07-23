@@ -58,6 +58,7 @@ from app.application.use_cases.manage_entity_types import (
     UpdateEntityTypeUseCase,
     UpdateFieldUseCase,
 )
+from app.application.use_cases.pipeline_health import GetPipelineHealthUseCase
 from app.application.use_cases.promote_edge import PromoteEdgeUseCase
 from app.application.use_cases.promote_entity_on_confirm import PromoteEntityOnConfirmUseCase
 from app.application.use_cases.promote_source_ledger_entry import PromoteSourceLedgerEntryUseCase
@@ -1260,6 +1261,8 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # _provide_set_component_entity_type_use_case).
     provider.provide(_provide_suggest_entity_types_use_case, provides=SuggestEntityTypesUseCase)
     provider.provide(ReprocessEmailUseCase)
+    # ST-04: pipeline-health read model (GET /v1/pipeline/health).
+    provider.provide(GetPipelineHealthUseCase)
     # AutofillUseCase has Optional embedder/retrieval params (None defaults) that
     # dishka won't auto-inject — use a factory to wire the 04-08 few-shot ports.
     provider.provide(_provide_autofill_use_case, provides=AutofillUseCase)
