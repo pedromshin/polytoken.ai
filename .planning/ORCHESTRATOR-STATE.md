@@ -24,6 +24,9 @@ deterministic page ids. The 4 pre-existing OCR corpus failures are environmental
 - Resume (after container death): `Workflow({scriptPath: <above>, resumeFromRunId: "wf_b93b55e9-cca"})` — NO args, ever.
 - Journal: `/root/.claude/projects/-home-user-polytoken-ai/a7169b4b-2d04-50fc-9192-30f267d087bc/subagents/workflows/wf_b93b55e9-cca/journal.jsonl`
 - Prior batch (all cached): `wf_acbedf4e-6ec`
+- Batch 2 script PRE-AUTHORED, launch after 1R merges:
+  `Workflow({scriptPath: "/tmp/claude-0/-home-user-polytoken-ai/a7169b4b-2d04-50fc-9192-30f267d087bc/scratchpad/batch-2-w1.js"})`
+  (6 lanes: evals, st04, kg-ui, snappy, hygiene, infra — worktree-isolated, fable-5 skeptics)
 
 ## Batch plan (whole program)
 | Batch | Contents | Status |
