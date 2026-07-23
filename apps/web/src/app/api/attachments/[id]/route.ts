@@ -127,11 +127,17 @@ export async function GET(
   }
 
   // ── Signed URL generation ──────────────────────────────────────────────────
-  // 3600s TTL; cached on the client for 55 min (T-05-08)
+  // 3600s TTL; cached on the client for 55 min (T-05-08).
+  //
+  // `download: true` forces Content-Disposition: attachment on the signed URL.
+  // Without it, opening an HTML/SVG attachment renders it inline in the storage
+  // origin — a stored-XSS / phishing vector using the victim's own uploaded
+  // bytes. Forcing download makes the browser save the file instead of
+  // executing it. Attachments are always downloads here, never inline previews.
   const storageClient = createServiceRoleClient(supabaseUrl, serviceRoleKey);
   const { data, error } = await storageClient.storage
     .from("email-attachments")
-    .createSignedUrl(storageKey, 3600);
+    .createSignedUrl(storageKey, 3600, { download: true });
 
   if (error) {
     console.error("[attachments/[id]] Storage error:", error);

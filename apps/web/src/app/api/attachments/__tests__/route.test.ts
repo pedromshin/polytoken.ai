@@ -85,13 +85,13 @@ function mockSession(user: { id: string } | null) {
 }
 
 function mockStorageSignedUrl(result: { data?: { signedUrl: string }; error?: unknown }) {
+  const createSignedUrl = vi.fn().mockResolvedValue(result);
   vi.mocked(createServiceRoleClient).mockReturnValue({
     storage: {
-      from: () => ({
-        createSignedUrl: vi.fn().mockResolvedValue(result),
-      }),
+      from: () => ({ createSignedUrl }),
     },
   } as never);
+  return createSignedUrl;
 }
 
 describe("GET /api/attachments/[id]", () => {
@@ -140,6 +140,24 @@ describe("GET /api/attachments/[id]", () => {
 
     expect(res.status).toBe(200);
     expect(body).toEqual({ url: "https://signed.example/test" });
+  });
+
+  it("Test 3b: mints the signed URL with forced download disposition (no inline render)", async () => {
+    mockSession(USER_A);
+    mockDbSelect([{ storageKey: STORAGE_KEY, importerId: IMPORTER_ID }]);
+    vi.mocked(assertImporterOwnership).mockResolvedValueOnce(undefined);
+    const createSignedUrl = mockStorageSignedUrl({
+      data: { signedUrl: "https://signed.example/test" },
+    });
+
+    const res = await GET({} as never, makeRequest());
+
+    expect(res.status).toBe(200);
+    // `download: true` forces Content-Disposition: attachment — an HTML/SVG
+    // attachment must never render inline (stored-XSS guard).
+    expect(createSignedUrl).toHaveBeenCalledWith(STORAGE_KEY, 3600, {
+      download: true,
+    });
   });
 
   it("Test 4: returns 400 for a non-uuid id", async () => {
