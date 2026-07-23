@@ -18,6 +18,7 @@ import { chatContextEdgeProcedures } from "./context-edges";
 import { chatConversationsProcedures } from "./conversations";
 import { chatCostProcedures } from "./cost";
 import { chatHistoryProcedures } from "./history";
+import { chatHomeCanvasProcedures } from "./home-canvas";
 import { modelsProcedure } from "./models";
 import { chatThreadLinkProcedures } from "./thread-link";
 import { chatWidgetInteractionsProcedures } from "./widget-interactions";
@@ -29,6 +30,7 @@ export const chatRouter = createTRPCRouter({
   ...browserTurnProcedures,
   ...chatCanvasProcedures,
   ...chatCanvasMutationProcedures,
+  ...chatHomeCanvasProcedures,
   ...chatWidgetInteractionsProcedures,
   ...chatThreadLinkProcedures,
   ...chatClusterSummaryProcedures,

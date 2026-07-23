@@ -26,6 +26,7 @@ import {
   FileText,
   FlaskConical,
   FolderOpen,
+  House,
   Inbox,
   MessageSquare,
   Share2,
@@ -42,8 +43,10 @@ export interface LiveNavItem {
 }
 
 // D-20 nav order: Inbox · Entity Types · Entities · Knowledge · Studio · Chat (all live).
+// HM-01: the pinned home board joins the rail after Inbox.
 export const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
   { href: "/", label: "Inbox", icon: Inbox },
+  { href: "/home", label: "Home", icon: House },
   { href: "/entity-types", label: "Entity Types", icon: Shapes },
   { href: "/entities", label: "Entities", icon: Boxes },
   { href: "/knowledge", label: "Knowledge", icon: Share2 },
@@ -59,9 +62,9 @@ export const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
 /** The four thumb-reach destinations on the mobile bottom tab bar. */
 export const MOBILE_TAB_ITEMS: ReadonlyArray<LiveNavItem> = [
   LIVE_NAV_ITEMS[0]!, // Inbox
-  LIVE_NAV_ITEMS[5]!, // Chat
-  LIVE_NAV_ITEMS[3]!, // Knowledge
-  LIVE_NAV_ITEMS[6]!, // Files
+  LIVE_NAV_ITEMS[6]!, // Chat
+  LIVE_NAV_ITEMS[4]!, // Knowledge
+  LIVE_NAV_ITEMS[7]!, // Files
 ];
 
 /** Everything else — full parity, one tap behind the "More" tab. */
