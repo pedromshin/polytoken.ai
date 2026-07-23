@@ -8,6 +8,7 @@ import * as React from "react";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
 import { api } from "~/trpc/react";
+import { SendToMenu } from "~/app/_components/send-to-menu";
 
 import type {
   Inline,
@@ -248,6 +249,14 @@ function DocumentBody({
           <Download className="h-3.5 w-3.5" aria-hidden strokeWidth={1.5} />
           Download PDF
         </a>
+        {/* AI-04: drop this document onto a conversation's canvas (kind
+            `document` — canvas-only; there is no document chat-context rail). */}
+        <div className="ml-auto">
+          <SendToMenu
+            object={{ kind: "document", documentId: row.id, label: row.title }}
+            objectName={row.title}
+          />
+        </div>
       </div>
 
       {spec ? (

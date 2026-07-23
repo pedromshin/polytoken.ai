@@ -32,6 +32,7 @@ import { Button } from "@polytoken/ui/button";
 import { ScrollArea } from "@polytoken/ui/scroll-area";
 
 import type { KnowledgeNode } from "~/app/entities/[id]/_components/entity-knowledge";
+import { SendToMenu } from "~/app/_components/send-to-menu";
 
 import { NODE_TYPE_ROWS } from "./filter-rail";
 
@@ -355,7 +356,15 @@ function KnowledgeNodeContent({ node }: { readonly node: SelectedNode }): React.
 
   return (
     <div className="space-y-4">
-      <KindBadge>Knowledge Rule</KindBadge>
+      {/* AI-04: attach this rule to a conversation as context or drop it on
+          the canvas. The kind is `knowledge_node`; the id is the node's own. */}
+      <div className="flex items-center justify-between gap-2">
+        <KindBadge>Knowledge Rule</KindBadge>
+        <SendToMenu
+          object={{ kind: "knowledge_node", nodeId: node.id, label: node.label }}
+          objectName={node.label}
+        />
+      </div>
 
       {/* Rule body — polytoken's synthesis, its own sans voice.
           Plain escaped React text (T-11-05). */}

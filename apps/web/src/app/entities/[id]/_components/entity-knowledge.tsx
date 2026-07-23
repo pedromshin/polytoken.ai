@@ -6,6 +6,8 @@ import { Badge } from "@polytoken/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@polytoken/ui/card";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
+import { SendToMenu } from "~/app/_components/send-to-menu";
+
 // ---------------------------------------------------------------------------
 // Types (matched to entities.byId knowledgeNodes shape)
 // ---------------------------------------------------------------------------
@@ -53,9 +55,24 @@ export function EntityKnowledge({ knowledgeNodes }: EntityKnowledgeProps) {
                 key={node.id}
                 className="rounded border px-3 py-2 text-sm space-y-1"
               >
-                {node.title !== null && (
-                  <p className="font-medium">{node.title}</p>
-                )}
+                {/* AI-04: send this knowledge node to a conversation. The
+                    entity instance itself has no rail; the knowledge nodes it
+                    surfaces do (real knowledge_node ids). */}
+                <div className="flex items-start justify-between gap-2">
+                  {node.title !== null ? (
+                    <p className="font-medium">{node.title}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <SendToMenu
+                    object={{
+                      kind: "knowledge_node",
+                      nodeId: node.id,
+                      label: node.title ?? undefined,
+                    }}
+                    objectName={node.title ?? "knowledge node"}
+                  />
+                </div>
                 {node.content !== null && (
                   <p className="text-muted-foreground text-xs line-clamp-3">
                     {node.content}
