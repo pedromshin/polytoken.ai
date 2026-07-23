@@ -4,18 +4,19 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: ALL WORK COMPLETE ✅ — NOTHING FOR THE BACKSTOP TO DO (last verified 2026-07-23)
+## Status: BATCH 2 IN FLIGHT 🔄 (2026-07-23, Pedro's mobile product drop)
 
-> BACKSTOP: if you are reading this on an hourly fire — STAND DOWN. There is no pending
-> batch. All waves W0–W6 merged+pushed; prod deploy (DB+listener+web) COMPLETE; the
-> post-deploy follow-up session (Gmail ingestion of 26 emails, email-body entity extraction,
-> RLS lockdown, de-maritime entity catalog, inbox tab + circle-pack mobile fixes, 51-gap
-> handoff audit) is ALL committed+pushed. Branch tip: cad7c5e.
-> The ONLY open item is task #13 (harden listener auth: TLS on the prod ALB + per-user
-> signed tokens replacing the spoofable X-User-Id/static key). It is DEFERRED PENDING PEDRO's
-> explicit go-ahead — do NOT start it autonomously; it mutates live prod infra and could break
-> the running listener. The trigger stays ENABLED at Pedro's request (he declined its deletion).
-> Verify clean (git status, no unpushed) and exit without heavy work.
+> BACKSTOP: a 5-agent implementation workflow (wf_1e51a19b-d16) is running in the ACTIVE
+> session for: genui widget submit 422 fix, email-context importer-scoping fix (listener),
+> chat auto-open + quick-actions FAB + duplicate mutation, inbox inline email preview +
+> carousel refactor, de-maritime purge (code + evals + migration 0050). Zoom-trap fix +
+> canvas-platform design doc already committed (718d072). If you fire while this session is
+> alive, STAND DOWN — do not touch the tree, agents are editing it. If the session appears
+> DEAD with uncommitted changes, read this file's batch list + `git status`, salvage by
+> running the web/listener test gates, and commit per-workstream.
+> Task #13 infra remainder stays DEFERRED pending Pedro (runbook staged). Trigger stays ENABLED.
+
+## Previous status: ALL WORK COMPLETE ✅ (waves W0–W6, prod deploy SHA 0a63f8a, follow-ups through cad7c5e)
 
 ## Status: PROD DEPLOY COMPLETE ✅ (2026-07-23, SHA 0a63f8a) — all 3 layers LIVE (DB + listener + web @ polytoken.ai)
 
