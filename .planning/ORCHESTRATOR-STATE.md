@@ -4,7 +4,7 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: PROD DEPLOY EXECUTED ✅ (2026-07-23, tip 0a63f8a) — DB migrated, code on main, deploys firing
+## Status: PROD DEPLOY COMPLETE ✅ (2026-07-23, SHA 0a63f8a) — all 3 layers LIVE (DB + listener + web @ polytoken.ai)
 
 Pedro provided prod credentials + a Supabase Management API token mid-session, which
 unblocked the deploy. Executed end-to-end from this container over HTTPS:
@@ -22,23 +22,27 @@ unblocked the deploy. Executed end-to-end from this container over HTTPS:
 3. **Listener deploy DONE ✅.** `deploy-email-listener.yml` run 30017547005 (SHA 0a63f8a):
    Test job green (ruff/mypy/pytest); Build&deploy green — image built, Trivy pass, pushed
    to ECR, ECS update, **service stability confirmed**, smoke test passed. New listener live.
-4. **Web deploy (Vercel) BLOCKED ⚠️ — needs Pedro.** Project is `nauta-web`
-   (prj_70hRKIxh1giNAfzQvbrR1tX7pP2j, git-connected). 15+ min after the main push, prod
-   (`nauta-web.vercel.app`) AND the `nauta-web-git-main` branch alias still serve OLD code
-   (title "NAUTA Global Trade", `/api/pipeline/health` 404). A successful build would surface
-   on the branch alias — it doesn't — so the **Vercel Production build failed**. Almost
-   certainly the two build-time vars **`NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY`**
-   are unset in the Vercel Production env (`next build` hard-fails without them; proven locally).
-   A failed build is non-destructive — old prod stays live. FIX (Pedro, dashboard): set those
-   two vars in nauta-web → Settings → Environment Variables (Production) using the prod
-   Supabase URL + anon key, then redeploy (Deployments → ⋯ → Redeploy, or push any commit).
-   Can't be done from here — no Vercel token in this container. (Confirm cause in the failed
-   deployment's build log: expect a build error naming those env vars.)
+4. **Web deploy (Vercel) DONE ✅.** Verified via the Vercel API (token provided mid-session).
+   Project `nauta-web` (prj_70hRKIxh1giNAfzQvbrR1tX7pP2j, team teampedroshin,
+   team_V2cgPPeWDBTsSBVg3fwh1Jof). Production deployment `dpl_ECPCJisvrLjMaTakuiDLkwYdRSos`
+   for SHA **0a63f8a** is **READY** and alias-assigned to the real prod domain
+   **`polytoken.ai`** (+ www). `polytoken.ai/api/pipeline/health` → **401 Unauthorized**
+   (the new auth-gated route EXISTS — new code shipped), root → 307 (login redirect).
+   `NEXT_PUBLIC_SUPABASE_URL` + `NEXT_PUBLIC_SUPABASE_ANON_KEY` confirmed present in the
+   Production env, so the earlier "build failed on env vars" call was WRONG.
+
+   ⚠️ CORRECTION: the earlier "web blocked" entry was a FALSE ALARM caused by probing
+   `nauta-web.vercel.app` — a STALE/SEPARATE domain (old "NAUTA Global Trade" marketing page)
+   that is NOT in this deployment's alias set. The canonical prod domain is **polytoken.ai**.
+   Use polytoken.ai for all future prod smoke checks, not *.vercel.app.
+
+**ALL THREE LAYERS LIVE on SHA 0a63f8a — full prod deploy COMPLETE.**
 
 OPEN ITEMS (human, not blockers):
-  - **ROTATE the prod secrets** Pedro pasted this session (POSTGRES_URL(_NON_POOLING),
-    SUPABASE_URL, service_role/anon JWTs, sb_secret/sb_publishable, and Management
-    token sbp_2115…) — they are in the transcript. Rotate in Supabase dashboard.
+  - **ROTATE the prod secrets** Pedro pasted this session — all are in the transcript:
+    POSTGRES_URL(_NON_POOLING), SUPABASE_URL, service_role/anon JWTs, sb_secret/sb_publishable,
+    Supabase Management token `sbp_2115…` (Supabase dashboard), AND the Vercel access token
+    `vcp_3aq…` (Vercel → Account Settings → Tokens → revoke).
   - **Vercel Production env** must include NEXT_PUBLIC_SUPABASE_URL +
     NEXT_PUBLIC_SUPABASE_ANON_KEY (build-time). If the Vercel build failed, it's on
     those — set them and redeploy. Non-destructive: a failed Vercel build leaves the

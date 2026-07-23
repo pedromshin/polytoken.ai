@@ -17,7 +17,7 @@ The product has **three independently-deployable layers** with an ordering depen
 | Layer | Artifact | Ships to | Current trigger |
 |-------|----------|----------|-----------------|
 | DB schema | Drizzle migrations (`packages/db/migrations`) | Supabase Postgres (`dazyccjijdahxyciptkp`) | manual (`db:migrate:prod`, or Management API when a runner can't reach PG) |
-| Web app | Next.js build | Vercel project `nauta-web` | Vercel Git integration, auto on `main` push |
+| Web app | Next.js build | Vercel project `nauta-web` → prod domain **`polytoken.ai`** (+ www) | Vercel Git integration, auto on `main` push |
 | Listener | Docker image | ECR/ECS `nauta-services-email-listener` | `deploy-email-listener.yml` on `main` push (paths filter) |
 
 **Why it's fragile today:** the three triggers are *independent and concurrent*. Pushing
@@ -76,7 +76,12 @@ build-listener ──┤          # docker build → push to ECR tagged by GIT S
                  │          #   web: `vercel deploy --prebuilt --prod` (promote the built output)
                  ▼
                smoke        # needs: [deploy-listener, deploy-web]
-                            #   GET /api/pipeline/health (web) + listener /health; non-200 ⇒ fail ⇒ rollback
+                            #   GET https://polytoken.ai/api/pipeline/health (web, auth-gated:
+                            #   use a seeded session or a health token) + listener /health;
+                            #   unexpected status ⇒ fail ⇒ rollback.
+                            #   NB: smoke-test the CANONICAL domain (polytoken.ai), never a
+                            #   *.vercel.app default — nauta-web.vercel.app is a stale separate
+                            #   domain that does NOT track this deployment.
 ```
 
 **The critical ordering decision: build BOTH artifacts before migrating.** Never migrate
