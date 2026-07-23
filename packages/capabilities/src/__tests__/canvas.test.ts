@@ -55,6 +55,7 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   browser: { url: "https://example.com", label: "docs" },
   editor: { filePath: "/home/user/project/readme.md", language: "md" },
   desktop: { sessionId: "sess-1", status: "running", region: "eu-central", shape: "CPX41" },
+  "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

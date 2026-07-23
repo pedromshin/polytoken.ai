@@ -63,6 +63,7 @@ export const CANVAS_NODE_TYPE_IDS = Object.freeze([
   "browser",
   "editor",
   "desktop",
+  "circle-pack",
 ] as const);
 
 export type CanvasNodeTypeId = (typeof CANVAS_NODE_TYPE_IDS)[number];

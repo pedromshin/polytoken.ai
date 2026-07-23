@@ -54,6 +54,7 @@ const VALID_FIXTURES: Record<string, Record<string, unknown>> = {
   browser: { url: "https://example.com", label: "docs" },
   editor: { filePath: "/home/user/project/readme.md", language: "md" },
   desktop: { sessionId: "sess-1", status: "running", region: "eu-central", shape: "CPX41" },
+  "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
 };
 
 /** Canonical HOSTILE node.data per type — each violates the type's own boundary. */
@@ -68,6 +69,7 @@ const HOSTILE_FIXTURES: Record<string, Record<string, unknown>> = {
   browser: { url: "file:///etc/passwd" }, // filesystem read wearing a browser costume
   editor: { filePath: "/x", content: "smuggled file body" }, // ref-only: content never rides
   desktop: { sessionId: "s", gatewayUrl: "https://evil.example" }, // never a credential store
+  "circle-pack": { scope: "mailbox", tree: [{ name: "smuggled" }] }, // strict(): no aggregated tree in node.data
 };
 
 describe("canvas capability mirror (AI-01 drift alarm)", () => {

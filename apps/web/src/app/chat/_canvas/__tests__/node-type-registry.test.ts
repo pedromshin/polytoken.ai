@@ -40,6 +40,7 @@ describe("computeNodeRegistryHash", () => {
       "knowledge-preview": NODE_TYPE_REGISTRY["knowledge-preview"]!,
       "genui-panel": NODE_TYPE_REGISTRY["genui-panel"]!,
       directory: NODE_TYPE_REGISTRY.directory!,
+      "circle-pack": NODE_TYPE_REGISTRY["circle-pack"]!,
       chat: NODE_TYPE_REGISTRY.chat!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(

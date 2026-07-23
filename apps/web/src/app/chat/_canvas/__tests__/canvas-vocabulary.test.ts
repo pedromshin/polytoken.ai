@@ -38,6 +38,7 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "browser",
   "editor",
   "desktop",
+  "circle-pack",
   "unknown",
 ];
 
@@ -131,6 +132,7 @@ describe("canvasNodeKindOf — a persisted node.type is untrusted (T-61-06)", ()
     expect(canvasNodeKindOf("directory")).toBe("directory");
     expect(canvasNodeKindOf("browser")).toBe("browser");
     expect(canvasNodeKindOf("editor")).toBe("editor");
+    expect(canvasNodeKindOf("circle-pack")).toBe("circle-pack");
   });
 
   it("resolves an UNRECOGNIZED type to \"unknown\" — never throws, never another kind's geometry", () => {

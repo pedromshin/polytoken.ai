@@ -15,6 +15,7 @@ import type { z } from "zod";
 import {
   BrowserNodeDataSchema,
   ChatNodeDataSchema,
+  CirclePackNodeDataSchema,
   DesktopNodeDataSchema,
   DirectoryNodeDataSchema,
   DocumentNodeDataSchema,
@@ -97,6 +98,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: DesktopNodeDataSchema,
     description:
       "Desktop node — a jailed remote-desktop panel shell anchored on an opaque sessionId (never a gateway url/token); no iframe mounted yet, keyed on the desktop.* control-plane capabilities (spawn/attach/hibernate/destroy).",
+  },
+  "circle-pack": {
+    id: "circle-pack",
+    dataSchema: CirclePackNodeDataSchema,
+    description:
+      "Circle-pack node — a zoomable circle-packing landscape of the mailbox (or one entity) anchored on a scope ref (mailbox/entity id, never the aggregated tree); the sender→thread→email hierarchy rehydrates via emails.circlePackLandscape.",
   },
 };
 
