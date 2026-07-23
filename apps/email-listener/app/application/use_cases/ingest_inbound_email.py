@@ -14,16 +14,25 @@ Post-persist dispatch (D-10):
   All three post-persist steps are isolated: failures are logged but never
   propagate to the SNS-facing caller.
 
-Parse-status lifecycle (ING-6):
+Parse-status lifecycle (ING-6, extended by ST-04):
 - Post-persist failures are ISOLATED but never INVISIBLE. Every swallowed
   post-persist failure (attachment parse, propose_regions,
   suggest_entity_types) is collected into a failures list, and the email is
   finalized once at the end of execute():
     - failures  -> parse_status='failed', parse_error=joined failure summary
-    - no failures -> parse_status='parsed', parsed_at=now
+    - no failures but adapter degradations -> parse_status='degraded' (ST-04):
+      the email persisted and parsed, but one or more never-raise LLM adapters
+      (segmentation / classifier / embedding) silently fell back — the
+      degrading adapter is named in parse_error ("adapter_degraded[...]").
+    - clean -> parse_status='parsed', parsed_at=now
+  Every parse_error entry carries a machine-decodable stage prefix
+  ("attachment[0]: ...", "propose_regions: ...", "adapter_degraded[...]: ...")
+  — see app/domain/services/pipeline_health.py — while staying human-readable
+  and capped at _PARSE_ERROR_MAX_LEN (it renders verbatim in the web tooltip).
   A failed attachment also stamps its own row parse_status='failed'
-  (successfully parsed ones read 'parsed'), so a corrupt attachment can never
-  leave the email reading as cleanly parsed.
+  (successfully parsed ones read 'parsed'; no-extension / no-registered-parser
+  ones read 'skipped', never eternally 'pending'), so a corrupt attachment can
+  never leave the email reading as cleanly parsed.
 """
 
 from __future__ import annotations
@@ -50,6 +59,12 @@ from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import RawEmailStore
 from app.domain.ports.thread_resolver import ThreadResolver
 from app.domain.services.mime_parser import ParsedAttachment, ParsedEmail, parse_mime
+from app.domain.services.pipeline_health import (
+    AdapterDegradation,
+    collect_adapter_degradations,
+    degradation_entries,
+    failure_entry,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -192,46 +207,53 @@ class IngestInboundEmailUseCase:
         # pre-parse stages (storage/save) so a raise there cannot skip siblings.
         failures: list[str] = []
 
-        for index, parsed_attachment in enumerate(parsed.attachments):
+        # ST-04: the whole post-persist pipeline runs inside a degradation
+        # collector, so any never-raise LLM adapter (segmenter / classifier /
+        # embedder) that silently falls back deep inside a stage is RECORDED
+        # (contextvar-scoped, no signature changes) and can drive the
+        # 'degraded' terminal status below.
+        with collect_adapter_degradations() as degradations:
+            for index, parsed_attachment in enumerate(parsed.attachments):
+                try:
+                    failure = await self._ingest_attachment(saved, index, parsed_attachment)
+                except Exception as exc:
+                    logger.exception(
+                        "attachment_ingest_failed",
+                        email_id=saved.id,
+                        attachment_index=index,
+                    )
+                    failures.append(failure_entry("attachment", repr(exc), qualifier=str(index)))
+                else:
+                    if failure is not None:
+                        failures.append(failure)
+
+            # Propose region Components from all page Components persisted above.
+            # Failure must not propagate to the SNS-facing caller.
             try:
-                failure = await self._ingest_attachment(saved, index, parsed_attachment)
+                await self._propose_regions.execute(email_id=saved.id, importer_id=importer_id)
             except Exception as exc:
                 logger.exception(
-                    "attachment_ingest_failed",
-                    email_id=saved.id,
-                    attachment_index=index,
-                )
-                failures.append(f"attachment[{index}]: {exc!r}")
-            else:
-                if failure is not None:
-                    failures.append(failure)
-
-        # Propose region Components from all page Components persisted above.
-        # Failure must not propagate to the SNS-facing caller.
-        try:
-            await self._propose_regions.execute(email_id=saved.id, importer_id=importer_id)
-        except Exception as exc:
-            logger.exception(
-                "propose_regions_failed",
-                email_id=saved.id,
-            )
-            failures.append(f"propose_regions: {exc!r}")
-
-        # Suggest entity types for the newly proposed candidate regions (best-effort).
-        # Never raises; a Bedrock failure leaves regions unclassified (graceful degradation).
-        if self._suggest_entity_types is not None:
-            try:
-                await self._suggest_entity_types.execute(email_id=saved.id, importer_id=importer_id)
-            except Exception as exc:
-                logger.exception(
-                    "suggest_entity_types_failed",
+                    "propose_regions_failed",
                     email_id=saved.id,
                 )
-                failures.append(f"suggest_entity_types: {exc!r}")
+                failures.append(failure_entry("propose_regions", repr(exc)))
 
-        # Drive the parse_status lifecycle so the UI's 'failed' tone + Reprocess
-        # affordance can fire; a healthy run transitions 'received' -> 'parsed'.
-        saved = await self._finalize_parse_status(saved, failures)
+            # Suggest entity types for the newly proposed candidate regions (best-effort).
+            # Never raises; a Bedrock failure leaves regions unclassified (graceful degradation).
+            if self._suggest_entity_types is not None:
+                try:
+                    await self._suggest_entity_types.execute(email_id=saved.id, importer_id=importer_id)
+                except Exception as exc:
+                    logger.exception(
+                        "suggest_entity_types_failed",
+                        email_id=saved.id,
+                    )
+                    failures.append(failure_entry("suggest_entity_types", repr(exc)))
+
+        # Drive the parse_status lifecycle so the UI's 'failed'/'degraded' tone
+        # + Reprocess affordance can fire; a healthy run transitions
+        # 'received' -> 'parsed'.
+        saved = await self._finalize_parse_status(saved, failures, degradations)
 
         logger.info(
             "email_ingested",
@@ -246,21 +268,38 @@ class IngestInboundEmailUseCase:
         )
         return saved
 
-    async def _finalize_parse_status(self, email: Email, failures: list[str]) -> Email:
-        """Stamp the terminal parse_status for this ingestion run (ING-6).
+    async def _finalize_parse_status(
+        self,
+        email: Email,
+        failures: list[str],
+        degradations: list[AdapterDegradation],
+    ) -> Email:
+        """Stamp the terminal parse_status for this ingestion run (ING-6 + ST-04).
 
-        - Any collected post-persist failure -> 'failed' + parse_error summary.
+        - Any collected post-persist failure -> 'failed' + parse_error summary
+          (adapter degradations, if any, are appended so nothing is lost).
+        - No hard failure but adapter degradations -> 'degraded': the email
+          persisted and parsed (parsed_at IS stamped), but the named LLM
+          adapter(s) silently fell back — enrichment is incomplete.
         - Otherwise -> 'parsed' + parsed_at=now.
+
+        parse_error stays a human-readable, stage-prefixed summary capped at
+        _PARSE_ERROR_MAX_LEN — it renders verbatim in the web tooltip.
 
         The status write itself is best-effort: a repository failure here is
         logged and the email is returned with its previously persisted status
         (never claiming a transition that did not durably happen), so the
         SNS-facing caller stays isolated.
         """
+        degraded_entries = degradation_entries(degradations)
         if failures:
             status = "failed"
-            error: str | None = "; ".join(failures)[:_PARSE_ERROR_MAX_LEN]
+            error: str | None = "; ".join(failures + degraded_entries)[:_PARSE_ERROR_MAX_LEN]
             parsed_at: datetime | None = None
+        elif degraded_entries:
+            status = "degraded"
+            error = "; ".join(degraded_entries)[:_PARSE_ERROR_MAX_LEN]
+            parsed_at = datetime.now(UTC)
         else:
             status = "parsed"
             error = None
@@ -335,6 +374,10 @@ class IngestInboundEmailUseCase:
         the attachment row is stamped parse_status='failed' and the summary is
         collected by execute() into the email-level failures list, so the
         email finalizes as 'failed' instead of silently reading 'parsed'.
+
+        Skip paths (no extension / no registered parser) stamp the row
+        parse_status='skipped' (ST-04) — never leaving it 'pending' forever —
+        and return None: a skip neither degrades nor fails the email.
         """
         attachment_id = _attachment_id(email.id, index, parsed.filename)
         # Filename-less MIME parts (inline CID logos/signatures, bare
@@ -372,10 +415,8 @@ class IngestInboundEmailUseCase:
             file_ext=file_ext,
         )
 
-        if outcome == "skipped":
-            return None
-
-        # Stamp the attachment row's own lifecycle ('parsed' | 'failed').
+        # Stamp the attachment row's own lifecycle ('parsed' | 'failed' |
+        # 'skipped' — ST-04: skips must not read as eternally 'pending').
         # Best-effort: a status-write failure must not abort sibling
         # attachments, and the email-level failure is already captured below.
         try:
@@ -389,7 +430,9 @@ class IngestInboundEmailUseCase:
             )
 
         if outcome == "failed":
-            return f"attachment {filename}: {error}"
+            # Machine-decodable stage prefix (ST-04) + the human context
+            # (filename) the tooltip reader needs.
+            return failure_entry("attachment", f"{filename}: {error}", qualifier=str(index))
         return None
 
     async def _parse_and_persist_pages(

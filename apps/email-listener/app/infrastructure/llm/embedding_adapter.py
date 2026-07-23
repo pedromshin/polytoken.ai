@@ -12,7 +12,10 @@ otherwise 500s with "expected 1536 dimensions, not 1024".)
 On total failure returns a zero-vector of length 1536 (never raises)
 so callers can always proceed; they should treat a zero-vector as a
 signal that retrieval will return empty results (cosine distance = 1.0
-from any real vector).
+from any real vector). ST-04: that silent fallback additionally calls
+record_adapter_degradation("embedding", ...) so a pipeline driver collecting
+degradations can surface it — a no-op outside a collector, so the
+never-raise contract and every other caller are unchanged.
 
 The boto3 bedrock-runtime client is injected so it can be mocked in tests.
 Sync boto3 is used (invoke_model is not async) — calls are cheap enough
@@ -24,6 +27,8 @@ from __future__ import annotations
 import json
 import logging
 from typing import Any
+
+from app.domain.services.pipeline_health import record_adapter_degradation
 
 logger = logging.getLogger(__name__)
 
@@ -65,10 +70,14 @@ class EmbeddingAdapter:
         """
         try:
             return self._invoke(text=text)
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "EmbeddingAdapter: Bedrock invocation failed — returning zero-vector",
                 extra={"model_id": _MODEL_ID, "text_len": len(text)},
+            )
+            record_adapter_degradation(
+                "embedding",
+                f"zero-vector fallback: {type(exc).__name__}",
             )
             return _ZERO_VECTOR
 

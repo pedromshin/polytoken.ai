@@ -115,3 +115,56 @@ def test_embed_values_match_bedrock_response(
     adapter = EmbeddingAdapter(client=mock_bedrock_client)
     result = asyncio.run(adapter.embed(text="text"))
     assert list(result) == expected
+
+
+# ---------------------------------------------------------------------------
+# ST-04 — silent zero-vector fallback records a degradation event
+# ---------------------------------------------------------------------------
+
+
+def test_embed_failure_records_degradation_inside_collector() -> None:
+    """The zero-vector swallow branch names itself to a collecting pipeline
+    driver (record_adapter_degradation), without changing the return contract."""
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+
+    broken_client = MagicMock()
+    broken_client.invoke_model.side_effect = Exception("Bedrock unavailable")
+    adapter = EmbeddingAdapter(client=broken_client)
+
+    with collect_adapter_degradations() as events:
+        result = asyncio.run(adapter.embed(text="some text"))
+
+    assert all(v == 0.0 for v in result)  # contract unchanged
+    assert len(events) == 1
+    assert events[0].adapter == "embedding"
+    assert "zero-vector" in events[0].detail
+
+
+def test_embed_success_records_no_degradation() -> None:
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+
+    client = MagicMock()
+    client.invoke_model.return_value = _make_bedrock_response([0.1] * _DIM)
+    adapter = EmbeddingAdapter(client=client)
+
+    with collect_adapter_degradations() as events:
+        asyncio.run(adapter.embed(text="ok"))
+
+    assert events == []
+
+
+def test_embed_failure_outside_collector_is_still_silent() -> None:
+    """No collector in context -> the never-raise contract holds and nothing
+    leaks into a later collector."""
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+
+    broken_client = MagicMock()
+    broken_client.invoke_model.side_effect = Exception("Bedrock unavailable")
+    adapter = EmbeddingAdapter(client=broken_client)
+
+    result = asyncio.run(adapter.embed(text="orphan"))
+    assert all(v == 0.0 for v in result)
+
+    with collect_adapter_degradations() as events:
+        pass
+    assert events == []

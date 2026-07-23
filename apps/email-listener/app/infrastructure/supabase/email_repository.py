@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, cast
 
+from postgrest.base_request_builder import CountMethod
 from supabase import Client
 
 from app.domain.entities.email import Email
@@ -133,6 +134,43 @@ class SupabaseEmailRepository:
             .execute()
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
+
+    async def count_emails(self, importer_id: str, *, parse_status: str | None = None) -> int:
+        """Exact server-side count (PostgREST count='exact', head=True) — no row scan (ST-04)."""
+        query = (
+            self._client.table("emails").select("id", count=CountMethod.exact, head=True).eq("importer_id", importer_id)
+        )
+        if parse_status is not None:
+            query = query.eq("parse_status", parse_status)
+        result = query.execute()
+        return int(result.count or 0)
+
+    async def list_parse_errors(self, importer_id: str, *, parse_status: str) -> list[str]:
+        """All non-null parse_error values for the importer's emails in *parse_status* (ST-04).
+
+        Paginates internally until exhausted (stable id ordering) so the
+        health endpoint's failed_by_stage buckets are exact — never a single
+        capped page.
+        """
+        page_size = 1000
+        offset = 0
+        errors: list[str] = []
+        while True:
+            result = (
+                self._client.table("emails")
+                .select("parse_error")
+                .eq("importer_id", importer_id)
+                .eq("parse_status", parse_status)
+                .not_.is_("parse_error", "null")
+                .order("id")
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            rows = cast("list[dict[str, Any]]", result.data or [])
+            errors.extend(cast("str", row["parse_error"]) for row in rows if row.get("parse_error"))
+            if len(rows) < page_size:
+                return errors
+            offset += page_size
 
     async def update_parse_status(
         self, email_id: str, status: str, error: str | None, *, parsed_at: datetime | None = None

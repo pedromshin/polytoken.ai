@@ -24,6 +24,7 @@ from app.presentation.api.v1.genui import router as genui_router
 from app.presentation.api.v1.genui_code import router as genui_code_router
 from app.presentation.api.v1.inbound_email import router as inbound_email_router
 from app.presentation.api.v1.knowledge_edges import router as knowledge_edges_router
+from app.presentation.api.v1.pipeline_health import router as pipeline_health_router
 from app.presentation.api.v1.sns_inbound import router as sns_inbound_router
 from app.presentation.middleware.request_logging import RequestLoggingMiddleware
 from app.settings import get_settings
@@ -75,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_widget_router)
     app.include_router(chat_sources_router)
     app.include_router(knowledge_edges_router)
+    app.include_router(pipeline_health_router)
 
     setup_dishka(container=create_container(), app=app)
     return app

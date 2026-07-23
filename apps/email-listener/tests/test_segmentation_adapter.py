@@ -289,3 +289,88 @@ def test_segment_injection_system_unchanged() -> None:
     assert captured_system[0] == _SEGMENTATION_SYSTEM
     # Injection text must NOT be in system
     assert "ignore previous instructions" not in captured_system[0]
+
+
+# ---------------------------------------------------------------------------
+# ST-04 — silent [] fallbacks record a degradation event
+# ---------------------------------------------------------------------------
+
+
+def test_segment_retries_exhausted_records_degradation() -> None:
+    """The retries-exhausted [] fallback names itself to a collecting
+    pipeline driver, without changing the never-raise contract."""
+    from unittest.mock import AsyncMock, patch
+
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+    from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
+
+    async def fake_create(**kwargs: Any) -> Any:
+        raise RuntimeError("network error")
+
+    mock_messages = MagicMock()
+    mock_messages.create = fake_create
+    mock_client = MagicMock()
+    mock_client.messages = mock_messages
+
+    segmenter = AnthropicSegmenter(client=mock_client, model_id="test-model")
+
+    async def run() -> list[Any]:
+        with patch("asyncio.sleep", new=AsyncMock()):
+            return await segmenter.segment(tokens=_tokens("any", "content"), page_index=2)
+
+    with collect_adapter_degradations() as events:
+        results = asyncio.run(run())
+
+    assert results == []  # contract unchanged
+    assert len(events) == 1
+    assert events[0].adapter == "segmentation"
+    assert "page 2" in events[0].detail
+
+
+def test_segment_malformed_response_records_degradation() -> None:
+    """A malformed tool_use payload (regions dropped) is a degradation too."""
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+    from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
+
+    bad_block = _make_tool_use_block([{"content_text": "x", "token_indices": ["not-an-int"], "page_index": 0}])
+
+    async def fake_create(**kwargs: Any) -> Any:
+        return _make_response([bad_block])
+
+    mock_messages = MagicMock()
+    mock_messages.create = fake_create
+    mock_client = MagicMock()
+    mock_client.messages = mock_messages
+
+    segmenter = AnthropicSegmenter(client=mock_client, model_id="test-model")
+
+    with collect_adapter_degradations() as events:
+        results = asyncio.run(segmenter.segment(tokens=_tokens("some", "text"), page_index=0))
+
+    assert results == []
+    assert len(events) == 1
+    assert events[0].adapter == "segmentation"
+    assert "malformed" in events[0].detail
+
+
+def test_segment_clean_run_records_no_degradation() -> None:
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+    from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
+
+    block = _make_tool_use_block([{"content_text": "Region A", "token_indices": [0], "page_index": 0}])
+
+    async def fake_create(**kwargs: Any) -> Any:
+        return _make_response([block])
+
+    mock_messages = MagicMock()
+    mock_messages.create = fake_create
+    mock_client = MagicMock()
+    mock_client.messages = mock_messages
+
+    segmenter = AnthropicSegmenter(client=mock_client, model_id="test-model")
+
+    with collect_adapter_degradations() as events:
+        results = asyncio.run(segmenter.segment(tokens=_tokens("Region", "A"), page_index=0))
+
+    assert len(results) == 1
+    assert events == []

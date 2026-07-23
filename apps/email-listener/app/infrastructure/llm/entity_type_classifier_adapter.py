@@ -11,6 +11,10 @@ SUGGEST-ONLY contract (D-05):
 BEST-EFFORT contract:
   On any failure, logs and returns an empty tuple — never raises.
   Callers wrap the use-case call in try/except as an additional guard.
+  ST-04: the silent empty-tuple fallback additionally calls
+  record_adapter_degradation("classifier", ...) so a pipeline driver
+  collecting degradations can mark the email 'degraded' — a no-op outside a
+  collector, so this contract and every other caller are unchanged.
 
 Security (D-14 structural defence):
   Region content lives ONLY in the user turn inside <regions> delimiters.
@@ -29,6 +33,7 @@ from app.domain.ports.entity_type_classifier_protocol import (
     EntityTypeSuggestion,
     RegionToClassify,
 )
+from app.domain.services.pipeline_health import record_adapter_degradation
 
 if TYPE_CHECKING:
     from anthropic import AsyncAnthropicBedrock
@@ -215,11 +220,15 @@ class AnthropicEntityTypeClassifier:
                 model_id=self._model_id,
             )
             return result
-        except Exception:
+        except Exception as exc:
             logger.warning(
                 "entity_type_classifier_failed",
                 region_count=len(regions),
                 exc_info=True,
+            )
+            record_adapter_degradation(
+                "classifier",
+                f"{len(regions)} region(s) left unclassified: {type(exc).__name__}",
             )
             return _EMPTY
 

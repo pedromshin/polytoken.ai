@@ -57,7 +57,25 @@ class EmailRepository(Protocol):
     ) -> None:
         """Update the parse_status/parse_error/parsed_at fields for an email (ING-6).
 
-        parsed_at is stamped on a successful transition to 'parsed' and
-        cleared (None) on any failure transition — it is always written.
+        parsed_at is stamped on a successful transition to 'parsed' (and to
+        'degraded' — the email did parse, ST-04) and cleared (None) on any
+        failure transition — it is always written.
+        """
+        ...
+
+    async def count_emails(self, importer_id: str, *, parse_status: str | None = None) -> int:
+        """Exact email count for one importer, optionally filtered by parse_status (ST-04).
+
+        MUST be an exact server-side count (e.g. PostgREST count='exact'),
+        never a limited row scan — the pipeline-health endpoint's numbers may
+        not silently truncate at any page size.
+        """
+        ...
+
+    async def list_parse_errors(self, importer_id: str, *, parse_status: str) -> list[str]:
+        """All non-null parse_error values for the importer's emails in *parse_status* (ST-04).
+
+        Implementations MUST paginate internally until exhausted (never a
+        single capped page) — used to bucket failed_by_stage exactly.
         """
         ...

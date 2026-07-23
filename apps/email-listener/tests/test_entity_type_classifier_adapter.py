@@ -258,3 +258,57 @@ def test_single_bedrock_call_regardless_of_examples() -> None:
     )
 
     assert len(captured) == 1
+
+
+# ---------------------------------------------------------------------------
+# ST-04 — silent empty-tuple fallback records a degradation event
+# ---------------------------------------------------------------------------
+
+
+def test_classifier_failure_records_degradation_inside_collector() -> None:
+    """The never-raise () fallback names itself to a collecting pipeline
+    driver, without changing the return contract."""
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+    from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
+
+    async def failing_create(**kwargs: Any) -> Any:
+        raise RuntimeError("bedrock down")
+
+    mock_messages = MagicMock()
+    mock_messages.create = failing_create
+    mock_client = MagicMock()
+    mock_client.messages = mock_messages
+
+    classifier = AnthropicEntityTypeClassifier(client=mock_client, model_id="test-model")
+
+    with collect_adapter_degradations() as events:
+        result = asyncio.run(
+            classifier.classify(
+                regions=(_REGION,),
+                entity_types=(_ENTITY_TYPE_INVOICE,),
+            )
+        )
+
+    assert result == ()  # contract unchanged
+    assert len(events) == 1
+    assert events[0].adapter == "classifier"
+    assert "1 region(s) left unclassified" in events[0].detail
+    assert "RuntimeError" in events[0].detail
+
+
+def test_classifier_success_records_no_degradation() -> None:
+    from app.domain.services.pipeline_health import collect_adapter_degradations
+    from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
+
+    mock_client, _captured = _make_capturing_client()
+    classifier = AnthropicEntityTypeClassifier(client=mock_client, model_id="test-model")
+
+    with collect_adapter_degradations() as events:
+        asyncio.run(
+            classifier.classify(
+                regions=(_REGION,),
+                entity_types=(_ENTITY_TYPE_INVOICE,),
+            )
+        )
+
+    assert events == []
