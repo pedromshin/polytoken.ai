@@ -4,7 +4,34 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: RUNNING — Batch 2 (W1, 6 lanes)
+## Status: RUNNING — Batch 3a (W2 spine, manual-worktree agents) + ST-04 rebuild
+
+Batch 2 DONE 2026-07-23T05:5xZ (9e93f6d pushed): 5/6 lanes merged — evals harness
+(E1–E3 enforced), KG-2/3/8 + pipeline-health panel (web), snappiness §1–4 (+
+main-loop fixes: 8 neutral loading.tsx, prefetch TTL dedupe), hygiene P0 (stubs
+deleted, knip baseline, .gitignore env fix), terraform 5 imports DONE against
+live AWS (MAIL_FROM drift found+codified: live=forward@, plan clean after).
+ST-04 lane REJECTED by skeptic (stale-base redo of 1R) → rebuilding via agent in
+manually-created worktree st04-resynth (fork-from-HEAD, skeptic findings A–H as
+hard requirements). Terraform local tfstate could NOT be copied from the lane
+worktree (classifier); re-run the 5 idempotent runbook imports in the main tree
+before any plan/apply (config now merged).
+
+## Orchestration mode NOTE (learned B1R/B2)
+Workflow-tool worktrees fork from dde04bb (repo base), NOT branch HEAD → any
+lane touching session-modified files rebuilds stale and conflicts. From Batch 3
+on: `git worktree add -b <branch> .claude/worktrees/<name> HEAD` MYSELF, then
+parallel Agent-tool agents pointed at those dirs. Verify with skeptic Agent
+runs, merge in main loop.
+
+## Batch 3a in flight (agents on manual worktrees, all forked 9e93f6d)
+- st04-resynth (ST-04 rebuild, reqs A–H)
+- b3-ai01 (canvas.addNode/connect/removeNode capability triple)
+- b3-ai02 (capability 4-way projection matrix + enforcement gate)
+- b3-ai05 (cross-surface omnibox, search mode)
+- b3-en02 (merge-review queue /entities/review)
+Batch 3b AFTER st04 merges (listener files free): AI-03 ingest-time resolution,
+AI-06 graph-memory chat retrieval, AI-04 send-to-chat/canvas affordances.
 
 Batch 1 DONE: 3 gap docs (c1bf55c) + 4 W0 fixes merged (92c9098), all suites green.
 Batch 1R DONE 2026-07-23T04:4xZ (e158449 pushed): ING-6/RES-1/REG-1 repairs merged.
