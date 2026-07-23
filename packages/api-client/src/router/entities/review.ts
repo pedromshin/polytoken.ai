@@ -33,7 +33,7 @@
  * No parallel write path is introduced by this file.
  */
 
-import { and, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, ne, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { z } from "zod";
 
@@ -401,6 +401,11 @@ export const entityReviewProcedures = {
             inArray(candidateEntity.importerId, owned),
           ),
         )
+        // Deterministic scan order: without it, LIMIT under the cap makes the
+        // scanned subset nondeterministic per request — Next/Previous could
+        // duplicate or drop pairs and totalPending could fluctuate (skeptic
+        // finding, 2026-07-23). Link id is stable and insertion-ordered enough.
+        .orderBy(asc(ComponentEntityCandidateLinks.id))
         .limit(REVIEW_SCAN_CAP);
 
       // ------------------------------------------------------------------
