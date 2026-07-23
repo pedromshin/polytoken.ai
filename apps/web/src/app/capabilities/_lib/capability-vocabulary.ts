@@ -67,6 +67,14 @@ export const ORIGIN_LABEL: Record<ManifestEntry["origin"], string> = {
 };
 
 /**
+ * Reversibility (§5.2) is the confirm-modal axis — the ONE fact a card must not swallow.
+ * Absent means reversible and says NOTHING (stating "reversible" on every row is decoration);
+ * `"irreversible"` is stated in plain ink words with the same solid-border badge geometry as an
+ * accountable trust fact. Never hue: the tier swatch stays the page's only colour (law 1).
+ */
+export const IRREVERSIBLE_LABEL = "cannot be undone";
+
+/**
  * Cost stays quiet until it isn't: free/cheap say nothing (declaring "cheap" on every row is
  * decoration), moderate/expensive are stated in words — ink weight, never hue.
  */

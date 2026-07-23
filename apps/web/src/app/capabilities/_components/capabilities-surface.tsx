@@ -31,6 +31,7 @@ import { api } from "~/trpc/react";
 import { useCapabilityAllowlist } from "../_lib/allowlist";
 import {
   COST_LABEL,
+  IRREVERSIBLE_LABEL,
   ORIGIN_LABEL,
   RISK_ORDER,
   RISK_TIER,
@@ -163,6 +164,14 @@ function CapabilityRow(props: {
           >
             {trust.label}
           </span>
+          {/* §5.2 card-face closeout (AI-02): reversibility is DECLARED data — the manifest
+              carries it, so the card states it. Same badge grammar as trust (ink, solid border
+              = accountable fact); absent ⇒ reversible ⇒ silence, never a "reversible" chip. */}
+          {entry.reversibility === "irreversible" && (
+            <span className="rounded-sm border border-solid border-rule px-chip-x py-px text-2xs font-medium text-faded">
+              {IRREVERSIBLE_LABEL}
+            </span>
+          )}
           <span className="text-2xs text-pencil">
             {ORIGIN_LABEL[entry.origin]}
             {cost !== null && (

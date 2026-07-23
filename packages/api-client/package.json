@@ -19,6 +19,10 @@
     "./genui/panel-edit-schema": {
       "types": "./dist/router/genui/panel-edit-schema.d.ts",
       "default": "./src/router/genui/panel-edit-schema.ts"
+    },
+    "./capability-projections": {
+      "types": "./dist/router/capabilities/projection-map.d.ts",
+      "default": "./src/router/capabilities/projection-map.ts"
     }
   },
   "scripts": {
