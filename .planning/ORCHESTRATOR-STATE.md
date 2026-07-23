@@ -4,6 +4,40 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
+## Status: RUNNING — Batch 7 (W6 ventures) — THE LAST BATCH
+
+Batch 6 DONE 2026-07-23T10:xxZ (52ba8fa pushed): W5 teams (workspaces/members/
+resource_shares, additive assertCanAccess, RBAC no-self-escalate, documents wired,
+ZERO tenancy regression — 98/98 existing tenancy tests pass, migration 0047 lineage
+clean) + TM-04 drive circle-pack (widened circle-pack node scope enum to 'drive',
+mirror field-for-field, byte-conserving bounded recursion). Integrated green: web
+1620, capabilities 65, db 84, api-client 724, ui 22, all tsc clean.
+
+Waves DONE: W0 email hardening, W1 reliability+evals+snappiness+terraform, W2 AI
+spine, W3 canvas+viz, W4 drive+home, W5 teams. Only W6 ventures remains.
+
+## Batch 7 in flight (b7-* worktrees forked 52ba8fa) — venture-gated, mostly design+safe-seams
+- b7-inference (distributed-inference Phase 0: browser device-profiling → per-hardware
+  model recommendation wired to the WebLLM picker; + credits/peer-pooling accounting
+  DESIGN doc — real pooling stays E7-gated)
+- b7-desktop (remote-desktop live-cost: per-second/hour cost ticker on the desktop node
+  using desktop_sessions.hourly_rate_cents + ST-03 desktop-management pane; Hetzner
+  provider binding stays billing-gated — design doc for it)
+- b7-business (business execution roadmap synthesizing the 8 business/ research tracks
+  into a go/no-go decision framework + next-steps — pure planning doc)
+
+## AFTER b7 merges — FINAL COMPLETION SWEEP (do not skip):
+1. Run EVERY gate on the final tree: all package vitest (db/api-client/capabilities/
+   ui/genui/daemon-protocol), full apps/web vitest+tsc, listener `uv run pytest` full
+   (4 OCR env failures expected) + ruff + mypy + lint-imports, drizzle-kit consistency.
+2. Write `.planning/research/2026-07-23-GRAND-COMPLETION-REPORT.md` — every wave, what
+   landed, skeptic saves, deferred/handoff items, the manual-verification runsheet
+   pointer for Pedro (jsdom proved behavior; visual/geometry gates + live-stack E2E
+   are HIS to run — enumerate exactly what needs his eyes/hands).
+3. Set this ledger Status: COMPLETE. PushNotification the finish.
+4. DELETE hourly backstop trig_01FYyp3Kpfa2vgWBY56N4Gq1 and stop the send_later chain.
+
+## --- historic detail below (superseded) ---
 ## Status: RUNNING — Batch 6 (W5 multiuser/teams) + TM-04 tail
 
 Batch 5 (W4) DONE 2026-07-23T09:xxZ (a395f1a pushed). files-chat (DR-03 file node
