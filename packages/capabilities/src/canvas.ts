@@ -184,13 +184,23 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
       shape: z.string().max(64).optional(),
     })
     .strict(),
-  // FEATURE-CATALOG TM-03 — the circle-pack (mailbox landscape) node. Ref-only:
-  // a scope (mailbox/importer/entity id), never the aggregated tree.
+  // FEATURE-CATALOG TM-03 + TM-04 — the circle-pack landscape node. Ref-only: a
+  // scope (mailbox/importer/entity id, or the drive rooted at a vault folder
+  // path), never the aggregated tree. `folderPath` segments are gated to the
+  // vault-keys safe-segment rules (MIRRORED from node-data-schemas.ts).
   "circle-pack": z
     .object({
-      scope: z.enum(["mailbox", "entity"]),
+      scope: z.enum(["mailbox", "entity", "drive"]),
       entityId: z.string().uuid().optional(),
       importerId: z.string().uuid().optional(),
+      folderPath: z
+        .array(
+          z.string().refine(isSafeVaultSegment, {
+            message: "folderPath segment must be a safe vault name (no traversal/separators)",
+          }),
+        )
+        .max(32)
+        .optional(),
       label: z.string().max(120).optional(),
     })
     .strict(),

@@ -20,12 +20,15 @@ import {
 import { Trash2 } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@polytoken/ui/tabs";
 
 import type { VaultEntry } from "../../../../../../packages/api-client/src/router/files/vault-types";
 import { parseVaultPath } from "../../../../../../packages/api-client/src/router/files/vault-keys";
 import { useVaultDrop } from "../_lib/use-vault-drop";
 import { useVaultUpload } from "../_lib/use-vault-upload";
 import { vaultApi } from "../_lib/vault-api";
+import { DriveLandscapeView } from "./drive-landscape-view";
+import type { DriveLeaf, FetchLevel } from "../_lib/drive-landscape";
 import { DeleteDialog } from "./delete-dialog";
 import { MoveDialog } from "./move-dialog";
 import { NewFolderRow } from "./new-folder-row";
@@ -94,6 +97,9 @@ export function VaultSurface(): React.ReactElement {
   const [versionsTarget, setVersionsTarget] = useState<VaultEntry | null>(null);
   const [trashOpen, setTrashOpen] = useState(false);
 
+  // ── TM-04: the drive landscape (circle-pack) as a second view of this folder.
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
+
   const pathKey = path.join("/");
   // A folder change clears any selection — it referred to rows that are gone.
   useEffect(() => {
@@ -127,6 +133,21 @@ export function VaultSurface(): React.ReactElement {
   const openFolder = useCallback(
     (name: string) => navigateTo([...path, name]),
     [navigateTo, path],
+  );
+
+  // ── TM-04: descend `folderSizeRollup` one level at a time (the builder
+  //   recurses); the imperative `.fetch` is what lets the pure hierarchy builder
+  //   pull as many levels as its depth/budget caps allow. Owned-scoped by the
+  //   procedure, so this map only ever draws the caller's own bytes.
+  const fetchLevel = useCallback<FetchLevel>(
+    (segments) => utils.files.folderSizeRollup.fetch({ path: [...segments] }),
+    [utils],
+  );
+  // Activating a file circle walks /files to its containing folder — the shared
+  // navigation the catalog asks for ("zoom into a folder ⇒ /files navigation").
+  const openLeafFolder = useCallback(
+    (leaf: DriveLeaf) => navigateTo([...leaf.path]),
+    [navigateTo],
   );
 
   // ── Download ─────────────────────────────────────────────────────────────
@@ -265,6 +286,23 @@ export function VaultSurface(): React.ReactElement {
         {/* Ink Buttons WITH WORDS (anti-generic tell #4: chrome that teaches,
             not chrome that tests memory). Trash carries a glyph AND a word. */}
         <div className="flex items-center gap-2">
+          {/* TM-04: List / Map — the same folder, as a listing or as a
+              circle-pack landscape. Segmented, chrome-monochrome (design law). */}
+          <Tabs
+            value={viewMode}
+            onValueChange={(next) => {
+              if (next === "list" || next === "map") setViewMode(next);
+            }}
+          >
+            <TabsList aria-label="Files view" className="h-8 p-0.5">
+              <TabsTrigger value="list" aria-label="List view" className="h-7 px-3 text-xs">
+                List
+              </TabsTrigger>
+              <TabsTrigger value="map" aria-label="Map view" className="h-7 px-3 text-xs">
+                Map
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Button
             type="button"
             variant="outline"
@@ -296,6 +334,20 @@ export function VaultSurface(): React.ReactElement {
         </div>
       </div>
 
+      {viewMode === "map" ? (
+        /* TM-04: the drive as a circle-pack landscape of the CURRENT folder.
+           Folders zoom (the primitive's own interaction); a file circle walks
+           /files to its folder. Rooted at `path` so navigating re-roots the map. */
+        <section aria-label="Drive landscape">
+          <DriveLandscapeView
+            fetchLevel={fetchLevel}
+            rootPath={path}
+            rootName={folderName}
+            onActivateLeaf={openLeafFolder}
+          />
+        </section>
+      ) : (
+      <>
       {/* DR-01 bulk bar — present only while a selection exists. */}
       <SelectionBar
         count={selectedEntries.length}
@@ -396,6 +448,8 @@ export function VaultSurface(): React.ReactElement {
           />
         </section>
       </VaultDropLayer>
+      </>
+      )}
 
       <DeleteDialog
         entry={pendingDelete}

@@ -104,6 +104,24 @@ describe("canvas capability mirror (AI-01 drift alarm)", () => {
     }
   });
 
+  // TM-04 widened circle-pack scope to include "drive" (+ optional folderPath).
+  // Both schemas must agree on the new scope AND on the folderPath threat gate.
+  it("circle-pack accepts scope='drive' (with folderPath) on BOTH schemas (TM-04)", () => {
+    const drive = { scope: "drive", folderPath: ["invoices", "2026"], label: "Drive landscape" };
+    expect(NODE_TYPE_REGISTRY["circle-pack"]!.dataSchema.safeParse(drive).success).toBe(true);
+    expect(CANVAS_NODE_DATA_SCHEMAS["circle-pack"]!.safeParse(drive).success).toBe(true);
+    // A bare drive scope (whole vault, no folderPath) is valid too.
+    const wholeDrive = { scope: "drive" };
+    expect(NODE_TYPE_REGISTRY["circle-pack"]!.dataSchema.safeParse(wholeDrive).success).toBe(true);
+    expect(CANVAS_NODE_DATA_SCHEMAS["circle-pack"]!.safeParse(wholeDrive).success).toBe(true);
+  });
+
+  it("circle-pack REJECTS a traversal folderPath on BOTH schemas (TM-04 threat gate)", () => {
+    const hostile = { scope: "drive", folderPath: [".."] };
+    expect(NODE_TYPE_REGISTRY["circle-pack"]!.dataSchema.safeParse(hostile).success).toBe(false);
+    expect(CANVAS_NODE_DATA_SCHEMAS["circle-pack"]!.safeParse(hostile).success).toBe(false);
+  });
+
   it("resolveNodeType still never throws on an unknown type (the AI-01 fail-safe backstop)", () => {
     expect(resolveNodeType("totally-made-up")).toEqual({
       kind: "unknown",

@@ -105,7 +105,7 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     id: "circle-pack",
     dataSchema: CirclePackNodeDataSchema,
     description:
-      "Circle-pack node — a zoomable circle-packing landscape of the mailbox (or one entity) anchored on a scope ref (mailbox/entity id, never the aggregated tree); the sender→thread→email hierarchy rehydrates via emails.circlePackLandscape.",
+      "Circle-pack node — a zoomable circle-packing landscape anchored on a scope ref (never the aggregated tree): the mailbox (or one entity), whose sender→thread→email hierarchy rehydrates via emails.circlePackLandscape, OR the drive (optionally rooted at a vault folder), whose folder→file byte hierarchy rehydrates via files.folderSizeRollup (FEATURE-CATALOG TM-03/TM-04).",
   },
   spreadsheet: {
     id: "spreadsheet",

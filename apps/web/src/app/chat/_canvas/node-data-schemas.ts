@@ -254,20 +254,30 @@ export const SourceNodeDataSchema = z
 export type SourceNodeData = z.infer<typeof SourceNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
-// CirclePackNodeDataSchema — circle-pack node.data (FEATURE-CATALOG TM-03).
+// CirclePackNodeDataSchema — circle-pack node.data (FEATURE-CATALOG TM-03 + TM-04).
 //
 // The node renders the shared `CirclePack` primitive (TM-01) over a SCOPE, and
 // like every sibling it carries ONLY a ref, never fetched content: the mailbox
-// landscape rehydrates from `emails.circlePackLandscape` at render time. Two
-// scopes today — the whole mailbox (optionally narrowed to one owned importer)
-// or a single entity — so the agent can drop "show me what's eating my inbox"
-// (AI-01) as a placed node. `.strict()` — no aggregated tree may ride along in
-// node.data (it is derived, owned-scoped server-side, and can change).
+// landscape rehydrates from `emails.circlePackLandscape`, the drive landscape
+// from `files.folderSizeRollup`, at render time. Three scopes — the whole
+// mailbox (optionally narrowed to one owned importer), a single entity, or the
+// DRIVE (optionally rooted at a folder path) — so the agent can drop "show me
+// what's eating my inbox" OR "…my drive" (AI-01) as a placed node. `.strict()`
+// — no aggregated tree may ride along in node.data (it is derived, owned-scoped
+// server-side, and can change).
+//
+// THE DRIVE FOLDER PATH IS THE THREAT SURFACE (mirrors FileNodeDataSchema): a
+// scope==="drive" node may carry `folderPath`, and node.data arrives from
+// chat_canvas_layouts (a user-writable row) whose restore re-validates only the
+// generic snapshot schema. Every segment is gated to the vault-keys chokepoint's
+// safe-segment rules (`isSafeVaultSegment`), so a tampered row can never smuggle
+// a "../other-tenant" traversal — and the eventual `folderSizeRollup` re-parses
+// through `vaultKey(ctx.user.id, …)` regardless (defense in depth).
 // ---------------------------------------------------------------------------
 
 export const CirclePackNodeDataSchema = z
   .object({
-    scope: z.enum(["mailbox", "entity"]),
+    scope: z.enum(["mailbox", "entity", "drive"]),
     /** Required in spirit when scope==="entity"; kept optional at the schema
      * boundary so a tampered row degrades to the mailbox view rather than
      * failing restore (the render path treats a missing entityId as mailbox). */
@@ -275,6 +285,17 @@ export const CirclePackNodeDataSchema = z
     /** Optional narrowing to one importer; validated against ownership by the
      * query, never trusted from node.data. */
     importerId: z.string().uuid().optional(),
+    /** scope==="drive" only: the tenant-relative vault folder the landscape is
+     * rooted at (empty/absent ⇒ whole vault). Every segment is a safe vault name
+     * (no traversal/separators) — the query still re-parses through vaultKey. */
+    folderPath: z
+      .array(
+        z.string().refine(isSafeVaultSegment, {
+          message: "folderPath segment must be a safe vault name (no traversal/separators)",
+        }),
+      )
+      .max(32)
+      .optional(),
     label: z.string().max(120).optional(),
   })
   .strict();
