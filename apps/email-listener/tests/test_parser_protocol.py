@@ -52,7 +52,9 @@ class FakeEmailRepository:
     async def find_by_message_id(self, importer_id: str, message_id: str) -> Email | None:
         return None
 
-    async def update_parse_status(self, email_id: str, status: str, error: str | None) -> None:
+    async def update_parse_status(
+        self, email_id: str, status: str, error: str | None, *, parsed_at: object | None = None
+    ) -> None:
         pass
 
 

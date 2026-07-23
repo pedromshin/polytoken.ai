@@ -75,7 +75,7 @@ def _make_use_case(
     email_repo = MagicMock()
     email_repo.find_by_message_id = AsyncMock(return_value=existing_email)
     email_repo.save = AsyncMock(side_effect=lambda email: email)
-    email_repo.update_parse_status = AsyncMock()
+    email_repo.update_parse_status = AsyncMock(return_value=None)
 
     attachment_repo = MagicMock()
     attachment_repo.save = AsyncMock(side_effect=lambda att: att)
@@ -153,7 +153,10 @@ def test_persists_email_with_parsed_fields() -> None:
     assert email.sender_name == "Maria"
     assert email.subject == "Docs"
     assert email.raw_storage_key == f"inbound/local/{SES_MESSAGE_ID}"
-    assert email.parse_status == "received"
+    # ING-6: a clean ingest finalizes as 'parsed' (the lifecycle is driven,
+    # no longer frozen at 'received').
+    assert email.parse_status == "parsed"
+    assert email.parsed_at is not None
     assert email.body_text is not None
 
 
@@ -527,6 +530,124 @@ def test_post_persist_failure_marks_parse_status_failed() -> None:
     assert status == "failed"
     assert error is not None
     assert "propose_regions" in error
+# ING-6 tests — the parse_status lifecycle is driven, failures are visible
+# ---------------------------------------------------------------------------
+
+
+def test_corrupt_attachment_marks_email_failed_not_parsed() -> None:
+    """A corrupt attachment must NOT leave the email reading as cleanly 'parsed' (ING-6).
+
+    The parser raising on the attachment routes into the failures lifecycle:
+    parse_status='failed', parse_error records the attachment + cause, and the
+    durable status write goes through update_parse_status.
+    """
+    raw = _raw_email(with_attachment=True)
+
+    corrupt_parser = MagicMock()
+    corrupt_parser.parse = AsyncMock(side_effect=RuntimeError("corrupt PDF stream"))
+    registry = MagicMock(side_effect=lambda ext: corrupt_parser if ext == "pdf" else None)
+
+    use_case, mocks = _make_use_case(raw, parser_registry=registry)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_status != "parsed"
+    assert email.parsed_at is None
+    assert email.parse_error is not None
+    assert "bl.pdf" in email.parse_error
+    assert "corrupt PDF stream" in email.parse_error
+
+    # The failure was durably recorded, not just reflected on the return value.
+    mocks["email_repo"].update_parse_status.assert_awaited_once()
+    args, kwargs = mocks["email_repo"].update_parse_status.await_args
+    assert args[0] == email.id
+    assert args[1] == "failed"
+    assert "corrupt PDF stream" in args[2]
+    assert kwargs["parsed_at"] is None
+
+
+def test_corrupt_attachment_stamps_attachment_row_failed() -> None:
+    """The failing attachment's own row transitions pending -> failed (ING-6)."""
+    raw = _raw_email(with_attachment=True)
+
+    corrupt_parser = MagicMock()
+    corrupt_parser.parse = AsyncMock(side_effect=RuntimeError("corrupt PDF stream"))
+    registry = MagicMock(return_value=corrupt_parser)
+
+    use_case, mocks = _make_use_case(raw, parser_registry=registry)
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    saves = [call.args[0] for call in mocks["attachment_repo"].save.await_args_list]
+    assert [a.parse_status for a in saves] == ["pending", "failed"]
+    assert saves[0].id == saves[1].id  # same row upserted, not a duplicate
+
+
+def test_clean_ingest_finalizes_parsed_with_parsed_at() -> None:
+    """No failures -> parse_status='parsed', parse_error cleared, parsed_at stamped."""
+    raw = _raw_email(with_attachment=True)
+
+    fake_page = _make_page_component(attachment_id="att-x")
+    fake_parser = _fake_parser_returning(fake_page)
+    registry = MagicMock(side_effect=lambda ext: fake_parser if ext == "pdf" else None)
+
+    use_case, mocks = _make_use_case(raw, parser_registry=registry)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "parsed"
+    assert email.parse_error is None
+    assert email.parsed_at is not None
+
+    args, kwargs = mocks["email_repo"].update_parse_status.await_args
+    assert args[1] == "parsed"
+    assert args[2] is None
+    assert kwargs["parsed_at"] is not None
+
+    # The successfully parsed attachment's row reads 'parsed', not stuck 'pending'.
+    saves = [call.args[0] for call in mocks["attachment_repo"].save.await_args_list]
+    assert [a.parse_status for a in saves] == ["pending", "parsed"]
+
+
+def test_unsupported_attachment_is_not_a_failure() -> None:
+    """No registered parser is a SKIP (inline logos etc.), never a 'failed' email."""
+    raw = _raw_email(with_attachment=True)
+    registry = MagicMock(return_value=None)
+
+    use_case, mocks = _make_use_case(raw, parser_registry=registry)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "parsed"
+    assert email.parse_error is None
+    # Skipped attachment keeps its single 'pending' save — no failed stamp.
+    mocks["attachment_repo"].save.assert_awaited_once()
+    assert mocks["attachment_repo"].save.await_args.args[0].parse_status == "pending"
+
+
+def test_propose_regions_failure_routes_into_failed_status() -> None:
+    """propose_regions crashing is recorded in the same lifecycle (ING-6)."""
+    raw = _raw_email(with_attachment=False)
+
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=RuntimeError("propose boom"))
+
+    use_case, _mocks = _make_use_case(raw, propose_regions=propose_regions)
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert email.parse_status == "failed"
+    assert email.parse_error is not None
+    assert "propose_regions" in email.parse_error
+
+
+def test_parse_status_write_failure_is_isolated() -> None:
+    """A repository failure while finalizing status never reaches the SNS caller."""
+    raw = _raw_email(with_attachment=False)
+
+    use_case, mocks = _make_use_case(raw)
+    mocks["email_repo"].update_parse_status = AsyncMock(side_effect=RuntimeError("db down"))
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    # Returned entity honestly keeps the last durably persisted status.
+    assert email.parse_status == "received"
 
 
 def test_ingest_redelivery_still_stable_with_resolver() -> None:

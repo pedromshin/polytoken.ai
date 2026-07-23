@@ -14,6 +14,7 @@ import { CanvasShell } from "./canvas-shell";
 import { ExtractionSummaryPanel } from "./extraction-summary-panel";
 import { InspectorPanel } from "./inspector-panel";
 import { LayersPanel } from "./layers-panel";
+import { ParseStatusMarker } from "./parse-status-marker";
 import { PdfPreviewPane } from "./pdf-preview-pane";
 import { ReprocessDialog } from "./reprocess-dialog";
 import { useAutofillFields } from "./use-autofill-fields";
@@ -36,45 +37,6 @@ const FULL_PAGE_POLYGON: Polygon = [
 
 const fmt = (d: Date | string | null) =>
   d ? new Date(d).toLocaleString() : "—";
-
-/**
- * The parse-status marker (60-06 Task 2, law 1).
- *
- * WHAT WAS WRONG: "failed" drove the madder variant. Law 1 spends madder on
- * the irreversible and on nothing else — "never errors, never warnings"
- * (58-IDENTITY). A failed parse is a STATUS, and it is the most reversible
- * thing on this page: the header four lines below renders a Reprocess button
- * that undoes it. Painting it madder told the user a retryable machine
- * hiccup was a point of no return.
- *
- * WHY "parsed" IS NOT VERDIGRIS, though it is tempting: `REGION_TIER` was the
- * obvious home for these, but `parseStatus` is a different domain from
- * `extractionStatus` and it does not map cleanly. Two ways it breaks:
- *   - `tierOf("parsed")` returns "suggested" (its deliberate unknown-status
- *     default), so routing through it would paint a SUCCEEDED parse in
- *     pencil-amber — the tier vocabulary answering a question nobody asked.
- *   - Verdigris means one thing: "a human verified this fact". A parse
- *     succeeding is a MACHINE fact that no human confirmed. Spending the
- *     confirmed hue on it would make verdigris mean two things, which is the
- *     one thing law 1 cannot survive.
- * So a parse status earns no hue at all: it is chrome, and it reads on the
- * ink ladder. The plan's own escape hatch ("otherwise a plain text-faded
- * marker") is the correct branch here.
- *
- * The shape is the inbox header's `.count` marker, so the two surfaces state
- * a small fact the same way.
- */
-const PARSE_STATUS_MARKER =
-  "tabular rounded-sm border border-rule bg-bright px-1.5 py-0.5 text-2xs font-semibold whitespace-nowrap";
-
-const parseStatusTone = (status: string): string => {
-  // A clean parse has nothing to announce — it is the expected case.
-  if (status === "parsed") return "text-faded";
-  // A failure is loud in INK WEIGHT, not in hue. It survives greyscale, and
-  // it makes no claim to being irreversible, because it is not.
-  if (status === "failed") return "text-ink";
-  return "text-pencil";
-};
 
 /** Signed URL entry with expiry tracking (WR-01). */
 interface SignedUrlEntry {
@@ -786,12 +748,14 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
         >
           {subject}
         </h1>
-        <span
-          data-field="parse-status"
-          className={`${PARSE_STATUS_MARKER} ${parseStatusTone(email.parseStatus)}`}
-        >
-          {email.parseStatus}
-        </span>
+        {/* ING-6: the lifecycle is now driven by the listener — 'failed' /
+            'degraded' are reachable states, rendered visibly distinct (ink
+            weight, never madder) with the recorded parse_error surfaced. */}
+        <ParseStatusMarker
+          status={email.parseStatus}
+          error={email.parseError}
+        />
+
         <Button
           variant="outline"
           size="sm"

@@ -61,6 +61,10 @@ export const emailDetailProcedures = {
           bodyText: Emails.bodyText,
           bodyHtml: Emails.bodyHtml,
           parseStatus: Emails.parseStatus,
+          // ING-6: the listener records WHY a parse failed (e.g. which
+          // attachment was corrupt); the detail header surfaces it on the
+          // failed/degraded status marker.
+          parseError: Emails.parseError,
           importerId: Emails.importerId,
         })
         .from(Emails)

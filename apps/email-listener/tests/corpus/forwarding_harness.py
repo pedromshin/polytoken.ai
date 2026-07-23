@@ -120,6 +120,15 @@ class InMemoryEmailRepository:
     async def count_all(self, importer_id: str) -> int:
         return sum(1 for r in self._rows.values() if r.importer_id == importer_id)
 
+    async def update_parse_status(
+        self, email_id: str, status: str, error: str | None, *, parsed_at: object | None = None
+    ) -> None:
+        from dataclasses import replace
+
+        row = self._rows.get(email_id)
+        if row is not None:
+            self._rows = {**self._rows, email_id: replace(row, parse_status=status, parse_error=error)}
+
 
 @dataclass
 class InMemoryAttachmentRepository:

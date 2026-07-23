@@ -5,6 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from datetime import datetime
+
     from app.domain.entities.email import Email
 
 
@@ -50,6 +52,12 @@ class EmailRepository(Protocol):
         """
         ...
 
-    async def update_parse_status(self, email_id: str, status: str, error: str | None) -> None:
-        """Update the parse_status and parse_error fields for an email."""
+    async def update_parse_status(
+        self, email_id: str, status: str, error: str | None, *, parsed_at: datetime | None = None
+    ) -> None:
+        """Update the parse_status/parse_error/parsed_at fields for an email (ING-6).
+
+        parsed_at is stamped on a successful transition to 'parsed' and
+        cleared (None) on any failure transition — it is always written.
+        """
         ...

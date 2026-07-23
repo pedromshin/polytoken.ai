@@ -134,10 +134,18 @@ class SupabaseEmailRepository:
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
-    async def update_parse_status(self, email_id: str, status: str, error: str | None) -> None:
+    async def update_parse_status(
+        self, email_id: str, status: str, error: str | None, *, parsed_at: datetime | None = None
+    ) -> None:
         (
             self._client.table("emails")
-            .update({"parse_status": status, "parse_error": error})
+            .update(
+                {
+                    "parse_status": status,
+                    "parse_error": error,
+                    "parsed_at": parsed_at.isoformat() if parsed_at else None,
+                }
+            )
             .eq("id", email_id)
             .execute()
         )

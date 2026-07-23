@@ -13,6 +13,17 @@ Post-persist dispatch (D-10):
   candidate regions with entity-type suggestions (suggest-only, best-effort).
   All three post-persist steps are isolated: failures are logged but never
   propagate to the SNS-facing caller.
+
+Parse-status lifecycle (ING-6):
+- Post-persist failures are ISOLATED but never INVISIBLE. Every swallowed
+  post-persist failure (attachment parse, propose_regions,
+  suggest_entity_types) is collected into a failures list, and the email is
+  finalized once at the end of execute():
+    - failures  -> parse_status='failed', parse_error=joined failure summary
+    - no failures -> parse_status='parsed', parsed_at=now
+  A failed attachment also stamps its own row parse_status='failed'
+  (successfully parsed ones read 'parsed'), so a corrupt attachment can never
+  leave the email reading as cleanly parsed.
 """
 
 from __future__ import annotations
@@ -41,6 +52,10 @@ from app.domain.ports.thread_resolver import ThreadResolver
 from app.domain.services.mime_parser import ParsedAttachment, ParsedEmail, parse_mime
 
 logger = structlog.get_logger(__name__)
+
+# parse_error is a human-readable failure summary, not a stack-trace dump —
+# cap it so a pathological attachment list cannot bloat the email row.
+_PARSE_ERROR_MAX_LEN = 2000
 
 
 @dataclass(frozen=True)
@@ -169,14 +184,17 @@ class IngestInboundEmailUseCase:
         saved = await self._email_repo.save(email)
 
         # Each post-persist stage is isolated so one failure can neither abort the
-        # rest of the pipeline nor propagate to the SNS-facing caller (ING-5). Any
-        # failure is collected and durably recorded on the email's parse_status so
-        # it is visible/reprocessable rather than silently lost (ING-6).
+        # rest of the pipeline nor propagate to the SNS-facing caller (ING-5), and
+        # every failure lands in `failures` so the parse_status lifecycle is
+        # actually driven — an email whose attachment(s) failed must never read
+        # as cleanly 'parsed' (ING-6). _ingest_attachment reports parse-stage
+        # failures via its return value; the try/except additionally guards its
+        # pre-parse stages (storage/save) so a raise there cannot skip siblings.
         failures: list[str] = []
 
         for index, parsed_attachment in enumerate(parsed.attachments):
             try:
-                await self._ingest_attachment(saved, index, parsed_attachment)
+                failure = await self._ingest_attachment(saved, index, parsed_attachment)
             except Exception as exc:
                 logger.exception(
                     "attachment_ingest_failed",
@@ -184,6 +202,9 @@ class IngestInboundEmailUseCase:
                     attachment_index=index,
                 )
                 failures.append(f"attachment[{index}]: {exc!r}")
+            else:
+                if failure is not None:
+                    failures.append(failure)
 
         # Propose region Components from all page Components persisted above.
         # Failure must not propagate to the SNS-facing caller.
@@ -210,7 +231,7 @@ class IngestInboundEmailUseCase:
 
         # Drive the parse_status lifecycle so the UI's 'failed' tone + Reprocess
         # affordance can fire; a healthy run transitions 'received' -> 'parsed'.
-        await self._finalize_parse_status(saved.id, failures)
+        saved = await self._finalize_parse_status(saved, failures)
 
         logger.info(
             "email_ingested",
@@ -219,28 +240,41 @@ class IngestInboundEmailUseCase:
             sender=saved.sender_address,
             subject=saved.subject,
             attachment_count=len(parsed.attachments),
+            parse_status=saved.parse_status,
             redelivery=existing is not None,
             parse_failures=len(failures),
         )
         return saved
 
-    async def _finalize_parse_status(self, email_id: str, failures: list[str]) -> None:
-        """Persist the terminal parse_status ('parsed' or 'failed').
+    async def _finalize_parse_status(self, email: Email, failures: list[str]) -> Email:
+        """Stamp the terminal parse_status for this ingestion run (ING-6).
 
-        Best-effort: a status-write failure is logged but never propagates — the
-        email row itself is already saved, and swallowing here mirrors the
-        SNS-facing non-fatal contract of every other post-persist stage.
+        - Any collected post-persist failure -> 'failed' + parse_error summary.
+        - Otherwise -> 'parsed' + parsed_at=now.
+
+        The status write itself is best-effort: a repository failure here is
+        logged and the email is returned with its previously persisted status
+        (never claiming a transition that did not durably happen), so the
+        SNS-facing caller stays isolated.
         """
-        status = "failed" if failures else "parsed"
-        error = "; ".join(failures) if failures else None
+        if failures:
+            status = "failed"
+            error: str | None = "; ".join(failures)[:_PARSE_ERROR_MAX_LEN]
+            parsed_at: datetime | None = None
+        else:
+            status = "parsed"
+            error = None
+            parsed_at = datetime.now(UTC)
         try:
-            await self._email_repo.update_parse_status(email_id, status, error)
+            await self._email_repo.update_parse_status(email.id, status, error, parsed_at=parsed_at)
         except Exception:
             logger.exception(
-                "parse_status_update_failed",
-                email_id=email_id,
-                intended_status=status,
+                "parse_status_finalize_failed",
+                email_id=email.id,
+                parse_status=status,
             )
+            return email
+        return replace(email, parse_status=status, parse_error=error, parsed_at=parsed_at)
 
     async def _resolve_forwarding_user(self, recipients: Sequence[str]) -> str | None:
         """Best-effort forwarding-token resolution (T-45-05-03): never fails ingestion.
@@ -294,7 +328,14 @@ class IngestInboundEmailUseCase:
             )
             return None
 
-    async def _ingest_attachment(self, email: Email, index: int, parsed: ParsedAttachment) -> None:
+    async def _ingest_attachment(self, email: Email, index: int, parsed: ParsedAttachment) -> str | None:
+        """Store + persist one attachment; returns a failure summary or None.
+
+        A non-None return means the attachment's parse stage failed (ING-6):
+        the attachment row is stamped parse_status='failed' and the summary is
+        collected by execute() into the email-level failures list, so the
+        email finalizes as 'failed' instead of silently reading 'parsed'.
+        """
         attachment_id = _attachment_id(email.id, index, parsed.filename)
         # Filename-less MIME parts (inline CID logos/signatures, bare
         # octet-stream) have parsed.filename == None; email_attachments.filename
@@ -305,7 +346,7 @@ class IngestInboundEmailUseCase:
         file_ext = _file_ext(parsed.filename)
 
         await self._attachment_storage.store(storage_key, parsed.data, parsed.content_type)
-        await self._attachment_repo.save(
+        saved_attachment = await self._attachment_repo.save(
             Attachment(
                 id=attachment_id,
                 email_id=email.id,
@@ -322,13 +363,34 @@ class IngestInboundEmailUseCase:
 
         # Dispatch attachment bytes through the parser registry (D-10).
         # Failures are isolated: a per-attachment exception is logged and
-        # other attachments + the email persist normally.
-        await self._parse_and_persist_pages(
+        # other attachments + the email persist normally — but the failure is
+        # RECORDED (returned to execute()) rather than swallowed (ING-6).
+        outcome, error = await self._parse_and_persist_pages(
             email=email,
             attachment_id=attachment_id,
             parsed=parsed,
             file_ext=file_ext,
         )
+
+        if outcome == "skipped":
+            return None
+
+        # Stamp the attachment row's own lifecycle ('parsed' | 'failed').
+        # Best-effort: a status-write failure must not abort sibling
+        # attachments, and the email-level failure is already captured below.
+        try:
+            await self._attachment_repo.save(replace(saved_attachment, parse_status=outcome))
+        except Exception:
+            logger.exception(
+                "attachment_status_update_failed",
+                attachment_id=attachment_id,
+                email_id=email.id,
+                parse_status=outcome,
+            )
+
+        if outcome == "failed":
+            return f"attachment {filename}: {error}"
+        return None
 
     async def _parse_and_persist_pages(
         self,
@@ -337,15 +399,21 @@ class IngestInboundEmailUseCase:
         attachment_id: str,
         parsed: ParsedAttachment,
         file_ext: str | None,
-    ) -> None:
-        """Dispatch attachment to a registered parser and persist the resulting page Components."""
+    ) -> tuple[str, str | None]:
+        """Dispatch attachment to a registered parser and persist the resulting page Components.
+
+        Returns (outcome, error):
+        - ("skipped", None) — no extension / no registered parser (not a failure);
+        - ("parsed", None)  — parser ran and any pages were persisted;
+        - ("failed", <summary>) — parser or page persistence raised (ING-6).
+        """
         if file_ext is None:
             logger.debug(
                 "attachment_no_extension",
                 attachment_id=attachment_id,
                 email_id=email.id,
             )
-            return
+            return ("skipped", None)
 
         parser = self._parser_registry(file_ext)
         if parser is None:
@@ -355,7 +423,7 @@ class IngestInboundEmailUseCase:
                 file_ext=file_ext,
                 email_id=email.id,
             )
-            return
+            return ("skipped", None)
 
         try:
             pages = await parser.parse(
@@ -363,24 +431,26 @@ class IngestInboundEmailUseCase:
                 content_type=parsed.content_type,
                 attachment_id=attachment_id,
             )
-        except Exception:
+
+            if not pages:
+                return ("parsed", None)
+
+            # Stitch email_id and importer_id onto each page Component.
+            # Component is frozen; use dataclasses.replace to build new instances.
+            stitched = [replace(page, email_id=email.id, importer_id=email.importer_id) for page in pages]
+            await self._components.save_many(stitched)
+        except Exception as exc:
             logger.exception(
                 "attachment_parse_failed",
                 attachment_id=attachment_id,
                 email_id=email.id,
             )
-            return
+            return ("failed", repr(exc))
 
-        if not pages:
-            return
-
-        # Stitch email_id and importer_id onto each page Component.
-        # Component is frozen; use dataclasses.replace to build new instances.
-        stitched = [replace(page, email_id=email.id, importer_id=email.importer_id) for page in pages]
-        await self._components.save_many(stitched)
         logger.debug(
             "attachment_pages_persisted",
             attachment_id=attachment_id,
             email_id=email.id,
             page_count=len(stitched),
         )
+        return ("parsed", None)
