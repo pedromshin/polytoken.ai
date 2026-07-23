@@ -29,6 +29,37 @@ export type {
   DesktopScope,
 } from "./desktop.js";
 
+export {
+  CANVAS_CONNECT_DEFAULT_SOURCE_PATH,
+  CANVAS_CONNECT_DEFAULT_TARGET_KEY,
+  CANVAS_NODE_DATA_SCHEMAS,
+  CANVAS_NODE_TYPE_IDS,
+  canvasAddNodeInputSchema,
+  canvasConnectInputSchema,
+  canvasRemoveNodeInputSchema,
+  canvasNodeSnapshotSchema,
+  canvasEdgeSnapshotSchema,
+  failClosedCanvasMutationStore,
+  canvasAddNodeCapability,
+  canvasConnectCapability,
+  canvasRemoveNodeCapability,
+  CANVAS_CAPABILITIES,
+} from "./canvas.js";
+
+export type {
+  CanvasAddNodeInput,
+  CanvasConnectInput,
+  CanvasRemoveNodeInput,
+  CanvasAddNodeOutput,
+  CanvasConnectOutput,
+  CanvasRemoveNodeOutput,
+  CanvasNodeSnapshot,
+  CanvasEdgeSnapshot,
+  CanvasMutationStore,
+  CanvasExecCtx,
+  CanvasScope,
+} from "./canvas.js";
+
 export type {
   ExternalTrust,
   ExternalCapabilityCandidate,

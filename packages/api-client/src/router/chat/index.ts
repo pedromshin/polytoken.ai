@@ -12,6 +12,7 @@
 import { createTRPCRouter } from "../../trpc";
 import { browserTurnProcedures } from "./browser-turn";
 import { chatCanvasProcedures } from "./canvas";
+import { chatCanvasMutationProcedures } from "./canvas-mutations";
 import { chatClusterSummaryProcedures } from "./cluster-summary";
 import { chatContextEdgeProcedures } from "./context-edges";
 import { chatConversationsProcedures } from "./conversations";
@@ -27,6 +28,7 @@ export const chatRouter = createTRPCRouter({
   ...chatCostProcedures,
   ...browserTurnProcedures,
   ...chatCanvasProcedures,
+  ...chatCanvasMutationProcedures,
   ...chatWidgetInteractionsProcedures,
   ...chatThreadLinkProcedures,
   ...chatClusterSummaryProcedures,

@@ -17,6 +17,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { CANVAS_CAPABILITIES, createCapabilityRegistry } from "@polytoken/capabilities";
+
 import { BUILTIN_CAPABILITY_MANIFEST } from "../builtin-manifest";
 
 /** The frozen manifest vocabulary — mirrors `@polytoken/capabilities` capability.ts 1:1. */
@@ -35,7 +37,7 @@ const manifestEntrySchema = z
   .strict();
 
 describe("BUILTIN_CAPABILITY_MANIFEST", () => {
-  it("mirrors exactly the frozen builtin id set (13 daemon + 4 desktop + 4 chat tools + deep_research)", () => {
+  it("mirrors exactly the frozen builtin id set (13 daemon + 4 desktop + 3 canvas + 4 chat tools + deep_research)", () => {
     expect([...BUILTIN_CAPABILITY_MANIFEST].map((e) => e.id).sort()).toEqual(
       [
         // daemon builtins (apps/daemon/src/tools/capabilities.ts BUILTIN_CAPABILITIES)
@@ -59,6 +61,10 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
         "desktop.destroy",
         "desktop.hibernate",
         "desktop.attach",
+        // control-plane canvas mutation (packages/capabilities/src/canvas.ts, AI-01)
+        "canvas.addNode",
+        "canvas.connect",
+        "canvas.removeNode",
         // chat (email-listener container.py registry wiring)
         "lookup_entity",
         "search_emails",
@@ -109,5 +115,29 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
     expect(byId.get("browser.navigate")).toMatchObject({ risk: "write", cost: "moderate" });
     expect(byId.get("browser.screenshot")).toMatchObject({ risk: "read", cost: "moderate" });
     expect(byId.get("dir.list_tree")).toMatchObject({ risk: "read", cost: "cheap" });
+  });
+
+  it("the canvas triple mirrors its declaring source (canvas.ts): write/free, removeNode explicitly reversible", () => {
+    const byId = new Map(BUILTIN_CAPABILITY_MANIFEST.map((e) => [e.id, e]));
+    expect(byId.get("canvas.addNode")).toMatchObject({ risk: "write", cost: "free", origin: "control-plane" });
+    expect(byId.get("canvas.connect")).toMatchObject({ risk: "write", cost: "free", origin: "control-plane" });
+    // Reversible-with-undo is declared AS DATA at the source and mirrored here (INV-4).
+    expect(byId.get("canvas.removeNode")).toMatchObject({
+      risk: "write",
+      cost: "free",
+      reversibility: "reversible",
+      origin: "control-plane",
+    });
+    expect(byId.get("canvas.addNode")).not.toHaveProperty("reversibility");
+    expect(byId.get("canvas.connect")).not.toHaveProperty("reversibility");
+  });
+
+  it("the canvas mirror rows are BYTE-IDENTICAL to the declaring registry's own projection (no drift possible)", () => {
+    // Unlike the daemon/chat sources (unreachable process boundaries), canvas.ts is an importable
+    // dependency — so this mirror gets a REAL drift alarm, not just an id pin.
+    const projected = createCapabilityRegistry(CANVAS_CAPABILITIES).list();
+    const mirrored = BUILTIN_CAPABILITY_MANIFEST.filter((e) => e.id.startsWith("canvas."));
+    expect(mirrored.map(({ origin: _origin, ...rest }) => rest)).toEqual([...projected]);
+    for (const entry of mirrored) expect(entry.origin).toBe("control-plane");
   });
 });

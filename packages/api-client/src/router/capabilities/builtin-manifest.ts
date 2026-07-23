@@ -27,6 +27,8 @@
  *   - control-plane   → `packages/capabilities/src/desktop.ts` (the four `desktop.*` E5 descriptors;
  *                       these DO have a real declaring source — `DESKTOP_CAPABILITIES` — so mirroring
  *                       them keeps the honesty discipline; their executor/provider is control-plane)
+ *   - control-plane   → `packages/capabilities/src/canvas.ts` (the three `canvas.*` AI-01 descriptors
+ *                       — `CANVAS_CAPABILITIES`; executed by `router/chat/canvas-mutations.ts`)
  *   - chat tools      → `apps/email-listener/app/infrastructure/tools/*_executor.py`
  *                       (+ `container.py`'s `define_capability(risk=..., cost=...)` wiring)
  *   - deep_research   → `apps/email-listener/app/application/use_cases/research/deep_research.py`
@@ -249,6 +251,48 @@ export const BUILTIN_CAPABILITY_MANIFEST: readonly BuiltinManifestEntry[] = Obje
       "from. No billing effect — it does not create or power on a machine.",
     risk: "read",
     cost: "cheap",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+
+  // ── control-plane: canvas mutation (packages/capabilities/src/canvas.ts, AI-01) ──────────────
+  {
+    id: "canvas.addNode",
+    describe:
+      "Add a node to this conversation's canvas so what you talk about becomes visible material: " +
+      "an email-thread, document, source, knowledge-preview, chat, genui-panel, directory, " +
+      "browser, editor, or desktop node. Additive — never moves or removes anything the user " +
+      "placed. Idempotent per referenced object: adding the same thread/document/source twice " +
+      "returns the existing node.",
+    risk: "write",
+    cost: "free",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "canvas.connect",
+    describe:
+      "Draw a data edge between two existing nodes on this conversation's canvas (source node's " +
+      "sourcePath feeds the target node's targetKey). Additive and idempotent — an identical edge " +
+      "is never duplicated; existing edges and node positions are untouched.",
+    risk: "write",
+    cost: "free",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "canvas.removeNode",
+    describe:
+      "Remove a node (and its edges) from this conversation's canvas layout. The underlying object " +
+      "is never deleted — only its canvas placement — and the removed node and detached edges are " +
+      "returned so the removal can be undone by adding them back.",
+    risk: "write",
+    // Explicit at the source (canvas.ts): reversible-with-undo — the output carries the undo payload.
+    reversibility: "reversible",
+    cost: "free",
     source: "builtin",
     trust: "first-party",
     origin: "control-plane",
