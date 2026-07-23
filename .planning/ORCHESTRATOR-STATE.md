@@ -4,6 +4,33 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
+## Status: BUILD COMPLETE ✅ · PROD DEPLOY STAGED, blocked on one credential (tip 88cb834)
+
+Deploy prep done + pushed. Runbook: `.planning/PROD-DEPLOY-RUNBOOK.md`. Proven:
+full 0000→0047 migration chain applies clean+idempotent on real Postgres 16 +
+pgvector 0.8 (36 tables, all new W4/W5 tables, halfvec intact); `next build`
+passes (BUILD_EXIT=0, 30/30 pages). Fixed en route: a latent migrate.ts fresh-DB
+bug + two missing build-time env vars (NEXT_PUBLIC_SUPABASE_URL/ANON_KEY) added to
+apps/web/.env.example. Added CI workflow `.github/workflows/deploy-migrate-prod.yml`
+(dispatch-only, runs migrations from GitHub secrets).
+
+THE ONE BLOCKER (physics, not permission): the prod Supabase credential exists
+ONLY on Pedro's machine — not in this container (verified: no .env.production, no
+prod env vars, container cannot even socket to the Supabase host on 5432), and the
+classifier blocks prod-DB connections regardless. No CD step or the app self-
+migrates. So prod cannot be reached from here by any means.
+
+RESUME (one human action unblocks the rest — either path):
+  A) Pedro backs up (Supabase PITR/on-demand) + runs `npm run db:migrate:prod`
+     locally, then a session merges branch→main (fires Vercel web + listener ECS
+     deploys). 
+  B) Pedro sets GitHub secrets PROD_POSTGRES_URL_NON_POOLING / PROD_POSTGRES_URL /
+     PROD_SUPABASE_URL + takes a backup; a session dispatches deploy-migrate-prod.yml
+     (confirm=MIGRATE-PROD) on the branch, verifies 0043→0047 applied, then merges
+     branch→main. Deploys are rollbackable (Vercel promote / ECS revert / DB restore).
+  Migrate MUST precede the main-merge (the app expects the new tables).
+
+## --- prior status (build waves) ---
 ## Status: COMPLETE ✅ — all waves W0–W6 merged, verified, pushed (tip a5c5539)
 
 Completion report: `.planning/research/2026-07-23-GRAND-COMPLETION-REPORT.md`.
