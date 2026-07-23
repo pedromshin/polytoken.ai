@@ -68,6 +68,31 @@ class EntityInstanceRepository(Protocol):
         """Append alias to the entity instance's aliases array if not present (D-11)."""
         ...
 
+    async def remove_alias(
+        self,
+        entity_instance_id: str,
+        alias: str,
+    ) -> None:
+        """Remove alias from the entity instance's aliases array if present.
+
+        Inverse of append_alias — used by UnmergeEntityUseCase to undo the
+        confirm-time alias write-back when a merge is reversed. No-op when the
+        alias is absent or the row does not exist.
+        """
+        ...
+
+    async def find_merged_children(
+        self,
+        entity_instance_id: str,
+    ) -> list[EntityInstance]:
+        """Return the entity instances that were merged INTO the given survivor.
+
+        Rows where merged_into == entity_instance_id (source='email_extracted').
+        Used by UnmergeEntityUseCase to reactivate every child that a confirmed
+        merge folded into this survivor. Empty when the id is not a survivor.
+        """
+        ...
+
     async def list_confirmed_entity_components(
         self,
         importer_id: str,

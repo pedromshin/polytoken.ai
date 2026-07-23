@@ -114,8 +114,45 @@ class SupabaseEntityInstanceRepository:
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def upsert(self, entity: EntityInstance) -> EntityInstance:
-        """Insert or update an entity instance; conflicts resolved on id."""
+        """Insert or update an entity instance; conflicts resolved on id.
+
+        Merge-aware (RES-4): re-promoting an existing entity (e.g. the idempotent
+        backfill endpoint re-runs promote for every confirmed component) must not
+        clobber curation state. A freshly-built promote payload carries
+        aliases=[] and is_active=True, which would otherwise (1) wipe the D-11
+        alias flywheel and (2) resurrect a human-merged-away entity. So when a
+        row already exists we:
+          - union the incoming aliases with the persisted ones (never wipe), and
+          - preserve is_active + merged_into when the row was merged away
+            (merged_into is set), so a merged duplicate never reappears.
+        """
+        existing = (
+            self._client.table("entity_instances")
+            .select("aliases,is_active,merged_into")
+            .eq("id", entity.id)
+            .eq("source", _SOURCE)
+            .execute()
+        )
+
         payload = _to_row(entity)
+
+        if existing.data:
+            row = cast("dict[str, Any]", existing.data[0])
+
+            # Preserve the D-11 alias flywheel: union, never overwrite.
+            persisted_aliases = list(row.get("aliases") or [])
+            merged_aliases = list(persisted_aliases)
+            for alias in entity.aliases:
+                if alias not in merged_aliases:
+                    merged_aliases.append(alias)
+            payload["aliases"] = merged_aliases
+
+            # A human-merged-away row (merged_into set) stays merged + inactive:
+            # do not let a re-promote resurrect it into the confirmed gallery.
+            if row.get("merged_into") is not None:
+                payload["is_active"] = bool(row.get("is_active", False))
+                payload["merged_into"] = row["merged_into"]
+
         result = self._client.table("entity_instances").upsert(payload, on_conflict="id").execute()
         if not result.data:
             raise ValueError(f"EntityInstance upsert returned no data: {entity.id}")
@@ -188,6 +225,48 @@ class SupabaseEntityInstanceRepository:
             .eq("source", _SOURCE)
             .execute()
         )
+
+    async def remove_alias(
+        self,
+        entity_instance_id: str,
+        alias: str,
+    ) -> None:
+        """Remove alias from the aliases array if present (unmerge — inverse of append).
+
+        No-op when the row does not exist or the alias is absent. Scoped to
+        source='email_extracted' (D-21).
+        """
+        existing = await self.find_by_id(entity_instance_id)
+        if existing is None:
+            return
+        if alias not in existing.aliases:
+            return
+        new_aliases = [a for a in existing.aliases if a != alias]
+        (
+            self._client.table("entity_instances")
+            .update({"aliases": new_aliases})
+            .eq("id", entity_instance_id)
+            .eq("source", _SOURCE)
+            .execute()
+        )
+
+    async def find_merged_children(
+        self,
+        entity_instance_id: str,
+    ) -> list[EntityInstance]:
+        """Return entity instances merged INTO the given survivor (RES-2 unmerge).
+
+        Rows where merged_into == entity_instance_id, scoped to
+        source='email_extracted' (D-21). Empty when the id is not a survivor.
+        """
+        result = (
+            self._client.table("entity_instances")
+            .select("*")
+            .eq("merged_into", entity_instance_id)
+            .eq("source", _SOURCE)
+            .execute()
+        )
+        return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def list_confirmed_entity_components(
         self,
@@ -310,33 +389,79 @@ class SupabaseEntityInstanceRepository:
                 instances.append(instance)
         return instances
 
+    async def _email_component_ids_for_entity(self, entity_instance_id: str) -> list[str]:
+        """Return the ids of all email_components sharing the entity's email.
+
+        A duplicate suggestion in component_entity_candidate_links is keyed by
+        component_id — a NOT NULL FK to email_components.id — NOT by an entity id
+        (RES-1: an entity id can never equal a component id, so filtering on
+        component_id=<entity id> matches zero rows). Promote writes each dedup
+        suggestion as (component_id=<subject's source component>, entity_instance_id
+        =<candidate>). To act on those rows for a given subject entity we must
+        resolve the subject back to its email's components — exactly how the web
+        pendingSuggestions query scopes a suggestion (by shared email).
+
+        Resolution: find a candidate-link row referencing this entity to locate a
+        component in its email, read that component's email_id, then return every
+        component in that email. Empty when the entity has no links yet.
+        """
+        link_result = (
+            self._client.table("component_entity_candidate_links")
+            .select("component_id")
+            .eq("entity_instance_id", entity_instance_id)
+            .execute()
+        )
+        component_ids = [
+            cast("dict[str, Any]", row)["component_id"]
+            for row in link_result.data
+            if cast("dict[str, Any]", row).get("component_id") is not None
+        ]
+        if not component_ids:
+            return []
+
+        comp_result = (
+            self._client.table("email_components")
+            .select("email_id")
+            .in_("id", component_ids)
+            .execute()
+        )
+        email_ids = {
+            cast("dict[str, Any]", row)["email_id"]
+            for row in comp_result.data
+            if cast("dict[str, Any]", row).get("email_id") is not None
+        }
+        if not email_ids:
+            return []
+
+        all_result = (
+            self._client.table("email_components")
+            .select("id")
+            .in_("email_id", sorted(email_ids))
+            .execute()
+        )
+        return [cast("dict[str, Any]", row)["id"] for row in all_result.data]
+
     async def select_candidate_link(
         self,
         *,
         entity_instance_id: str,
         target_id: str,
     ) -> None:
-        """Set was_selected=True on the candidate link between two entity instances (D-09).
+        """Set was_selected=True on the subject→target duplicate suggestion (D-09).
 
-        The link is keyed on (entity_instance_id, target_id) in
-        component_entity_candidate_links. Both orderings are attempted so the
-        row is found regardless of which direction the link was originally written.
-        All queries stay scoped to source='email_extracted' (D-21).
+        RES-1: the suggestion rows are promote-written and keyed by
+        (component_id ∈ subject's email, entity_instance_id=target). We resolve the
+        subject entity to its email components and set was_selected on every link
+        to the target. Idempotent — re-running only re-asserts the flag.
         """
-        # Try (entity_instance_id → target_id) direction
+        subject_components = await self._email_component_ids_for_entity(entity_instance_id)
+        if not subject_components:
+            return
         (
             self._client.table("component_entity_candidate_links")
             .update({"was_selected": True})
-            .eq("component_id", entity_instance_id)
+            .in_("component_id", subject_components)
             .eq("entity_instance_id", target_id)
-            .execute()
-        )
-        # Also try (target_id → entity_instance_id) direction
-        (
-            self._client.table("component_entity_candidate_links")
-            .update({"was_selected": True})
-            .eq("component_id", target_id)
-            .eq("entity_instance_id", entity_instance_id)
             .execute()
         )
 
@@ -346,25 +471,32 @@ class SupabaseEntityInstanceRepository:
         entity_instance_id: str,
         target_id: str,
     ) -> None:
-        """Flag the candidate link as dismissed so it is not re-surfaced (D-20 reject).
+        """Flag the subject↔target suggestion dismissed so it is not re-surfaced (D-20).
 
-        Uses a dedicated 'was_dismissed' boolean column.  Both link directions are
-        updated for symmetry.  All queries scoped to source='email_extracted' (D-21).
+        RES-1: dismisses the promote-written rows in BOTH directions — the
+        subject's links to the target AND the target's links to the subject — so a
+        reject recorded from one side cannot re-appear as a pending duplicate from
+        the other. Uses the 'was_dismissed' column. Idempotent.
         """
-        (
-            self._client.table("component_entity_candidate_links")
-            .update({"was_dismissed": True})
-            .eq("component_id", entity_instance_id)
-            .eq("entity_instance_id", target_id)
-            .execute()
-        )
-        (
-            self._client.table("component_entity_candidate_links")
-            .update({"was_dismissed": True})
-            .eq("component_id", target_id)
-            .eq("entity_instance_id", entity_instance_id)
-            .execute()
-        )
+        subject_components = await self._email_component_ids_for_entity(entity_instance_id)
+        if subject_components:
+            (
+                self._client.table("component_entity_candidate_links")
+                .update({"was_dismissed": True})
+                .in_("component_id", subject_components)
+                .eq("entity_instance_id", target_id)
+                .execute()
+            )
+
+        target_components = await self._email_component_ids_for_entity(target_id)
+        if target_components:
+            (
+                self._client.table("component_entity_candidate_links")
+                .update({"was_dismissed": True})
+                .in_("component_id", target_components)
+                .eq("entity_instance_id", entity_instance_id)
+                .execute()
+            )
 
     async def set_merge_state(
         self,

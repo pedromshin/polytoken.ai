@@ -56,11 +56,25 @@ class ConfirmMergeUseCase:
         log = logger.bind(entity_instance_id=entity_instance_id, target_id=target_id)
         log.info("confirm_merge_start")
 
+        # RES-3 (a): a self-merge would set merged_into=own id and flip the row
+        # inactive — the entity would vanish from the gallery merged into itself.
+        # Reject before any load. Surfaced as 404 by the endpoint.
+        if entity_instance_id == target_id:
+            log.warning("confirm_merge_self_merge_rejected")
+            raise ValueError(f"Cannot merge an entity into itself: {entity_instance_id}")
+
         # Load subject and validate existence
         subject = await self._entity_instances.find_by_id(entity_instance_id)
         if subject is None:
             log.warning("confirm_merge_subject_not_found")
             raise ValueError(f"Entity instance not found: {entity_instance_id}")
+
+        # RES-3 (c): the survivor must be a live identity. An inactive subject is
+        # itself already merged away; merging a target into it would bury the
+        # target under a dead row (and enables A↔B mutual-merge cycles).
+        if not subject.is_active:
+            log.warning("confirm_merge_inactive_subject_rejected")
+            raise ValueError(f"Cannot merge into an inactive entity: {entity_instance_id}")
 
         # D-21: importer_id always from the row
         importer_id = subject.importer_id
@@ -80,6 +94,14 @@ class ConfirmMergeUseCase:
                 target_importer=target.importer_id,
             )
             raise ValueError(f"Entity instance not found: {target_id}")
+
+        # RES-3 (b/d): an inactive target is already merged elsewhere. Re-merging
+        # it would silently overwrite its existing merged_into linkage and, via
+        # the still-surfaced reverse suggestion, close an A↔B cycle that leaves
+        # both entities inactive and unreachable. Reject.
+        if not target.is_active:
+            log.warning("confirm_merge_already_merged_target_rejected")
+            raise ValueError(f"Cannot merge an already-merged entity: {target_id}")
 
         # D-09: record human decision — set was_selected=True on the candidate link
         await self._entity_instances.select_candidate_link(
@@ -167,9 +189,17 @@ class RejectMergeUseCase:
 class UnmergeEntityUseCase:
     """Undo a confirmed merge — supersede-never-mutate (D-20).
 
-    Reactivates the previously-merged entity instance (is_active=True) and
-    clears its merged_into linkage. The original rows are never deleted.
+    RES-2: the UI only ever exposes Unmerge on the SURVIVOR of a merge (the row
+    other entities point their merged_into at) and passes the survivor's id. The
+    survivor already has merged_into=NULL / is_active=True, so reactivating the
+    passed id alone is a silent no-op — the merged children stay buried. This use
+    case therefore fans out to every child merged INTO the given id, reactivating
+    each and undoing the confirm-time alias write-back (D-11 reverse).
 
+    If the id has no children (it is itself a merged child, or an ordinary row),
+    it is reactivated directly — so callers may pass either end of a merge.
+
+    Reactivations update state in-place; original rows are never deleted.
     Raises ValueError (→ 404) when the entity instance is not found.
     """
 
@@ -196,13 +226,31 @@ class UnmergeEntityUseCase:
         importer_id = instance.importer_id
         log = log.bind(importer_id=importer_id)
 
-        # Reactivate and clear merge linkage — supersede-never-mutate means we
-        # update the state in-place (set_merge_state) but never delete the rows
-        await self._entity_instances.set_merge_state(
-            entity_instance_id,
-            merged_into=None,
-            is_active=True,
-        )
+        # RES-2: reactivate every child merged INTO this survivor.
+        children = await self._entity_instances.find_merged_children(entity_instance_id)
 
-        log.info("unmerge_done")
+        if children:
+            for child in children:
+                await self._entity_instances.set_merge_state(
+                    child.id,
+                    merged_into=None,
+                    is_active=True,
+                )
+                # Undo the D-11 confirm-time alias: the survivor gained the
+                # child's display_name as an alias when the merge was confirmed.
+                await self._entity_instances.remove_alias(
+                    entity_instance_id,
+                    child.display_name,
+                )
+            log.info("unmerge_done", reactivated=len(children))
+        else:
+            # No children point here — treat the id as a merged child (or an
+            # ordinary row) and reactivate it directly.
+            await self._entity_instances.set_merge_state(
+                entity_instance_id,
+                merged_into=None,
+                is_active=True,
+            )
+            log.info("unmerge_done", reactivated=1)
+
         return {"entity_instance_id": entity_instance_id}

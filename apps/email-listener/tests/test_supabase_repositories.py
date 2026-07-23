@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 from app.domain.entities.attachment import Attachment
 from app.domain.entities.component import Component
 from app.domain.entities.email import Email
+from app.domain.entities.entity_instance import EntityInstance
 from app.domain.entities.entity_type import EntityType, EntityTypeField
 from app.domain.entities.extraction_record import ExtractionRecord
 
@@ -610,3 +611,213 @@ def test_entity_instance_repo_find_unselected_candidate_instances_drops_unresolv
     result = asyncio.run(repo.find_unselected_candidate_instances_for_component("comp-002"))
 
     assert result == []
+
+
+# ---------------------------------------------------------------------------
+# RES-1 / RES-4: entity-curation mutations must affect the correct rows
+#
+# These use a small in-memory Supabase fake (filters actually applied) so the
+# assertions prove real row-level effects, not just call shapes. The pre-fix
+# code filtered candidate links on component_id=<entity id> (a FK to
+# email_components.id an entity id can never equal -> zero rows) and upserted a
+# full row that wiped aliases / resurrected merged entities.
+# ---------------------------------------------------------------------------
+
+
+class _FakeResult:
+    def __init__(self, data: list[dict]) -> None:
+        self.data = data
+
+
+class _InMemoryQuery:
+    def __init__(self, parent: _InMemorySupabase, name: str) -> None:
+        self._parent = parent
+        self._name = name
+        self._op: str | None = None
+        self._payload: dict | None = None
+        self._filters: list[tuple[str, str, object]] = []
+
+    def select(self, _cols: str = "*") -> _InMemoryQuery:
+        self._op = "select"
+        return self
+
+    def update(self, payload: dict) -> _InMemoryQuery:
+        self._op = "update"
+        self._payload = payload
+        return self
+
+    def upsert(self, payload: dict, on_conflict: str | None = None) -> _InMemoryQuery:
+        self._op = "upsert"
+        self._payload = payload
+        return self
+
+    def eq(self, col: str, val: object) -> _InMemoryQuery:
+        self._filters.append(("eq", col, val))
+        return self
+
+    def in_(self, col: str, vals: object) -> _InMemoryQuery:
+        self._filters.append(("in", col, list(vals)))  # type: ignore[arg-type]
+        return self
+
+    def _match(self, row: dict) -> bool:
+        for kind, col, val in self._filters:
+            if kind == "eq" and row.get(col) != val:
+                return False
+            if kind == "in" and row.get(col) not in val:  # type: ignore[operator]
+                return False
+        return True
+
+    def execute(self) -> _FakeResult:
+        rows = self._parent.tables.setdefault(self._name, [])
+        if self._op == "upsert":
+            assert self._payload is not None
+            self._parent.last_upsert_payload = dict(self._payload)
+            rows[:] = [r for r in rows if r.get("id") != self._payload.get("id")]
+            rows.append(dict(self._payload))
+            return _FakeResult(data=[dict(self._payload)])
+        matched = [r for r in rows if self._match(r)]
+        if self._op == "update":
+            assert self._payload is not None
+            for r in matched:
+                r.update(self._payload)
+            return _FakeResult(data=[dict(r) for r in matched])
+        return _FakeResult(data=[dict(r) for r in matched])
+
+
+class _InMemorySupabase:
+    def __init__(self, tables: dict[str, list[dict]]) -> None:
+        self.tables = tables
+        self.last_upsert_payload: dict | None = None
+
+    def table(self, name: str) -> _InMemoryQuery:
+        return _InMemoryQuery(self, name)
+
+
+def test_select_candidate_link_flags_promote_written_row() -> None:
+    """RES-1: confirm resolves the subject to its email components and sets
+    was_selected on the promote-written suggestion row (component_id is a real
+    component id, never the entity id)."""
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    tables: dict[str, list[dict]] = {
+        "email_components": [
+            {"id": "compA", "email_id": "emailE"},
+        ],
+        "component_entity_candidate_links": [
+            # occurrence link locating A's email (entity_instance_id == A)
+            {"component_id": "compA", "entity_instance_id": "A", "was_selected": True, "was_dismissed": False},
+            # the duplicate suggestion A -> T (what confirm must flag)
+            {"component_id": "compA", "entity_instance_id": "T", "was_selected": False, "was_dismissed": False},
+        ],
+    }
+    repo = SupabaseEntityInstanceRepository(_InMemorySupabase(tables))
+
+    asyncio.run(repo.select_candidate_link(entity_instance_id="A", target_id="T"))
+
+    suggestion = next(r for r in tables["component_entity_candidate_links"] if r["entity_instance_id"] == "T")
+    assert suggestion["was_selected"] is True
+
+
+def test_dismiss_candidate_link_flags_both_directions() -> None:
+    """RES-1: reject durably dismisses the promote-written suggestion rows in
+    both directions so it never re-surfaces."""
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    tables: dict[str, list[dict]] = {
+        "email_components": [
+            {"id": "compA", "email_id": "emailE"},
+            {"id": "compT", "email_id": "emailT"},
+        ],
+        "component_entity_candidate_links": [
+            # occurrence links locate each entity to its own email
+            {"component_id": "compA", "entity_instance_id": "A", "was_selected": True, "was_dismissed": False},
+            {"component_id": "compT", "entity_instance_id": "T", "was_selected": True, "was_dismissed": False},
+            # forward suggestion A -> T and reverse suggestion T -> A
+            {"component_id": "compA", "entity_instance_id": "T", "was_selected": False, "was_dismissed": False},
+            {"component_id": "compT", "entity_instance_id": "A", "was_selected": False, "was_dismissed": False},
+        ],
+    }
+    repo = SupabaseEntityInstanceRepository(_InMemorySupabase(tables))
+
+    asyncio.run(repo.dismiss_candidate_link(entity_instance_id="A", target_id="T"))
+
+    def _row(component_id: str, entity_instance_id: str) -> dict:
+        return next(
+            r
+            for r in tables["component_entity_candidate_links"]
+            if r["component_id"] == component_id and r["entity_instance_id"] == entity_instance_id
+        )
+
+    assert _row("compA", "T")["was_dismissed"] is True  # forward suggestion dismissed
+    assert _row("compT", "A")["was_dismissed"] is True  # reverse suggestion dismissed
+
+
+def _fresh_entity(entity_id: str = "E") -> EntityInstance:
+    return EntityInstance(
+        id=entity_id,
+        importer_id="imp-abc",
+        entity_type_id="et-001",
+        nauta_id=None,
+        source="email_extracted",
+        display_name="MSCU . PO-1",
+        identifiers={},
+        aliases=[],
+        summary_text=None,
+        embedding=None,
+        is_active=True,
+    )
+
+
+def test_upsert_preserves_merged_state_and_aliases_on_rerun() -> None:
+    """RES-4: re-promoting (backfill) a human-merged-away row must not resurrect
+    it (is_active/merged_into preserved) nor wipe learned aliases."""
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    tables: dict[str, list[dict]] = {
+        "entity_instances": [
+            {
+                "id": "E",
+                "source": "email_extracted",
+                "aliases": ["MSC United"],
+                "is_active": False,
+                "merged_into": "SURV",
+            },
+        ],
+    }
+    client = _InMemorySupabase(tables)
+    repo = SupabaseEntityInstanceRepository(client)
+
+    result = asyncio.run(repo.upsert(_fresh_entity("E")))
+
+    payload = client.last_upsert_payload
+    assert payload is not None
+    assert payload["is_active"] is False  # not resurrected
+    assert payload["merged_into"] == "SURV"  # linkage preserved
+    assert "MSC United" in payload["aliases"]  # flywheel not wiped
+    assert result.is_active is False
+
+
+def test_upsert_unions_aliases_for_active_row() -> None:
+    """RES-4: a normal re-promote keeps accumulated aliases (union, never wipe)."""
+    from app.infrastructure.supabase.entity_instance_repository import SupabaseEntityInstanceRepository
+
+    tables: dict[str, list[dict]] = {
+        "entity_instances": [
+            {
+                "id": "E",
+                "source": "email_extracted",
+                "aliases": ["MSCU Ltd", "MSC United"],
+                "is_active": True,
+                "merged_into": None,
+            },
+        ],
+    }
+    client = _InMemorySupabase(tables)
+    repo = SupabaseEntityInstanceRepository(client)
+
+    asyncio.run(repo.upsert(_fresh_entity("E")))
+
+    payload = client.last_upsert_payload
+    assert payload is not None
+    assert set(payload["aliases"]) >= {"MSCU Ltd", "MSC United"}
+    assert payload["is_active"] is True

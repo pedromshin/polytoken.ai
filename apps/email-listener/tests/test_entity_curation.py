@@ -82,6 +82,10 @@ class FakeCurationRepository:
         self.dismissed_links: list[dict[str, Any]] = []
         self.merge_state_writes: list[dict[str, Any]] = []
         self.selected_links: list[dict[str, Any]] = []
+        self.removed_aliases: list[dict[str, Any]] = []
+        # Tracks the merged_into linkage per entity id (EntityInstance itself has
+        # no merged_into field). Seeded via set_merge_state; read by find_merged_children.
+        self._merged_into: dict[str, str | None] = {}
 
     async def find_by_id(self, entity_instance_id: str) -> EntityInstance | None:
         return self._instances.get(entity_instance_id)
@@ -119,6 +123,16 @@ class FakeCurationRepository:
     async def append_alias(self, entity_instance_id: str, alias: str) -> None:
         self.alias_writes.append({"entity_instance_id": entity_instance_id, "alias": alias})
 
+    async def remove_alias(self, entity_instance_id: str, alias: str) -> None:
+        self.removed_aliases.append({"entity_instance_id": entity_instance_id, "alias": alias})
+
+    async def find_merged_children(self, entity_instance_id: str) -> list[EntityInstance]:
+        return [
+            instance
+            for cid, instance in self._instances.items()
+            if self._merged_into.get(cid) == entity_instance_id
+        ]
+
     async def list_confirmed_entity_components(self, importer_id: str) -> list[Any]:
         return []
 
@@ -145,6 +159,8 @@ class FakeCurationRepository:
                 "is_active": is_active,
             }
         )
+        # Track merge linkage so find_merged_children can resolve survivors.
+        self._merged_into[entity_instance_id] = merged_into
         # Reflect changes in the in-memory store
         existing = self._instances.get(entity_instance_id)
         if existing is not None:
@@ -234,6 +250,34 @@ class TestConfirmMergeUseCase:
         use_case, _ = self._make_use_case({_ENTITY_ID_A: a, _ENTITY_ID_B: b})
         with pytest.raises(ValueError, match="not found"):
             asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+    def test_rejects_self_merge(self) -> None:
+        """RES-3(a): merging an entity into itself is rejected — no state written."""
+        a = _make_instance(_ENTITY_ID_A)
+        use_case, repo = self._make_use_case({_ENTITY_ID_A: a})
+        with pytest.raises(ValueError, match="itself"):
+            asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_A))
+        assert repo.merge_state_writes == []
+        assert repo.selected_links == []
+        assert repo.alias_writes == []
+
+    def test_rejects_inactive_subject(self) -> None:
+        """RES-3(c): cannot merge a target into an already-merged (inactive) survivor."""
+        a = _make_instance(_ENTITY_ID_A, is_active=False)
+        b = _make_instance(_ENTITY_ID_B)
+        use_case, repo = self._make_use_case({_ENTITY_ID_A: a, _ENTITY_ID_B: b})
+        with pytest.raises(ValueError, match="inactive"):
+            asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+        assert repo.merge_state_writes == []
+
+    def test_rejects_already_merged_target(self) -> None:
+        """RES-3(b/d): an inactive target is already merged elsewhere — reject to avoid cycles."""
+        a = _make_instance(_ENTITY_ID_A, is_active=True)
+        b = _make_instance(_ENTITY_ID_B, is_active=False)
+        use_case, repo = self._make_use_case({_ENTITY_ID_A: a, _ENTITY_ID_B: b})
+        with pytest.raises(ValueError, match="already-merged"):
+            asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+        assert repo.merge_state_writes == []
 
 
 # ---------------------------------------------------------------------------
@@ -350,6 +394,34 @@ class TestUnmergeEntityUseCase:
         # Both entities still exist
         assert asyncio.run(repo.find_by_id(_ENTITY_ID_A)) is not None
         assert asyncio.run(repo.find_by_id(_ENTITY_ID_B)) is not None
+
+    def test_survivor_id_reactivates_merged_child(self) -> None:
+        """RES-2: unmerge is invoked with the SURVIVOR id and must reactivate the child.
+
+        The UI only ever shows Unmerge on the survivor (the row others point their
+        merged_into at). Reactivating the survivor alone (already active) is a
+        no-op; the fix fans out to the merged child.
+        """
+        survivor = _make_instance(_ENTITY_ID_A, display_name="Acme Corporation", is_active=True)
+        child = _make_instance(_ENTITY_ID_B, display_name="ACME Corp", is_active=False)
+        use_case, repo = self._make_use_case({_ENTITY_ID_A: survivor, _ENTITY_ID_B: child})
+        # Simulate the prior confirmed merge: child B was merged INTO survivor A.
+        asyncio.run(repo.set_merge_state(_ENTITY_ID_B, merged_into=_ENTITY_ID_A, is_active=False))
+        repo.merge_state_writes.clear()
+
+        # Human clicks Unmerge on the survivor page → survivor id is sent.
+        asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A))
+
+        child_after = asyncio.run(repo.find_by_id(_ENTITY_ID_B))
+        assert child_after is not None
+        assert child_after.is_active is True
+        # The child was the row actually reactivated + unlinked.
+        assert any(
+            w["entity_instance_id"] == _ENTITY_ID_B and w["is_active"] is True and w["merged_into"] is None
+            for w in repo.merge_state_writes
+        )
+        # The confirm-time alias (child's display_name) is removed from the survivor.
+        assert {"entity_instance_id": _ENTITY_ID_A, "alias": "ACME Corp"} in repo.removed_aliases
 
 
 # ---------------------------------------------------------------------------
