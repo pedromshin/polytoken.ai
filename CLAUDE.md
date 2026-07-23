@@ -20,7 +20,7 @@ Facts below are sourced from `docs/RUN-LOCAL.md` (canonical local-stack doc — 
 - vitest/jsdom cannot see heights, overflow, clipping, or theme rendering. For anything geometric or visual, use the real-browser gates:
   - `npm run test:geometry` (apps/web) — asserts layout against an ALREADY-RUNNING server on port 3000; spawns nothing by design (never add a server block; never bare `npx playwright test`).
   - `npm run screenshot:review` (apps/web) — captures surfaces × viewports × both themes to `.planning/ui-reviews/<timestamp>/` (gitignored; contains signed-in state). Read the PNGs.
-- See skill `.claude/skills/verify-rendered-geometry/SKILL.md`.
+- Essential rules: (1) server must already be running on 3000 (`npm run web:dev` at root) — the geometry/screenshot configs spawn nothing; (2) never run bare `npx playwright test` against those configs or add a `webServer` block; (3) a passing jsdom suite proves nothing about rendering — screenshot or geometry-assert before calling visual work done.
 
 ## Playwright conventions
 - baseURL `http://localhost:3000`; start server via `npm run web:dev` from repo root.
@@ -38,10 +38,13 @@ Facts below are sourced from `docs/RUN-LOCAL.md` (canonical local-stack doc — 
 | `packages/genui` | generative-UI components |
 | `packages/db` | Drizzle schema + migrations (`npm run db:migrate` at root) |
 | `packages/ui` | shared UI kit (see skill `polytoken-design-system`) |
-| `.planning/` | GSD planning state (roadmap, phases, ui-reviews) |
+| `.planning/` | GSD planning state (roadmap, phases, ui-reviews; current audit: `.planning/research/2026-07-22-META-AUDIT.md`) |
+
+## Skills tracking
+- `.gitignore` ignores `.claude/skills/` wholesale — any NEW skill must be un-ignored with a `!.claude/skills/<name>/` negation line or it silently goes untracked.
 
 ## Design law
 Anything visual must follow `docs/design/taste-references.md` and `.planning/phases/58-visual-identity-sketch-pick-human-gate/58-IDENTITY.md`.
 
 ## Local stack
-Cold start, seeding, grants, zombie-process rules: `docs/RUN-LOCAL.md` (preflight: `scripts/preflight-local.ps1`). Verify against the DB, not terminal output.
+Cold start, seeding, grants, zombie-process rules: `docs/RUN-LOCAL.md` (preflight: `scripts/preflight-local.sh` on Linux/mac, `scripts/preflight-local.ps1` on Windows). Verify against the DB, not terminal output.
