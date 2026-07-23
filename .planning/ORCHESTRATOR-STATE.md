@@ -4,6 +4,19 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
+## Status: ALL WORK COMPLETE ✅ — NOTHING FOR THE BACKSTOP TO DO (last verified 2026-07-23)
+
+> BACKSTOP: if you are reading this on an hourly fire — STAND DOWN. There is no pending
+> batch. All waves W0–W6 merged+pushed; prod deploy (DB+listener+web) COMPLETE; the
+> post-deploy follow-up session (Gmail ingestion of 26 emails, email-body entity extraction,
+> RLS lockdown, de-maritime entity catalog, inbox tab + circle-pack mobile fixes, 51-gap
+> handoff audit) is ALL committed+pushed. Branch tip: cad7c5e.
+> The ONLY open item is task #13 (harden listener auth: TLS on the prod ALB + per-user
+> signed tokens replacing the spoofable X-User-Id/static key). It is DEFERRED PENDING PEDRO's
+> explicit go-ahead — do NOT start it autonomously; it mutates live prod infra and could break
+> the running listener. The trigger stays ENABLED at Pedro's request (he declined its deletion).
+> Verify clean (git status, no unpushed) and exit without heavy work.
+
 ## Status: PROD DEPLOY COMPLETE ✅ (2026-07-23, SHA 0a63f8a) — all 3 layers LIVE (DB + listener + web @ polytoken.ai)
 
 Pedro provided prod credentials + a Supabase Management API token mid-session, which
