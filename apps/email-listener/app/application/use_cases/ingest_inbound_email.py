@@ -17,6 +17,7 @@ Post-persist dispatch (D-10):
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
@@ -57,6 +58,21 @@ def _file_ext(filename: str | None) -> str | None:
 
 def _attachment_id(email_id: str, index: int, filename: str | None) -> str:
     return str(uuid.uuid5(uuid.NAMESPACE_URL, f"nauta-attachment/{email_id}/{index}/{filename or ''}"))
+
+
+_KEY_SAFE_RE = re.compile(r"[^A-Za-z0-9._-]+")
+
+
+def _safe_key_segment(name: str) -> str:
+    """Sanitize a sender-supplied filename for use as a storage-key path segment.
+
+    Supabase Storage rejects keys containing non-ASCII letters (é, ã, 中), ``#``,
+    ``%``, ``[`` etc. with 400 "Invalid key" (ING-5). The attachment_id already
+    guarantees key uniqueness, so this segment is display-only — collapse every
+    unsafe run to ``_`` and never let it be empty.
+    """
+    cleaned = _KEY_SAFE_RE.sub("_", name).strip("._")
+    return cleaned or "file"
 
 
 class IngestInboundEmailUseCase:
@@ -152,29 +168,49 @@ class IngestInboundEmailUseCase:
         )
         saved = await self._email_repo.save(email)
 
+        # Each post-persist stage is isolated so one failure can neither abort the
+        # rest of the pipeline nor propagate to the SNS-facing caller (ING-5). Any
+        # failure is collected and durably recorded on the email's parse_status so
+        # it is visible/reprocessable rather than silently lost (ING-6).
+        failures: list[str] = []
+
         for index, parsed_attachment in enumerate(parsed.attachments):
-            await self._ingest_attachment(saved, index, parsed_attachment)
+            try:
+                await self._ingest_attachment(saved, index, parsed_attachment)
+            except Exception as exc:
+                logger.exception(
+                    "attachment_ingest_failed",
+                    email_id=saved.id,
+                    attachment_index=index,
+                )
+                failures.append(f"attachment[{index}]: {exc!r}")
 
         # Propose region Components from all page Components persisted above.
         # Failure must not propagate to the SNS-facing caller.
         try:
             await self._propose_regions.execute(email_id=saved.id, importer_id=importer_id)
-        except Exception:
+        except Exception as exc:
             logger.exception(
                 "propose_regions_failed",
                 email_id=saved.id,
             )
+            failures.append(f"propose_regions: {exc!r}")
 
         # Suggest entity types for the newly proposed candidate regions (best-effort).
         # Never raises; a Bedrock failure leaves regions unclassified (graceful degradation).
         if self._suggest_entity_types is not None:
             try:
                 await self._suggest_entity_types.execute(email_id=saved.id, importer_id=importer_id)
-            except Exception:
+            except Exception as exc:
                 logger.exception(
                     "suggest_entity_types_failed",
                     email_id=saved.id,
                 )
+                failures.append(f"suggest_entity_types: {exc!r}")
+
+        # Drive the parse_status lifecycle so the UI's 'failed' tone + Reprocess
+        # affordance can fire; a healthy run transitions 'received' -> 'parsed'.
+        await self._finalize_parse_status(saved.id, failures)
 
         logger.info(
             "email_ingested",
@@ -184,8 +220,27 @@ class IngestInboundEmailUseCase:
             subject=saved.subject,
             attachment_count=len(parsed.attachments),
             redelivery=existing is not None,
+            parse_failures=len(failures),
         )
         return saved
+
+    async def _finalize_parse_status(self, email_id: str, failures: list[str]) -> None:
+        """Persist the terminal parse_status ('parsed' or 'failed').
+
+        Best-effort: a status-write failure is logged but never propagates — the
+        email row itself is already saved, and swallowing here mirrors the
+        SNS-facing non-fatal contract of every other post-persist stage.
+        """
+        status = "failed" if failures else "parsed"
+        error = "; ".join(failures) if failures else None
+        try:
+            await self._email_repo.update_parse_status(email_id, status, error)
+        except Exception:
+            logger.exception(
+                "parse_status_update_failed",
+                email_id=email_id,
+                intended_status=status,
+            )
 
     async def _resolve_forwarding_user(self, recipients: Sequence[str]) -> str | None:
         """Best-effort forwarding-token resolution (T-45-05-03): never fails ingestion.
@@ -241,8 +296,12 @@ class IngestInboundEmailUseCase:
 
     async def _ingest_attachment(self, email: Email, index: int, parsed: ParsedAttachment) -> None:
         attachment_id = _attachment_id(email.id, index, parsed.filename)
+        # Filename-less MIME parts (inline CID logos/signatures, bare
+        # octet-stream) have parsed.filename == None; email_attachments.filename
+        # is NOT NULL, so persist the deterministic fallback rather than None
+        # (ING-3). The storage-key segment is additionally sanitized (ING-5).
         filename = parsed.filename or f"attachment-{index}"
-        storage_key = f"{email.importer_id}/{email.id}/{attachment_id}/{filename}"
+        storage_key = f"{email.importer_id}/{email.id}/{attachment_id}/{_safe_key_segment(filename)}"
         file_ext = _file_ext(parsed.filename)
 
         await self._attachment_storage.store(storage_key, parsed.data, parsed.content_type)
@@ -251,7 +310,7 @@ class IngestInboundEmailUseCase:
                 id=attachment_id,
                 email_id=email.id,
                 importer_id=email.importer_id,
-                filename=parsed.filename,
+                filename=filename,
                 content_type=parsed.content_type,
                 file_ext=file_ext,
                 size_bytes=len(parsed.data),

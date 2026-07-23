@@ -102,28 +102,28 @@ def test_resolve_returns_existing_id_without_inserting() -> None:
 
 
 def test_resolve_creates_new_importer_anchored_to_user_id_for_unknown_sender() -> None:
-    """For an unknown sender WITH a resolved forwarding user, resolve upserts a
+    """For an unknown sender WITH a resolved forwarding user, resolve inserts a
     new row anchored to user_id and returns its id."""
     from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 
     new_row = {"id": NEW_IMPORTER_ID, "slug": "exporter-com", "name": "exporter.com", "user_id": FORWARDING_USER_ID}
 
-    # First select returns empty (unknown slug)
+    # First (user_id-scoped) select returns empty — this user has no importer yet
     first_select_result = MagicMock()
     first_select_result.data = []
-    # upsert execute result (return value unused)
-    upsert_result = MagicMock()
-    upsert_result.data = []
-    # Re-select after upsert returns the new row
+    # insert execute result (return value unused)
+    insert_result = MagicMock()
+    insert_result.data = []
+    # Re-select after insert returns the new row
     second_select_result = MagicMock()
     second_select_result.data = [new_row]
 
     chain = MagicMock()
     chain.eq.return_value = chain
-    chain.upsert.return_value = chain
+    chain.insert.return_value = chain
     chain.select.return_value = chain
-    # Three execute() calls: initial select, upsert, re-select
-    chain.execute.side_effect = [first_select_result, upsert_result, second_select_result]
+    # Three execute() calls: owner-scoped select, insert, re-select
+    chain.execute.side_effect = [first_select_result, insert_result, second_select_result]
 
     client = MagicMock()
     client.table.return_value = chain
@@ -132,16 +132,103 @@ def test_resolve_creates_new_importer_anchored_to_user_id_for_unknown_sender() -
     result = asyncio.run(repo.resolve("maria@exporter.com", user_id=FORWARDING_USER_ID))
 
     assert result == NEW_IMPORTER_ID
-    # upsert must be called with on_conflict="slug" and a user_id-anchored payload
-    upsert_calls = chain.upsert.call_args_list
-    assert len(upsert_calls) == 1
-    call_args = upsert_calls[0]
-    payload = call_args.args[0] if call_args.args else {}
+    # insert must be called once with a user_id-anchored payload
+    insert_calls = chain.insert.call_args_list
+    assert len(insert_calls) == 1
+    payload = insert_calls[0].args[0] if insert_calls[0].args else {}
     assert payload.get("slug") == "exporter-com"
     assert payload.get("user_id") == FORWARDING_USER_ID
-    # on_conflict must be "slug"
-    all_vals = list(call_args.args) + list(call_args.kwargs.values())
-    assert any("slug" in str(v) for v in all_vals), f"on_conflict='slug' expected in: {call_args}"
+
+
+def test_resolve_scopes_existing_lookup_by_user_id_not_slug_alone() -> None:
+    """ING-2 regression: an existing slug lookup must be filtered by user_id.
+
+    User B forwarding mail from a domain User A already anchored must NOT be
+    handed A's importer. Here the owner-scoped select finds no row for B and the
+    insert succeeds (composite ownership), so B gets its OWN importer — never A's.
+    """
+    from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
+
+    user_b = "20000000-0000-0000-0000-0000000000bb"
+    b_importer = "bbbbbbbb-0000-0000-0000-0000000000bb"
+
+    empty = MagicMock()
+    empty.data = []
+    inserted = MagicMock()
+    inserted.data = []
+    reselect = MagicMock()
+    reselect.data = [{"id": b_importer, "slug": "acme-com", "user_id": user_b}]
+
+    chain = MagicMock()
+    chain.eq.return_value = chain
+    chain.insert.return_value = chain
+    chain.select.return_value = chain
+    chain.execute.side_effect = [empty, inserted, reselect]
+
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseImporterRepository(client=client, default_importer_id=DEFAULT_IMPORTER_ID)
+    result = asyncio.run(repo.resolve("jose@acme.com", user_id=user_b))
+
+    assert result == b_importer
+    # The existence lookup must filter on BOTH slug and user_id (two .eq calls)
+    eq_call_keys = [c.args[0] for c in chain.eq.call_args_list if c.args]
+    assert "slug" in eq_call_keys
+    assert "user_id" in eq_call_keys
+
+
+def test_resolve_cross_tenant_slug_conflict_fails_closed_to_default() -> None:
+    """ING-2 regression: a global-slug collision with another tenant must NOT
+    return that tenant's importer — it fails closed to default_importer_id."""
+    from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
+
+    user_b = "20000000-0000-0000-0000-0000000000bb"
+
+    empty_before = MagicMock()
+    empty_before.data = []
+    empty_after = MagicMock()
+    empty_after.data = []  # still no row OWNED by B after the conflict
+
+    chain = MagicMock()
+    chain.eq.return_value = chain
+    chain.insert.return_value = chain
+    chain.select.return_value = chain
+    # owner-scoped select (empty), insert RAISES (unique(slug) collision),
+    # ownership re-check (still empty for B)
+    chain.execute.side_effect = [empty_before, RuntimeError("duplicate key value violates unique constraint"), empty_after]
+
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseImporterRepository(client=client, default_importer_id=DEFAULT_IMPORTER_ID)
+    result = asyncio.run(repo.resolve("jose@acme.com", user_id=user_b))
+
+    assert result == DEFAULT_IMPORTER_ID
+
+
+def test_resolve_concurrent_same_user_insert_conflict_returns_own_row() -> None:
+    """A concurrent same-user insert race resolves to the user's OWN row, not default."""
+    from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
+
+    empty_before = MagicMock()
+    empty_before.data = []
+    own_after = MagicMock()
+    own_after.data = [{"id": NEW_IMPORTER_ID, "slug": "exporter-com", "user_id": FORWARDING_USER_ID}]
+
+    chain = MagicMock()
+    chain.eq.return_value = chain
+    chain.insert.return_value = chain
+    chain.select.return_value = chain
+    chain.execute.side_effect = [empty_before, RuntimeError("duplicate key"), own_after]
+
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseImporterRepository(client=client, default_importer_id=DEFAULT_IMPORTER_ID)
+    result = asyncio.run(repo.resolve("maria@exporter.com", user_id=FORWARDING_USER_ID))
+
+    assert result == NEW_IMPORTER_ID
 
 
 # ---------------------------------------------------------------------------

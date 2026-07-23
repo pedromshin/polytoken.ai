@@ -75,6 +75,7 @@ def _make_use_case(
     email_repo = MagicMock()
     email_repo.find_by_message_id = AsyncMock(return_value=existing_email)
     email_repo.save = AsyncMock(side_effect=lambda email: email)
+    email_repo.update_parse_status = AsyncMock()
 
     attachment_repo = MagicMock()
     attachment_repo.save = AsyncMock(side_effect=lambda att: att)
@@ -409,6 +410,123 @@ def test_ingest_keys_email_and_attachment_by_resolved_importer_id() -> None:
     # Attachment row also keyed by resolved id
     attachment = mocks["attachment_repo"].save.await_args.args[0]
     assert attachment.importer_id == resolved_id
+
+
+# ---------------------------------------------------------------------------
+# ING-3 — filename-less attachment must persist a non-null filename
+# ---------------------------------------------------------------------------
+
+
+def _raw_email_with_filenameless_attachment() -> bytes:
+    msg = EmailMessage()
+    msg["From"] = "Maria <maria@exporter.com>"
+    msg["To"] = "agent@magnitudetech.com.br"
+    msg["Subject"] = "inline logo"
+    msg["Message-ID"] = "<mime-002@exporter.com>"
+    msg.set_content("body")
+    # No filename — mirrors an inline CID logo / bare octet-stream part
+    msg.add_attachment(b"\x89PNG\r\nlogo", maintype="image", subtype="png")
+    return bytes(msg)
+
+
+def test_filenameless_attachment_persists_fallback_filename() -> None:
+    """email_attachments.filename is NOT NULL — a filename-less part must persist
+    the deterministic fallback, never None (ING-3)."""
+    use_case, mocks = _make_use_case(_raw_email_with_filenameless_attachment())
+
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    mocks["attachment_repo"].save.assert_awaited_once()
+    attachment = mocks["attachment_repo"].save.await_args.args[0]
+    assert attachment.filename is not None
+    assert attachment.filename == "attachment-0"
+
+
+# ---------------------------------------------------------------------------
+# ING-5 — one failing attachment must not abort the rest / storage-key sanitize
+# ---------------------------------------------------------------------------
+
+
+def _raw_email_two_attachments(first_filename: str) -> bytes:
+    msg = EmailMessage()
+    msg["From"] = "Maria <maria@exporter.com>"
+    msg["To"] = "agent@magnitudetech.com.br"
+    msg["Subject"] = "two docs"
+    msg["Message-ID"] = "<mime-003@exporter.com>"
+    msg.set_content("body")
+    msg.add_attachment(b"%PDF-1.4 first", maintype="application", subtype="pdf", filename=first_filename)
+    msg.add_attachment(b"%PDF-1.4 second", maintype="application", subtype="pdf", filename="contract.pdf")
+    return bytes(msg)
+
+
+def test_one_failing_attachment_does_not_abort_others_or_regions() -> None:
+    """A storage failure on the first attachment must not prevent the second
+    attachment from persisting nor stop propose_regions (ING-5)."""
+    use_case, mocks = _make_use_case(_raw_email_two_attachments("relatorio.pdf"))
+
+    # First store() raises, second succeeds
+    mocks["attachment_storage"].store = AsyncMock(side_effect=[RuntimeError("Invalid key"), None])
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))  # must not raise
+
+    # Second attachment still persisted despite the first failing
+    saved_filenames = [c.args[0].filename for c in mocks["attachment_repo"].save.await_args_list]
+    assert "contract.pdf" in saved_filenames
+    # propose_regions still ran
+    mocks["propose_regions"].execute.assert_awaited_once()
+    # Failure recorded on the email's parse_status (ING-6)
+    status_calls = [c.args for c in mocks["email_repo"].update_parse_status.await_args_list]
+    assert any(args[1] == "failed" for args in status_calls)
+    assert email is not None
+
+
+def test_storage_key_segment_is_sanitized_for_hostile_filename() -> None:
+    """Sender-controlled filenames with non-ASCII / unsafe chars must not reach
+    the storage key verbatim (Supabase rejects them) — the segment is sanitized
+    while the DB row keeps the display filename (ING-5)."""
+    use_case, mocks = _make_use_case(_raw_email_two_attachments("relatório #1.pdf"))
+
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    first_store_key = mocks["attachment_storage"].store.await_args_list[0].args[0]
+    # The trailing segment must contain no forbidden characters
+    trailing = first_store_key.rsplit("/", 1)[-1]
+    assert all(ch.isalnum() or ch in "._-" for ch in trailing), f"unsafe key segment: {trailing!r}"
+    # The DB row still carries the original display filename
+    first_att = mocks["attachment_repo"].save.await_args_list[0].args[0]
+    assert first_att.filename == "relatório #1.pdf"
+
+
+# ---------------------------------------------------------------------------
+# ING-6 — parse_status lifecycle is driven to a terminal value
+# ---------------------------------------------------------------------------
+
+
+def test_healthy_ingest_marks_parse_status_parsed() -> None:
+    use_case, mocks = _make_use_case(_raw_email())
+
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    mocks["email_repo"].update_parse_status.assert_awaited_once()
+    _email_id, status, error = mocks["email_repo"].update_parse_status.await_args.args
+    assert status == "parsed"
+    assert error is None
+
+
+def test_post_persist_failure_marks_parse_status_failed() -> None:
+    """A propose_regions crash must transition parse_status to 'failed' with the
+    error recorded, so the UI's 'failed' tone + Reprocess affordance can fire."""
+    propose_regions = MagicMock()
+    propose_regions.execute = AsyncMock(side_effect=RuntimeError("bedrock down"))
+
+    use_case, mocks = _make_use_case(_raw_email(), propose_regions=propose_regions)
+
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    _email_id, status, error = mocks["email_repo"].update_parse_status.await_args.args
+    assert status == "failed"
+    assert error is not None
+    assert "propose_regions" in error
 
 
 def test_ingest_redelivery_still_stable_with_resolver() -> None:
