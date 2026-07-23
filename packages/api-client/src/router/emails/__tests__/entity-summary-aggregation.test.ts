@@ -223,4 +223,76 @@ describe("aggregateEntitySummary", () => {
     expect(JSON.stringify(rows)).toBe(snapshot);
     expect(result[0]!.entities[0]).not.toBe(rows[0]);
   });
+
+  // -------------------------------------------------------------------------
+  // D-24 fan-out regression (RES-1 follow-up): ConfirmMerge sets
+  // was_selected=true on every candidate link across the subject's email, so
+  // the leftJoin can return the SAME component multiple times — once per
+  // selected link. A component is one fact and must stay one chip, and its
+  // deep-link must be its OWN entity, never a merge-fanned second entity.
+  // -------------------------------------------------------------------------
+
+  it("Test 13: duplicate rows for one componentId collapse to a single entry (no wrong second chip)", () => {
+    const componentId = nextComponentId();
+    const INSTANCE_2 = "00000000-0000-0000-0000-000000000002";
+    const rows: EntitySummaryRow[] = [
+      // Component's own occurrence link resolved to its entity...
+      row({ emailId: EMAIL_A, componentId, entityInstanceId: INSTANCE_1 }),
+      // ...and a merge-fanned second selected link joined a second row.
+      row({ emailId: EMAIL_A, componentId, entityInstanceId: INSTANCE_2 }),
+    ];
+
+    const result = aggregateEntitySummary(rows, [EMAIL_A]);
+
+    expect(result[0]!.entities).toHaveLength(1);
+    expect(result[0]!.totalCount).toBe(1);
+    // The FIRST (own) link wins; the fanned link never overwrites it.
+    expect(result[0]!.entities[0]!.entityInstanceId).toBe(INSTANCE_1);
+  });
+
+  it("Test 14: a duplicate row may only FILL a missing entityInstanceId, never overwrite one", () => {
+    const componentId = nextComponentId();
+    const rows: EntitySummaryRow[] = [
+      // First row: link joined but its entity was filtered (e.g. merged away
+      // -> is_active=false -> null entityInstanceId).
+      row({ emailId: EMAIL_A, componentId, entityInstanceId: null }),
+      // Second row: the component's surviving active link.
+      row({ emailId: EMAIL_A, componentId, entityInstanceId: INSTANCE_1 }),
+    ];
+
+    const result = aggregateEntitySummary(rows, [EMAIL_A]);
+
+    expect(result[0]!.entities).toHaveLength(1);
+    expect(result[0]!.entities[0]!.entityInstanceId).toBe(INSTANCE_1);
+  });
+
+  it("Test 15: dedupe is scoped per email — same componentId under different emails stays two entries", () => {
+    const componentId = nextComponentId();
+    const rows: EntitySummaryRow[] = [
+      row({ emailId: EMAIL_A, componentId }),
+      row({ emailId: EMAIL_B, componentId }),
+    ];
+
+    const result = aggregateEntitySummary(rows, [EMAIL_A, EMAIL_B]);
+
+    expect(result[0]!.entities).toHaveLength(1);
+    expect(result[1]!.entities).toHaveLength(1);
+  });
+
+  it("Test 16: totalCount counts deduped facts, and the cap applies post-dedupe", () => {
+    const componentId = nextComponentId();
+    const rows: EntitySummaryRow[] = [
+      // 3 join-multiplied rows of ONE component + 2 distinct components = 3 facts
+      row({ emailId: EMAIL_A, componentId }),
+      row({ emailId: EMAIL_A, componentId }),
+      row({ emailId: EMAIL_A, componentId }),
+      row({ emailId: EMAIL_A }),
+      row({ emailId: EMAIL_A }),
+    ];
+
+    const result = aggregateEntitySummary(rows, [EMAIL_A]);
+
+    expect(result[0]!.entities).toHaveLength(3);
+    expect(result[0]!.totalCount).toBe(3);
+  });
 });

@@ -214,9 +214,11 @@ export const entityGalleryProcedures = {
             sql<number>`COUNT(DISTINCT ${EmailComponents.emailId})`.mapWith(
               Number,
             ),
-          // Pending = unselected candidate links (was_selected = false)
+          // Pending = unselected candidate links (was_selected = false) that
+          // were not human-rejected (was_dismissed = false, D-20/RES-1 —
+          // a rejected suggestion must stop counting as "pending" everywhere)
           pendingDuplicatesCount:
-            sql<number>`COUNT(DISTINCT CASE WHEN ${ComponentEntityCandidateLinks.wasSelected} = false THEN ${ComponentEntityCandidateLinks.id} END)`.mapWith(
+            sql<number>`COUNT(DISTINCT CASE WHEN ${ComponentEntityCandidateLinks.wasSelected} = false AND ${ComponentEntityCandidateLinks.wasDismissed} = false THEN ${ComponentEntityCandidateLinks.id} END)`.mapWith(
               Number,
             ),
         })
