@@ -4,6 +4,37 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
+## Status: RUNNING — Batch 5 (W4 drive+home)
+
+Batch 4 (W3) DONE 2026-07-23T08:xxZ (792fce1 pushed): CI canvas interactivity
+(undo/redo — I added a canon-tier reconcile so undo can't revert server-owned
+promotion + per-node send-to gating, both skeptic findings; context menus, keymap,
+multi-select), TM circle-pack (primitive + email landscape view + canvas node),
+sheet EN-01 grid + CV-03 spreadsheet node + table.* capability + spreadsheets
+schema/migration 0044 (I moved a schema-dir test that broke drizzle-kit generate).
+TM+sheet both extended the node registry/mirror/projection → I synthesis-resolved
+8 additive conflicts (kept BOTH circle-pack + spreadsheet; fixed a shared-tail
+brace bug in node-type-registry). Integrated green: web 1561, capabilities 65,
+api-client 655, ui 22, db 35; AI-01 mirror + AI-02 gates pass with both new types.
+
+MERGE LESSON (carry forward): when two lanes both add an entry to the same
+multi-LINE object (registry/mirror), the git "shared tail" after >>>>>>> closes
+only ONE entry — reconstruct BOTH entries' closings by hand, then tsc BEFORE
+trusting vitest (a syntax error shows as many-suites-failed, not a clear error).
+
+## Batch 5 in flight (b5-* worktrees forked 792fce1)
+- b5-drive-ops (DR-01 rename/move/bulk, DR-02 versioning+trash, DR-04 quotas +
+  drive size-rollup aggregate; sole owner of files router + vault UI + a new
+  file_versions schema/migration; also writes the OneDrive 500GB migration design doc)
+- b5-files-chat (CH-01 composer attachments, DR-03 `file` canvas node [the ONE new
+  node type this batch → must update AI-01 mirror + AI-02 projection], DR-05 vault
+  content extraction/embedding in the listener)
+- b5-home (HM-01 agentic genui home at / via a home-scoped chat_canvas_layouts
+  discriminator, HM-02 morning-brief panel; reuses existing canvas — no new node type)
+Deferred to post-merge: TM-04 drive circle-pack (consumes drive-ops' size aggregate).
+Batch 6 (W5 multiuser/teams) next; then Batch 7 (W6 ventures) + final sweep.
+
+## --- historic detail below (superseded) ---
 ## Status: RUNNING — Batch 4 (W3 canvas+viz)
 
 Batch 3a DONE (5c72a60). Batch 3b DONE 2026-07-23T07:xxZ (4d2b760 pushed):
@@ -23,7 +54,7 @@ AI-01 mirror (packages/capabilities/src/canvas.ts CANVAS_NODE_DATA_SCHEMAS) + AI
 projection-map + pinned id sets or the enforcement suites go red (by design).
 
 ## Batch 4 in flight (b4-* worktrees forked 4d2b760)
-- b4-ci-canvas (CI-06 undo, CI-01 context menus, CI-02 keymap, CI-05 multi-select) — agentId af3cb9b1574ea283e
+- (b4 lanes merged, see above)
 - b4-tm-treemap (TM-01 CirclePack primitive, TM-02 email view, TM-03 canvas node) — aa5d72eddca37a8cf
 - b4-sheet-grid (EN-01 grid shakedown, CV-03 spreadsheet node + table.* capability) — aafb480b69c9bc0c5
 Batch 5 (W4 drive+home) next: DR-01..05, CH-01, HM-01/02, TM-04, OneDrive design.
