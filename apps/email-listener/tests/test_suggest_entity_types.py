@@ -209,8 +209,11 @@ class FakeComponentRepository:
     async def find_pages_by_attachment(self, attachment_id: str) -> list[Component]:
         return []
 
-    async def supersede_pending_regions(self, email_id: str) -> int:
+    async def supersede_pending_regions(self, email_id: str, *, created_before: str | None = None) -> int:
         return 0
+
+    async def latest_component_created_at(self, email_id: str) -> str | None:
+        return None
 
 
 class FakeEntityTypeRepository:

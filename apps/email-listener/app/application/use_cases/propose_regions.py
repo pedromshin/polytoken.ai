@@ -16,6 +16,7 @@ import structlog
 from app.domain.entities.component import Component
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.segmenter_protocol import PageToken, ProposedRegion, SegmenterProtocol
+from app.domain.services.attachment_page_identity import attachment_page_component_id
 
 logger = structlog.get_logger(__name__)
 
@@ -51,6 +52,59 @@ def _page_tokens(page: Component) -> list[PageToken]:
             )
         )
     return tokens
+
+
+def _dedup_pages(pages: list[Component]) -> list[Component]:
+    """Keep exactly one page Component per (attachment_id, page_index) — REG-1 defense.
+
+    Page ids are deterministic since REG-1 (uuid5 over attachment_id +
+    page_index), so re-ingest upserts pages in place and duplicates no longer
+    accrue. Emails ingested BEFORE that fix may still carry several rows for
+    the same physical page; segmenting each copy would multiply the proposed
+    regions on every reprocess. Selection among duplicates:
+
+    1. Prefer the row whose id equals the canonical deterministic id — that is
+       the row current re-ingests upsert, i.e. the freshest content.
+    2. Otherwise fall back to the lexicographically smallest id, so the choice
+       is stable across runs (historical duplicates are byte-identical copies).
+
+    Input order is preserved for the surviving rows.
+    """
+    chosen: dict[tuple[str | None, object], Component] = {}
+    order: list[tuple[str | None, object]] = []
+    duplicate_count = 0
+
+    for page in pages:
+        raw_index = page.location.get("page_index", 0)
+        key = (page.attachment_id, raw_index)
+
+        existing = chosen.get(key)
+        if existing is None:
+            chosen[key] = page
+            order.append(key)
+            continue
+
+        duplicate_count += 1
+        canonical: str | None = None
+        if page.attachment_id is not None and isinstance(raw_index, (int, float, str)):
+            try:
+                canonical = attachment_page_component_id(page.attachment_id, int(raw_index))
+            except (TypeError, ValueError):
+                canonical = None
+
+        if existing.id == canonical:
+            continue  # already holding the canonical (freshest) row
+        if page.id == canonical or page.id < existing.id:
+            chosen[key] = page
+
+    if duplicate_count:
+        logger.warning(
+            "propose_regions_duplicate_pages_skipped",
+            duplicate_page_rows=duplicate_count,
+            surviving_pages=len(chosen),
+        )
+
+    return [chosen[key] for key in order]
 
 
 def _page_polygon(page: Component) -> list[list[float]]:
@@ -112,7 +166,7 @@ class ProposeRegionsUseCase:
         Returns the list of persisted child Components (may be empty).
         """
         all_components = await self._components.find_by_email_id(email_id)
-        pages = [c for c in all_components if c.source_type == "attachment_page"]
+        pages = _dedup_pages([c for c in all_components if c.source_type == "attachment_page"])
 
         logger.info(
             "propose_regions_start",

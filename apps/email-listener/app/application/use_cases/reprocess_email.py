@@ -73,7 +73,20 @@ class ReprocessEmailUseCase:
         # region components in a single query so the re-ingest does not stack
         # duplicate pending regions. Accepted/confirmed/rejected regions are
         # preserved — only untouched auto-proposals are replaced.
-        superseded_count = await self._components.supersede_pending_regions(email_id)
+        #
+        # Cutoff derivation (clock-skew mitigation): the supersede is bounded by
+        # the newest created_at ALREADY IN THE DB for this email — a DB-clock
+        # row timestamp — never by datetime.now(UTC) on the app server. An
+        # app-server clock skewed against Postgres could otherwise either miss
+        # stale regions (clock behind) or eat rows a concurrent re-ingest is
+        # inserting right now (clock ahead). Rows created after this snapshot
+        # get a strictly later DB timestamp and are left alone; the bound is
+        # inclusive because a save_many batch shares one statement timestamp.
+        cutoff = await self._components.latest_component_created_at(email_id)
+        superseded_count = await self._components.supersede_pending_regions(
+            email_id,
+            created_before=cutoff,
+        )
 
         logger.info(
             "reprocess_superseded",

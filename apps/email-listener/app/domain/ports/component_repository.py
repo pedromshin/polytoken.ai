@@ -107,12 +107,30 @@ class ComponentRepository(Protocol):
         """
         ...
 
-    async def supersede_pending_regions(self, email_id: str) -> int:
+    async def latest_component_created_at(self, email_id: str) -> str | None:
+        """Return the newest created_at among the email's components, or None.
+
+        The value is the DB's own row timestamp (ISO-8601 string as stored),
+        NOT an app-server clock reading — used to derive a clock-skew-free
+        cutoff for supersede_pending_regions.
+        """
+        ...
+
+    async def supersede_pending_regions(self, email_id: str, *, created_before: str | None = None) -> int:
         """Mark the email's auto-proposed (pending) region components as superseded.
 
         Single bulk update — scales past the per-row row cap. Only source_type
         'region' rows with extraction_status 'pending' are affected; human-touched
         regions (candidate/confirmed/rejected) and page components are untouched.
+
+        created_before: optional INCLUSIVE upper bound on created_at (a DB row
+        timestamp, e.g. from latest_component_created_at). When provided, only
+        rows with created_at <= created_before are superseded, so regions
+        inserted concurrently AFTER the cutoff snapshot are never eaten. The
+        bound is inclusive because rows written in one save_many batch share a
+        single statement timestamp — a strict bound would skip the newest batch
+        entirely. When None, all pending regions are superseded (legacy scope).
+
         Returns the number of rows superseded.
         """
         ...

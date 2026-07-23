@@ -23,13 +23,13 @@ from __future__ import annotations
 
 import asyncio
 import io
-import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import structlog
 
+from app.domain.services.attachment_page_identity import attachment_page_component_id
 from app.infrastructure.ocr.ocr_protocol import OcrWord
 from app.infrastructure.pdf.parser_registry import UnsupportedFileTypeError
 from app.infrastructure.pdf.text_layer import detect_text_layer
@@ -155,8 +155,10 @@ def _make_parse_error_component(
 ) -> Component:
     from app.domain.entities.component import Component
 
+    # Deterministic id (REG-1): a re-ingest of the same attachment upserts the
+    # same row instead of stacking a fresh duplicate page per run.
     return Component(
-        id=str(uuid.uuid4()),
+        id=attachment_page_component_id(attachment_id, page_index),
         email_id="",
         importer_id="",
         attachment_id=attachment_id,
@@ -399,8 +401,9 @@ class PdfParser:
         # fallback when no tokens). Per-token bboxes persisted in content_raw (D-12).
         polygon = _union_polygon(_token_boxes(tokens))
 
+        # Deterministic id (REG-1): re-ingest upserts the same page row in place.
         return Component(
-            id=str(uuid.uuid4()),
+            id=attachment_page_component_id(attachment_id, page_index),
             email_id="",
             importer_id="",
             attachment_id=attachment_id,
@@ -432,8 +435,9 @@ class PdfParser:
         polygon = _bbox_union(ocr_words)
         tokens: list[dict[str, object]] = [{"text": w.text, "bbox": list(w.bbox)} for w in ocr_words]
 
+        # Deterministic id (REG-1): re-ingest upserts the same page row in place.
         return Component(
-            id=str(uuid.uuid4()),
+            id=attachment_page_component_id(attachment_id, page_index),
             email_id="",
             importer_id="",
             attachment_id=attachment_id,

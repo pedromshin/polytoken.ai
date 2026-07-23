@@ -382,6 +382,65 @@ class TestPdfParserGeometryIntegration:
 
 
 # ---------------------------------------------------------------------------
+# Deterministic page identity (REG-1) — re-parsing must yield the SAME ids
+# ---------------------------------------------------------------------------
+
+
+class TestPdfParserDeterministicIds:
+    """REG-1 root cause: uuid4-per-parse page ids made every re-ingest INSERT
+    fresh duplicate attachment_page rows through the id-upsert. Page ids must
+    be a pure function of (attachment_id, page_index)."""
+
+    @skip_no_pdf
+    def test_reparse_same_pdf_yields_identical_component_ids(self) -> None:
+        from app.infrastructure.ocr.ocr_protocol import OCRProtocol
+        from app.infrastructure.pdf.pdf_parser import PdfParser
+
+        mock_ocr = AsyncMock(spec=OCRProtocol)
+        mock_ocr.ocr_page = AsyncMock(return_value=[])
+        pdf_bytes = _build_text_pdf("Hello world invoice total " * 3)
+
+        first = asyncio.run(
+            PdfParser(ocr=mock_ocr).parse(file_bytes=pdf_bytes, content_type="application/pdf", attachment_id="att-det")
+        )
+        second = asyncio.run(
+            PdfParser(ocr=mock_ocr).parse(file_bytes=pdf_bytes, content_type="application/pdf", attachment_id="att-det")
+        )
+
+        assert [c.id for c in first] == [c.id for c in second]
+        assert len({c.id for c in first}) == len(first)  # still unique per page
+
+    def test_text_ocr_and_error_paths_share_the_page_identity(self) -> None:
+        """All three Component factories mint the same id for the same
+        (attachment_id, page_index) — an error row upserts over a prior good
+        row and vice versa, never a duplicate."""
+        from app.domain.services.attachment_page_identity import attachment_page_component_id
+        from app.infrastructure.pdf.pdf_parser import PdfParser, _make_parse_error_component
+
+        parser = PdfParser.__new__(PdfParser)
+        expected = attachment_page_component_id("att-x", 3)
+
+        text_comp = parser._component_from_text(page_index=3, page_text="hi", tokens=(), attachment_id="att-x")
+        ocr_comp = parser._component_from_ocr(page_index=3, ocr_words=[], attachment_id="att-x")
+        err_comp = _make_parse_error_component("att-x", 3, "boom", 3)
+
+        assert text_comp.id == expected
+        assert ocr_comp.id == expected
+        assert err_comp.id == expected
+
+    def test_different_attachments_and_pages_get_distinct_ids(self) -> None:
+        from app.domain.services.attachment_page_identity import attachment_page_component_id
+
+        ids = {
+            attachment_page_component_id("att-a", 0),
+            attachment_page_component_id("att-a", 1),
+            attachment_page_component_id("att-b", 0),
+            attachment_page_component_id("att-b", 1),
+        }
+        assert len(ids) == 4
+
+
+# ---------------------------------------------------------------------------
 # Helper — build a minimal valid text PDF in memory
 # ---------------------------------------------------------------------------
 

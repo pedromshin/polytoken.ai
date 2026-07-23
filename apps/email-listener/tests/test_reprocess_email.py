@@ -49,7 +49,9 @@ def test_reprocess_bulk_supersedes_pending_then_reingests() -> None:
     emails = AsyncMock()
     emails.find_by_id.return_value = _email()
 
+    db_cutoff = "2026-06-13T11:59:58.123456+00:00"
     components = AsyncMock()
+    components.latest_component_created_at.return_value = db_cutoff
     components.supersede_pending_regions.return_value = 984  # the duplicate pile
 
     extractions = AsyncMock()
@@ -64,9 +66,35 @@ def test_reprocess_bulk_supersedes_pending_then_reingests() -> None:
 
     result = asyncio.run(use_case.execute(email_id=EMAIL_ID))
 
-    components.supersede_pending_regions.assert_awaited_once_with(EMAIL_ID)
+    # Cutoff comes from the DB's own row timestamps (latest_component_created_at),
+    # NEVER from datetime.now(UTC) on the app server (clock-skew mitigation).
+    components.latest_component_created_at.assert_awaited_once_with(EMAIL_ID)
+    components.supersede_pending_regions.assert_awaited_once_with(EMAIL_ID, created_before=db_cutoff)
     ingest.execute.assert_awaited_once_with("ses-abc")
     assert result == {"email_id": EMAIL_ID, "superseded_components": 984}
+
+
+def test_reprocess_with_no_prior_components_supersedes_unbounded() -> None:
+    """No components yet -> no DB timestamp to bound by; supersede runs with
+    created_before=None (there is nothing newer to protect)."""
+    emails = AsyncMock()
+    emails.find_by_id.return_value = _email()
+
+    components = AsyncMock()
+    components.latest_component_created_at.return_value = None
+    components.supersede_pending_regions.return_value = 0
+
+    use_case = ReprocessEmailUseCase(
+        emails=emails,
+        components=components,
+        extractions=AsyncMock(),
+        ingest=AsyncMock(),
+    )
+
+    result = asyncio.run(use_case.execute(email_id=EMAIL_ID))
+
+    components.supersede_pending_regions.assert_awaited_once_with(EMAIL_ID, created_before=None)
+    assert result == {"email_id": EMAIL_ID, "superseded_components": 0}
 
 
 def test_reprocess_unknown_email_raises_without_touching_components() -> None:
@@ -113,3 +141,51 @@ def test_supersede_pending_regions_filters_to_pending_regions_only() -> None:
     second_eq.assert_called_once_with("source_type", "region")
     third_eq = second_eq.return_value.eq
     third_eq.assert_called_once_with("extraction_status", "pending")
+    # No created_before -> no created_at bound is applied
+    third_eq.return_value.lte.assert_not_called()
+
+
+def test_supersede_pending_regions_applies_inclusive_created_at_bound() -> None:
+    """With created_before set, the bulk update adds created_at <= cutoff (lte,
+    inclusive — a save_many batch shares one statement timestamp) so rows
+    inserted after the DB-derived snapshot are never superseded."""
+    cutoff = "2026-06-13T11:59:58.123456+00:00"
+    client = MagicMock()
+    lte_chain = (
+        client.table.return_value.update.return_value.eq.return_value.eq.return_value.eq.return_value.lte.return_value
+    )
+    lte_chain.execute.return_value.data = [{"id": "r1"}]
+
+    repo = SupabaseComponentRepository(client)
+    count = asyncio.run(repo.supersede_pending_regions(EMAIL_ID, created_before=cutoff))
+
+    assert count == 1
+    third_eq = client.table.return_value.update.return_value.eq.return_value.eq.return_value.eq
+    third_eq.assert_called_once_with("extraction_status", "pending")
+    third_eq.return_value.lte.assert_called_once_with("created_at", cutoff)
+
+
+def test_latest_component_created_at_reads_newest_db_timestamp() -> None:
+    """The cutoff source is a single-row SELECT ordered by created_at desc —
+    the DB's own clock, immune to app-server clock skew and the row cap."""
+    client = MagicMock()
+    select_chain = client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    select_chain.execute.return_value.data = [{"created_at": "2026-06-13T12:00:01+00:00"}]
+
+    repo = SupabaseComponentRepository(client)
+    value = asyncio.run(repo.latest_component_created_at(EMAIL_ID))
+
+    assert value == "2026-06-13T12:00:01+00:00"
+    client.table.return_value.select.assert_called_once_with("created_at")
+    client.table.return_value.select.return_value.eq.assert_called_once_with("email_id", EMAIL_ID)
+    client.table.return_value.select.return_value.eq.return_value.order.assert_called_once_with("created_at", desc=True)
+    client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.assert_called_once_with(1)
+
+
+def test_latest_component_created_at_returns_none_when_email_has_no_components() -> None:
+    client = MagicMock()
+    select_chain = client.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    select_chain.execute.return_value.data = []
+
+    repo = SupabaseComponentRepository(client)
+    assert asyncio.run(repo.latest_component_created_at(EMAIL_ID)) is None

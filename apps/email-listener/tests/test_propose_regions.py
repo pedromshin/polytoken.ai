@@ -346,3 +346,83 @@ class TestProposeRegionsUseCase:
 
         indices = [c.sequence_index for c in result]
         assert indices == list(range(len(result)))
+
+
+# ---------------------------------------------------------------------------
+# REG-1 defensive dedup — historical duplicate page rows segment only once
+# ---------------------------------------------------------------------------
+
+
+class TestProposeRegionsDedup:
+    """Emails ingested before deterministic page ids can carry several
+    attachment_page rows for the same physical page. The use case must
+    segment each (attachment_id, page_index) exactly once, or every
+    reprocess multiplies the pending regions."""
+
+    EMAIL_ID = "email-001"
+    IMPORTER_ID = "imp-001"
+
+    def _run(self, pages: list[Component], segmenter: Any) -> tuple[list[Component], Any, Any]:
+        use_case_cls = _import_use_case()
+        repo = FakeComponentRepository(pages)
+        use_case = use_case_cls(components=repo, segmenter=segmenter)
+        result = asyncio.run(use_case.execute(email_id=self.EMAIL_ID, importer_id=self.IMPORTER_ID))
+        return result, repo, use_case
+
+    def test_duplicate_page_rows_are_segmented_once(self) -> None:
+        # Three historical uuid4 duplicates of the SAME page (att-001, page 0).
+        duplicates = [_make_page_component(page_index=0) for _ in range(3)]
+        proposals = [
+            ProposedRegion("Invoice No.", (0, 1), None, None, 0),
+            ProposedRegion("12345", (2,), None, None, 0),
+        ]
+        # Give the segmenter enough return values for every call: were dedup
+        # broken, all three calls would succeed and children would triple.
+        segmenter = _make_fake_segmenter(proposals_per_call=[proposals, proposals, proposals])
+
+        result, _repo, _uc = self._run(duplicates, segmenter)
+
+        # One page's worth of children, not three.
+        assert len(result) == 2
+
+    def test_dedup_prefers_the_canonical_deterministic_page_row(self) -> None:
+        from app.domain.services.attachment_page_identity import attachment_page_component_id
+
+        canonical_id = attachment_page_component_id("att-001", 0)
+        stale = _make_page_component(page_index=0, content_text="stale copy")
+        fresh = _make_page_component(page_index=0, content_text="fresh copy")
+        fresh = Component(
+            id=canonical_id,
+            email_id=fresh.email_id,
+            importer_id=fresh.importer_id,
+            attachment_id=fresh.attachment_id,
+            parent_component_id=None,
+            source_type="attachment_page",
+            location=fresh.location,
+            content_text=fresh.content_text,
+            content_markdown=None,
+            content_raw=fresh.content_raw,
+            embedding=None,
+            sequence_index=0,
+            extraction_status="pending",
+        )
+        proposals = [ProposedRegion("Invoice No.", (0,), None, None, 0)]
+        segmenter = _make_fake_segmenter(proposals_per_call=[proposals, proposals])
+
+        # Stale row listed FIRST — selection must still land on the canonical id.
+        result, _repo, _uc = self._run([stale, fresh], segmenter)
+
+        assert len(result) == 1
+        assert result[0].parent_component_id == canonical_id
+
+    def test_distinct_pages_are_all_segmented(self) -> None:
+        page0 = _make_page_component(page_index=0)
+        page1 = _make_page_component(page_index=1)
+        other_att = _make_page_component(page_index=0, attachment_id="att-002")
+        proposals = [ProposedRegion("X", (0,), None, None, 0)]
+        segmenter = _make_fake_segmenter(proposals_per_call=[proposals, proposals, proposals])
+
+        result, _repo, _uc = self._run([page0, page1, other_att], segmenter)
+
+        # No false dedup across pages or attachments.
+        assert len(result) == 3
