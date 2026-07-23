@@ -33,7 +33,10 @@ variable "forwarder_forward_to" {
 variable "forwarder_mail_from" {
   description = "Verified-domain From address used when re-sending forwarded mail (Lambda env MAIL_FROM)"
   type        = string
-  default     = "no-reply@magnitudetech.com.br"
+  # Live value confirmed via terraform plan after import on 2026-07-23: the
+  # function's actual MAIL_FROM is forward@ (the earlier no-reply@ default
+  # was an unverified assumption and showed up as an environment diff).
+  default     = "forward@magnitudetech.com.br"
 }
 
 # ---------------------------------------------------------------------------

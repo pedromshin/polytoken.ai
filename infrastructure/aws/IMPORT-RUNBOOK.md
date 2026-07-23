@@ -37,7 +37,9 @@ state before running any `terraform apply`.**
    - `PREFIX`     = `inbound/personal/` (matches the personal-forward S3 action
      prefix and the only S3 path the role's IAM policy can read)
    - `FORWARD_TO` = `var.forwarder_forward_to` (default `pedromaschio.shin@gmail.com`)
-   - `MAIL_FROM`  = `var.forwarder_mail_from` (default `no-reply@magnitudetech.com.br`)
+   - `MAIL_FROM`  = `var.forwarder_mail_from` (default `forward@magnitudetech.com.br`
+     — corrected 2026-07-23: the first post-import plan showed the live value
+     is `forward@`, not the originally assumed `no-reply@`)
 
    **After importing, inspect the `environment` diff in `terraform plan` and
    confirm the values match live before any apply.** If plan shows an env

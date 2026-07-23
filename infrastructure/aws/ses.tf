@@ -57,8 +57,13 @@ resource "aws_sns_topic" "ses_inbound" {
 }
 
 resource "aws_sns_topic_policy" "ses_inbound" {
-  for_each = aws_sns_topic.ses_inbound
-  arn      = each.value.arn
+  # Static keys (NOT `for_each = aws_sns_topic.ses_inbound`): iterating over
+  # the resource map makes the key set unknown-until-apply, which hard-fails
+  # every plan/import run against an empty or partial state ("Invalid
+  # for_each argument"). Instance addresses are identical either way
+  # (["prod"|"staging"|"local"]), so this is a no-op for existing state.
+  for_each = toset(["prod", "staging", "local"])
+  arn      = aws_sns_topic.ses_inbound[each.key].arn
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -66,7 +71,7 @@ resource "aws_sns_topic_policy" "ses_inbound" {
       Effect    = "Allow"
       Principal = { Service = "ses.amazonaws.com" }
       Action    = "SNS:Publish"
-      Resource  = each.value.arn
+      Resource  = aws_sns_topic.ses_inbound[each.key].arn
     }]
   })
 }
