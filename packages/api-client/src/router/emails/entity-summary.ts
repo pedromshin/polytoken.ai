@@ -153,8 +153,16 @@ function toValueSnippet(contentText: string | null): string | null {
  *   yet typed contributes no chip).
  * - Each surviving row becomes its OWN entry, keyed by componentId — entries
  *   are NOT collapsed by type. Two suppliers in one email are two entries.
+ * - Rows sharing a componentId are collapsed to ONE entry (D-24 fan-out
+ *   guard): ConfirmMerge sets was_selected=true on every candidate link in
+ *   the subject's email, so the leftJoin can multiply a component into
+ *   several rows — one per selected link. A component is one FACT and must
+ *   stay one chip. The first row wins; a later duplicate row may only fill
+ *   in a missing entityInstanceId (never overwrite one), so a component
+ *   whose own occurrence link resolved keeps deep-linking to ITS entity, not
+ *   a merge-fanned second entity.
  * - Entries are capped at MAX_ENTITIES_PER_EMAIL, preserving first-appearance
- *   order; `totalCount` reports the true pre-cap count.
+ *   order; `totalCount` reports the true pre-cap count (of FACTS, post-dedupe).
  * - Returns new immutable objects; never mutates the input rows.
  */
 export function aggregateEntitySummary(
@@ -162,6 +170,9 @@ export function aggregateEntitySummary(
   requestedEmailIds: ReadonlyArray<string>,
 ): ReadonlyArray<EmailEntitySummary> {
   const byEmail = new Map<string, EntitySummaryEntry[]>();
+  // (emailId, componentId) -> index into the email's entries, for the D-24
+  // fan-out dedupe (a component joined against N selected links is 1 fact).
+  const entryIndexByComponent = new Map<string, number>();
 
   const ensureEmail = (emailId: string): EntitySummaryEntry[] => {
     let entries = byEmail.get(emailId);
@@ -187,7 +198,27 @@ export function aggregateEntitySummary(
           : undefined,
     };
 
-    ensureEmail(sourceRow.emailId).push(entry);
+    const entries = ensureEmail(sourceRow.emailId);
+    const dedupeKey = `${sourceRow.emailId} ${sourceRow.componentId}`;
+    const existingIndex = entryIndexByComponent.get(dedupeKey);
+    if (existingIndex === undefined) {
+      entryIndexByComponent.set(dedupeKey, entries.length);
+      entries.push(entry);
+      continue;
+    }
+
+    // Duplicate row for a component already emitted (leftJoin multiplicity —
+    // D-24 fan-out). Never emit a second chip; at most FILL a missing
+    // entityInstanceId so the chip gains a deep-link it lacked. An already
+    // resolved id is never overwritten by a later (merge-fanned) row.
+    const existing = entries[existingIndex];
+    if (
+      existing !== undefined &&
+      existing.entityInstanceId === undefined &&
+      entry.entityInstanceId !== undefined
+    ) {
+      entries[existingIndex] = { ...existing, entityInstanceId: entry.entityInstanceId };
+    }
   }
 
   // Emit one row per requested email id, preserving the requested order so the
@@ -272,6 +303,13 @@ export const emailEntitySummaryProcedures = {
           and(
             eq(EntityInstances.id, ComponentEntityCandidateLinks.entityInstanceId),
             eq(EntityInstances.source, "email_extracted"),
+            // D-24 fan-out guard: ConfirmMerge sets was_selected=true on the
+            // subject's whole-email candidate links AND deactivates the
+            // merged-away target. Requiring is_active=true means a chip can
+            // never deep-link to a buried (merged-away) entity; the
+            // aggregation's per-component dedupe below then keeps the
+            // component's own surviving link as the single chip.
+            eq(EntityInstances.isActive, true),
           ),
         )
         .where(

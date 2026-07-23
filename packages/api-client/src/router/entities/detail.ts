@@ -133,6 +133,101 @@ export function aggregateEntityFields(
 }
 
 // ---------------------------------------------------------------------------
+// Pending-suggestion grouping helper — exported for DB-free testing
+// ---------------------------------------------------------------------------
+
+/**
+ * A raw pending-suggestion candidate-link row (region (d) input shape).
+ * Mirrors the columns selected by the byId pendingSuggestions query below.
+ */
+export interface PendingSuggestionRow {
+  readonly linkedEntityId: string | null;
+  readonly linkedDisplayName: string;
+  readonly linkedEntityTypeId: string;
+  readonly linkedEntityTypeLabel: string | null;
+  readonly linkedIdentifiers: unknown;
+  readonly matchType: string | null;
+  /** RES-1 (D-20): true when a human rejected this suggestion. */
+  readonly wasDismissed: boolean;
+  /** false when the candidate was merged away (merged_into set, deactivated). */
+  readonly linkedIsActive: boolean;
+}
+
+/** One grouped pending duplicate suggestion (region (d) output shape). */
+export interface PendingSuggestion {
+  readonly entityInstanceId: string;
+  readonly displayName: string;
+  readonly entityTypeId: string;
+  readonly entityTypeLabel: string | null;
+  readonly keyIdentifiers: Record<string, unknown>;
+  readonly matchTypes: ReadonlyArray<string>;
+  readonly occurrenceCount: number;
+}
+
+/**
+ * groupPendingSuggestions — collapse flat candidate-link rows into one
+ * suggestion per target entity instance.
+ *
+ * RES-1 read-path guarantee (D-20 "never re-surface a dismissed link"):
+ * rows flagged wasDismissed=true — a human clicked REJECT — and rows whose
+ * candidate entity is no longer active (merged away via merged_into) are
+ * excluded HERE as well as in the SQL query that feeds this helper. The
+ * in-helper filter is deliberate defense-in-depth: the user-visible contract
+ * ("a rejected suggestion never comes back") must hold even if a future
+ * query edit drops a WHERE clause.
+ */
+export function groupPendingSuggestions(
+  rows: ReadonlyArray<PendingSuggestionRow>,
+): ReadonlyArray<PendingSuggestion> {
+  const suggestionMap = new Map<
+    string,
+    {
+      displayName: string;
+      entityTypeId: string;
+      entityTypeLabel: string | null;
+      keyIdentifiers: Record<string, unknown>;
+      matchTypes: Set<string>;
+      occurrenceCount: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const eid = row.linkedEntityId;
+    if (!eid) continue;
+    // D-20: dismissed suggestions and merged-away candidates never surface.
+    if (row.wasDismissed) continue;
+    if (!row.linkedIsActive) continue;
+    let suggestion = suggestionMap.get(eid);
+    if (suggestion === undefined) {
+      suggestion = {
+        displayName: row.linkedDisplayName,
+        entityTypeId: row.linkedEntityTypeId,
+        entityTypeLabel: row.linkedEntityTypeLabel ?? null,
+        keyIdentifiers:
+          (row.linkedIdentifiers as Record<string, unknown> | null) ?? {},
+        matchTypes: new Set(),
+        occurrenceCount: 0,
+      };
+      suggestionMap.set(eid, suggestion);
+    }
+    if (row.matchType) {
+      suggestion.matchTypes.add(row.matchType);
+    }
+    suggestion.occurrenceCount += 1;
+  }
+
+  return [...suggestionMap.entries()].map(([entityInstanceId, s]) => ({
+    entityInstanceId,
+    displayName: s.displayName,
+    entityTypeId: s.entityTypeId,
+    entityTypeLabel: s.entityTypeLabel,
+    keyIdentifiers: { ...s.keyIdentifiers },
+    matchTypes: [...s.matchTypes],
+    occurrenceCount: s.occurrenceCount,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Detail procedure
 // ---------------------------------------------------------------------------
 
@@ -337,17 +432,27 @@ export const entityDetailProcedures = {
       // 5. Region (d) — Pending Duplicate Suggestions (D-18d)
       //    Unselected candidate links for this entity, grouped by their
       //    target entity instance (the suggested duplicate).
+      //
+      //    RES-1 (D-20): wasDismissed=false excludes human-REJECTED
+      //    suggestions — since the W0 fix, RejectMerge durably flags the
+      //    correctly-keyed rows (component_id ∈ subject's email components),
+      //    and this read path is where the dismissal becomes user-visible.
+      //    isActive=true on the candidate join excludes merged-away entities
+      //    (ConfirmMerge deactivates the absorbed duplicate) so a confirmed
+      //    merge cannot keep re-offering its buried target.
       // ------------------------------------------------------------------
       const pendingLinkRows = await ctx.db
         .select({
           entityInstanceId: ComponentEntityCandidateLinks.entityInstanceId,
           similarityScore: ComponentEntityCandidateLinks.similarityScore,
           matchType: ComponentEntityCandidateLinks.matchType,
+          wasDismissed: ComponentEntityCandidateLinks.wasDismissed,
           linkedEntityId: EntityInstances.id,
           linkedDisplayName: EntityInstances.displayName,
           linkedEntityTypeId: EntityInstances.entityTypeId,
           linkedEntityTypeLabel: EntityTypes.label,
           linkedIdentifiers: EntityInstances.identifiers,
+          linkedIsActive: EntityInstances.isActive,
         })
         .from(ComponentEntityCandidateLinks)
         .innerJoin(
@@ -360,6 +465,8 @@ export const entityDetailProcedures = {
           and(
             eq(EntityInstances.id, ComponentEntityCandidateLinks.entityInstanceId),
             ne(EntityInstances.id, input.id),
+            // Merged-away candidates (is_active=false) are not offerable
+            eq(EntityInstances.isActive, true),
           ),
         )
         .leftJoin(EntityTypes, eq(EntityTypes.id, EntityInstances.entityTypeId))
@@ -374,55 +481,14 @@ export const entityDetailProcedures = {
                    LIMIT 1)`,
             ),
             eq(ComponentEntityCandidateLinks.wasSelected, false),
+            // D-20: a human-rejected suggestion never re-surfaces
+            eq(ComponentEntityCandidateLinks.wasDismissed, false),
           ),
         );
 
-      // Group pending suggestions by target entity instance
-      const suggestionMap = new Map<
-        string,
-        {
-          displayName: string;
-          entityTypeId: string;
-          entityTypeLabel: string | null;
-          keyIdentifiers: Record<string, unknown>;
-          matchTypes: Set<string>;
-          occurrenceCount: number;
-        }
-      >();
-
-      for (const row of pendingLinkRows) {
-        const eid = row.linkedEntityId;
-        if (!eid) continue;
-        let suggestion = suggestionMap.get(eid);
-        if (suggestion === undefined) {
-          suggestion = {
-            displayName: row.linkedDisplayName,
-            entityTypeId: row.linkedEntityTypeId,
-            entityTypeLabel: row.linkedEntityTypeLabel ?? null,
-            keyIdentifiers:
-              (row.linkedIdentifiers as Record<string, unknown> | null) ?? {},
-            matchTypes: new Set(),
-            occurrenceCount: 0,
-          };
-          suggestionMap.set(eid, suggestion);
-        }
-        if (row.matchType) {
-          suggestion.matchTypes.add(row.matchType);
-        }
-        suggestion.occurrenceCount += 1;
-      }
-
-      const pendingSuggestions = [...suggestionMap.entries()].map(
-        ([entityInstanceId, s]) => ({
-          entityInstanceId,
-          displayName: s.displayName,
-          entityTypeId: s.entityTypeId,
-          entityTypeLabel: s.entityTypeLabel,
-          keyIdentifiers: { ...s.keyIdentifiers },
-          matchTypes: [...s.matchTypes],
-          occurrenceCount: s.occurrenceCount,
-        }),
-      );
+      // Group by target entity instance; the helper re-applies the
+      // dismissed/inactive exclusions (defense-in-depth, unit-testable).
+      const pendingSuggestions = groupPendingSuggestions(pendingLinkRows);
 
       // ------------------------------------------------------------------
       // 6. wasMerged — true when this entity is the SURVIVOR of a merge

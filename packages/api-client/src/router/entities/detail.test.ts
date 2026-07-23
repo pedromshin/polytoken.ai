@@ -1,8 +1,9 @@
 /**
- * detail.test.ts — unit tests for the entities.byId pure aggregation helper.
+ * detail.test.ts — unit tests for the entities.byId pure aggregation helpers.
  *
- * DB-free: aggregateEntityFields is an exported pure helper tested without a
- * DB connection (same testability precedent as aggregateEntitySummary).
+ * DB-free: aggregateEntityFields and groupPendingSuggestions are exported
+ * pure helpers tested without a DB connection (same testability precedent as
+ * aggregateEntitySummary).
  *
  * Test plan:
  *   Test 1: aggregateEntityFields — single occurrence, single value: not conflicting.
@@ -12,11 +13,25 @@
  *   Test 4: aggregateEntityFields — multiple fields, only one conflicts.
  *   Test 5: aggregateEntityFields — empty input returns empty array.
  *   Test 6: aggregateEntityFields — does not mutate input (immutability).
+ *
+ *   groupPendingSuggestions (RES-1 read path — D-20 "a rejected suggestion
+ *   never re-surfaces"):
+ *   Test 7:  pending rows group by target entity with match types + counts.
+ *   Test 8:  a dismissed candidate's rows are excluded — after REJECT the
+ *            suggestion list for that candidate is EMPTY (the user-visible
+ *            contract of the reject button).
+ *   Test 9:  a merged-away (inactive) candidate is excluded.
+ *   Test 10: dismissal of one candidate does not hide a different candidate.
  */
 
 import { describe, expect, it } from "vitest";
 
-import { aggregateEntityFields, type FieldOccurrenceRow } from "./detail";
+import {
+  aggregateEntityFields,
+  groupPendingSuggestions,
+  type FieldOccurrenceRow,
+  type PendingSuggestionRow,
+} from "./detail";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -147,5 +162,84 @@ describe("aggregateEntityFields", () => {
     const snapshot = JSON.stringify(rows);
     aggregateEntityFields(rows);
     expect(JSON.stringify(rows)).toBe(snapshot);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// groupPendingSuggestions — RES-1 read path (D-20 reject is user-visible)
+// ---------------------------------------------------------------------------
+
+const CANDIDATE_X = "70000000-0000-0000-0000-0000000000a1";
+const CANDIDATE_Y = "70000000-0000-0000-0000-0000000000b2";
+const TYPE_SUPPLIER = "80000000-0000-0000-0000-000000000001";
+
+function suggestionRow(
+  overrides: Partial<PendingSuggestionRow>,
+): PendingSuggestionRow {
+  return {
+    linkedEntityId: CANDIDATE_X,
+    linkedDisplayName: "Acme Freight",
+    linkedEntityTypeId: TYPE_SUPPLIER,
+    linkedEntityTypeLabel: "Supplier",
+    linkedIdentifiers: { cnpj: "12.345.678/0001-00" },
+    matchType: "name_trgm",
+    wasDismissed: false,
+    linkedIsActive: true,
+    ...overrides,
+  };
+}
+
+describe("groupPendingSuggestions", () => {
+  it("Test 7: groups pending rows by target entity with match types and occurrence counts", () => {
+    const result = groupPendingSuggestions([
+      suggestionRow({ matchType: "name_trgm" }),
+      suggestionRow({ matchType: "embedding" }),
+      suggestionRow({
+        linkedEntityId: CANDIDATE_Y,
+        linkedDisplayName: "ACME FREIGHT LTDA",
+      }),
+    ]);
+
+    expect(result).toHaveLength(2);
+    const x = result.find((s) => s.entityInstanceId === CANDIDATE_X);
+    expect(x?.occurrenceCount).toBe(2);
+    expect([...(x?.matchTypes ?? [])].sort()).toEqual(["embedding", "name_trgm"]);
+    expect(x?.displayName).toBe("Acme Freight");
+    expect(x?.keyIdentifiers).toEqual({ cnpj: "12.345.678/0001-00" });
+  });
+
+  it("Test 8: REJECT regression — a dismissed candidate yields an EMPTY suggestion list", () => {
+    // Before dismiss: the candidate surfaces.
+    const before = groupPendingSuggestions([suggestionRow({})]);
+    expect(before.map((s) => s.entityInstanceId)).toEqual([CANDIDATE_X]);
+
+    // After the human clicks REJECT, RejectMerge flags the same rows
+    // was_dismissed=true. The read layer must now return NOTHING for that
+    // candidate — previously this filter did not exist and the rejected
+    // suggestion re-surfaced forever (user-visible no-op).
+    const after = groupPendingSuggestions([
+      suggestionRow({ wasDismissed: true }),
+      suggestionRow({ wasDismissed: true, matchType: "embedding" }),
+    ]);
+    expect(after).toEqual([]);
+  });
+
+  it("Test 9: a merged-away (inactive) candidate never re-surfaces as pending", () => {
+    const result = groupPendingSuggestions([
+      suggestionRow({ linkedIsActive: false }),
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  it("Test 10: dismissing one candidate does not hide a different pending candidate", () => {
+    const result = groupPendingSuggestions([
+      suggestionRow({ wasDismissed: true }),
+      suggestionRow({
+        linkedEntityId: CANDIDATE_Y,
+        linkedDisplayName: "ACME FREIGHT LTDA",
+      }),
+    ]);
+
+    expect(result.map((s) => s.entityInstanceId)).toEqual([CANDIDATE_Y]);
   });
 });
