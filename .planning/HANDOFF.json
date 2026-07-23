@@ -1,21 +1,40 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-11T00:23:01.774Z",
-  "source": "auto-postool",
-  "partial": true,
+  "timestamp": "2026-07-22T00:00:00.000Z",
+  "source": "planning-tree-reconciliation-2026-07-22",
+  "partial": false,
+  "milestone": "v1.11",
+  "milestone_name": "Research Core & the Capability Spine",
   "phase": null,
   "phase_name": null,
   "phase_dir": null,
   "plan": null,
   "task": null,
   "total_tasks": null,
-  "status": "auto-checkpoint",
-  "completed_tasks": [],
-  "remaining_tasks": [],
-  "blockers": [],
-  "human_actions_pending": [],
-  "decisions": [],
+  "status": "reconciled-snapshot",
+  "completed_tasks": [
+    "Phase 64 (Research, Documents & Mail Rules vertical slice) — built 2026-07-17, absorbed as v1.11's first phase"
+  ],
+  "remaining_tasks": [
+    "Phases 68-72 BUILT-BUT-UNVERIFIED: built 2026-07-20 night-run (BUILD-MARCH-2026-07-20.md; wave commits bd514b3/3601c5e/d92f3b9+ffd2452/6c0f4fa/31220f5, landed via squash-merge 0851cf9); no PLAN/VERIFICATION trail — wiring + GSD verification owed before ticking ROADMAP",
+    "v1.10 carried Phases 62/63 — code swept, pixel-gated on Pedro (D1 taste gate)",
+    "v1.9 live legs still owed (user-only): LIVE-03 OAuth, LIVE-04 real inbound email, CLUS-07 six-leg scenario — runsheet phases/49-live-loop-gate-deploy-oauth-real-email/MORNING-CHECKLIST.md §A → §B.3-6 → §H"
+  ],
+  "blockers": [
+    "SES production-access request still pending AWS approval (sandbox until then)",
+    "Phases 62/63 + all v1.11 visual surfaces blocked on Pedro's pixel review, not on code"
+  ],
+  "human_actions_pending": [
+    "Pedro: pixel-review Phases 62/63 (and the night-run visual surfaces)",
+    "Pedro: execute the v1.9 live legs per MORNING-CHECKLIST.md (§A OAuth → §B.3-6 real email → §H CLUS-07)"
+  ],
+  "decisions": [
+    "Phase 58 human gate resolved 2026-07-15 via D-58-01; ROADMAP checkbox reconciled 2026-07-22",
+    "Phases 68-72 recorded as built-but-unverified rather than ticked — verification is first-class v1.11 work",
+    "Terraform drift codification (polytoken-ses-forwarder Lambda + personal-forward SES receipt rule) in flight on sibling branch claude/polytoken-email-infra-cont-jzz1pg",
+    "Deferred reorgs (recorded, not started): night-run/ docs-vs-runtime-scripts split; folding version-scoped research/ dirs into milestone archives"
+  ],
   "uncommitted_files": [],
-  "next_action": null,
-  "context_notes": ""
+  "next_action": "Wire + verify Phases 68-72 (deep_research ChatProvider DI; mail-rule actions into the email path), then per-phase GSD verification",
+  "context_notes": "Snapshot written by the 2026-07-22 GSD planning-tree reconciliation (ground truth: .planning/research/2026-07-22-META-AUDIT.md §1-2). STATE.md history rotated to milestones/STATE-HISTORY-through-v1.11-2026-07-22.md. debug/chat-blank-pane.md resolved (999.22 .next collision, closed by construction in 61-01)."
 }

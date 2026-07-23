@@ -54,8 +54,6 @@ packages/api-client/dist/
 apps/web/test-results/
 apps/web/playwright-report/
 
-.env*
-
 # Claude Code personal overrides
 .claude/settings.local.json
 apps/email-listener/listener-*.log
@@ -65,7 +63,8 @@ apps/email-listener/listener-*.log
 .planning/night-run/resume-log.txt
 
 # GSD plugin, vendored locally for this session (not a real /plugin install)
-.claude/skills/
+.claude/skills/*
+!.claude/skills/polytoken-design-system/
 .claude/agents/
 .claude/gsd-support/
 
@@ -74,3 +73,9 @@ apps/daemon/\\tmp\\daemon-tools-*
 
 # UI review captures — contain signed-in app state (docs/RUN-LOCAL + CLAUDE.md say gitignored; the rule was missing)
 .planning/ui-reviews/
+
+# Planning build artifacts & runtime files (untracked 2026-07-22)
+.planning/graphs/graph.json
+.planning/graphs/.last-build-snapshot.json
+.planning/night-run/HEARTBEAT
+.planning/.pending-auth-captures.jsonl
