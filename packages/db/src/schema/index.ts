@@ -42,3 +42,6 @@ export * from "./references";
 export * from "./desktop-sessions";
 export * from "./spreadsheets";
 export * from "./file-versions";
+export * from "./workspaces";
+export * from "./workspace-members";
+export * from "./resource-shares";
