@@ -24,8 +24,8 @@
 | 1 | Gap docs (hygiene audit, USER-STORIES, snappiness plan) + W0 fixes (ING-1..6+CVE, RES-1..4, RPR-1/REG-1/3, UI-1..3) + 2-skeptic verify | **RUNNING** |
 | 2 | Merge B1 → W1: eval harness E1–E6, ST-04 error surfacing, KG-2/3/8, cost-opt deliverable, snappiness execution, codebase-hygiene mechanical splits, Supabase drift check doc, terraform IMPORT-RUNBOOK (imports only, never apply first), dev tooling (.mcp.json; settings.json handed to Pedro) | pending |
 | 3 | W2 AI spine: AI-01..06 (ingest-time resolution, capability 4-way projection, agent canvas mutation, send-to-chat/canvas, omnibox, graph memory) | pending |
-| 4 | W3 canvas+viz: CI-01..07, TM-01..03, EN-01→CV-03 spreadsheet wiring, UX-pattern catalog | pending |
-| 5 | W4 drive+home: DR-01..05, CH-01, TM-04, HM-01/02, OneDrive migration design doc + import tooling | pending |
+| 4 | W3 canvas+viz: CI-01..07, TM-01..03, EN-01→CV-03 spreadsheet wiring, UX-pattern catalog, **+ phase 62 redesign surfaces (gate waived)** | pending |
+| 5 | W4 drive+home: DR-01..05, CH-01, TM-04, HM-01/02, OneDrive migration design doc + import tooling, **+ phase 63 research-canvas visuals (gate waived)** | pending |
 | 6 | W5 multiuser/teams: workspace/membership/RBAC + sharing | pending |
 | 7 | W6 ventures: DX-01 + distributed-inference Phase 0, DX-03 desktop live-cost plan, business execution docs; final sweep + full-program verification + COMPLETE | pending |
 
@@ -36,9 +36,14 @@
 4. `needs_review` items: main loop inspects diff + verdicts, fixes forward or re-dispatches one repair agent.
 5. Update this file; PushNotification at each batch boundary.
 
-## Hard gates (park, never bypass)
-- Classifier: prod DB, email content/S3 objects, Lambda env vars, self-authored settings.json permissions → hand to Pedro.
-- Pixel gates: phases 62–63 visual redesigns → Pedro's eyes.
+## Permissions grant (Pedro, 2026-07-23, this session)
+- FULL permission to manage prod/staging/local systems (AWS, Supabase, Vercel, etc.).
+- May wipe/reseed prod/staging/local DBs — system is fully under development.
+- **Pixel gates 62–63 WAIVED**: build all visual/redesign surfaces at full speed; Pedro verifies manually later. Fold 62–63 work into Batches 4–5.
+- Safety envelope (self-imposed, always): backup before anything irreversible; nothing cost-compounding (no fleet spin-ups, no bulk storage migrations, no deleting sole copies); account-level settings (billing, domains, auth providers) untouched.
+
+## Hard gates (still parked — classifier sits above user grants)
+- Classifier blocks regardless of permission: prod-DB psql connections, email CONTENT / S3 email objects, Lambda env vars, self-authored settings.json permissions → hand to Pedro.
 - External: AWS SES prod-access approval; kaszek-os-dev repo (needs add_repo).
 
 ## Completion criterion
