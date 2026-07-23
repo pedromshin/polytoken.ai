@@ -344,6 +344,13 @@
       "when": 1784900000000,
       "tag": "0048_secure_rls_chat_telemetry",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1784900100000,
+      "tag": "0049_generalize_entity_types",
+      "breakpoints": true
     }
   ]
 }
