@@ -223,6 +223,18 @@ describe("pure mappers — correct typed ref per kind", () => {
     ).toEqual({ nodeType: "file", data: { path: [], name: "notes.txt" } });
   });
 
+  it("email_thread -> BOTH rails: an email_thread sourceRef AND an email-thread node", () => {
+    const thread = { kind: "email_thread", threadId: "11111111-1111-1111-1111-111111111111", label: "Re: Invoice" } as const;
+    expect(objectToSourceRef(thread)).toEqual({
+      type: "email_thread",
+      threadId: "11111111-1111-1111-1111-111111111111",
+    });
+    expect(objectToCanvasNode(thread)).toEqual({
+      nodeType: "email-thread",
+      data: { threadId: "11111111-1111-1111-1111-111111111111", label: "Re: Invoice" },
+    });
+  });
+
   it("supportsChannel gates per kind", () => {
     expect(supportsChannel("knowledge_node", "chat")).toBe(true);
     expect(supportsChannel("knowledge_node", "canvas")).toBe(true);
@@ -230,6 +242,8 @@ describe("pure mappers — correct typed ref per kind", () => {
     expect(supportsChannel("document", "canvas")).toBe(true);
     expect(supportsChannel("vault_file", "chat")).toBe(true);
     expect(supportsChannel("vault_file", "canvas")).toBe(true);
+    expect(supportsChannel("email_thread", "chat")).toBe(true);
+    expect(supportsChannel("email_thread", "canvas")).toBe(true);
   });
 
   it("truncates an over-long canvas label to the node.data cap (knowledge = 80)", () => {

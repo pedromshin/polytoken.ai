@@ -66,7 +66,11 @@ export type SendableObject =
       readonly path: readonly string[];
       readonly name: string;
       readonly label?: string;
-    };
+    }
+  // An email thread attached as chat context (or a canvas node). Addressed by
+  // its thread uuid; the server resolves the thread's emails against
+  // ctx.user.id at read time and injects their bodies as linked context.
+  | { readonly kind: "email_thread"; readonly threadId: string; readonly label?: string };
 
 export type SendableKind = SendableObject["kind"];
 export type SendChannel = "chat" | "canvas";
@@ -82,6 +86,7 @@ export type CanvasNodeSpec = Pick<AddCanvasNodeInput, "nodeType" | "data">;
 const KNOWLEDGE_PREVIEW_LABEL_MAX = 80;
 const DOCUMENT_LABEL_MAX = 120;
 const FILE_LABEL_MAX = 120;
+const EMAIL_THREAD_LABEL_MAX = 120;
 
 function truncate(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
@@ -99,6 +104,8 @@ export function objectToSourceRef(object: SendableObject): ContextEdgeSourceRef 
       return null;
     case "vault_file":
       return { type: "vault_file", path: [...object.path], name: object.name };
+    case "email_thread":
+      return { type: "email_thread", threadId: object.threadId };
   }
 }
 
@@ -141,6 +148,16 @@ export function objectToCanvasNode(object: SendableObject): CanvasNodeSpec | nul
             : {}),
         },
       };
+    case "email_thread":
+      return {
+        nodeType: "email-thread",
+        data: {
+          threadId: object.threadId,
+          ...(object.label !== undefined
+            ? { label: truncate(object.label, EMAIL_THREAD_LABEL_MAX) }
+            : {}),
+        },
+      };
   }
 }
 
@@ -151,7 +168,9 @@ export function supportsChannel(kind: SendableKind, channel: SendChannel): boole
       ? { kind: "knowledge_node", nodeId: "" }
       : kind === "document"
         ? { kind: "document", documentId: "" }
-        : { kind: "vault_file", path: [], name: "" };
+        : kind === "email_thread"
+          ? { kind: "email_thread", threadId: "" }
+          : { kind: "vault_file", path: [], name: "" };
   return channel === "chat"
     ? objectToSourceRef(probe) !== null
     : objectToCanvasNode(probe) !== null;

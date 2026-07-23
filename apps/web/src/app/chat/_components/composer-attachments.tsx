@@ -36,7 +36,7 @@
 import * as React from "react";
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { File as FileIcon, Paperclip, Upload, X } from "lucide-react";
+import { File as FileIcon, Mail, Paperclip, Upload, X } from "lucide-react";
 
 import { cn } from "@polytoken/ui";
 import { Button } from "@polytoken/ui/button";
@@ -74,6 +74,21 @@ export function asVaultFileRef(sourceRef: unknown): VaultFileRef | null {
   return { type: "vault_file", path, name: ref.name };
 }
 
+/** An `email_thread` sourceRef on a context-edge row (jsonb → narrowed). */
+interface EmailThreadRef {
+  readonly type: "email_thread";
+  readonly threadId: string;
+}
+
+/** Narrows an untrusted context-edge `sourceRef` to an email_thread ref, or null. */
+export function asEmailThreadRef(sourceRef: unknown): EmailThreadRef | null {
+  if (typeof sourceRef !== "object" || sourceRef === null) return null;
+  const ref = sourceRef as Record<string, unknown>;
+  if (ref.type !== "email_thread") return null;
+  if (typeof ref.threadId !== "string" || ref.threadId.length === 0) return null;
+  return { type: "email_thread", threadId: ref.threadId };
+}
+
 export interface ComposerAttachmentsProps {
   /** The open conversation the attachment becomes context for. Caller-owned. */
   readonly conversationId: string;
@@ -109,9 +124,34 @@ export function ComposerAttachments({
     { enabled: vaultOpen },
   );
 
+  // Inbox threads, fetched only when the attach menu is opened.
+  const threadsQuery = api.emails.listThreads.useQuery(
+    { limit: 50 },
+    { enabled: vaultOpen },
+  );
+
   const attachedFiles = (edgesQuery.data ?? [])
     .map((edge) => ({ edgeId: edge.id, ref: asVaultFileRef(edge.sourceRef) }))
     .filter((x): x is { edgeId: string; ref: VaultFileRef } => x.ref !== null);
+
+  // Subjects for attached threads, resolved from the (cached) thread list so a
+  // chip reads its subject rather than a bare uuid.
+  const threadSubjects = new Map(
+    (threadsQuery.data?.items ?? [])
+      .filter((t): t is typeof t & { threadId: string } => t.threadId !== null)
+      .map((t) => [t.threadId, t.subject ?? "(no subject)"] as const),
+  );
+
+  const attachedThreads = (edgesQuery.data ?? [])
+    .map((edge) => ({ edgeId: edge.id, ref: asEmailThreadRef(edge.sourceRef) }))
+    .filter((x): x is { edgeId: string; ref: EmailThreadRef } => x.ref !== null);
+
+  const attachEmailThread = useCallback(
+    (threadId: string, subject: string): void => {
+      sendToChat({ kind: "email_thread", threadId, label: subject }, conversationId);
+    },
+    [conversationId, sendToChat],
+  );
 
   const attachVaultFile = useCallback(
     (path: readonly string[], name: string): void => {
@@ -174,9 +214,9 @@ export function ComposerAttachments({
 
   return (
     <div className="flex flex-col gap-2">
-      {attachedFiles.length > 0 ? (
+      {attachedFiles.length > 0 || attachedThreads.length > 0 ? (
         <ul
-          aria-label="Attached files"
+          aria-label="Attached context"
           className="flex flex-wrap gap-1.5"
         >
           {attachedFiles.map(({ edgeId, ref }) => (
@@ -197,6 +237,27 @@ export function ComposerAttachments({
               </button>
             </li>
           ))}
+          {attachedThreads.map(({ edgeId, ref }) => {
+            const subject = threadSubjects.get(ref.threadId) ?? "Email thread";
+            return (
+              <li
+                key={edgeId}
+                className="flex items-center gap-1.5 rounded-sm border border-hair bg-leaf px-2 py-1 text-2xs text-ink"
+              >
+                <Mail className="size-3 shrink-0 text-faded" aria-hidden />
+                <span className="max-w-[12rem] truncate">{subject}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove email thread ${subject}`}
+                  disabled={disabled}
+                  className="flex size-4 shrink-0 items-center justify-center rounded-sm text-pencil transition-colors hover:bg-ink-08 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1 disabled:opacity-50"
+                  onClick={() => removeEdge.mutate({ edgeId })}
+                >
+                  <X className="size-3" aria-hidden />
+                </button>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 
@@ -216,7 +277,7 @@ export function ComposerAttachments({
             variant="ghost"
             size="icon"
             disabled={busy}
-            aria-label="Attach a file"
+            aria-label="Add context"
             className={cn(
               "size-9 shrink-0 self-start text-pencil shadow-none hover:bg-ink-08 hover:text-ink",
               "focus-visible:ring-2 focus-visible:ring-ink focus-visible:ring-offset-1",
@@ -226,7 +287,7 @@ export function ComposerAttachments({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
-          <DropdownMenuLabel>Attach a file</DropdownMenuLabel>
+          <DropdownMenuLabel>Add context</DropdownMenuLabel>
           <DropdownMenuItem
             onSelect={() => fileInputRef.current?.click()}
             disabled={busy}
@@ -234,6 +295,34 @@ export function ComposerAttachments({
             <Upload className="size-4" aria-hidden />
             Upload from device
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-2xs font-normal text-faded">
+            From your inbox
+          </DropdownMenuLabel>
+          {threadsQuery.isPending ? (
+            <DropdownMenuItem disabled>Loading threads…</DropdownMenuItem>
+          ) : threadsQuery.isError ? (
+            <DropdownMenuItem disabled>Couldn&apos;t reach your inbox</DropdownMenuItem>
+          ) : (
+            (() => {
+              const threads = (threadsQuery.data?.items ?? []).filter(
+                (t): t is typeof t & { threadId: string } => t.threadId !== null,
+              );
+              if (threads.length === 0) {
+                return <DropdownMenuItem disabled>No email threads yet</DropdownMenuItem>;
+              }
+              return threads.slice(0, 20).map((t) => (
+                <DropdownMenuItem
+                  key={t.threadId}
+                  disabled={busy}
+                  onSelect={() => attachEmailThread(t.threadId, t.subject ?? "(no subject)")}
+                >
+                  <Mail className="size-4 shrink-0 text-faded" aria-hidden />
+                  <span className="truncate">{t.subject ?? "(no subject)"}</span>
+                </DropdownMenuItem>
+              ));
+            })()
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="text-2xs font-normal text-faded">
             From your vault

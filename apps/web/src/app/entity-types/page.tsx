@@ -98,7 +98,7 @@ function CreateTypeDialog({
               id="new-type-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="Bill of Lading"
+              placeholder="Invoice"
               aria-invalid={errors.label !== undefined}
             />
             {errors.label !== undefined && (
@@ -112,7 +112,7 @@ function CreateTypeDialog({
               id="new-type-slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
-              placeholder="bill_of_lading"
+              placeholder="invoice"
               aria-invalid={errors.slug !== undefined}
             />
             {errors.slug !== undefined && (
@@ -141,8 +141,10 @@ function CreateTypeDialog({
 // ---------------------------------------------------------------------------
 
 export default function EntityTypesPage(): React.ReactElement {
+  // Active-only by default: deactivated system types (e.g. the retired
+  // maritime defaults) stay recoverable in the DB but out of the catalog view.
   const { data, isLoading, isError, error } =
-    api.entityTypes.list.useQuery({ includeInactive: true });
+    api.entityTypes.list.useQuery({ includeInactive: false });
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
