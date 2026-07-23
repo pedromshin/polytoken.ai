@@ -4,6 +4,39 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
+## Status: RUNNING — Batch 6 (W5 multiuser/teams) + TM-04 tail
+
+Batch 5 (W4) DONE 2026-07-23T09:xxZ (a395f1a pushed). files-chat (DR-03 file node
++ CH-01 attachments + vault_file context edge — I hardened segment validation to
+full vault-chokepoint parity + capped ref size), home (HM-01/02 — I fixed a latent
+ON CONFLICT prepared-stmt footgun + closed a CHECK 3-valued-logic gap, schema/
+migration/snapshot kept consistent), drive-ops (DR-01/02/04 + OneDrive design doc —
+I added a move-into-own-subtree guard + fixed a dead move-dialog error branch).
+CRITICAL MERGE FIX: home's 0046_snapshot was missing file_versions (forked before
+drive's 0045) → a future drizzle-kit generate would recreate the table. I rebuilt
+_journal.json to contiguous 0..46 and patched 0046_snapshot (+file_versions table
++file_version_state enum, prevId→0045); `drizzle-kit generate` now reports no
+changes. Integrated green: web 1605, api-client 709, db 48, all tsc clean.
+
+MIGRATION LESSON (carry forward): parallel lanes each add a migration off the same
+base → their snapshots are each "base + own change" and the LATEST snapshot loses
+siblings' tables. After merging N migration lanes: rebuild _journal.json contiguous
++ chain prevIds + union each later snapshot with earlier siblings' new tables/enums,
+then `drizzle-kit generate` (dummy POSTGRES_URL) must say "no changes". Sequence
+migration numbers across lanes up front (done: 0045 drive, 0046 home).
+
+## Batch 6 in flight (b6-* worktrees forked a395f1a)
+- b6-teams (W5: workspaces/membership/RBAC + sharing — GREENFIELD, migration 0047;
+  touches many user_id-scoped tables' READ paths to add workspace-scope, so it is
+  the sole schema owner this batch; every existing tenancy test must still pass)
+- b6-tm04 (deferred TM-04 drive circle-pack: consumes files.folderSizeRollup, reuses
+  the merged TM-01 CirclePack primitive + circle-pack node with a drive scope; NO new
+  node type — extends the existing circle-pack scope enum, updates the AI-01 mirror if
+  the enum widens)
+Batch 7 (W6 ventures: distributed-inference Phase 0, remote-desktop live cost,
+business execution) + FINAL full-program verification sweep is the last batch.
+
+## --- historic detail below (superseded) ---
 ## Status: RUNNING — Batch 5 (W4 drive+home)
 
 Batch 4 (W3) DONE 2026-07-23T08:xxZ (792fce1 pushed): CI canvas interactivity
