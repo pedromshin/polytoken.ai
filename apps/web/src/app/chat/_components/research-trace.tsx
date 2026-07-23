@@ -117,6 +117,12 @@ export interface ResearchRun {
   readonly claims: readonly ResearchClaim[];
 }
 
+/** Which citation surface this trace renders. `research` is deep_research's
+ * verified-claims run (default, unchanged); `knowledge_memory` is AI-06's
+ * canon-memory recall — same envelope shape, same 3-tier citation UI, but
+ * `/knowledge` internal links and memory-appropriate labels. */
+export type TraceVariant = "research" | "knowledge_memory";
+
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
 }
@@ -188,6 +194,16 @@ export function safeExternalHref(url: string): string | undefined {
   return /^https?:\/\//i.test(url) ? url : undefined;
 }
 
+/** Same-origin `/knowledge…` deep-links only, fail-closed (AI-06). A canon
+ * memory citation resolves to a real knowledge node on the graph surface; the
+ * ONLY internal path we ever turn into an href is `/knowledge` (optionally
+ * `/knowledge?node=<id>` or `/knowledge/…`). Anything else — including a
+ * protocol-relative `//evil` or a `javascript:` string — renders as plain
+ * text, never a link. */
+export function safeInternalHref(url: string): string | undefined {
+  return /^\/knowledge(?:$|[/?#])/.test(url) ? url : undefined;
+}
+
 /** The compact mark label for a source: its hostname (www-stripped), else a
  * trimmed title, else its envelope id. Our derived vocabulary for the
  * source — chrome by provenance, even though the pmark's own serif rides
@@ -211,6 +227,25 @@ export function sourceMarkLabel(source: ResearchSource): string {
 
 function countLabel(count: number, singular: string, plural: string): string {
   return count === 1 ? `1 ${singular}` : `${count} ${plural}`;
+}
+
+/** Mirrors the Python listener's knowledge_memory tool name — the dispatch key
+ * ToolInvocationResultRow branches on to render a canon-memory recall (AI-06)
+ * through THIS component with internal `/knowledge` citation links. */
+export const KNOWLEDGE_MEMORY_TOOL_NAME = "knowledge_memory";
+
+/** AI-06's one-line collapsed summary — the canon-memory analogue of
+ * `researchSummaryLabel`. Claims are recalled facts; sources are the cited
+ * `/knowledge` nodes. */
+export function memorySummaryLabel(run: ResearchRun): string {
+  if (run.claims.length === 0 && run.sources.length === 0) {
+    return "Agent memory — nothing recalled";
+  }
+  return `Agent memory — ${countLabel(run.claims.length, "fact recalled", "facts recalled")} · ${countLabel(
+    run.sources.length,
+    "source",
+    "sources",
+  )}`;
 }
 
 /** The one-line collapsed summary (RSRCH-04's "one line when done"). */
@@ -256,6 +291,9 @@ export function ResearchActivityRow(): React.ReactElement {
 export interface ResearchTraceRowProps {
   readonly content: string;
   readonly isError: boolean;
+  /** Defaults to `research` (deep_research). AI-06 passes `knowledge_memory`
+   * to render a canon-memory recall through this same component. */
+  readonly variant?: TraceVariant;
 }
 
 const SECTION_LABEL_CLASS =
@@ -371,15 +409,22 @@ function ClaimItem({
  * excerpt is the page's verbatim words (serif + data-evidence). */
 function SourcesPanel({
   sources,
+  hrefFor = (source) => safeExternalHref(source.url),
+  label = "Sources",
 }: {
   readonly sources: readonly ResearchSource[];
+  /** Resolves a source to its href (fail-closed → plain text). Defaults to the
+   * http(s)-only external resolver; AI-06's memory variant passes the
+   * `/knowledge`-only internal resolver so citations link to real nodes. */
+  readonly hrefFor?: (source: ResearchSource) => string | undefined;
+  readonly label?: string;
 }): React.ReactElement {
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <span className={SECTION_LABEL_CLASS}>Sources</span>
+      <span className={SECTION_LABEL_CLASS}>{label}</span>
       <ul className="flex min-w-0 flex-col gap-2">
         {sources.map((source) => {
-          const href = safeExternalHref(source.url);
+          const href = hrefFor(source);
           const title =
             source.title.trim().length > 0
               ? source.title
@@ -430,39 +475,62 @@ function SourcesPanel({
 /** The expanded trace body: the loop's steps, the marked claims, the
  * sources panel — indented behind a quiet rule, subordinate to the answer
  * that follows in the same turn. */
-function ResearchTraceDetail({ run }: { readonly run: ResearchRun }): React.ReactElement {
+function ResearchTraceDetail({
+  run,
+  variant = "research",
+}: {
+  readonly run: ResearchRun;
+  readonly variant?: TraceVariant;
+}): React.ReactElement {
   const sourcesById = new Map(run.sources.map((source) => [source.id, source]));
+  const isMemory = variant === "knowledge_memory";
   return (
     <div className="flex min-w-0 flex-col gap-3 border-l border-rule pl-3">
-      <ol className="flex flex-col gap-1" aria-label="Research steps">
-        <TraceStep icon={ListTree} label="Planned the research" />
-        <TraceStep
-          icon={Globe}
-          label={`Ran web-search rounds — ${countLabel(run.sources.length, "source cited", "sources cited")}`}
-        />
-        <TraceStep
-          icon={ShieldCheck}
-          label={`Adversarial check against sources — ${countLabel(run.claims.length, "claim kept", "claims kept")}`}
-        />
-        {run.aborted ? (
+      {isMemory ? (
+        // AI-06: a canon-memory recall has no research loop to narrate — one
+        // pencil line names its provenance (human-confirmed knowledge graph).
+        <ol className="flex flex-col gap-1" aria-label="Memory steps">
           <TraceStep
-            icon={AlertTriangle}
-            ink
-            label="Stopped early — research budget reached; only verified claims were kept"
+            icon={ListTree}
+            label={`Recalled from your knowledge graph — ${countLabel(
+              run.sources.length,
+              "canon node",
+              "canon nodes",
+            )} (human-confirmed)`}
           />
-        ) : (
-          <TraceStep icon={PenLine} label="Synthesized the report" />
-        )}
-      </ol>
+        </ol>
+      ) : (
+        <ol className="flex flex-col gap-1" aria-label="Research steps">
+          <TraceStep icon={ListTree} label="Planned the research" />
+          <TraceStep
+            icon={Globe}
+            label={`Ran web-search rounds — ${countLabel(run.sources.length, "source cited", "sources cited")}`}
+          />
+          <TraceStep
+            icon={ShieldCheck}
+            label={`Adversarial check against sources — ${countLabel(run.claims.length, "claim kept", "claims kept")}`}
+          />
+          {run.aborted ? (
+            <TraceStep
+              icon={AlertTriangle}
+              ink
+              label="Stopped early — research budget reached; only verified claims were kept"
+            />
+          ) : (
+            <TraceStep icon={PenLine} label="Synthesized the report" />
+          )}
+        </ol>
+      )}
 
       <div className="flex min-w-0 flex-col gap-1.5">
-        <span className={SECTION_LABEL_CLASS}>Verified claims</span>
+        <span className={SECTION_LABEL_CLASS}>{isMemory ? "Recalled facts" : "Verified claims"}</span>
         {run.claims.length === 0 ? (
           // The empty state teaches the next action (taste §4) rather than
           // presenting a bare "0".
           <span className="max-w-prose text-xs text-pencil">
-            No claim survived verification. Try a narrower question, or name
-            the specific fact you need.
+            {isMemory
+              ? "No canon facts matched this conversation yet."
+              : "No claim survived verification. Try a narrower question, or name the specific fact you need."}
           </span>
         ) : (
           <TooltipProvider delayDuration={150}>
@@ -475,7 +543,13 @@ function ResearchTraceDetail({ run }: { readonly run: ResearchRun }): React.Reac
         )}
       </div>
 
-      {run.sources.length > 0 && <SourcesPanel sources={run.sources} />}
+      {run.sources.length > 0 && (
+        <SourcesPanel
+          sources={run.sources}
+          hrefFor={isMemory ? (source) => safeInternalHref(source.url) : undefined}
+          label={isMemory ? "Cited knowledge nodes" : "Sources"}
+        />
+      )}
     </div>
   );
 }
@@ -483,10 +557,12 @@ function ResearchTraceDetail({ run }: { readonly run: ResearchRun }): React.Reac
 export function ResearchTraceRow({
   content,
   isError,
+  variant = "research",
 }: ResearchTraceRowProps): React.ReactElement {
   // Hooks before any early return (rules of hooks) — the collapsed/expanded
   // state exists even for the error/degraded branches that never use it.
   const [expanded, setExpanded] = useState(false);
+  const isMemory = variant === "knowledge_memory";
 
   if (isError) {
     // A state, so it speaks in ink, never madder — the triangle carries the
@@ -494,7 +570,11 @@ export function ResearchTraceRow({
     return (
       <div role="alert" className="flex items-center gap-1.5 text-xs text-ink">
         <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-        <span>Couldn&apos;t complete the deep research.</span>
+        <span>
+          {isMemory
+            ? "Couldn't recall from your knowledge graph."
+            : "Couldn't complete the deep research."}
+        </span>
       </div>
     );
   }
@@ -505,7 +585,7 @@ export function ResearchTraceRow({
     // render the raw string (T-39-04's discipline).
     return (
       <div className="flex items-center gap-1.5 text-xs text-pencil">
-        <span>Ran deep research — details unavailable.</span>
+        <span>{isMemory ? "Recalled agent memory — details unavailable." : "Ran deep research — details unavailable."}</span>
       </div>
     );
   }
@@ -525,9 +605,9 @@ export function ResearchTraceRow({
           className={cn("size-3.5 shrink-0 transition-transform", expanded && "rotate-90")}
           aria-hidden
         />
-        <span>{researchSummaryLabel(run)}</span>
+        <span>{isMemory ? memorySummaryLabel(run) : researchSummaryLabel(run)}</span>
       </button>
-      {expanded && <ResearchTraceDetail run={run} />}
+      {expanded && <ResearchTraceDetail run={run} variant={variant} />}
     </div>
   );
 }

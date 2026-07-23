@@ -88,6 +88,10 @@ from app.application.use_cases.chat.cluster_context import (
     _extract_panel_titles,
     system_prompt_with_cluster_context,
 )
+from app.application.use_cases.chat.knowledge_memory import (
+    KnowledgeMemoryInjection,
+    build_knowledge_memory_injection,
+)
 from app.application.use_cases.chat.linked_context import (
     _LINKED_CONTEXT_EMAIL_LIMIT,
     _MAX_CONTEXT_EDGES_RESOLVED,
@@ -189,6 +193,7 @@ __all__ = [
     "_TITLE_SNIPPET_MAX_LEN",
     "_TOOL_RESULT_HARDENING_LINE",
     "_WEB_SEARCH_TOOL_NAME",
+    "KnowledgeMemoryInjection",
     "RunChatTurn",
     "_TurnState",
     "_accumulated_text_for_estimate",
@@ -206,6 +211,7 @@ __all__ = [
     "_system_prompt_for",
     "_title_snippet",
     "_trim_history_to_budget",
+    "build_knowledge_memory_injection",
 ]
 
 # SEAM-04: one agent, one run per turn today.
@@ -299,6 +305,27 @@ class _MidStreamTerminalError(Exception):
         super().__init__(status)
         self.status = status
         self.state = state
+
+
+def _latest_user_text(history: Sequence[ChatMessage]) -> str:
+    """Concatenated text of the most-recent user message in history, or "" (AI-06).
+
+    The entity-profile arm of the canon-memory retrieval keys its lexical
+    search off the current user's words. `run()` already appends the live user
+    turn to `history`, so the newest user message is the current one; on
+    regenerate/continue-after-widget (user_text="") this recovers the query
+    from the user turn that preceded the assistant turn being (re)generated.
+    Pure, deterministic, no I/O.
+    """
+    for message in reversed(list(history)):
+        if message.role != "user":
+            continue
+        text = " ".join(
+            str(part.get("text", "")) for part in message.parts if part.get("type") == "text"
+        ).strip()
+        if text:
+            return text
+    return ""
 
 
 class RunChatTurn:
@@ -640,6 +667,23 @@ class RunChatTurn:
             email_repository=self._email_repository,
         )
 
+    async def _system_prompt_with_knowledge_memory(
+        self, *, base_system_prompt: str, importer_id: str, query_text: str
+    ) -> KnowledgeMemoryInjection:
+        """Thin delegator to chat/knowledge_memory.py (AI-06) with this instance's collaborators.
+
+        Reuses the SAME `self._knowledge_graph` collaborator the cluster/linked
+        pipelines already use — no new wiring. Returns both the (possibly
+        augmented) prompt and a citation part; the caller seeds the part as the
+        turn's leading message part so it renders through research-trace.
+        """
+        return await build_knowledge_memory_injection(
+            base_system_prompt=base_system_prompt,
+            knowledge_graph=self._knowledge_graph,
+            importer_id=importer_id,
+            query_text=query_text,
+        )
+
     async def _execute_turn(
         self,
         *,
@@ -695,6 +739,25 @@ class RunChatTurn:
             conversation_id=conversation_id,
             importer_id=importer_id,
         )
+        # AI-06 (agent memory over the knowledge graph): a THIRD, INDEPENDENT
+        # fail-open injection -- recalls the importer's CANON (EXTRACTED-tier,
+        # human-confirmed) knowledge edges + relevant entity-profile nodes into
+        # the system prompt via the single sanctioned auto-injection gate
+        # (list_injectable_edges), and returns a research-trace-shaped citation
+        # part linking each recall back to its /knowledge node. READ-ONLY and
+        # canon-only: a suggested/AMBIGUOUS/inactive edge can never reach the
+        # prompt (any write-back is the separate suggest-only propose_suggested_edge
+        # seam, never auto-invoked here). Unwired knowledge_graph / no canon /
+        # any read failure leaves the prompt untouched and the part None. The
+        # query for the entity-profile arm is this turn's user text, falling
+        # back to the latest user message when regenerating (user_text="").
+        memory_query = user_text.strip() or _latest_user_text(history)
+        memory_injection = await self._system_prompt_with_knowledge_memory(
+            base_system_prompt=system_prompt,
+            importer_id=importer_id,
+            query_text=memory_query,
+        )
+        system_prompt = memory_injection.augmented_prompt
 
         # The FINAL allowed stream (round_count == _MAX_TOOL_ROUNDS) is offered
         # NO server tools — combined with the FINAL_ROUND_NUDGE_TEXT appended
@@ -706,7 +769,16 @@ class RunChatTurn:
         # capped with no answer).
         final_round_tools = tuple(t for t in tools if t.get("name") not in self._server_tool_names)
 
-        state = _TurnState()
+        # AI-06: seed the canon-memory citation part as the turn's LEADING part
+        # (mirrors deep_research's persisted tool_invocation_result part shape)
+        # so it renders through the existing research-trace component. None when
+        # there is nothing canon to cite -> _TurnState() is byte-identical to
+        # before (every existing test/caller unaffected). This part is not sent
+        # to the provider THIS turn (provider_messages is built from prior
+        # history, not the live state); next turn it replays as an inert text
+        # stand-in like any other tool_invocation_result part.
+        initial_parts = (memory_injection.citation_part,) if memory_injection.citation_part else ()
+        state = _TurnState(parts=initial_parts)
         round_count = 0
         # Phase 34-03 (LOOP-01): a round is one "stream -> [server tool call ->
         # execute -> feed result back]" cycle, all inside this SAME run/state —

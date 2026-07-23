@@ -600,8 +600,18 @@ async def test_knowledge_node_resolution_never_calls_list_injectable_edges() -> 
     async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="Hi", model_id=_TEST_MODEL.id):
         pass
 
+    # Linked-context knowledge_node resolution goes through the tier-agnostic
+    # DIRECT read (get_node_by_id) — D-56-A — and node-1 is the only node it
+    # resolves here (AI-06's canon retrieval finds no canon edges in this fake,
+    # so it adds no get_node_by_id calls of its own).
     assert knowledge_graph.get_node_by_id_calls == ["node-1"]
-    assert knowledge_graph.list_injectable_edges_calls == []
+    # AI-06 (agent memory) now consults the sanctioned auto-injection gate
+    # (list_injectable_edges) once per turn as its CANON-edge source — a
+    # DIFFERENT pipeline from linked-context resolution above. Its presence
+    # here proves the two pipelines are independent: linked-context resolved
+    # node-1 via get_node_by_id (never via the allowlist), while the single
+    # allowlist call belongs to AI-06's canon gate, not to node resolution.
+    assert knowledge_graph.list_injectable_edges_calls == [_IMPORTER_ID]
 
 
 # ---------------------------------------------------------------------------

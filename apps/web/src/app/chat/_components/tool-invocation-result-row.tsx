@@ -52,7 +52,11 @@ import { AlertTriangle } from "lucide-react";
 
 import { ProvenanceLink, type ProvenanceKind } from "~/components/provenance-link";
 
-import { DEEP_RESEARCH_TOOL_NAME, ResearchTraceRow } from "./research-trace";
+import {
+  DEEP_RESEARCH_TOOL_NAME,
+  KNOWLEDGE_MEMORY_TOOL_NAME,
+  ResearchTraceRow,
+} from "./research-trace";
 
 export interface ToolInvocationResultRowProps {
   readonly toolName: string;
@@ -187,6 +191,12 @@ export function ToolInvocationResultRow({
   // error/degraded discipline (see research-trace.tsx).
   if (toolName === DEEP_RESEARCH_TOOL_NAME) {
     return <ResearchTraceRow content={content} isError={isError} />;
+  }
+  // AI-06: a canon knowledge-graph memory recall reuses the SAME research-trace
+  // component (3-tier pmark citations), only with `/knowledge` internal links
+  // and memory-appropriate labels — never a reinvented citation path.
+  if (toolName === KNOWLEDGE_MEMORY_TOOL_NAME) {
+    return <ResearchTraceRow content={content} isError={isError} variant="knowledge_memory" />;
   }
   const copy = COPY_BY_TOOL_NAME[toolName] ?? FALLBACK_COPY;
 
