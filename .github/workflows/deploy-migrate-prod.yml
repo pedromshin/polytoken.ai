@@ -1,0 +1,59 @@
+name: Migrate prod DB
+
+# Applies pending Drizzle migrations to the PRODUCTION Supabase database.
+# Manual-dispatch only, guarded by a typed confirmation, so it never fires by
+# accident. The DB connection happens on the GitHub runner (which can reach
+# Supabase over the public internet) using a repo secret — the credential lives
+# in GitHub, never in a local checkout.
+#
+# ORDER: run this BEFORE merging to `main` (the app/listener deploys expect the
+# new tables). Run it on the feature branch, confirm success, then merge.
+#
+# ROLLBACK: migrations are additive + forward-only. If a run goes wrong, restore
+# the Supabase backup / PITR point you took immediately before dispatching.
+#
+# Required repo secrets (Settings → Secrets and variables → Actions):
+#   PROD_POSTGRES_URL_NON_POOLING  — the session/direct (port 5432) connection string
+#   PROD_POSTGRES_URL              — same DB (pooled is fine; only NON_POOLING is used)
+#   PROD_SUPABASE_URL              — https://<project-ref>.supabase.co
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type MIGRATE-PROD to proceed'
+        required: true
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard — require typed confirmation
+        if: ${{ github.event.inputs.confirm != 'MIGRATE-PROD' }}
+        run: |
+          echo "::error::Refusing to run: 'confirm' must be exactly MIGRATE-PROD (got '${{ github.event.inputs.confirm }}')."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install workspace deps
+        run: npm ci
+
+      - name: Apply migrations to prod
+        working-directory: packages/db
+        env:
+          # createEnv (client.ts) reads runtimeEnv: process.env, so setting the
+          # vars here is sufficient — no .env.production file required in CI.
+          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
+          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+        run: npx tsx src/migrate.ts
