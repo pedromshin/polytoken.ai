@@ -176,14 +176,22 @@ resource "aws_ses_receipt_rule" "prod" {
 #
 # SES evaluates receipt rules in the rule set's defined `after`-chain order
 # and STOPS at the first match. This rule uses a bare domain as `recipients`
-# (not an exact local-part) so it matches everything that the three
-# exact-match rules above do NOT already claim. Because it is positioned
-# `after = aws_ses_receipt_rule.prod.name` — i.e. LAST in the chain — it can
-# never shadow agent-local@ / agent-staging@ / agent@: SES always tries those
-# three exact matches first and only falls through to this catch-all when
+# (not an exact local-part) so it matches everything that the exact-match
+# rules above do NOT already claim. Because it is positioned LAST in the
+# chain — `after = aws_ses_receipt_rule.personal_forward.name`, i.e. after
+# agent-local → agent-staging → agent-prod → personal-forward — it can never
+# shadow agent-local@ / agent-staging@ / agent@ / pedro@: SES always tries
+# those exact matches first and only falls through to this catch-all when
 # none of them match. Do not reorder this rule ahead of the exact-match
 # rules; doing so would make it swallow all mail for the domain, including
-# the three dedicated addresses.
+# the dedicated addresses.
+#
+# ORDERING NOTE (live drift codified 2026-07): the personal-forward rule
+# (ses-forwarder.tf) sits BETWEEN agent-prod and this catch-all in the live
+# rule set, so this rule's `after` was re-pointed from agent-prod to
+# personal-forward. Live mail routing depends on this order — pedro@ must hit
+# personal-forward (which stops rule-set evaluation) before this rule can
+# claim it. See infrastructure/aws/IMPORT-RUNBOOK.md before changing.
 # ---------------------------------------------------------------------------
 resource "aws_ses_receipt_rule" "forwarding_catchall" {
   name          = "forwarding-catchall"
@@ -191,7 +199,7 @@ resource "aws_ses_receipt_rule" "forwarding_catchall" {
   recipients    = ["magnitudetech.com.br"] # bare domain = catch-all
   enabled       = true
   scan_enabled  = false
-  after         = aws_ses_receipt_rule.prod.name
+  after         = aws_ses_receipt_rule.personal_forward.name
 
   # Routed at the PROD pipeline: the forwarding user's account lives in the
   # prod database (single-operator personal-use seam), matching agent-prod's
