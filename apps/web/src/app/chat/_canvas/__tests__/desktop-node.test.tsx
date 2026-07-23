@@ -33,6 +33,18 @@ vi.mock("@xyflow/react", async () => {
   };
 });
 
+// The footer's live cost ticker reads the owner-scoped `desktop.list` query
+// (the rate + start time never ride node.data — REF-ONLY). Stub it empty so the
+// shell still "fetches nothing" in spirit: an empty list renders the honest
+// "burn —" placeholder and every shell assertion below stays about the shell.
+vi.mock("~/trpc/react", () => ({
+  api: {
+    desktop: {
+      list: { useQuery: () => ({ data: [] as unknown[] }) },
+    },
+  },
+}));
+
 import {
   DESKTOP_PANEL_CAPABILITY_IDS,
   DesktopNode,

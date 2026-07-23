@@ -59,6 +59,7 @@ import { Expand, Monitor, X } from "lucide-react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
+import { DesktopNodeCostTicker } from "./desktop-cost-ticker";
 import type { DesktopNodeData } from "./panel-node-schemas";
 
 export type DesktopNodeType = Node<DesktopNodeData, "desktop">;
@@ -193,11 +194,15 @@ export const DesktopNode = memo(function DesktopNode({
         <p className="text-xs text-faded">{desktopPlaceholderCopy(status)}</p>
       </div>
       <div className="flex h-9 shrink-0 items-center justify-between gap-1 border-t border-hair px-3">
-        {/* SANS state chrome (RFC §5.3): session status + uptime + burn-rate
-            placeholders. The real numbers arrive from the control-plane ledger
-            when the streaming surface lands; today they teach their shape. */}
-        <span className="truncate text-2xs text-faded">
-          {statusLabel} · uptime — · burn —
+        {/* SANS state chrome (RFC §5.3): session status + the LIVE burn. The
+            rate + start time ride the owner-scoped row (never node.data — a
+            layout row is not a money source); the ticker animates the accrued
+            total client-side. A running desktop burns continuously, so the
+            chrome shows the burn rather than hiding it. */}
+        <span className="flex min-w-0 items-center gap-1 truncate text-2xs text-faded">
+          <span className="shrink-0">{statusLabel}</span>
+          <span aria-hidden>·</span>
+          <DesktopNodeCostTicker sessionId={data.sessionId} status={status} />
         </span>
         <span className="shrink-0 text-2xs text-faded">
           via {DESKTOP_PANEL_CAPABILITY_IDS.attach}
