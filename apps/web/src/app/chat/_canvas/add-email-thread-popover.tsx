@@ -33,6 +33,10 @@ import { formatRelativeTime } from "./format-relative-time";
 
 export interface AddEmailThreadPopoverProps {
   readonly onAdd: (threadId: string) => void;
+  /** A monotonically-changing nonce the pane context menu bumps to open this
+   * popover programmatically (CI-01 "Add node ▸ Email thread"); the initial
+   * value never auto-opens. */
+  readonly requestOpenNonce?: number;
 }
 
 type ThreadListItem = RouterOutputs["emails"]["listThreads"]["items"][number];
@@ -73,8 +77,17 @@ function hasThreadId(thread: ThreadListItem): thread is SelectableThread {
  */
 export function AddEmailThreadPopover({
   onAdd,
+  requestOpenNonce,
 }: AddEmailThreadPopoverProps): React.ReactElement {
   const [open, setOpen] = useState(false);
+  // Open when the host bumps the nonce (skip the initial mount value).
+  const lastNonceRef = React.useRef(requestOpenNonce);
+  React.useEffect(() => {
+    if (requestOpenNonce !== undefined && requestOpenNonce !== lastNonceRef.current) {
+      lastNonceRef.current = requestOpenNonce;
+      setOpen(true);
+    }
+  }, [requestOpenNonce]);
   const { data } = api.emails.listThreads.useQuery({});
   const threads: readonly SelectableThread[] = (data?.items ?? []).filter(hasThreadId);
 

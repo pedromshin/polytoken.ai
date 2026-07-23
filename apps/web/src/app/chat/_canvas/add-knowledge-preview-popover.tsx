@@ -41,6 +41,10 @@ const NODE_ID_SCHEMA = z.string().uuid();
 
 export interface AddKnowledgePreviewPopoverProps {
   readonly onAdd: (focusNodeId: string, label: string | undefined) => void;
+  /** A monotonically-changing nonce the pane context menu bumps to open this
+   * popover programmatically (CI-01 "Add node ▸ Knowledge preview"); the
+   * initial value never auto-opens. */
+  readonly requestOpenNonce?: number;
 }
 
 /** Short human label for a knowledge node's origin (list row subtitle). */
@@ -53,8 +57,17 @@ function sourceLabel(source: string | null, scopeRefType: string | null): string
 
 export function AddKnowledgePreviewPopover({
   onAdd,
+  requestOpenNonce,
 }: AddKnowledgePreviewPopoverProps): React.ReactElement {
   const [open, setOpen] = useState(false);
+  // Open when the host bumps the nonce (skip the initial mount value).
+  const lastNonceRef = React.useRef(requestOpenNonce);
+  React.useEffect(() => {
+    if (requestOpenNonce !== undefined && requestOpenNonce !== lastNonceRef.current) {
+      lastNonceRef.current = requestOpenNonce;
+      setOpen(true);
+    }
+  }, [requestOpenNonce]);
   const [nodeIdInput, setNodeIdInput] = useState("");
   const [labelInput, setLabelInput] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);

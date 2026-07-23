@@ -43,24 +43,45 @@
 
 import { X } from "lucide-react";
 
+import { canvasHintItems } from "./canvas-commands";
+
 export const KEYBOARD_HINT_DISMISSED_KEY = "polytoken.chat.canvas-keyboard-hint-dismissed";
 
 interface CanvasKeyboardHintProps {
   readonly onDismiss: () => void;
 }
 
+/**
+ * CanvasKeyboardHint — the dismissible shortcut caption. Its copy is DERIVED
+ * from `canvasHintItems()` (the ONE canvas command table, CI-02) so the hint
+ * can never advertise a binding that isn't actually wired: change the table,
+ * the hint changes with it.
+ */
 export function CanvasKeyboardHint({
   onDismiss,
 }: CanvasKeyboardHintProps): React.ReactElement {
+  const items = canvasHintItems();
   return (
     <div
       role="status"
       aria-live="polite"
-      className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-card border border-rule bg-bright py-1 pl-row-x pr-1"
+      className="absolute bottom-3 left-1/2 flex max-w-[min(90vw,44rem)] -translate-x-1/2 flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-rule bg-bright py-1 pl-row-x pr-1"
     >
-      <p className="text-2xs text-pencil">
-        Use arrow keys to pan, +/- to zoom, Tab to move between panels.
-      </p>
+      {items.map((item) => (
+        <span key={item.label} className="flex items-center gap-1 text-2xs text-pencil">
+          <span className="flex gap-0.5">
+            {item.keys.map((keycap) => (
+              <kbd
+                key={keycap}
+                className="rounded-sm border border-rule px-1 font-sans text-2xs text-ink"
+              >
+                {keycap}
+              </kbd>
+            ))}
+          </span>
+          {item.label}
+        </span>
+      ))}
 
       <button
         type="button"

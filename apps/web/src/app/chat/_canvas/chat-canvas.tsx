@@ -58,6 +58,7 @@ const ReactFlowJSX = ReactFlow as React.ComponentType<ReactFlowProps<FlowNode, F
 
 import { Button } from "@polytoken/ui/button";
 
+import { useSendTo, type SendableObject } from "../../_components/use-send-to";
 import type { MessagePart } from "../_hooks/use-chat-stream";
 import type {
   ChatHistoryRow,
@@ -66,7 +67,22 @@ import type {
 import { AddEmailThreadPopover } from "./add-email-thread-popover";
 import { AddKnowledgePreviewPopover } from "./add-knowledge-preview-popover";
 import { isSourceNode, toggleCanonSelection } from "./canon-selection";
-import { CanonToolbar } from "./canon-toolbar";
+import { SelectionToolbar } from "./selection-toolbar";
+import { matchCommand, type CanvasCommandContext } from "./canvas-commands";
+import {
+  CanvasContextMenu,
+  type CanvasContextMenuHandlers,
+  type CanvasContextTarget,
+} from "./canvas-context-menu";
+import {
+  deletableSelectedIds,
+  duplicateSelectedNodes,
+  pasteNodes,
+  removeNodesById,
+  selectAllNodes,
+  selectedNodes,
+} from "./canvas-selection";
+import { useCanvasHistory } from "./use-canvas-history";
 import { CanvasEmptyState } from "./canvas-empty-state";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
@@ -134,6 +150,50 @@ import {
  * `--edge` at 1.5px, which makes the pair agree in one line.
  */
 const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)" } as const;
+
+/**
+ * PANE_ADDABLE_NODE_TYPES — the node types the pane context menu can actually
+ * materialize today (each has a working picker). The "Add node ▸" submenu is
+ * still GENERATED from the WHOLE `NODE_TYPE_REGISTRY` (CI-01); this set only
+ * decides which generated items are enabled vs. disabled — the full per-type
+ * add-flow unification is CI-04's scope, not this block's.
+ */
+const PANE_ADDABLE_NODE_TYPES: ReadonlySet<string> = new Set([
+  "email-thread",
+  "knowledge-preview",
+]);
+
+/** Node types whose data maps to an AI-04 `SendableObject` (`useSendTo`
+ * supports `knowledge_node` + `document` only) — gates the node context menu's
+ * "Send to chat" verb to kinds that can actually be sent. */
+const SEND_TO_CHAT_NODE_TYPES: ReadonlySet<string> = new Set([
+  "knowledge-preview",
+  "document",
+]);
+
+/** Maps a canvas node to the AI-04 `SendableObject` its data supports, or null
+ * when the kind has no sendable ref. Reads node.data defensively (untrusted at
+ * read time, mirroring canon-selection's posture). */
+function nodeToSendable(node: FlowNode): SendableObject | null {
+  const data = (node.data ?? {}) as Record<string, unknown>;
+  if (node.type === "knowledge-preview") {
+    const nodeId = data.focusNodeId;
+    if (typeof nodeId === "string" && nodeId.length > 0) {
+      return {
+        kind: "knowledge_node",
+        nodeId,
+        ...(typeof data.label === "string" ? { label: data.label } : {}),
+      };
+    }
+  }
+  if (node.type === "document") {
+    const documentId = data.documentId;
+    if (typeof documentId === "string" && documentId.length > 0) {
+      return { kind: "document", documentId };
+    }
+  }
+  return null;
+}
 
 // DRAG_HANDLE_SELECTOR / GENUI_PANEL_CLASS_NAME / toFlowNode MOVED to
 // use-canvas-persistence.ts (61-07) — they now have a second caller
@@ -339,6 +399,40 @@ export function ChatCanvas({
     !persistence.isRestoring,
   );
 
+  // Live refs kept fresh every render so the command handlers (built once,
+  // driven by keydown) always read the CURRENT nodes/edges, never a stale
+  // closure — the same posture use-canvas-history keeps internally.
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const edgesRef = useRef(edges);
+  edgesRef.current = edges;
+
+  // CI-06 undo/redo stack over the node/edge mutation seam. A restored
+  // snapshot persists through the EXISTING debounced save (never a new path).
+  const history = useCanvasHistory({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    onAfterApply: () => persistence.scheduleSave(canvasStore),
+  });
+
+  // In-session clipboard for copy/cut/paste (CI-02) — nodes only, never OS
+  // clipboard. `canPaste` gates the pane menu's Paste item.
+  const clipboardRef = useRef<FlowNode[]>([]);
+  const [canPaste, setCanPaste] = useState(false);
+
+  // CI-01 right-click target — set by React Flow's context-menu callbacks, read
+  // by CanvasContextMenu to pick which of the four menu bodies to render.
+  const [contextTarget, setContextTarget] = useState<CanvasContextTarget | null>(null);
+
+  // Nonces the pane menu bumps to open the per-type add popovers (CI-01).
+  const [emailThreadOpenNonce, setEmailThreadOpenNonce] = useState(0);
+  const [knowledgeOpenNonce, setKnowledgeOpenNonce] = useState(0);
+
+  // AI-04 "Send to chat" rails (reused, not reinvented) for the node menu.
+  const { sendToChat, defaultConversationId } = useSendTo();
+
   // Exposes scheduleSave + conversationId to every editable-panel control
   // (PANL-01..04, 52-01-PLAN.md Task 3) without any panel needing to know
   // about chat.saveCanvasLayout directly — mirrors every other save call
@@ -464,18 +558,31 @@ export function ChatCanvas({
   // Debounced save triggers (D-06): node drag end, edge add/remove, viewport
   // settle. A single trailing timer inside the hook coalesces rapid
   // successive calls into ONE `chat.saveCanvasLayout` mutation.
+  // CI-06: a move is undoable — record the pre-drag positions the moment a
+  // drag actually begins (React Flow fires this only past its drag threshold,
+  // never on a plain click, so this never records a no-op).
+  const handleNodeDragStart = useCallback(() => {
+    history.record("Move");
+  }, [history]);
+
   const handleNodeDragStop = useCallback(() => {
     persistence.scheduleSave(canvasStore);
   }, [persistence, canvasStore]);
 
   const handleEdgesChange = useCallback(
     (changes: EdgeChange<FlowEdge>[]) => {
+      // CI-06: route an edge removal (e.g. cascaded by a node delete change)
+      // through the undo stack — record BEFORE applying, so the snapshot is
+      // the pre-removal edges.
+      if (changes.some((change) => change.type === "remove")) {
+        history.record("Delete edge");
+      }
       onEdgesChange(changes);
       if (changes.some((change) => change.type === "add" || change.type === "remove")) {
         persistence.scheduleSave(canvasStore);
       }
     },
-    [onEdgesChange, persistence, canvasStore],
+    [onEdgesChange, persistence, canvasStore, history],
   );
 
   // RCNV-03: source nodes opt OUT of stock click-selection. Stock React Flow
@@ -500,6 +607,12 @@ export function ChatCanvas({
   // directly at the moment it appends the new node.
   const handleNodesChange = useCallback(
     (changes: NodeChange<FlowNode>[]) => {
+      // CI-06: a node removal from ANY React-Flow-originated path (e.g. a
+      // node card's own remove ×) is undoable — record the pre-removal nodes
+      // BEFORE applying the change.
+      if (changes.some((change) => change.type === "remove")) {
+        history.record("Remove");
+      }
       onNodesChange(
         changes.filter(
           (change) => !(change.type === "select" && sourceNodeIds.has(change.id)),
@@ -509,7 +622,7 @@ export function ChatCanvas({
         persistence.scheduleSave(canvasStore);
       }
     },
-    [onNodesChange, sourceNodeIds, persistence, canvasStore],
+    [onNodesChange, sourceNodeIds, persistence, canvasStore, history],
   );
 
   // RCNV-03: the canon gathering gesture — a plain click on a SOURCE node
@@ -559,13 +672,14 @@ export function ChatCanvas({
         selected: true,
         data: { focusNodeId, ...(label ? { label } : {}) },
       };
+      history.record("Add node");
       setNodes((prev) => [
         ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
         newNode,
       ]);
       persistence.scheduleSave(canvasStore);
     },
-    [nodes, setNodes, persistence, canvasStore],
+    [nodes, setNodes, persistence, canvasStore, history],
   );
 
   // CLUS-01: AddEmailThreadPopover's onAdd — materializes a new email-thread
@@ -595,13 +709,14 @@ export function ChatCanvas({
         selected: true,
         data: { threadId },
       };
+      history.record("Add node");
       setNodes((prev) => [
         ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
         newNode,
       ]);
       persistence.scheduleSave(canvasStore);
     },
-    [nodes, setNodes, persistence, canvasStore],
+    [nodes, setNodes, persistence, canvasStore, history],
   );
 
   const handleMoveEnd = useCallback(
@@ -612,65 +727,290 @@ export function ChatCanvas({
     [persistence, canvasStore],
   );
 
-  const PAN_STEP_PX = 50;
+  // -----------------------------------------------------------------------
+  // CI-02 command operations — the concrete bundle the declared command table
+  // (`canvas-commands.ts`) dispatches into. Each reads the LIVE nodes/edges via
+  // `nodesRef`/`edgesRef` (never a stale closure) and routes structural changes
+  // through the CI-06 undo stack + the existing debounced save.
+  // -----------------------------------------------------------------------
+
+  const nodeIdFactory = useCallback(
+    (source: FlowNode) => `${source.type ?? "node"}:${crypto.randomUUID()}`,
+    [],
+  );
+
+  const runSelectAll = useCallback(() => {
+    setNodes((prev) => [...selectAllNodes(prev)]);
+  }, [setNodes]);
+
+  const runDuplicate = useCallback(() => {
+    const result = duplicateSelectedNodes(nodesRef.current, nodeIdFactory);
+    if (result.addedIds.length === 0) return;
+    history.record("Duplicate");
+    setNodes(() => [...result.nodes]);
+    persistence.scheduleSave(canvasStore);
+    setAnnouncement(
+      `Duplicated ${result.addedIds.length} node${result.addedIds.length === 1 ? "" : "s"}`,
+    );
+  }, [nodeIdFactory, history, setNodes, persistence, canvasStore]);
+
+  const runDelete = useCallback(() => {
+    const ids = deletableSelectedIds(nodesRef.current);
+    if (ids.length === 0) return;
+    history.record("Delete");
+    const result = removeNodesById(nodesRef.current, edgesRef.current, ids);
+    setNodes(() => [...result.nodes]);
+    setEdges(() => [...result.edges]);
+    persistence.scheduleSave(canvasStore);
+    setAnnouncement(
+      `Deleted ${result.removedIds.length} node${result.removedIds.length === 1 ? "" : "s"}. Press Cmd+Z to undo.`,
+    );
+  }, [history, setNodes, setEdges, persistence, canvasStore]);
+
+  const runCopy = useCallback(() => {
+    const copyable = selectedNodes(nodesRef.current).filter(
+      (node) => node.type !== "chat",
+    );
+    if (copyable.length === 0) return;
+    clipboardRef.current = copyable.map((node) => ({
+      ...node,
+      data: { ...(node.data ?? {}) },
+    }));
+    setCanPaste(true);
+    setAnnouncement(
+      `Copied ${copyable.length} node${copyable.length === 1 ? "" : "s"}`,
+    );
+  }, []);
+
+  const runPaste = useCallback(() => {
+    const result = pasteNodes(nodesRef.current, clipboardRef.current, nodeIdFactory);
+    if (result.addedIds.length === 0) return;
+    history.record("Paste");
+    setNodes(() => [...result.nodes]);
+    persistence.scheduleSave(canvasStore);
+    setAnnouncement(
+      `Pasted ${result.addedIds.length} node${result.addedIds.length === 1 ? "" : "s"}`,
+    );
+  }, [nodeIdFactory, history, setNodes, persistence, canvasStore]);
+
+  const runCut = useCallback(() => {
+    runCopy();
+    runDelete();
+  }, [runCopy, runDelete]);
+
+  const runUndo = useCallback(() => {
+    const label = history.undo();
+    if (label !== null) setAnnouncement(`Undid ${label}`);
+  }, [history]);
+
+  const runRedo = useCallback(() => {
+    const label = history.redo();
+    if (label !== null) setAnnouncement(`Redid ${label}`);
+  }, [history]);
+
+  const runFitView = useCallback(() => {
+    const instance = rfInstanceRef.current;
+    if (!instance) return;
+    void instance.fitView({ padding: 0.2, duration: 200 });
+    persistence.scheduleSave(canvasStore);
+  }, [persistence, canvasStore]);
+
+  const commandContext = useMemo<CanvasCommandContext>(
+    () => ({
+      panBy: (dx, dy) => {
+        const instance = rfInstanceRef.current;
+        if (!instance) return;
+        const vp = instance.getViewport();
+        instance.setViewport({ x: vp.x + dx, y: vp.y + dy, zoom: vp.zoom });
+        persistence.scheduleSave(canvasStore);
+      },
+      zoomIn: () => {
+        rfInstanceRef.current?.zoomIn();
+        persistence.scheduleSave(canvasStore);
+      },
+      zoomOut: () => {
+        rfInstanceRef.current?.zoomOut();
+        persistence.scheduleSave(canvasStore);
+      },
+      fitView: runFitView,
+      deselectAll: handlePaneClick,
+      selectAll: runSelectAll,
+      duplicateSelection: runDuplicate,
+      deleteSelection: runDelete,
+      copySelection: runCopy,
+      cutSelection: runCut,
+      paste: runPaste,
+      undo: runUndo,
+      redo: runRedo,
+    }),
+    [
+      persistence,
+      canvasStore,
+      runFitView,
+      handlePaneClick,
+      runSelectAll,
+      runDuplicate,
+      runDelete,
+      runCopy,
+      runCut,
+      runPaste,
+      runUndo,
+      runRedo,
+    ],
+  );
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      // Only handle these keys when the CONTAINER itself has focus — never
-      // when focus is inside a node's composer/form controls (typing "+" or
-      // arrow keys into a message must never hijack pan/zoom). 23-UI-SPEC.md
-      // Accessibility: "When canvas has focus (not inside a specific node)".
+      // Only dispatch when the CONTAINER itself has focus — never when focus is
+      // inside a node's composer/form controls (typing "+", ⌘Z, or arrow keys
+      // into a message must never hijack the canvas). 23-UI-SPEC.md: "When
+      // canvas has focus (not inside a specific node)".
       if (event.target !== event.currentTarget) return;
-      const instance = rfInstanceRef.current;
-      if (!instance) return;
-
-      if (
-        event.key === "ArrowUp" ||
-        event.key === "ArrowDown" ||
-        event.key === "ArrowLeft" ||
-        event.key === "ArrowRight"
-      ) {
-        event.preventDefault();
-        const currentViewport = instance.getViewport();
-        const delta =
-          event.key === "ArrowUp"
-            ? { x: 0, y: PAN_STEP_PX }
-            : event.key === "ArrowDown"
-              ? { x: 0, y: -PAN_STEP_PX }
-              : event.key === "ArrowLeft"
-                ? { x: PAN_STEP_PX, y: 0 }
-                : { x: -PAN_STEP_PX, y: 0 };
-        instance.setViewport({
-          x: currentViewport.x + delta.x,
-          y: currentViewport.y + delta.y,
-          zoom: currentViewport.zoom,
-        });
-        persistence.scheduleSave(canvasStore);
-        return;
-      }
-      if (event.key === "+" || event.key === "=") {
-        event.preventDefault();
-        instance.zoomIn();
-        persistence.scheduleSave(canvasStore);
-        return;
-      }
-      if (event.key === "-") {
-        event.preventDefault();
-        instance.zoomOut();
-        persistence.scheduleSave(canvasStore);
-        return;
-      }
-      if (event.key === "0") {
-        event.preventDefault();
-        void instance.fitView({ padding: 0.2, duration: 200 });
-        persistence.scheduleSave(canvasStore);
-        return;
-      }
-      if (event.key === "Escape") {
-        handlePaneClick();
-      }
+      const command = matchCommand(event);
+      if (command === null) return;
+      event.preventDefault();
+      command.run(commandContext);
     },
-    [handlePaneClick, persistence, canvasStore],
+    [commandContext],
+  );
+
+  // -----------------------------------------------------------------------
+  // CI-01 context menus — React Flow reports WHAT was right-clicked; we store
+  // it as `contextTarget` and CanvasContextMenu renders the matching body.
+  // -----------------------------------------------------------------------
+  const handlePaneContextMenu = useCallback(() => {
+    setContextTarget({ kind: "pane" });
+  }, []);
+  const handleNodeContextMenu = useCallback(
+    (_event: React.MouseEvent, node: FlowNode) => {
+      setContextTarget({ kind: "node", node });
+    },
+    [],
+  );
+  const handleEdgeContextMenu = useCallback(
+    (_event: React.MouseEvent, edge: FlowEdge) => {
+      setContextTarget({ kind: "edge", edge });
+    },
+    [],
+  );
+  const handleSelectionContextMenu = useCallback(
+    (_event: React.MouseEvent, selected: FlowNode[]) => {
+      setContextTarget({ kind: "selection", nodeIds: selected.map((n) => n.id) });
+    },
+    [],
+  );
+
+  const contextMenuHandlers = useMemo<CanvasContextMenuHandlers>(
+    () => ({
+      onAddNode: (nodeType) => {
+        if (nodeType === "email-thread") setEmailThreadOpenNonce((n) => n + 1);
+        else if (nodeType === "knowledge-preview")
+          setKnowledgeOpenNonce((n) => n + 1);
+      },
+      onPaste: runPaste,
+      onFitView: runFitView,
+      onDuplicateNode: (nodeId) => {
+        const source = nodesRef.current.find((n) => n.id === nodeId);
+        if (source === undefined || source.type === "chat") return;
+        history.record("Duplicate");
+        const clone: FlowNode = {
+          ...source,
+          id: nodeIdFactory(source),
+          position: { x: source.position.x + 40, y: source.position.y + 40 },
+          selected: true,
+          data: { ...(source.data ?? {}) },
+        };
+        setNodes((prev) => [
+          ...prev.map((n) => (n.selected ? { ...n, selected: false } : n)),
+          clone,
+        ]);
+        persistence.scheduleSave(canvasStore);
+        setAnnouncement("Duplicated node");
+      },
+      onRemoveNode: (nodeId) => {
+        const target = nodesRef.current.find((n) => n.id === nodeId);
+        if (target === undefined || target.type === "chat") return;
+        history.record("Remove");
+        const result = removeNodesById(
+          nodesRef.current,
+          edgesRef.current,
+          [nodeId],
+        );
+        setNodes(() => [...result.nodes]);
+        setEdges(() => [...result.edges]);
+        persistence.scheduleSave(canvasStore);
+        setAnnouncement("Removed node. Press Cmd+Z to undo.");
+      },
+      onConnectNodes: (sourceId, targetId) => {
+        // Reuse the existing edge-creation picker (create mode) so the field
+        // binding still goes through EdgeCreationPicker — never an auto-wire.
+        setPickerState({
+          mode: "create",
+          source: sourceId,
+          target: targetId,
+          anchor: {
+            x: typeof window !== "undefined" ? window.innerWidth / 2 : 0,
+            y: typeof window !== "undefined" ? window.innerHeight / 2 : 0,
+          },
+        });
+      },
+      onSendNodeToChat: (node) => {
+        const sendable = nodeToSendable(node);
+        if (sendable === null || defaultConversationId === null) return;
+        sendToChat(sendable, defaultConversationId);
+        setAnnouncement("Sent to chat");
+      },
+      isNodeSendableToChat: (node) => SEND_TO_CHAT_NODE_TYPES.has(node.type ?? ""),
+      onEditEdgeLabel: (edge) => {
+        const edgeData = (edge.data ?? {}) as Record<string, unknown>;
+        setPickerState({
+          mode: "edit",
+          edgeId: edge.id,
+          source: edge.source,
+          target: edge.target,
+          initialSourcePath:
+            typeof edgeData.sourcePath === "string" ? edgeData.sourcePath : undefined,
+          initialTargetKey:
+            typeof edgeData.targetKey === "string" ? edgeData.targetKey : undefined,
+          anchor: {
+            x: typeof window !== "undefined" ? window.innerWidth / 2 : 0,
+            y: typeof window !== "undefined" ? window.innerHeight / 2 : 0,
+          },
+        });
+      },
+      onReverseEdge: (edge) => {
+        history.record("Reverse edge");
+        setEdges((prev) =>
+          prev.map((e) =>
+            e.id === edge.id
+              ? { ...e, source: e.target, target: e.source }
+              : e,
+          ),
+        );
+        persistence.scheduleSave(canvasStore);
+      },
+      onDeleteEdge: (edge) => {
+        history.record("Delete edge");
+        setEdges((prev) => prev.filter((e) => e.id !== edge.id));
+        persistence.scheduleSave(canvasStore);
+      },
+      onBulkDuplicate: runDuplicate,
+      onBulkDelete: runDelete,
+    }),
+    [
+      runPaste,
+      runFitView,
+      runDuplicate,
+      runDelete,
+      nodeIdFactory,
+      history,
+      setNodes,
+      setEdges,
+      persistence,
+      canvasStore,
+      sendToChat,
+      defaultConversationId,
+    ],
   );
 
   const handleDismissHint = useCallback(() => {
@@ -691,6 +1031,8 @@ export function ChatCanvas({
   // enters `edges` state until the picker's "Connect fields" confirms.
   // ---------------------------------------------------------------------
   const [pickerState, setPickerState] = useState<PickerState | null>(null);
+  const pickerStateRef = useRef<PickerState | null>(pickerState);
+  pickerStateRef.current = pickerState;
   const pendingConnectionRef = useRef<{ source: string; target: string } | null>(null);
 
   const handleConnect = useCallback((connection: Connection) => {
@@ -728,6 +1070,11 @@ export function ChatCanvas({
 
   const handlePickerConfirm = useCallback(
     (payload: EdgePayload) => {
+      // CI-06: connecting (create) or relabeling (edit) an edge is undoable —
+      // record the pre-change edges before the picker mutates them.
+      history.record(
+        pickerStateRef.current?.mode === "edit" ? "Edit label" : "Connect",
+      );
       setPickerState((current) => {
         if (!current) return null;
         if (current.mode === "create") {
@@ -755,10 +1102,11 @@ export function ChatCanvas({
       });
       persistence.scheduleSave(canvasStore);
     },
-    [setEdges, persistence, canvasStore],
+    [setEdges, persistence, canvasStore, history],
   );
 
   const handlePickerRemove = useCallback(() => {
+    history.record("Delete edge");
     setPickerState((current) => {
       if (current?.edgeId) {
         const edgeId = current.edgeId;
@@ -767,7 +1115,7 @@ export function ChatCanvas({
       return null;
     });
     persistence.scheduleSave(canvasStore);
-  }, [setEdges, persistence, canvasStore]);
+  }, [setEdges, persistence, canvasStore, history]);
 
   // edgesByTarget lookup feeding usePanelData's live subscription overlay
   // (D-09) — recomputed whenever `edges` changes (add/remove/re-pick).
@@ -812,6 +1160,14 @@ export function ChatCanvas({
                 {isEmpty ? (
                   <CanvasEmptyState />
                 ) : (
+                  <CanvasContextMenu
+                    target={contextTarget}
+                    nodes={nodes}
+                    supportedAddTypes={PANE_ADDABLE_NODE_TYPES}
+                    canPaste={canPaste}
+                    handlers={contextMenuHandlers}
+                  >
+                  <div className="h-full w-full">
                   <ReactFlowJSX
                     nodes={nodes}
                     edges={edges}
@@ -820,17 +1176,29 @@ export function ChatCanvas({
                     onNodesChange={handleNodesChange}
                     onEdgesChange={handleEdgesChange}
                     onNodeClick={handleNodeClick}
+                    onNodeDragStart={handleNodeDragStart}
                     onNodeDragStop={handleNodeDragStop}
                     onConnect={handleConnect}
                     onConnectEnd={handleConnectEnd}
                     onMoveEnd={handleMoveEnd}
                     onPaneClick={handlePaneClick}
+                    onPaneContextMenu={handlePaneContextMenu}
+                    onNodeContextMenu={handleNodeContextMenu}
+                    onEdgeContextMenu={handleEdgeContextMenu}
+                    onSelectionContextMenu={handleSelectionContextMenu}
                     onInit={handleInit}
                     defaultViewport={viewport ?? undefined}
                     fitView={!viewport}
                     fitViewOptions={{ padding: 0.2 }}
                     minZoom={0.1}
                     maxZoom={2}
+                    /* CI-02/CI-05 general selection: Shift+drag rubber-band,
+                       ⌘/Ctrl+click additive. Deletion is handled by the command
+                       map (undoable + announced), so React Flow's own delete key
+                       is disabled to avoid a second, non-undoable delete path. */
+                    selectionKeyCode="Shift"
+                    multiSelectionKeyCode={["Meta", "Control"]}
+                    deleteKeyCode={null}
                     proOptions={{ hideAttribution: false }}
                     aria-label="Conversation canvas"
                   >
@@ -894,8 +1262,14 @@ export function ChatCanvas({
                         each segment's hover fill to the card's radius.
                       */}
                       <div className="flex items-center overflow-hidden rounded-card border border-rule bg-bright">
-                        <AddEmailThreadPopover onAdd={handleAddEmailThread} />
-                        <AddKnowledgePreviewPopover onAdd={handleAddKnowledgePreview} />
+                        <AddEmailThreadPopover
+                          onAdd={handleAddEmailThread}
+                          requestOpenNonce={emailThreadOpenNonce}
+                        />
+                        <AddKnowledgePreviewPopover
+                          onAdd={handleAddKnowledgePreview}
+                          requestOpenNonce={knowledgeOpenNonce}
+                        />
                         <Button
                           type="button"
                           variant="ghost"
@@ -910,14 +1284,21 @@ export function ChatCanvas({
                       </div>
                     </Panel>
                   </ReactFlowJSX>
+                  </div>
+                  </CanvasContextMenu>
                 )}
-                {/* RCNV-03: the floating canon curation bar — absolutely
+                {/* CI-05: the general multi-select bulk bar — absolutely
                     positioned inside this relative container, rendered
                     unconditionally (its live region must outlive the
-                    selection; the card inside is selection-gated). */}
-                <CanonToolbar
+                    selection; the card inside is selection-gated). Source-canon
+                    promotion is folded in as a MODE (appears when the selection
+                    holds promotable sources), not a parallel toolbar. */}
+                <SelectionToolbar
                   nodes={nodes}
                   setNodes={setNodes}
+                  onBulkDuplicate={runDuplicate}
+                  onBulkDelete={runDelete}
+                  onClearSelection={handlePaneClick}
                   onPromotionSettled={handlePromotionSettled}
                 />
                 {!hintDismissed && <CanvasKeyboardHint onDismiss={handleDismissHint} />}
