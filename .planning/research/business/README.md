@@ -7,7 +7,17 @@ Context: Pedro is currently solo, evaluating whether to pursue this with more co
 He has experienced VC/PE contacts to talk to, and previously worked in VC as a firm's
 sole engineer — so the material here should be rigorous enough for those conversations.
 
-## Research tracks (each gets its own file as it's done)
+## START HERE — the synthesis
+
+**[`2026-07-23-EXECUTION-ROADMAP.md`](2026-07-23-EXECUTION-ROADMAP.md) is the entry point.** It
+compresses all eight tracks below into a go/no-go decision framework, a 0–3 / 3–6 / 6–12 month
+sequenced plan (incorporation timing, fundability milestones mapped to what the product now does
+post-orchestrator, and when to talk to the VC/PE network), the cost/runway + fund-vs-bootstrap
+call, an explicit "what NOT to do yet" trap list, and the open questions only Pedro can answer.
+The eight tracks are the evidence; the roadmap is the decision. Read the roadmap first, then dive
+into any track it cites.
+
+## Research tracks (the evidence base; each cited by the roadmap)
 
 | File (planned) | Track |
 |---|---|
