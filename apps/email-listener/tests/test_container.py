@@ -29,11 +29,11 @@ from app.infrastructure.raw_email_store_routing import RoutingRawEmailStore
 from app.infrastructure.s3.raw_email_store import S3RawEmailStore
 from app.infrastructure.supabase.attachment_repository import SupabaseAttachmentRepository
 from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentStorage
-from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
 from app.infrastructure.supabase.component_repository import SupabaseComponentRepository
 from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
 from app.infrastructure.supabase.entity_type_repository import SupabaseEntityTypeRepository
 from app.infrastructure.supabase.extraction_repository import SupabaseExtractionRepository
+from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
 from app.infrastructure.tools.search_knowledge_executor import SearchKnowledgeExecutor
 from app.infrastructure.tools.web_search_executor import WebSearchExecutor
 from app.settings import get_settings
@@ -98,7 +98,7 @@ class TestContainerResolution:
             container = create_container()
             store = asyncio.run(container.get(RawEmailStore))
             assert isinstance(store, RoutingRawEmailStore)
-            assert isinstance(store._ses_store, S3RawEmailStore)  # noqa: SLF001
+            assert isinstance(store._ses_store, S3RawEmailStore)
             boto3_mock.client.assert_called()
 
     def test_backfill_raw_email_store_resolves_to_supabase_impl(self) -> None:
