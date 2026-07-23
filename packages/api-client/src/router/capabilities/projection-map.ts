@@ -64,6 +64,7 @@ export const CANVAS_NODE_TYPE_IDS = Object.freeze([
   "editor",
   "desktop",
   "circle-pack",
+  "spreadsheet",
 ] as const);
 
 export type CanvasNodeTypeId = (typeof CANVAS_NODE_TYPE_IDS)[number];
@@ -136,6 +137,7 @@ const DAEMON_BROWSER = "apps/daemon/src/tools/browser.ts";
 const DAEMON_DIR = "apps/daemon/src/tools/dir.ts";
 const CONTROL_PLANE_DESKTOP = "packages/capabilities/src/desktop.ts";
 const CONTROL_PLANE_CANVAS = "packages/capabilities/src/canvas.ts";
+const CONTROL_PLANE_TABLE = "packages/capabilities/src/table.ts";
 const CHAT_REGISTRY = "apps/email-listener/app/application/capabilities/registry.py";
 
 const declaredTool = (declaringSource: string): ToolProjection =>
@@ -371,6 +373,22 @@ export const CAPABILITY_PROJECTIONS: readonly CapabilityProjectionDeclaration[] 
     card: CARD_WIRED,
     genui: GENUI_VIA_BINDING,
     canvas: canvasNode("genui-panel"),
+  },
+  // CV-03 table capabilities (control-plane; landed with the spreadsheet-grid wiring). Their
+  // canvas face is the `spreadsheet` node — an agent-proposed table becomes a spreadsheet panel.
+  {
+    id: "table.create",
+    tool: declaredTool(CONTROL_PLANE_TABLE),
+    card: CARD_WIRED,
+    genui: GENUI_VIA_BINDING,
+    canvas: canvasNode("spreadsheet"),
+  },
+  {
+    id: "table.update",
+    tool: declaredTool(CONTROL_PLANE_TABLE),
+    card: CARD_WIRED,
+    genui: GENUI_VIA_BINDING,
+    canvas: canvasNode("spreadsheet"),
   },
 ]);
 

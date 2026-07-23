@@ -13,6 +13,7 @@ import {
 import {
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
+  SpreadsheetNodeDataSchema,
 } from "../node-data-schemas";
 import {
   NODE_TYPE_REGISTRY,
@@ -42,6 +43,7 @@ describe("computeNodeRegistryHash", () => {
       directory: NODE_TYPE_REGISTRY.directory!,
       "circle-pack": NODE_TYPE_REGISTRY["circle-pack"]!,
       chat: NODE_TYPE_REGISTRY.chat!,
+      spreadsheet: NODE_TYPE_REGISTRY.spreadsheet!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(
       computeNodeRegistryHash(NODE_TYPE_REGISTRY),
@@ -238,5 +240,35 @@ describe("KnowledgePreviewNodeDataSchema", () => {
       extra: true,
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("SpreadsheetNodeDataSchema (CV-03)", () => {
+  const SHEET_ID = "550e8400-e29b-41d4-a716-446655440000";
+
+  it("accepts a bare spreadsheetId ref", () => {
+    expect(SpreadsheetNodeDataSchema.safeParse({ spreadsheetId: SHEET_ID }).success).toBe(true);
+  });
+
+  it("accepts a spreadsheetId with an optional label", () => {
+    expect(
+      SpreadsheetNodeDataSchema.safeParse({ spreadsheetId: SHEET_ID, label: "Invoices" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects a non-uuid spreadsheetId", () => {
+    expect(SpreadsheetNodeDataSchema.safeParse({ spreadsheetId: "nope" }).success).toBe(false);
+  });
+
+  it("rejects columns/rows riding in node.data (ref-only discipline, .strict())", () => {
+    expect(
+      SpreadsheetNodeDataSchema.safeParse({ spreadsheetId: SHEET_ID, columns: [], rows: [] }).success,
+    ).toBe(false);
+  });
+
+  it("rejects a label longer than 120 characters", () => {
+    expect(
+      SpreadsheetNodeDataSchema.safeParse({ spreadsheetId: SHEET_ID, label: "a".repeat(121) }).success,
+    ).toBe(false);
   });
 });

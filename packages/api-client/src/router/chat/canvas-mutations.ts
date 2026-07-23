@@ -205,6 +205,8 @@ export function canonicalNodeId(nodeType: string, data: Record<string, unknown>)
       return `document:${str(data.documentId) ?? globalThis.crypto.randomUUID()}`;
     case "source":
       return `source:${str(data.sourceLedgerId) ?? globalThis.crypto.randomUUID()}`;
+    case "spreadsheet":
+      return `spreadsheet:${str(data.spreadsheetId) ?? globalThis.crypto.randomUUID()}`;
     default:
       return `${nodeType}:${globalThis.crypto.randomUUID()}`;
   }

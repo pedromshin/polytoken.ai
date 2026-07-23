@@ -115,6 +115,24 @@ export const DocumentNodeDataSchema = z
 export type DocumentNodeData = z.infer<typeof DocumentNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// SpreadsheetNodeDataSchema — spreadsheet node.data (spreadsheet ref + optional
+// label only, FEATURE-CATALOG CV-03) — mirrors DocumentNodeDataSchema's exact
+// provenance-ref-only discipline: node.data carries ONLY a spreadsheetId ref,
+// never the fetched table (columns/rows rehydrate via api.spreadsheets.byId,
+// gated through ownership.ts). `.strict()` — no stored columns/rows may ride
+// along in node.data.
+// ---------------------------------------------------------------------------
+
+export const SpreadsheetNodeDataSchema = z
+  .object({
+    spreadsheetId: z.string().uuid(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type SpreadsheetNodeData = z.infer<typeof SpreadsheetNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // SourceNodeDataSchema — source node.data (RCNV-02/RSRCH-03: auto-collected
 // research sources as canvas nodes, zero capture ceremony).
 //

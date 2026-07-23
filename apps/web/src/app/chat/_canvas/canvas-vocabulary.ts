@@ -194,6 +194,7 @@ export type CanvasNodeKind =
   | "editor"
   | "desktop"
   | "circle-pack"
+  | "spreadsheet"
   | "unknown";
 
 /**
@@ -216,6 +217,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     editor: "editor",
     desktop: "desktop",
     "circle-pack": "circle-pack",
+    spreadsheet: "spreadsheet",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -329,6 +331,13 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   // a top rule is unique without spending a hue (law 3). Real material (rule 2:
   // the user's own mail, aggregated) but a derived overview, never a bound piece.
   "circle-pack": "border-l-2 border-l-ink border-t-2 border-t-ink border-dotted",
+  // CV-03 spreadsheet: the user's own STRUCTURED material composed into a bound
+  // artifact — a whole dataset, heavier than a single document (rule-4, chat's
+  // weight) AND a bound artifact (the DOUBLE rule, document's mark). rule-4 +
+  // double is distinct from chat (rule-4, no double) and document (rule-2,
+  // double) without spending a hue (law 3); it is a static grid, not a live
+  // daemon-backed surface, so it takes no right seam.
+  spreadsheet: "border-l-4 border-l-ink border-double",
   unknown: "border-dotted",
 };
 
@@ -361,6 +370,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   editor: "Editor",
   desktop: "Desktop",
   "circle-pack": "Landscape",
+  spreadsheet: "Table",
   unknown: "Unrecognized",
 };
 

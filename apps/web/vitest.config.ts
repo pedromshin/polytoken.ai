@@ -13,6 +13,13 @@ export default defineConfig({
       "~": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  // The app + @polytoken/ui use the React 17+ automatic JSX runtime (Next's
+  // default; tsconfig `jsx: "preserve"` hands the transform to the bundler).
+  // Many @polytoken/ui components (e.g. spreadsheet-grid) never `import React`,
+  // so a component test that mounts them must transform with the automatic
+  // runtime too — otherwise the classic transform emits bare `React.*` and
+  // throws "React is not defined" from inside the vendored component.
+  esbuild: { jsx: "automatic" },
   test: {
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],

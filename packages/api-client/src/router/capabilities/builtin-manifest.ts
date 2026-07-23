@@ -29,6 +29,8 @@
  *                       them keeps the honesty discipline; their executor/provider is control-plane)
  *   - control-plane   → `packages/capabilities/src/canvas.ts` (the three `canvas.*` AI-01 descriptors
  *                       — `CANVAS_CAPABILITIES`; executed by `router/chat/canvas-mutations.ts`)
+ *   - control-plane   → `packages/capabilities/src/table.ts` (the two `table.*` CV-03 descriptors
+ *                       — `TABLE_CAPABILITIES`; executed by `router/spreadsheets/index.ts`)
  *   - chat tools      → `apps/email-listener/app/infrastructure/tools/*_executor.py`
  *                       (+ `container.py`'s `define_capability(risk=..., cost=...)` wiring)
  *   - deep_research   → `apps/email-listener/app/application/use_cases/research/deep_research.py`
@@ -292,6 +294,33 @@ export const BUILTIN_CAPABILITY_MANIFEST: readonly BuiltinManifestEntry[] = Obje
     risk: "write",
     // Explicit at the source (canvas.ts): reversible-with-undo — the output carries the undo payload.
     reversibility: "reversible",
+    cost: "free",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+
+  // ── control-plane: table mutation (packages/capabilities/src/table.ts, CV-03) ────────────────
+  {
+    id: "table.create",
+    describe:
+      "Create a new spreadsheet table from structured data you have extracted — for example the " +
+      "invoices, line items, or contacts found across a set of emails. Provide a title, the column " +
+      "definitions (name + type), and the rows; the table is saved to the user's own workspace and " +
+      "can then be opened as a spreadsheet panel on the canvas.",
+    risk: "write",
+    cost: "free",
+    source: "builtin",
+    trust: "first-party",
+    origin: "control-plane",
+  },
+  {
+    id: "table.update",
+    describe:
+      "Update an existing spreadsheet table the user owns: change its title, replace its column " +
+      "definitions, and/or replace its rows. Only the fields you provide change. The spreadsheet is " +
+      "identified by its id, and the update is refused unless the user owns that spreadsheet.",
+    risk: "write",
     cost: "free",
     source: "builtin",
     trust: "first-party",

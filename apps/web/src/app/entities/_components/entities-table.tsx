@@ -1,18 +1,38 @@
 "use client";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
-import Link from "next/link";
+/**
+ * entities-table.tsx — FEATURE-CATALOG EN-01: the entity table rendered through
+ * packages/ui/src/spreadsheet-grid (the previously-unwired Excel-like grid), in
+ * READ-MOSTLY mode. This is the lowest-risk first wiring of that grid — it
+ * proves the grid renders + wires against a real surface before CV-03 puts it
+ * on the canvas.
+ *
+ * Read-mostly, not editable: entity fields (display name, occurrence counts,
+ * last-seen) are DERIVED aggregates, and the existing entities mutations router
+ * (confirmMerge/rejectMerge/unmerge) exposes no field-edit endpoint — so there
+ * is no honest persistence path for a cell edit, and inventing one would violate
+ * EN-01's "no new persistence" constraint. The grid therefore renders with
+ * `isEditable={false}`; what it DOES wire is the grid's own machinery: column
+ * sorting, the column header menu, and CONDITIONAL FORMATTING for the
+ * "needs review" states (candidate status + pending duplicates). Clicking a
+ * row's number opens the entity detail page.
+ *
+ * The `GalleryItem` type + the `EntitiesTableProps` shape are preserved verbatim
+ * so entities-gallery.tsx is untouched. `sort`/`onSortChange` remain on the prop
+ * type (the gallery's server-sort dropdown drives them); the grid additionally
+ * offers client-side column sorting over the loaded page.
+ */
+
+import * as React from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 
-import { Badge } from "@polytoken/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@polytoken/ui/table";
+import { SpreadsheetGrid } from "@polytoken/ui/spreadsheet-grid";
+import type {
+  FormattingRules,
+  SpreadsheetColumn,
+  SpreadsheetRow,
+} from "@polytoken/ui/spreadsheet-grid";
 
 // ---------------------------------------------------------------------------
 // Types — re-exported so entities-gallery can import GalleryItem from here
@@ -39,21 +59,35 @@ interface EntitiesTableProps {
 }
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Grid model — the pure GalleryItem[] -> (columns, rows, formatting) mapping.
+// Exported so it is unit-testable without mounting the grid (jsdom does no
+// layout — the mapping is the behaviour worth pinning).
 // ---------------------------------------------------------------------------
 
-function formatRelativeDate(date: Date | null): string {
-  if (date === null) return "—";
-  const now = Date.now();
-  const diffMs = now - date.getTime();
-  const diffDays = Math.floor(diffMs / 86_400_000);
-  if (diffDays === 0) return "today";
-  if (diffDays === 1) return "yesterday";
-  if (diffDays < 7) return `${diffDays} days ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-  if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
-  return `${Math.floor(diffDays / 365)} years ago`;
-}
+/** The columns the entity table renders — schema-derived, in display order. */
+export const ENTITY_GRID_COLUMNS: readonly SpreadsheetColumn[] = [
+  { name: "Display name", type: "text" },
+  { name: "Entity type", type: "text" },
+  { name: "Key identifiers", type: "text" },
+  { name: "Occurrences", type: "number" },
+  { name: "Last seen", type: "date" },
+  { name: "Status", type: "text" },
+  { name: "Duplicates", type: "number" },
+];
+
+/**
+ * Conditional formatting for the "needs review" states (EN-01): a `candidate`
+ * status and any pending duplicates are the two signals a reviewer acts on.
+ * chart-* are the grid's tokenized formatting palette (types.ts FormatColor).
+ */
+export const ENTITY_GRID_FORMATTING: FormattingRules = {
+  Status: [
+    { id: "status-candidate", condition: "equals", value: "candidate", color: "chart-3" },
+  ],
+  Duplicates: [
+    { id: "duplicates-review", condition: "greater_than", value: 0, color: "chart-1" },
+  ],
+};
 
 function formatKeyIdentifiers(identifiers: Record<string, unknown>): string {
   return Object.values(identifiers)
@@ -61,210 +95,50 @@ function formatKeyIdentifiers(identifiers: Record<string, unknown>): string {
     .join(", ");
 }
 
-// ---------------------------------------------------------------------------
-// Sortable column header
-// ---------------------------------------------------------------------------
-
-type SortableColumn = "name" | "occurrences" | "last_seen";
-
-function SortableHead({
-  label,
-  column,
-  activeSort,
-  onSort,
-  className = "",
-}: {
-  readonly label: string;
-  readonly column: SortableColumn;
-  readonly activeSort: SortOption;
-  readonly onSort: (col: SortOption) => void;
-  readonly className?: string;
-}): React.ReactElement {
-  const isActive = activeSort === column;
-  const ariaSort: "ascending" | "descending" | "none" = isActive
-    ? column === "name"
-      ? "ascending"
-      : "descending"
-    : "none";
-
-  return (
-    <TableHead
-      className={`cursor-pointer select-none ${className}`}
-      aria-sort={ariaSort}
-      onClick={() => onSort(column)}
-    >
-      <span className="inline-flex items-center gap-1">
-        {label}
-        {isActive ? (
-          column === "name" ? (
-            <ChevronUp className="h-3 w-3 inline" aria-hidden />
-          ) : (
-            <ChevronDown className="h-3 w-3 inline" aria-hidden />
-          )
-        ) : null}
-      </span>
-    </TableHead>
-  );
+/** Map one GalleryItem to a grid row — cells keyed by column name (types.ts
+ * SpreadsheetRow.data is `Record<string, unknown>`). */
+export function entityToRow(item: GalleryItem): SpreadsheetRow {
+  return {
+    id: item.id,
+    data: {
+      "Display name": item.displayName,
+      "Entity type": item.entityTypeLabel ?? "",
+      "Key identifiers": formatKeyIdentifiers(item.keyIdentifiers),
+      Occurrences: item.occurrenceCount,
+      "Last seen": item.lastSeen ? item.lastSeen.toISOString() : null,
+      Status: item.status,
+      Duplicates: item.pendingDuplicatesCount,
+    },
+  };
 }
 
-// ---------------------------------------------------------------------------
-// Status badge
-// ---------------------------------------------------------------------------
-
-function StatusBadge({
-  status,
-}: {
-  readonly status: "confirmed" | "candidate";
-}): React.ReactElement {
-  if (status === "confirmed") {
-    return (
-      <Badge className="bg-primary/10 text-primary border-primary/20 text-xs px-2 py-1">
-        Confirmed
-      </Badge>
-    );
-  }
-  return (
-    <Badge className="bg-tier-inferred text-tier-inferred-foreground border-tier-inferred text-xs px-2 py-1">
-      Candidate
-    </Badge>
-  );
+export function buildEntityGridRows(
+  items: ReadonlyArray<GalleryItem>,
+): SpreadsheetRow[] {
+  return items.map(entityToRow);
 }
 
 // ---------------------------------------------------------------------------
 // Main table component
 // ---------------------------------------------------------------------------
 
-export function EntitiesTable({
-  items,
-  sort,
-  onSortChange,
-}: EntitiesTableProps): React.ReactElement {
+export function EntitiesTable({ items }: EntitiesTableProps): React.ReactElement {
   const router = useRouter();
 
+  const rows = useMemo(() => buildEntityGridRows(items), [items]);
+
   return (
-    <Table role="table" aria-label="Entities">
-      <TableHeader>
-        <TableRow className="bg-muted/40 hover:bg-muted/40">
-          <SortableHead
-            label="Display name"
-            column="name"
-            activeSort={sort}
-            onSort={onSortChange}
-            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex-1 min-w-[180px]"
-          />
-          <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-36">
-            Entity type
-          </TableHead>
-          <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-48">
-            Key identifiers
-          </TableHead>
-          <SortableHead
-            label="Occurrences"
-            column="occurrences"
-            activeSort={sort}
-            onSort={onSortChange}
-            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-24 text-right"
-          />
-          <SortableHead
-            label="Last seen"
-            column="last_seen"
-            activeSort={sort}
-            onSort={onSortChange}
-            className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-32"
-          />
-          <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-32">
-            Status
-          </TableHead>
-          <TableHead className="text-xs font-semibold text-muted-foreground uppercase tracking-wide w-32">
-            Duplicates
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-
-      <TableBody>
-        {items.map((item) => {
-          const isCandidate = item.status === "candidate";
-          const identifierText = formatKeyIdentifiers(item.keyIdentifiers);
-
-          return (
-            <TableRow
-              key={item.id}
-              role="row"
-              className={`hover:bg-muted/50 cursor-pointer border-b border-border/50 py-3 ${
-                isCandidate ? "bg-tier-inferred/10" : ""
-              }`}
-              onClick={() => router.push(`/entities/${item.id}`)}
-            >
-              {/* Display name — graph-entity dot accent + link */}
-              <TableCell className="flex-1 min-w-[180px]">
-                <Link
-                  href={`/entities/${item.id}`}
-                  onClick={(e) => e.stopPropagation()}
-                  className="inline-flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary"
-                >
-                  <span
-                    className="inline-block size-2 rounded-full bg-graph-entity shrink-0"
-                    aria-hidden
-                  />
-                  {item.displayName}
-                </Link>
-              </TableCell>
-
-              {/* Entity type — graph-entity badge */}
-              <TableCell className="w-36">
-                {item.entityTypeLabel !== null ? (
-                  <Badge className="bg-graph-entity/10 text-graph-entity border-graph-entity/30 text-xs px-2 py-1">
-                    {item.entityTypeLabel}
-                  </Badge>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </TableCell>
-
-              {/* Key identifiers — truncated */}
-              <TableCell className="w-48">
-                <span
-                  className="text-xs text-muted-foreground truncate block max-w-[11rem]"
-                  title={identifierText}
-                >
-                  {identifierText || "—"}
-                </span>
-              </TableCell>
-
-              {/* Occurrences — right-aligned tabular nums */}
-              <TableCell className="w-24 text-right">
-                <span className="text-sm font-semibold tabular-nums">
-                  {item.occurrenceCount}
-                </span>
-              </TableCell>
-
-              {/* Last seen — relative date */}
-              <TableCell className="w-32">
-                <span
-                  className="text-xs text-muted-foreground"
-                  title={item.lastSeen?.toISOString() ?? undefined}
-                >
-                  {formatRelativeDate(item.lastSeen)}
-                </span>
-              </TableCell>
-
-              {/* Status badge */}
-              <TableCell className="w-32">
-                <StatusBadge status={item.status} />
-              </TableCell>
-
-              {/* Pending duplicates */}
-              <TableCell className="w-32">
-                {item.pendingDuplicatesCount > 0 ? (
-                  <Badge className="bg-destructive/10 text-destructive border-destructive/30 text-xs px-2 py-1">
-                    {item.pendingDuplicatesCount} possible duplicates
-                  </Badge>
-                ) : null}
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <div aria-label="Entities" className="p-4">
+      <SpreadsheetGrid
+        rows={rows}
+        columns={ENTITY_GRID_COLUMNS}
+        isEditable={false}
+        dataSourceId="entities"
+        saveStatus="idle"
+        totalRecords={items.length}
+        formattingRules={ENTITY_GRID_FORMATTING}
+        onRowDetailOpen={(rowId) => router.push(`/entities/${rowId}`)}
+      />
+    </div>
   );
 }

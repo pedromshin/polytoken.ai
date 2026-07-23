@@ -55,6 +55,7 @@ const VALID_FIXTURES: Record<string, Record<string, unknown>> = {
   editor: { filePath: "/home/user/project/readme.md", language: "md" },
   desktop: { sessionId: "sess-1", status: "running", region: "eu-central", shape: "CPX41" },
   "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
+  spreadsheet: { spreadsheetId: SOME_UUID, label: "Invoices" },
 };
 
 /** Canonical HOSTILE node.data per type — each violates the type's own boundary. */
@@ -70,6 +71,7 @@ const HOSTILE_FIXTURES: Record<string, Record<string, unknown>> = {
   editor: { filePath: "/x", content: "smuggled file body" }, // ref-only: content never rides
   desktop: { sessionId: "s", gatewayUrl: "https://evil.example" }, // never a credential store
   "circle-pack": { scope: "mailbox", tree: [{ name: "smuggled" }] }, // strict(): no aggregated tree in node.data
+  spreadsheet: { spreadsheetId: SOME_UUID, columns: [] }, // ref-only: columns/rows never ride in node.data
 };
 
 describe("canvas capability mirror (AI-01 drift alarm)", () => {

@@ -56,6 +56,7 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   editor: { filePath: "/home/user/project/readme.md", language: "md" },
   desktop: { sessionId: "sess-1", status: "running", region: "eu-central", shape: "CPX41" },
   "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
+  spreadsheet: { spreadsheetId: SOME_UUID, label: "Invoices" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

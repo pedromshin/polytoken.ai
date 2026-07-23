@@ -175,6 +175,15 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
       label: z.string().max(120).optional(),
     })
     .strict(),
+  // FEATURE-CATALOG CV-03 — spreadsheet node: ref-only, like document/email-thread. node.data
+  // carries ONLY a spreadsheetId ref; the columns/rows rehydrate via `spreadsheets.byId`
+  // (ownership-gated), never duplicated into the layout row.
+  spreadsheet: z
+    .object({
+      spreadsheetId: z.string().uuid(),
+      label: z.string().max(120).optional(),
+    })
+    .strict(),
 });
 
 /** The allowlisted node type ids — MUST stay id-set-equal with apps/web's NODE_TYPE_REGISTRY

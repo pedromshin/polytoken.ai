@@ -26,6 +26,7 @@ import {
   assertEmailOwnership,
   assertForwardingAddressOwnership,
   assertImporterOwnership,
+  assertSpreadsheetOwnership,
   assertThreadOwnership,
   OwnershipError,
   userOwnedImporterIds,
@@ -159,6 +160,33 @@ describe("assertEmailOwnership", () => {
 
     await expect(
       assertEmailOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertSpreadsheetOwnership (CV-03) — direct user_id, no join
+// ---------------------------------------------------------------------------
+
+describe("assertSpreadsheetOwnership", () => {
+  it("resolves when spreadsheets.user_id = userId", async () => {
+    const db = createFakeDb([{ userId: OWNER_ID }]);
+    await expect(
+      assertSpreadsheetOwnership(db, TARGET_ID, OWNER_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws OwnershipError when the spreadsheet belongs to another user", async () => {
+    const db = createFakeDb([{ userId: OTHER_USER_ID }]);
+    await expect(
+      assertSpreadsheetOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+
+  it("throws OwnershipError when the spreadsheet does not exist (no existence oracle)", async () => {
+    const db = createFakeDb([]);
+    await expect(
+      assertSpreadsheetOwnership(db, TARGET_ID, OWNER_ID),
     ).rejects.toThrow(OwnershipError);
   });
 });

@@ -39,6 +39,7 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "editor",
   "desktop",
   "circle-pack",
+  "spreadsheet",
   "unknown",
 ];
 

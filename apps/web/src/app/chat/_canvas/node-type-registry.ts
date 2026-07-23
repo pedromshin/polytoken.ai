@@ -24,6 +24,7 @@ import {
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
   SourceNodeDataSchema,
+  SpreadsheetNodeDataSchema,
 } from "./node-data-schemas";
 
 export interface NodeTypeRegistryEntry {
@@ -104,6 +105,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: CirclePackNodeDataSchema,
     description:
       "Circle-pack node — a zoomable circle-packing landscape of the mailbox (or one entity) anchored on a scope ref (mailbox/entity id, never the aggregated tree); the sender→thread→email hierarchy rehydrates via emails.circlePackLandscape.",
+  },
+  spreadsheet: {
+    id: "spreadsheet",
+    dataSchema: SpreadsheetNodeDataSchema,
+    description:
+      "Spreadsheet node — renders a stored table's columns/rows as a read-only grid anchored on a spreadsheetId ref (never the fetched cells); the table rehydrates via api.spreadsheets.byId (ownership-gated) and is produced/updated by the table.* control-plane capabilities (create/update).",
   },
 };
 
