@@ -80,8 +80,33 @@ vi.mock("../../_lib/vault-api", () => ({
       requestDownload: { useMutation: () => ({ mutate: requestDownloadMutate }) },
       createFolder: { useMutation: () => ({ mutate: createFolderMutate }) },
       remove: { useMutation: () => ({ mutate: removeMutate }) },
+      // DR-01/02/04 hooks the surface mounts (the meter + the row-menu verbs).
+      // The dialogs that query listTrash/listVersions only mount when opened,
+      // so those hooks are exercised by vault-drive-ops.test.tsx, not here.
+      usageSummary: {
+        useQuery: () => ({
+          data: { usedBytes: 300, quotaBytes: 5_000_000, availableBytes: 4_999_700 },
+        }),
+      },
+      rename: { useMutation: () => ({ mutate: vi.fn() }) },
+      move: { useMutation: () => ({ mutate: vi.fn() }) },
+      bulkMove: { useMutation: () => ({ mutate: vi.fn() }) },
+      bulkRemove: { useMutation: () => ({ mutate: vi.fn() }) },
+      // VersionsDialog / TrashDialog mount always (they return null when
+      // closed) so their hooks run unconditionally — the mock must define them.
+      listVersions: { useQuery: () => ({ data: [] }) },
+      listTrash: { useQuery: () => ({ data: [] }) },
+      restoreVersion: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      restoreFromTrash: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
-    useUtils: () => ({ files: { list: { invalidate } } }),
+    useUtils: () => ({
+      files: {
+        list: { invalidate },
+        usageSummary: { invalidate: vi.fn() },
+        listTrash: { invalidate: vi.fn() },
+        listVersions: { invalidate: vi.fn() },
+      },
+    }),
   },
   VaultApiProvider: ({ children }: { children: React.ReactNode }) => children,
 }));

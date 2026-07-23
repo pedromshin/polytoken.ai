@@ -115,4 +115,26 @@ export type VaultStorageClient = {
   remove(
     paths: string[],
   ): Promise<{ data: unknown; error: { message: string } | null }>;
+
+  /**
+   * Relocate ONE object from `fromPath` to `toPath` (DR-01 rename/move, DR-02
+   * trash + restore). Supabase Storage's own `from(bucket).move` — atomic at
+   * the object level, so a moved blob is never briefly present at both keys nor
+   * absent from both. Declared structurally here so the adapter reaches exactly
+   * this and no more; the Map-backed test fake implements it in two lines.
+   */
+  move(
+    fromPath: string,
+    toPath: string,
+  ): Promise<{ data: unknown; error: { message: string } | null }>;
+
+  /**
+   * Copy ONE object from `fromPath` to `toPath` (DR-02 version snapshot +
+   * restore-version, where the source must SURVIVE the operation). Supabase
+   * Storage's own `from(bucket).copy`.
+   */
+  copy(
+    fromPath: string,
+    toPath: string,
+  ): Promise<{ data: unknown; error: { message: string } | null }>;
 };

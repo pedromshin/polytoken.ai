@@ -1,328 +1,335 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1781209995324,
-			"tag": "0000_real_garia",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1781210007963,
-			"tag": "0001_rls_deny_all",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1781210021713,
-			"tag": "0002_hnsw_halfvec_indexes",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1781210023487,
-			"tag": "0003_moddatetime_triggers",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1781210025338,
-			"tag": "0004_seed_entity_types",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1781210027000,
-			"tag": "0005_seed_default_importer",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1781273842678,
-			"tag": "0006_bitter_white_queen",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "7",
-			"when": 1781273854660,
-			"tag": "0007_retrieval_rls_indexes",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "7",
-			"when": 1781281042125,
-			"tag": "0008_funny_viper",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1781281592897,
-			"tag": "0009_retrieval_rpcs",
-			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "7",
-			"when": 1781286341548,
-			"tag": "0010_extraction_status_pending_error",
-			"breakpoints": true
-		},
-		{
-			"idx": 11,
-			"version": "7",
-			"when": 1781295600000,
-			"tag": "0011_extraction_confidence_breakdown",
-			"breakpoints": true
-		},
-		{
-			"idx": 12,
-			"version": "7",
-			"when": 1781296200000,
-			"tag": "0012_component_source_type_region",
-			"breakpoints": true
-		},
-		{
-			"idx": 13,
-			"version": "7",
-			"when": 1781375892601,
-			"tag": "0013_fixed_jamie_braddock",
-			"breakpoints": true
-		},
-		{
-			"idx": 14,
-			"version": "7",
-			"when": 1781413801704,
-			"tag": "0014_fresh_marvel_apes",
-			"breakpoints": true
-		},
-		{
-			"idx": 15,
-			"version": "7",
-			"when": 1781413900000,
-			"tag": "0015_denied_polygon_append_rpc",
-			"breakpoints": true
-		},
-		{
-			"idx": 16,
-			"version": "7",
-			"when": 1781464691821,
-			"tag": "0016_entity_identity",
-			"breakpoints": true
-		},
-		{
-			"idx": 17,
-			"version": "7",
-			"when": 1781464792000,
-			"tag": "0017_entity_resolution_rpcs",
-			"breakpoints": true
-		},
-		{
-			"idx": 18,
-			"version": "7",
-			"when": 1781487356802,
-			"tag": "0018_many_scarecrow",
-			"breakpoints": true
-		},
-		{
-			"idx": 19,
-			"version": "7",
-			"when": 1781503042202,
-			"tag": "0019_cold_energizer",
-			"breakpoints": true
-		},
-		{
-			"idx": 20,
-			"version": "7",
-			"when": 1781541327169,
-			"tag": "0020_knowledge_node_edges_rls",
-			"breakpoints": true
-		},
-		{
-			"idx": 21,
-			"version": "7",
-			"when": 1782548889541,
-			"tag": "0021_genui_generation_events",
-			"breakpoints": true
-		},
-		{
-			"idx": 22,
-			"version": "7",
-			"when": 1782558618925,
-			"tag": "0022_right_firedrake",
-			"breakpoints": true
-		},
-		{
-			"idx": 23,
-			"version": "7",
-			"when": 1783103888264,
-			"tag": "0023_chat_spine",
-			"breakpoints": true
-		},
-		{
-			"idx": 24,
-			"version": "7",
-			"when": 1783190400000,
-			"tag": "0024_chat_canvas_layouts",
-			"breakpoints": true
-		},
-		{
-			"idx": 25,
-			"version": "7",
-			"when": 1783276800000,
-			"tag": "0025_chat_widget_interactions",
-			"breakpoints": true
-		},
-		{
-			"idx": 26,
-			"version": "7",
-			"when": 1783363200000,
-			"tag": "0026_knowledge_trust_tier",
-			"breakpoints": true
-		},
-		{
-			"idx": 27,
-			"version": "7",
-			"when": 1783449600000,
-			"tag": "0027_edge_promotion_provenance",
-			"breakpoints": true
-		},
-		{
-			"idx": 28,
-			"version": "7",
-			"when": 1783536000000,
-			"tag": "0028_autofill_retrieval_events",
-			"breakpoints": true
-		},
-		{
-			"idx": 29,
-			"version": "7",
-			"when": 1783622400000,
-			"tag": "0029_knowledge_search_extracted_only",
-			"breakpoints": true
-		},
-		{
-			"idx": 30,
-			"version": "7",
-			"when": 1783708800000,
-			"tag": "0030_confirm_action_widget_kind",
-			"breakpoints": true
-		},
-		{
-			"idx": 31,
-			"version": "7",
-			"when": 1783795200000,
-			"tag": "0031_add_user_id_columns",
-			"breakpoints": true
-		},
-		{
-			"idx": 32,
-			"version": "7",
-			"when": 1783881600000,
-			"tag": "0032_backfill_user_id",
-			"breakpoints": true
-		},
-		{
-			"idx": 33,
-			"version": "7",
-			"when": 1783968000000,
-			"tag": "0033_user_id_not_null",
-			"breakpoints": true
-		},
-		{
-			"idx": 34,
-			"version": "7",
-			"when": 1784054400000,
-			"tag": "0034_rls_user_scoping",
-			"breakpoints": true
-		},
-		{
-			"idx": 35,
-			"version": "7",
-			"when": 1784140800000,
-			"tag": "0035_threads_forwarding",
-			"breakpoints": true
-		},
-		{
-			"idx": 36,
-			"version": "7",
-			"when": 1784227200000,
-			"tag": "0036_chat_conversation_thread_id",
-			"breakpoints": true
-		},
-		{
-			"idx": 37,
-			"version": "7",
-			"when": 1784093875902,
-			"tag": "0037_serious_sugar_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 38,
-			"version": "7",
-			"when": 1784103700170,
-			"tag": "0038_entity_type_corrections",
-			"breakpoints": true
-		},
-		{
-			"idx": 39,
-			"version": "7",
-			"when": 1784108349679,
-			"tag": "0039_entity_resolution_dismiss_filter",
-			"breakpoints": true
-		},
-		{
-			"idx": 40,
-			"version": "7",
-			"when": 1784564238930,
-			"tag": "0040_documents",
-			"breakpoints": true
-		},
-		{
-			"idx": 41,
-			"version": "7",
-			"when": 1784565238930,
-			"tag": "0041_references",
-			"breakpoints": true
-		},
-		{
-			"idx": 42,
-			"version": "7",
-			"when": 1784599369221,
-			"tag": "0042_desktop_sessions",
-			"breakpoints": true
-		},
-		{
-			"idx": 43,
-			"version": "7",
-			"when": 1784777326691,
-			"tag": "0043_entity_resolution_dismiss_keying",
-			"breakpoints": true
-		},
-		{
-			"idx": 44,
-			"version": "7",
-			"when": 1784791508250,
-			"tag": "0044_spreadsheets",
-			"breakpoints": true
-		},
-		{
-			"idx": 46,
-			"version": "7",
-			"when": 1784794878891,
-			"tag": "0046_home_canvas_scope",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1781209995324,
+      "tag": "0000_real_garia",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781210007963,
+      "tag": "0001_rls_deny_all",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781210021713,
+      "tag": "0002_hnsw_halfvec_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781210023487,
+      "tag": "0003_moddatetime_triggers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781210025338,
+      "tag": "0004_seed_entity_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781210027000,
+      "tag": "0005_seed_default_importer",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1781273842678,
+      "tag": "0006_bitter_white_queen",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781273854660,
+      "tag": "0007_retrieval_rls_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1781281042125,
+      "tag": "0008_funny_viper",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781281592897,
+      "tag": "0009_retrieval_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1781286341548,
+      "tag": "0010_extraction_status_pending_error",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781295600000,
+      "tag": "0011_extraction_confidence_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1781296200000,
+      "tag": "0012_component_source_type_region",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1781375892601,
+      "tag": "0013_fixed_jamie_braddock",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1781413801704,
+      "tag": "0014_fresh_marvel_apes",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1781413900000,
+      "tag": "0015_denied_polygon_append_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1781464691821,
+      "tag": "0016_entity_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1781464792000,
+      "tag": "0017_entity_resolution_rpcs",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1781487356802,
+      "tag": "0018_many_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1781503042202,
+      "tag": "0019_cold_energizer",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1781541327169,
+      "tag": "0020_knowledge_node_edges_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1782548889541,
+      "tag": "0021_genui_generation_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1782558618925,
+      "tag": "0022_right_firedrake",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1783103888264,
+      "tag": "0023_chat_spine",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1783190400000,
+      "tag": "0024_chat_canvas_layouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1783276800000,
+      "tag": "0025_chat_widget_interactions",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1783363200000,
+      "tag": "0026_knowledge_trust_tier",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1783449600000,
+      "tag": "0027_edge_promotion_provenance",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1783536000000,
+      "tag": "0028_autofill_retrieval_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783622400000,
+      "tag": "0029_knowledge_search_extracted_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783708800000,
+      "tag": "0030_confirm_action_widget_kind",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1783795200000,
+      "tag": "0031_add_user_id_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1783881600000,
+      "tag": "0032_backfill_user_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1783968000000,
+      "tag": "0033_user_id_not_null",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1784054400000,
+      "tag": "0034_rls_user_scoping",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1784140800000,
+      "tag": "0035_threads_forwarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1784227200000,
+      "tag": "0036_chat_conversation_thread_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1784093875902,
+      "tag": "0037_serious_sugar_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1784103700170,
+      "tag": "0038_entity_type_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1784108349679,
+      "tag": "0039_entity_resolution_dismiss_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1784564238930,
+      "tag": "0040_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784565238930,
+      "tag": "0041_references",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1784599369221,
+      "tag": "0042_desktop_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1784777326691,
+      "tag": "0043_entity_resolution_dismiss_keying",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1784791508250,
+      "tag": "0044_spreadsheets",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1784795086636,
+      "tag": "0045_file_versions",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1784794878891,
+      "tag": "0046_home_canvas_scope",
+      "breakpoints": true
+    }
+  ]
 }

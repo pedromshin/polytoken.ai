@@ -38,8 +38,11 @@ import type {
 import {
   EMPTY_FOLDER_PLACEHOLDER,
   emptyFolderPlaceholderKey,
+  RESERVED_SEGMENTS,
+  trashSnapshotKey,
   VAULT_PATH_MAX_DEPTH,
   vaultKey,
+  versionSnapshotKey,
 } from "./vault-keys";
 
 /**
@@ -52,6 +55,25 @@ import {
  * completion and then get rejected by the bucket.
  */
 export const VAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+
+/**
+ * The per-user LIVE-vault storage quota — 5GB. DEFINED ONCE, HERE (DR-04).
+ *
+ * `requestUpload`'s soft-block and the `/files` header meter both cite this
+ * constant rather than restating the number, the same discipline
+ * `VAULT_MAX_UPLOAD_BYTES` keeps. It counts LIVE bytes only: versions and
+ * trashed blobs are retention grace, not billed against the user, so a
+ * soft-delete immediately frees quota and the meter reflects it. If parked
+ * bytes ever need to count, THAT is the trigger to sum them in — not before.
+ */
+export const VAULT_QUOTA_BYTES = 5 * 1024 * 1024 * 1024;
+
+/**
+ * How long a soft-deleted entry sits in `.trash` before a retention sweep may
+ * hard-delete it (DR-02). The sweep itself is a seam, not built here; this
+ * constant is what stamps each `file_versions` row's `expires_at`.
+ */
+export const VAULT_TRASH_RETENTION_DAYS = 30;
 
 /**
  * One listing page. Was the OUT-listed hard cap in Phase 66; the v2.1
@@ -173,6 +195,90 @@ export type VaultAdapter = {
     name: string,
     isFolder: boolean,
   ): Promise<void>;
+
+  /**
+   * Size + type of ONE live file, or `null` if it is not there (DR-02/DR-04).
+   * Fail-quiet on absence — a missing object and someone else's object are
+   * indistinguishable, same posture as everywhere else in this module.
+   */
+  statEntry(
+    userId: string,
+    segments: readonly string[],
+    name: string,
+  ): Promise<{ size: number; contentType: string | null } | null>;
+
+  /**
+   * Rename OR move a live entry (DR-01) — one verb, because a rename is a move
+   * within the same folder. A file is one atomic `move`; a folder is a walk
+   * that relocates its whole subtree.
+   */
+  moveEntry(
+    userId: string,
+    fromSegments: readonly string[],
+    name: string,
+    toSegments: readonly string[],
+    toName: string,
+    isFolder: boolean,
+  ): Promise<void>;
+
+  /**
+   * Soft-delete: relocate a live entry into `{userId}/.trash/<snapshotId>`
+   * (DR-02). Returns the byte count parked, for the `file_versions` row.
+   */
+  trashEntry(
+    userId: string,
+    segments: readonly string[],
+    name: string,
+    isFolder: boolean,
+    snapshotId: string,
+  ): Promise<{ sizeBytes: number; contentType: string | null }>;
+
+  /** Restore a trashed entry from its park back to a live location (DR-02). */
+  restoreFromTrash(
+    userId: string,
+    toSegments: readonly string[],
+    name: string,
+    isFolder: boolean,
+    snapshotId: string,
+  ): Promise<void>;
+
+  /**
+   * COPY a live file into `{userId}/.versions/<snapshotId>` (DR-02) — the
+   * source survives, because this snapshots the ABOUT-TO-BE-OVERWRITTEN
+   * content before an overwrite lands. Returns the bytes/type snapshotted.
+   */
+  snapshotVersion(
+    userId: string,
+    segments: readonly string[],
+    name: string,
+    snapshotId: string,
+  ): Promise<{ sizeBytes: number; contentType: string | null }>;
+
+  /**
+   * Restore a prior version's blob back over the live key (DR-02). The live
+   * key is removed first (copy cannot overwrite), so the caller MUST snapshot
+   * the current content to a fresh version BEFORE calling this, or it is lost.
+   */
+  restoreVersion(
+    userId: string,
+    toSegments: readonly string[],
+    name: string,
+    snapshotId: string,
+  ): Promise<void>;
+
+  /**
+   * Per-folder byte rollup (DR-04, and the substrate TM-04's drive treemap
+   * consumes). Immediate children with their sizes (a folder child's size is
+   * its whole subtree), plus the folder's own recursive total. Reserved parks
+   * (`.versions` / `.trash`) are EXCLUDED — this is the live-vault view.
+   */
+  folderSizeRollup(
+    userId: string,
+    segments: readonly string[],
+  ): Promise<{
+    total: number;
+    children: readonly { name: string; isFolder: boolean; size: number }[];
+  }>;
 };
 
 export function createVaultAdapter(opts: {
@@ -242,6 +348,87 @@ export function createVaultAdapter(opts: {
     }
   }
 
+  /** One atomic object move. Both keys are already `vaultKey`-derived. */
+  async function moveOne(fromKey: string, toKey: string): Promise<void> {
+    const { error } = await client.move(fromKey, toKey);
+    if (error) throw new VaultStorageError("move", error.message);
+  }
+
+  /** One object copy — the source survives. Both keys are `vaultKey`-derived. */
+  async function copyOne(fromKey: string, toKey: string): Promise<void> {
+    const { error } = await client.copy(fromKey, toKey);
+    if (error) throw new VaultStorageError("copy", error.message);
+  }
+
+  /**
+   * Relocate a whole subtree from one already-validated prefix to another,
+   * preserving relative structure. Same tenancy property as `collectKeysUnder`:
+   * every key it walks is descended from `fromPrefix` (a `vaultKey` result), so
+   * the walk cannot escape the caller's own `{userId}/`; the destination is
+   * likewise a `vaultKey`/park key under the same user.
+   */
+  async function relocateSubtree(fromPrefix: string, toPrefix: string): Promise<void> {
+    const keys = await collectKeysUnder(fromPrefix, 0, new Set<string>());
+    for (const key of keys) {
+      // `rest` begins with "/" — descent through a tree we already proved we
+      // are inside of, not construction from an input (the module header's
+      // stated exception).
+      const rest = key.slice(fromPrefix.length);
+      await moveOne(key, `${toPrefix}${rest}`);
+    }
+  }
+
+  /** Sum every leaf's bytes under a prefix, paging and depth-bounded. */
+  async function sumSizeUnder(
+    prefix: string,
+    depth: number,
+    visited: Set<string>,
+  ): Promise<number> {
+    if (depth > VAULT_PATH_MAX_DEPTH) return 0;
+    if (visited.has(prefix)) return 0;
+    visited.add(prefix);
+
+    let sum = 0;
+    const folders: string[] = [];
+
+    for (let offset = 0; ; offset += VAULT_LIST_PAGE_SIZE) {
+      const page = await listPage(prefix, offset);
+      for (const entry of page) {
+        if (entry.name === EMPTY_FOLDER_PLACEHOLDER) continue;
+        if (entry.id === null) folders.push(`${prefix}/${entry.name}`);
+        else sum += entry.metadata?.size ?? 0;
+      }
+      if (page.length < VAULT_LIST_PAGE_SIZE) break;
+    }
+
+    for (const folder of folders) {
+      sum += await sumSizeUnder(folder, depth + 1, visited);
+    }
+
+    return sum;
+  }
+
+  /** Find one immediate child file by name under a parent prefix, or null. */
+  async function findChildFile(
+    prefix: string,
+    name: string,
+  ): Promise<{ size: number; contentType: string | null } | null> {
+    for (let offset = 0; ; offset += VAULT_LIST_PAGE_SIZE) {
+      const page = await listPage(prefix, offset);
+      for (const entry of page) {
+        // `id === null` is a folder — `statEntry` is about files only.
+        if (entry.name === name && entry.id !== null) {
+          return {
+            size: entry.metadata?.size ?? 0,
+            contentType: entry.metadata?.mimetype ?? null,
+          };
+        }
+      }
+      if (page.length < VAULT_LIST_PAGE_SIZE) break;
+    }
+    return null;
+  }
+
   return {
     async listFolder(userId, segments, offset = 0) {
       // Throws on a crafted path BEFORE any call reaches storage.
@@ -256,8 +443,12 @@ export function createVaultAdapter(opts: {
         raw.length === VAULT_LIST_PAGE_SIZE ? offset + VAULT_LIST_PAGE_SIZE : null;
 
       const entries = raw
-        // The placeholder is bookkeeping (D-66-01) — never a row.
-        .filter((object) => object.name !== EMPTY_FOLDER_PLACEHOLDER)
+        // The placeholder is bookkeeping (D-66-01) — never a row. The DR-02
+        // `.versions` / `.trash` parks are the same kind of bookkeeping (they
+        // only ever appear at the user root); `RESERVED_SEGMENTS` is the one
+        // set both this filter and the name schema read, so the park a user
+        // cannot NAME is also a park they never SEE.
+        .filter((object) => !RESERVED_SEGMENTS.has(object.name))
         .map((object): VaultEntry => {
           const isFolder = object.id === null;
           return {
@@ -360,6 +551,109 @@ export function createVaultAdapter(opts: {
       // the tenancy test pins.
       const keys = await collectKeysUnder(key, 0, new Set<string>());
       if (keys.length > 0) await removeKeys(keys);
+    },
+
+    async statEntry(userId, segments, name) {
+      const prefix = vaultKey(userId, segments);
+      // Re-validate `name` by building (and discarding) its full key — a
+      // crafted name throws here BEFORE any listing, same as everywhere else.
+      vaultKey(userId, [...segments, name]);
+      return findChildFile(prefix, name);
+    },
+
+    async moveEntry(userId, fromSegments, name, toSegments, toName, isFolder) {
+      const fromKey = vaultKey(userId, [...fromSegments, name]);
+      const toKey = vaultKey(userId, [...toSegments, toName]);
+      // A move to the identical key is a no-op, not an error — the surface can
+      // fire a rename that did not change the name without a spurious failure.
+      if (fromKey === toKey) return;
+      if (!isFolder) {
+        await moveOne(fromKey, toKey);
+        return;
+      }
+      await relocateSubtree(fromKey, toKey);
+    },
+
+    async trashEntry(userId, segments, name, isFolder, snapshotId) {
+      const fromKey = vaultKey(userId, [...segments, name]);
+      const trashKey = trashSnapshotKey(userId, snapshotId);
+
+      if (!isFolder) {
+        const stat = await findChildFile(fromKey.slice(0, fromKey.lastIndexOf("/")), name);
+        await moveOne(fromKey, trashKey);
+        return {
+          sizeBytes: stat?.size ?? 0,
+          contentType: stat?.contentType ?? null,
+        };
+      }
+
+      const sizeBytes = await sumSizeUnder(fromKey, 0, new Set<string>());
+      await relocateSubtree(fromKey, trashKey);
+      return { sizeBytes, contentType: null };
+    },
+
+    async restoreFromTrash(userId, toSegments, name, isFolder, snapshotId) {
+      const trashKey = trashSnapshotKey(userId, snapshotId);
+      const toKey = vaultKey(userId, [...toSegments, name]);
+      if (!isFolder) {
+        await moveOne(trashKey, toKey);
+        return;
+      }
+      await relocateSubtree(trashKey, toKey);
+    },
+
+    async snapshotVersion(userId, segments, name, snapshotId) {
+      const fromKey = vaultKey(userId, [...segments, name]);
+      const versionKey = versionSnapshotKey(userId, snapshotId);
+      const stat = await findChildFile(fromKey.slice(0, fromKey.lastIndexOf("/")), name);
+      await copyOne(fromKey, versionKey);
+      return {
+        sizeBytes: stat?.size ?? 0,
+        contentType: stat?.contentType ?? null,
+      };
+    },
+
+    async restoreVersion(userId, toSegments, name, snapshotId) {
+      const versionKey = versionSnapshotKey(userId, snapshotId);
+      const toKey = vaultKey(userId, [...toSegments, name]);
+      // Copy cannot overwrite; the live blob is removed first. The caller
+      // snapshots the current content to a fresh version BEFORE this, so the
+      // removal is non-destructive.
+      await removeKeys([toKey]);
+      await copyOne(versionKey, toKey);
+    },
+
+    async folderSizeRollup(userId, segments) {
+      const prefix = vaultKey(userId, segments);
+      const children: { name: string; isFolder: boolean; size: number }[] = [];
+      let total = 0;
+
+      for (let offset = 0; ; offset += VAULT_LIST_PAGE_SIZE) {
+        const page = await listPage(prefix, offset);
+        for (const entry of page) {
+          if (entry.name === EMPTY_FOLDER_PLACEHOLDER) continue;
+          // Reserved parks only surface at the root; excluded so the rollup is
+          // the LIVE-vault view TM-04 draws and DR-04 meters.
+          if (RESERVED_SEGMENTS.has(entry.name)) continue;
+
+          if (entry.id === null) {
+            const size = await sumSizeUnder(
+              `${prefix}/${entry.name}`,
+              0,
+              new Set<string>(),
+            );
+            children.push({ name: entry.name, isFolder: true, size });
+            total += size;
+          } else {
+            const size = entry.metadata?.size ?? 0;
+            children.push({ name: entry.name, isFolder: false, size });
+            total += size;
+          }
+        }
+        if (page.length < VAULT_LIST_PAGE_SIZE) break;
+      }
+
+      return { total, children };
     },
   };
 }

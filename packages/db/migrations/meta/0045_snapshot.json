@@ -1,6 +1,6 @@
 {
-  "id": "cedf08d0-3633-4b3b-add5-f6d21db8adab",
-  "prevId": "3b4f0d3a-4b5a-47d6-92a6-b3a54ce37716",
+  "id": "3b4f0d3a-4b5a-47d6-92a6-b3a54ce37716",
+  "prevId": "f17bc5ab-5863-4eb9-9e77-09fcad0cc21a",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -332,19 +332,7 @@
           "name": "conversation_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "nodes": {
           "name": "nodes",
@@ -409,22 +397,6 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
-        },
-        "idx_chat_canvas_layouts_home_user": {
-          "name": "idx_chat_canvas_layouts_home_user",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"chat_canvas_layouts\".\"scope\" = 'home'",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -440,31 +412,12 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
-        },
-        "chat_canvas_layouts_user_id_users_id_fk": {
-          "name": "chat_canvas_layouts_user_id_users_id_fk",
-          "tableFrom": "chat_canvas_layouts",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "chat_canvas_layouts_scope_discriminator": {
-          "name": "chat_canvas_layouts_scope_discriminator",
-          "value": "((\"chat_canvas_layouts\".\"conversation_id\" IS NOT NULL)::int + (\"chat_canvas_layouts\".\"user_id\" IS NOT NULL)::int = 1) AND ((\"chat_canvas_layouts\".\"scope\" IS NULL) = (\"chat_canvas_layouts\".\"conversation_id\" IS NOT NULL)) AND (\"chat_canvas_layouts\".\"scope\" IS NULL OR \"chat_canvas_layouts\".\"scope\" = 'home')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.chat_context_edges": {
@@ -3385,6 +3338,157 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.file_versions": {
+      "name": "file_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "object_path": {
+          "name": "object_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "state": {
+          "name": "state",
+          "type": "file_version_state",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version_key": {
+          "name": "version_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_folder": {
+          "name": "is_folder",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_file_versions_user_id": {
+          "name": "idx_file_versions_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_file_versions_user_object": {
+          "name": "idx_file_versions_user_object",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "object_path",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_file_versions_user_state": {
+          "name": "idx_file_versions_user_state",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "state",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "file_versions_user_id_users_id_fk": {
+          "name": "file_versions_user_id_users_id_fk",
+          "tableFrom": "file_versions",
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.forwarding_addresses": {
       "name": "forwarding_addresses",
       "schema": "",
@@ -4540,157 +4644,6 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.file_versions": {
-      "name": "file_versions",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "object_path": {
-          "name": "object_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
-          "type": "file_version_state",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version_key": {
-          "name": "version_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_folder": {
-          "name": "is_folder",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "size_bytes": {
-          "name": "size_bytes",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "content_type": {
-          "name": "content_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_file_versions_user_id": {
-          "name": "idx_file_versions_user_id",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_file_versions_user_object": {
-          "name": "idx_file_versions_user_object",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "object_path",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_file_versions_user_state": {
-          "name": "idx_file_versions_user_state",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "state",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "file_versions_user_id_users_id_fk": {
-          "name": "file_versions_user_id_users_id_fk",
-          "tableFrom": "file_versions",
-          "tableTo": "users",
-          "schemaTo": "auth",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
   "enums": {
@@ -4739,6 +4692,14 @@
         "error"
       ]
     },
+    "public.file_version_state": {
+      "name": "file_version_state",
+      "schema": "public",
+      "values": [
+        "version",
+        "trashed"
+      ]
+    },
     "public.knowledge_node_scope": {
       "name": "knowledge_node_scope",
       "schema": "public",
@@ -4756,14 +4717,6 @@
         "EXTRACTED",
         "INFERRED",
         "AMBIGUOUS"
-      ]
-    },
-    "public.file_version_state": {
-      "name": "file_version_state",
-      "schema": "public",
-      "values": [
-        "version",
-        "trashed"
       ]
     }
   },

@@ -41,3 +41,4 @@ export * from "./documents";
 export * from "./references";
 export * from "./desktop-sessions";
 export * from "./spreadsheets";
+export * from "./file-versions";

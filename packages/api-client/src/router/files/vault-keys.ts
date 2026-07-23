@@ -46,6 +46,41 @@ import { z } from "zod";
  */
 export const EMPTY_FOLDER_PLACEHOLDER = ".emptyFolderPlaceholder";
 
+/**
+ * RESERVED SYSTEM PREFIXES (DR-02).
+ *
+ * The vault is blob-only (D-66-01): there is no metadata table for live
+ * objects, so versioning + trash need somewhere to PARK a blob that is no
+ * longer live. These two dot-prefixed folders under `{userId}/` are that park,
+ * and they are OURS:
+ *   - `.versions/<snapshotId>` — a prior copy of an object that was overwritten.
+ *   - `.trash/<snapshotId>`    — an object (or a folder subtree) that was
+ *     soft-deleted and is awaiting restore-or-expiry.
+ *
+ * They are dot-prefixed to sit out of the way, but that is cosmetic. What makes
+ * them SYSTEM is the pair of guarantees below:
+ *   (1) the name schema REJECTS them as a user-supplied name (RESERVED), so a
+ *       user can never create a folder that collides with the park; and
+ *   (2) `storage-adapter.listFolder` FILTERS them out of every listing, so the
+ *       park never appears as a row the user could walk into or delete.
+ * A `file_versions` DB row (migration 0045) remembers, for each parked blob,
+ * the object it belongs to and where it came from — the park itself is flat.
+ */
+export const VAULT_VERSIONS_PREFIX = ".versions";
+export const VAULT_TRASH_PREFIX = ".trash";
+
+/**
+ * Every name the vault reserves for its own bookkeeping. A user-supplied
+ * segment equal to any of these is refused (RESERVED), and the listing filter
+ * drops them. One set, referenced by both the schema and the adapter — two
+ * lists of one fact drift.
+ */
+export const RESERVED_SEGMENTS: ReadonlySet<string> = new Set([
+  EMPTY_FOLDER_PLACEHOLDER,
+  VAULT_VERSIONS_PREFIX,
+  VAULT_TRASH_PREFIX,
+]);
+
 /** Max path depth. A bound, so a crafted 10k-deep path is not a listing amplifier. */
 export const VAULT_PATH_MAX_DEPTH = 32;
 
@@ -93,7 +128,11 @@ export const VaultSegmentSchema = z
   // this module exists to refuse.
   .refine((s) => !s.includes("/") && !s.includes("\\"), VAULT_NAME_RULES.SEPARATOR)
   .refine((s) => !CONTROL_CHAR_RE.test(s), VAULT_NAME_RULES.CONTROL_CHAR)
-  .refine((s) => s !== EMPTY_FOLDER_PLACEHOLDER, VAULT_NAME_RULES.RESERVED)
+  // Every reserved system name (the empty-folder placeholder AND the DR-02
+  // `.versions` / `.trash` parks) is refused as a user-supplied name — a user
+  // who could mint one could collide with, or masquerade as, the vault's own
+  // bookkeeping. The message stays RESERVED so a rejection still names the rule.
+  .refine((s) => !RESERVED_SEGMENTS.has(s), VAULT_NAME_RULES.RESERVED)
   // Edge spaces and trailing periods round-trip badly across clients and
   // filesystems: the user ends up with a file they can see and cannot address.
   // A usability rule, not a security one — stated here so nobody later
@@ -164,6 +203,50 @@ export function emptyFolderPlaceholderKey(
   segments: readonly string[],
 ): string {
   return `${vaultKey(userId, segments)}/${EMPTY_FOLDER_PLACEHOLDER}`;
+}
+
+/**
+ * A snapshot id is a v4 UUID, minted server-side (crypto.randomUUID) — NEVER a
+ * client-supplied string. This regex is the same belt-and-braces posture as
+ * `vaultKey`'s re-parse: the id already came from randomUUID, and it is still
+ * validated before it is joined into a key, so a future caller that sources it
+ * from somewhere untrusted cannot smuggle a separator or a traversal through
+ * the one hole (the reserved-park keys) that does not pass through the segment
+ * schema.
+ */
+const SNAPSHOT_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function reservedParkKey(userId: string, prefix: string, snapshotId: string): string {
+  if (!SNAPSHOT_ID_RE.test(snapshotId)) {
+    throw new Error("reserved park key: snapshotId must be a UUID minted server-side.");
+  }
+  // `vaultKey(userId, [])` runs the fail-open userId guard and yields the
+  // user's own root; the reserved prefix and the validated id are appended
+  // afterwards, exactly as `emptyFolderPlaceholderKey` appends the placeholder
+  // — the schema bans the prefix as a NAME, so it cannot travel through the
+  // segment array, and this is the one sanctioned way to build a park key.
+  return `${vaultKey(userId, [])}/${prefix}/${snapshotId}`;
+}
+
+/**
+ * The storage key of a prior VERSION of an object — `{userId}/.versions/<id>`.
+ * The blob parked here is a copy of the object as it was before an overwrite;
+ * the `file_versions` row (state=version) records which object it belongs to.
+ */
+export function versionSnapshotKey(userId: string, snapshotId: string): string {
+  return reservedParkKey(userId, VAULT_VERSIONS_PREFIX, snapshotId);
+}
+
+/**
+ * The storage key (or subtree prefix) of a TRASHED object —
+ * `{userId}/.trash/<id>`. A trashed FILE parks its single blob here; a trashed
+ * FOLDER parks its whole subtree UNDER here, preserving relative structure, so
+ * restore is one mirrored move back. The `file_versions` row (state=trashed)
+ * records the original path and the retention expiry.
+ */
+export function trashSnapshotKey(userId: string, snapshotId: string): string {
+  return reservedParkKey(userId, VAULT_TRASH_PREFIX, snapshotId);
 }
 
 /**

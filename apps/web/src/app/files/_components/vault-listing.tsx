@@ -4,6 +4,7 @@ import * as React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { VaultEntry } from "../../../../../../packages/api-client/src/router/files/vault-types";
+import type { SelectIntent } from "./vault-row";
 import { VaultRow } from "./vault-row";
 
 interface VaultListingProps {
@@ -21,6 +22,27 @@ interface VaultListingProps {
    * carrying the roving-tabindex key handler.
    */
   readonly leadingRow?: React.ReactNode;
+
+  // ── DR-01: multi-select + row menu (all optional — a caller that passes
+  // none gets the Phase 66 selection-unaware listing, unchanged) ────────────
+
+  /**
+   * Reports the CURRENT selection (row names) whenever it changes. Selection
+   * STATE and the shift-range arithmetic live HERE, in the listing, because
+   * only the listing knows the rows' order — the range from a shift-click is
+   * anchor→target over THIS array. The surface consumes the names to drive its
+   * bulk bar.
+   */
+  readonly onSelectionChange?: (names: readonly string[]) => void;
+  /**
+   * Bumping this clears the selection — the surface bumps it after a bulk
+   * action lands or on a folder change, so a stale selection never survives the
+   * rows it referred to.
+   */
+  readonly selectionResetKey?: unknown;
+  readonly onRename?: (entry: VaultEntry) => void;
+  readonly onMove?: (entry: VaultEntry) => void;
+  readonly onShowVersions?: (entry: VaultEntry) => void;
 }
 
 /**
@@ -45,9 +67,66 @@ export function VaultListing({
   onDownload,
   onDelete,
   leadingRow,
+  onSelectionChange,
+  selectionResetKey,
+  onRename,
+  onMove,
+  onShowVersions,
 }: VaultListingProps): React.ReactElement {
   const [focusedIndex, setFocusedIndex] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
+
+  // ── DR-01 selection: names, plus the anchor a shift-range extends from ────
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const anchorRef = useRef<number | null>(null);
+
+  // Clear on an explicit reset (bulk action landed / folder changed). Keyed on
+  // the caller's token rather than on `entries` so an APPEND ("Show more")
+  // never wipes a selection the user built across pages.
+  useEffect(() => {
+    setSelected(new Set());
+    anchorRef.current = null;
+  }, [selectionResetKey]);
+
+  const emitSelection = useCallback(
+    (next: ReadonlySet<string>) => {
+      setSelected(next);
+      onSelectionChange?.([...next]);
+    },
+    [onSelectionChange],
+  );
+
+  const handleSelect = useCallback(
+    (index: number, intent: SelectIntent) => {
+      const next = new Set(selected);
+
+      if (intent.range && anchorRef.current !== null) {
+        // Shift-click: select the contiguous run anchor→target inclusive, added
+        // to whatever was already chosen (web-list convention).
+        const lo = Math.min(anchorRef.current, index);
+        const hi = Math.max(anchorRef.current, index);
+        for (let i = lo; i <= hi; i++) {
+          const name = entries[i]?.name;
+          if (name) next.add(name);
+        }
+      } else if (intent.toggle) {
+        const name = entries[index]?.name;
+        if (name) {
+          if (next.has(name)) next.delete(name);
+          else next.add(name);
+        }
+        anchorRef.current = index;
+      } else {
+        // A shift-click with no anchor yet, or a bare modifier: seed the anchor.
+        const name = entries[index]?.name;
+        if (name) next.add(name);
+        anchorRef.current = index;
+      }
+
+      emitSelection(next);
+    },
+    [selected, entries, emitSelection],
+  );
   // Whether the last focus move came from the keyboard. Prevents stealing
   // focus on mount: a page that grabs focus into a list on arrival fights
   // anyone who arrived intending to type somewhere else.
@@ -171,6 +250,11 @@ export function VaultListing({
           // keyboard picks up from wherever the mouse left off rather than
           // jumping back to a position the user has forgotten about.
           onFocus={() => setFocusedIndex(index)}
+          selected={selected.has(entry.name)}
+          onSelect={onSelectionChange ? (intent) => handleSelect(index, intent) : undefined}
+          onRename={onRename}
+          onMove={onMove}
+          onShowVersions={onShowVersions}
         />
       ))}
     </ul>

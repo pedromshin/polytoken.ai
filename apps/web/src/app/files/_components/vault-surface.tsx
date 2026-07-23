@@ -5,7 +5,7 @@
 // scope for any suite that mounts this file directly (documented gotcha:
 // genui-panel-node.tsx / 53-03 / 53-04's identical fix).
 import * as React from "react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -17,6 +17,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@polytoken/ui/breadcrumb";
+import { Trash2 } from "lucide-react";
+
 import { Button } from "@polytoken/ui/button";
 
 import type { VaultEntry } from "../../../../../../packages/api-client/src/router/files/vault-types";
@@ -25,11 +27,17 @@ import { useVaultDrop } from "../_lib/use-vault-drop";
 import { useVaultUpload } from "../_lib/use-vault-upload";
 import { vaultApi } from "../_lib/vault-api";
 import { DeleteDialog } from "./delete-dialog";
+import { MoveDialog } from "./move-dialog";
 import { NewFolderRow } from "./new-folder-row";
+import { RenameDialog } from "./rename-dialog";
+import { SelectionBar } from "./selection-bar";
+import { TrashDialog } from "./trash-dialog";
 import { UploadTray } from "./upload-tray";
+import { UsageMeter } from "./usage-meter";
 import { VaultDropLayer } from "./vault-drop-layer";
 import { VaultEmpty, VaultError, VaultLoading, VaultLoadMore } from "./vault-states";
 import { VaultListing } from "./vault-listing";
+import { VersionsDialog } from "./versions-dialog";
 
 /**
  * VaultSurface — the /files client surface (Phase 66 Plans 03 + 04).
@@ -77,6 +85,26 @@ export function VaultSurface(): React.ReactElement {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderError, setFolderError] = useState<string | undefined>(undefined);
   const [pendingDelete, setPendingDelete] = useState<VaultEntry | null>(null);
+
+  // ── DR-01/02 surfaces: selection + the row-menu dialogs ───────────────────
+  const [selectedNames, setSelectedNames] = useState<ReadonlySet<string>>(() => new Set());
+  const [selectionNonce, setSelectionNonce] = useState(0);
+  const [renameTarget, setRenameTarget] = useState<VaultEntry | null>(null);
+  const [moveTargets, setMoveTargets] = useState<readonly VaultEntry[] | null>(null);
+  const [versionsTarget, setVersionsTarget] = useState<VaultEntry | null>(null);
+  const [trashOpen, setTrashOpen] = useState(false);
+
+  const pathKey = path.join("/");
+  // A folder change clears any selection — it referred to rows that are gone.
+  useEffect(() => {
+    setSelectedNames(new Set());
+  }, [pathKey]);
+
+  const clearSelection = useCallback(() => {
+    setSelectedNames(new Set());
+    // Bump the reset token so VaultListing drops its own internal selection too.
+    setSelectionNonce((n) => n + 1);
+  }, []);
 
   // ── Ingest: ONE funnel, two doors (drop and picker) ──────────────────────
   const { uploads, start, cancel, dismiss, retry } = useVaultUpload({ path });
@@ -140,12 +168,13 @@ export function VaultSurface(): React.ReactElement {
     },
   });
 
-  // ── Delete — the one confirm ─────────────────────────────────────────────
+  // ── Delete — the one confirm (now a soft-delete to trash, DR-02) ──────────
   const remove = vaultApi.files.remove.useMutation({
     onSuccess: (_data, variables) => {
-      // A statement, not an offer: there is nothing to undo (no trash).
-      toast(`Deleted ${variables.name}`);
+      // Reversible now: it went to Trash, and Trash is where it comes back from.
+      toast(`Moved ${variables.name} to Trash`);
       void utils.files.list.invalidate({ path });
+      void utils.files.usageSummary.invalidate();
     },
     onError: () => {
       toast("Couldn't delete that.");
@@ -153,21 +182,99 @@ export function VaultSurface(): React.ReactElement {
     },
   });
 
+  // ── DR-01: rename, move, and the bulk verbs over the selection ────────────
+  const invalidateFolder = useCallback(() => {
+    void utils.files.list.invalidate({ path });
+    void utils.files.usageSummary.invalidate();
+  }, [utils, path]);
+
+  const rename = vaultApi.files.rename.useMutation({
+    onSuccess: () => {
+      setRenameTarget(null);
+      invalidateFolder();
+    },
+    onError: () => toast("Couldn't rename that."),
+  });
+
+  const move = vaultApi.files.move.useMutation({
+    onSuccess: () => {
+      setMoveTargets(null);
+      invalidateFolder();
+    },
+    onError: () => toast("Couldn't move that."),
+  });
+
+  const bulkMove = vaultApi.files.bulkMove.useMutation({
+    onSuccess: (data) => {
+      setMoveTargets(null);
+      clearSelection();
+      toast(`Moved ${data.moved} items`);
+      invalidateFolder();
+    },
+    onError: () => toast("Couldn't move those."),
+  });
+
+  const bulkRemove = vaultApi.files.bulkRemove.useMutation({
+    onSuccess: (data) => {
+      clearSelection();
+      // Bulk delete is the reversible soft-delete path — fires with a toast,
+      // never a madder confirm (the one madder control stays the single delete).
+      toast(`Moved ${data.removed} items to Trash`);
+      invalidateFolder();
+    },
+    onError: () => toast("Couldn't delete those."),
+  });
+
   const entries = useMemo(
     () => listing.data?.pages.flatMap((page) => page.entries) ?? [],
     [listing.data],
+  );
+
+  const selectedEntries = useMemo(
+    () => entries.filter((entry) => selectedNames.has(entry.name)),
+    [entries, selectedNames],
+  );
+
+  const submitMove = useCallback(
+    (targets: readonly VaultEntry[], toPath: readonly string[]) => {
+      if (targets.length === 1) {
+        const only = targets[0]!;
+        move.mutate({ path, name: only.name, toPath: [...toPath], isFolder: only.isFolder });
+      } else {
+        bulkMove.mutate({
+          path,
+          toPath: [...toPath],
+          entries: targets.map((entry) => ({ name: entry.name, isFolder: entry.isFolder })),
+        });
+      }
+    },
+    [move, bulkMove, path],
   );
   const folderName = path.length === 0 ? "Files" : (path[path.length - 1] ?? "Files");
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <VaultBreadcrumb path={path} onNavigate={navigateTo} />
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
+          <VaultBreadcrumb path={path} onNavigate={navigateTo} />
+          {/* DR-04: the storage meter sits WITH the breadcrumb — it is ambient
+              context about where you are, not an action. */}
+          <UsageMeter />
+        </div>
 
-        {/* Both are plain ink Buttons WITH WORDS ON THEM. No icon-only chrome
-            (anti-generic tell #4: chrome that tests the user's memory instead
-            of teaching). */}
+        {/* Ink Buttons WITH WORDS (anti-generic tell #4: chrome that teaches,
+            not chrome that tests memory). Trash carries a glyph AND a word. */}
         <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            data-slot="vault-open-trash"
+            onClick={() => setTrashOpen(true)}
+            className="border-rule bg-leaf text-ink shadow-none hover:bg-shade pointer-coarse:touch-target"
+          >
+            <Trash2 className="mr-2 size-4 text-faded" aria-hidden />
+            Trash
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -188,6 +295,22 @@ export function VaultSurface(): React.ReactElement {
           </Button>
         </div>
       </div>
+
+      {/* DR-01 bulk bar — present only while a selection exists. */}
+      <SelectionBar
+        count={selectedEntries.length}
+        onMove={() => setMoveTargets(selectedEntries)}
+        onDelete={() =>
+          bulkRemove.mutate({
+            path,
+            entries: selectedEntries.map((entry) => ({
+              name: entry.name,
+              isFolder: entry.isFolder,
+            })),
+          })
+        }
+        onClear={clearSelection}
+      />
 
       {/* The picker. Its onChange shares the EXACT same `start(files)` path as
           the drop handler — one ingest funnel, two doors. No intermediate
@@ -237,6 +360,11 @@ export function VaultSurface(): React.ReactElement {
                 onOpenFolder={openFolder}
                 onDownload={download}
                 onDelete={setPendingDelete}
+                onSelectionChange={(names) => setSelectedNames(new Set(names))}
+                selectionResetKey={`${pathKey}:${selectionNonce}`}
+                onRename={setRenameTarget}
+                onMove={(entry) => setMoveTargets([entry])}
+                onShowVersions={setVersionsTarget}
                 leadingRow={
                   creatingFolder ? (
                     <NewFolderRow
@@ -279,6 +407,34 @@ export function VaultSurface(): React.ReactElement {
           setPendingDelete(null);
         }}
       />
+
+      <RenameDialog
+        entry={renameTarget}
+        onOpenChange={(open) => {
+          if (!open) setRenameTarget(null);
+        }}
+        onSubmit={(entry, newName) =>
+          rename.mutate({ path, name: entry.name, newName, isFolder: entry.isFolder })
+        }
+      />
+
+      <MoveDialog
+        entries={moveTargets}
+        onOpenChange={(open) => {
+          if (!open) setMoveTargets(null);
+        }}
+        onSubmit={submitMove}
+      />
+
+      <VersionsDialog
+        entry={versionsTarget}
+        path={path}
+        onOpenChange={(open) => {
+          if (!open) setVersionsTarget(null);
+        }}
+      />
+
+      <TrashDialog open={trashOpen} onOpenChange={setTrashOpen} currentPath={path} />
     </div>
   );
 }

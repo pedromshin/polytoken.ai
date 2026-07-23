@@ -126,6 +126,28 @@ function createFakeClient(initial: Record<string, FakeObject> = {}) {
       for (const p of paths) objects.delete(p);
       return { data: null, error: null };
     },
+
+    move: async (fromPath, toPath) => {
+      calls.push({ op: "move", args: [fromPath, toPath] });
+      const obj = objects.get(fromPath);
+      // Supabase move errors when the source is absent — the adapter turns that
+      // into a VaultStorageError, never a silent no-op.
+      if (!obj) return { data: null, error: { message: "not found" } };
+      objects.set(toPath, obj);
+      objects.delete(fromPath);
+      return { data: { message: "moved" }, error: null };
+    },
+
+    copy: async (fromPath, toPath) => {
+      calls.push({ op: "copy", args: [fromPath, toPath] });
+      const obj = objects.get(fromPath);
+      if (!obj) return { data: null, error: { message: "not found" } };
+      // Supabase copy errors on an existing destination — the source SURVIVES,
+      // so a caller that must overwrite removes the dest first (restoreVersion).
+      if (objects.has(toPath)) return { data: null, error: { message: "exists" } };
+      objects.set(toPath, { ...obj });
+      return { data: { path: toPath }, error: null };
+    },
   };
 
   return {
@@ -556,6 +578,218 @@ describe("removeEntry", () => {
     await expect(
       adapter.removeEntry(USER_A, [], "a.txt", false),
     ).rejects.toBeInstanceOf(VaultStorageError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-01 — moveEntry (rename + move)
+// ---------------------------------------------------------------------------
+
+describe("moveEntry (DR-01)", () => {
+  it("renames a file in place — one atomic move, sibling untouched", async () => {
+    const fake = createFakeClient({
+      "user-a/a.txt": FILE(),
+      "user-a/keep.txt": FILE(),
+    });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await adapter.moveEntry(USER_A, [], "a.txt", [], "b.txt", false);
+
+    expect(fake.keys()).toEqual(["user-a/b.txt", "user-a/keep.txt"]);
+  });
+
+  it("moves a file into another folder, keeping its name", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE() });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await adapter.moveEntry(USER_A, [], "a.txt", ["docs"], "a.txt", false);
+
+    expect(fake.keys()).toEqual(["user-a/docs/a.txt"]);
+  });
+
+  it("a move to the identical key is a no-op, never an error", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE() });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await adapter.moveEntry(USER_A, [], "a.txt", [], "a.txt", false);
+
+    expect(fake.callsOf("move")).toHaveLength(0);
+    expect(fake.keys()).toEqual(["user-a/a.txt"]);
+  });
+
+  it("relocates a whole folder subtree, preserving structure", async () => {
+    const fake = createFakeClient({
+      "user-a/docs/one.txt": FILE(),
+      "user-a/docs/deep/two.txt": FILE(),
+    });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await adapter.moveEntry(USER_A, [], "docs", ["archive"], "docs", true);
+
+    expect(fake.keys()).toEqual([
+      "user-a/archive/docs/deep/two.txt",
+      "user-a/archive/docs/one.txt",
+    ]);
+  });
+
+  it("refuses a crafted destination name before storage is touched", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE() });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await expect(
+      adapter.moveEntry(USER_A, [], "a.txt", [], "../user-b/x", false),
+    ).rejects.toThrow();
+    expect(fake.callsOf("move")).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-02 — trash, versions, restore (the key-suffix scheme)
+// ---------------------------------------------------------------------------
+
+const SNAP_A = "11111111-1111-4111-8111-111111111111";
+const SNAP_B = "22222222-2222-4222-8222-222222222222";
+
+describe("trashEntry + restoreFromTrash (DR-02 soft-delete round-trip)", () => {
+  it("parks a file under {userId}/.trash/<id> and reports its size", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE(120, "text/plain") });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    const parked = await adapter.trashEntry(USER_A, [], "a.txt", false, SNAP_A);
+
+    expect(parked).toEqual({ sizeBytes: 120, contentType: "text/plain" });
+    // The KEY-SUFFIX scheme: the blob now lives at the reserved park key.
+    expect(fake.keys()).toEqual([`user-a/${".trash"}/${SNAP_A}`]);
+  });
+
+  it("round-trips: trash then restore lands the blob back at its origin", async () => {
+    const fake = createFakeClient({ "user-a/docs/a.txt": FILE() });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await adapter.trashEntry(USER_A, ["docs"], "a.txt", false, SNAP_A);
+    expect(fake.keys()).toEqual([`user-a/.trash/${SNAP_A}`]);
+
+    await adapter.restoreFromTrash(USER_A, ["docs"], "a.txt", false, SNAP_A);
+    expect(fake.keys()).toEqual(["user-a/docs/a.txt"]);
+  });
+
+  it("trashes a folder subtree under one park prefix and restores it whole", async () => {
+    const fake = createFakeClient({
+      "user-a/docs/one.txt": FILE(10),
+      "user-a/docs/deep/two.txt": FILE(20),
+    });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    const parked = await adapter.trashEntry(USER_A, [], "docs", true, SNAP_A);
+    expect(parked.sizeBytes).toBe(30);
+    expect(fake.keys()).toEqual([
+      `user-a/.trash/${SNAP_A}/deep/two.txt`,
+      `user-a/.trash/${SNAP_A}/one.txt`,
+    ]);
+
+    await adapter.restoreFromTrash(USER_A, [], "docs", true, SNAP_A);
+    expect(fake.keys()).toEqual([
+      "user-a/docs/deep/two.txt",
+      "user-a/docs/one.txt",
+    ]);
+  });
+
+  it("rejects a snapshot id that is not a server-minted UUID", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE() });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await expect(
+      adapter.trashEntry(USER_A, [], "a.txt", false, "../user-b/evil"),
+    ).rejects.toThrow();
+    expect(fake.callsOf("move")).toHaveLength(0);
+  });
+});
+
+describe("snapshotVersion + restoreVersion (DR-02)", () => {
+  it("COPIES the live blob into .versions/<id> — the source survives", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE(99, "text/plain") });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    const snap = await adapter.snapshotVersion(USER_A, [], "a.txt", SNAP_A);
+
+    expect(snap).toEqual({ sizeBytes: 99, contentType: "text/plain" });
+    // Both the live object AND its version copy exist.
+    expect(fake.keys()).toEqual([`user-a/.versions/${SNAP_A}`, "user-a/a.txt"]);
+  });
+
+  it("restoreVersion overwrites the live key from the version copy", async () => {
+    const fake = createFakeClient({});
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    // Seed a live file, snapshot it, then mutate the live file.
+    fake.objects.set("user-a/a.txt", FILE(10, "old"));
+    await adapter.snapshotVersion(USER_A, [], "a.txt", SNAP_A);
+    fake.objects.set("user-a/a.txt", FILE(20, "new"));
+
+    await adapter.restoreVersion(USER_A, [], "a.txt", SNAP_A);
+
+    // Live key now holds the version's content; the version copy still exists.
+    const live = fake.objects.get("user-a/a.txt");
+    expect(live?.mimetype).toBe("old");
+    expect(fake.objects.has(`user-a/.versions/${SNAP_A}`)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DR-04 — statEntry + folderSizeRollup
+// ---------------------------------------------------------------------------
+
+describe("statEntry (DR-04)", () => {
+  it("returns size + type for a live file", async () => {
+    const fake = createFakeClient({ "user-a/a.txt": FILE(42, "text/plain") });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await expect(adapter.statEntry(USER_A, [], "a.txt")).resolves.toEqual({
+      size: 42,
+      contentType: "text/plain",
+    });
+  });
+
+  it("returns null for an absent file — no existence oracle", async () => {
+    const fake = createFakeClient({});
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    await expect(adapter.statEntry(USER_A, [], "missing.txt")).resolves.toBeNull();
+  });
+});
+
+describe("folderSizeRollup (DR-04, TM-04 substrate)", () => {
+  it("sums immediate children — a folder child carries its whole subtree", async () => {
+    const fake = createFakeClient({
+      "user-a/a.txt": FILE(100),
+      "user-a/docs/one.txt": FILE(30),
+      "user-a/docs/deep/two.txt": FILE(70),
+    });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    const rollup = await adapter.folderSizeRollup(USER_A, []);
+
+    expect(rollup.total).toBe(200);
+    // Storage returns children name-sorted (the adapter's list sortBy), so the
+    // rollup preserves that order rather than re-deriving folders-first.
+    expect(rollup.children).toEqual([
+      { name: "a.txt", isFolder: false, size: 100 },
+      { name: "docs", isFolder: true, size: 100 },
+    ]);
+  });
+
+  it("EXCLUDES the reserved parks — the rollup is the live vault only", async () => {
+    const fake = createFakeClient({
+      "user-a/a.txt": FILE(50),
+      [`user-a/.versions/${SNAP_A}`]: FILE(999),
+      [`user-a/.trash/${SNAP_B}`]: FILE(999),
+    });
+    const adapter = createVaultAdapter({ client: fake.client, bucket: BUCKET });
+
+    const rollup = await adapter.folderSizeRollup(USER_A, []);
+
+    expect(rollup.total).toBe(50);
+    expect(rollup.children.map((c) => c.name)).toEqual(["a.txt"]);
   });
 });
 
