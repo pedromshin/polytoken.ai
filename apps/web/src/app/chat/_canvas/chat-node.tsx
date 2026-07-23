@@ -158,6 +158,7 @@ const ChatNodeBody = memo(function ChatNodeBody({
           isStreaming={controller.activeStreamState === "streaming"}
           onSubmit={controller.handleSubmit}
           onStop={controller.handleStop}
+          conversationId={conversationId}
         />
       </div>
     </>

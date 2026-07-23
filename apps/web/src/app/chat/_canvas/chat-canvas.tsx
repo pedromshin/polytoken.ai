@@ -164,11 +164,14 @@ const PANE_ADDABLE_NODE_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /** Node types whose data maps to an AI-04 `SendableObject` (`useSendTo`
- * supports `knowledge_node` + `document` only) — gates the node context menu's
- * "Send to chat" verb to kinds that can actually be sent. */
+ * supports `knowledge_node` + `document` + `vault_file`) — gates the node
+ * context menu's "Send to chat" verb to kinds that can actually be sent. A
+ * `file` node maps to a `vault_file` context edge (CH-01/DR-05: "AI reads the
+ * attachment"), so unlike `document` (canvas-only) it IS chat-sendable. */
 const SEND_TO_CHAT_NODE_TYPES: ReadonlySet<string> = new Set([
   "knowledge-preview",
   "document",
+  "file",
 ]);
 
 /** Maps a canvas node to the AI-04 `SendableObject` its data supports, or null
@@ -190,6 +193,26 @@ function nodeToSendable(node: FlowNode): SendableObject | null {
     const documentId = data.documentId;
     if (typeof documentId === "string" && documentId.length > 0) {
       return { kind: "document", documentId };
+    }
+  }
+  if (node.type === "file") {
+    // node.data is untrusted at read time (persisted layout row). Narrow both
+    // fields defensively; `path` must be an array of strings, `name` a
+    // non-empty string. A malformed ref simply yields null (no "send" verb),
+    // never a throw. The write path re-validates every segment regardless.
+    const name = data.name;
+    const rawPath = data.path;
+    if (typeof name === "string" && name.length > 0) {
+      const path =
+        Array.isArray(rawPath) && rawPath.every((s) => typeof s === "string")
+          ? (rawPath as string[])
+          : [];
+      return {
+        kind: "vault_file",
+        path,
+        name,
+        ...(typeof data.label === "string" ? { label: data.label } : {}),
+      };
     }
   }
   return null;

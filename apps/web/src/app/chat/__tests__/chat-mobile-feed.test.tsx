@@ -69,6 +69,19 @@ const FAKE_UTILS = {
     sessionCost: { invalidate: () => undefined },
     getWidgetInteractions: { invalidate: () => undefined },
     clusterSummary: { invalidate: () => undefined },
+    // CH-01: the useSendTo seam + chip-rail removal touch these caches.
+    listContextEdges: {
+      cancel: async () => undefined,
+      getData: () => undefined,
+      setData: () => undefined,
+      invalidate: async () => undefined,
+    },
+    getCanvasLayout: {
+      cancel: async () => undefined,
+      getData: () => null,
+      setData: () => undefined,
+      invalidate: async () => undefined,
+    },
   },
   knowledge: {
     byId: { invalidate: () => undefined },
@@ -140,6 +153,17 @@ vi.mock("~/trpc/react", () => ({
       saveCanvasLayout: {
         useMutation: () => ({ mutate: () => undefined }),
       },
+      // CH-01: the composer's attach affordance (ComposerAttachments) reaches
+      // these through the shared AI-04 `useSendTo` seam + the chip rail. All
+      // additive here — no attachments in this suite's fixtures.
+      listContextEdges: { useQuery: () => ({ data: [] }) },
+      createContextEdge: { useMutation: () => ({ mutate: () => undefined, isPending: false }) },
+      addCanvasNode: { useMutation: () => ({ mutate: () => undefined, isPending: false }) },
+      removeContextEdge: { useMutation: () => ({ mutate: () => undefined }) },
+    },
+    files: {
+      requestUpload: { useMutation: () => ({ mutateAsync: async () => ({ url: "" }) }) },
+      list: { useQuery: () => ({ data: { entries: [] }, isPending: false, isError: false }) },
     },
     emails: {
       threadCard: {

@@ -23,6 +23,7 @@ import { DirectoryNode } from "./directory-node";
 import { DocumentNode } from "./document-node";
 import { EditorNode } from "./editor-node";
 import { EmailThreadNode } from "./email-thread-node";
+import { FileNode } from "./file-node";
 import { GenuiPanelNode } from "./genui-panel-node";
 import { KnowledgePreviewNode } from "./knowledge-preview-node";
 import { SourceNode } from "./source-node";
@@ -42,6 +43,7 @@ export const nodeTypes: NodeTypes = {
   desktop: DesktopNode,
   "circle-pack": CirclePackNode,
   spreadsheet: SpreadsheetNode,
+  file: FileNode,
   // Plan 23-04 (restore + degrade, T-23-09/CANVAS-03): a node reconciled from
   // a persisted layout whose type this session's registry doesn't recognize
   // is rewritten to this fixed key (original type preserved in

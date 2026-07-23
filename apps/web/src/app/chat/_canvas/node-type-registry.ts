@@ -21,6 +21,7 @@ import {
   DocumentNodeDataSchema,
   EditorNodeDataSchema,
   EmailThreadNodeDataSchema,
+  FileNodeDataSchema,
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
   SourceNodeDataSchema,
@@ -111,6 +112,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: SpreadsheetNodeDataSchema,
     description:
       "Spreadsheet node — renders a stored table's columns/rows as a read-only grid anchored on a spreadsheetId ref (never the fetched cells); the table rehydrates via api.spreadsheets.byId (ownership-gated) and is produced/updated by the table.* control-plane capabilities (create/update).",
+  },
+  file: {
+    id: "file",
+    dataSchema: FileNodeDataSchema,
+    description:
+      "File node — a vault file placed on the canvas, anchored on a tenant-relative vault ref (folder path segments + basename, never the blob); the file rehydrates (name/size/download) via the ownership-gated files router, resolved against the acting user at read time (FEATURE-CATALOG DR-03).",
   },
 };
 

@@ -12,6 +12,8 @@ import { cn } from "@polytoken/ui";
 import { Button } from "@polytoken/ui/button";
 import { Textarea } from "@polytoken/ui/textarea";
 
+import { ComposerAttachments } from "./composer-attachments";
+
 /**
  * max-h-52 (13 lines @ 16px line-height) — 22-UI-SPEC.md Spacing Scale.
  *
@@ -30,6 +32,14 @@ export interface ComposerProps {
   /** Called with the trimmed, non-empty submitted text. */
   readonly onSubmit: (text: string) => void;
   readonly onStop: () => void;
+  /**
+   * The open conversation an attachment becomes context for (CH-01). When
+   * present, the composer renders the attach affordance (upload / from-vault);
+   * when absent — e.g. a preview mount with no live conversation — the
+   * affordance is simply not rendered, so every existing call site stays
+   * byte-for-byte unchanged.
+   */
+  readonly conversationId?: string;
 }
 
 /**
@@ -45,6 +55,7 @@ export function Composer({
   isStreaming,
   onSubmit,
   onStop,
+  conversationId,
 }: ComposerProps): React.ReactElement {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -111,6 +122,16 @@ export function Composer({
           whereas this column owns the full width and the canvas is a TOGGLED
           view, not a sibling. `py-3.5 px-4` IS the sketch's 14px/16px. */}
       <div className="mx-auto flex w-full max-w-3xl items-end gap-2 px-4 py-3.5">
+        {/* CH-01 — the attach affordance. Only mounted when a live
+            conversationId is present (a preview/empty mount renders nothing new,
+            keeping existing composer geometry unchanged). It carries its own
+            chip rail above the row via self-start alignment. */}
+        {conversationId !== undefined ? (
+          <ComposerAttachments
+            conversationId={conversationId}
+            disabled={isStreaming}
+          />
+        ) : null}
         <Textarea
           ref={textareaRef}
           value={value}

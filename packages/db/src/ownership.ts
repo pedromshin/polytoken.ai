@@ -335,7 +335,13 @@ export type ContextEdgeSourceRef =
       readonly messageId: string;
       readonly partIndex: number;
     }
-  | { readonly type: "email_thread"; readonly threadId: string };
+  | { readonly type: "email_thread"; readonly threadId: string }
+  | {
+      // FEATURE-CATALOG CH-01/DR-05 — a vault file attached as chat context.
+      readonly type: "vault_file";
+      readonly path: readonly string[];
+      readonly name: string;
+    };
 
 /**
  * assertSourceRefOwnership — the WRITE-TIME cross-tenant gate for RCNV-04
@@ -419,6 +425,27 @@ export async function assertSourceRefOwnership(
       if (!row || row.userId !== userId) {
         throw new OwnershipError("genui_panel", sourceRef.messageId);
       }
+      return;
+    }
+
+    case "vault_file": {
+      // A vault file has NO DB row and NO userId in its ref — it is addressed by
+      // a TENANT-RELATIVE location (folder path segments + basename) that is
+      // resolved against the acting user's own storage prefix
+      // (`vaultKey(ctx.user.id, …)`) at read time. So there is nothing to
+      // cross-tenant-check here: the ref cannot, by construction, name another
+      // user's object — the worst a hostile `createContextEdge` input can do is
+      // point at a path that does not exist in the CALLER'S OWN vault, which is
+      // a harmless read-time no-op, never a leak. Ownership is therefore
+      // ALWAYS satisfied for the caller who owns the target conversation (the
+      // check createContextEdge already performed BEFORE calling this).
+      //
+      // TRAVERSAL is the one real threat, and it is closed at the tRPC Zod
+      // boundary (`contextEdgeSourceRefSchema`'s vault_file variant validates
+      // every segment against the vault-keys safe-segment rules) AND again when
+      // the read path builds the storage key through the vault-keys chokepoint.
+      // This resolver deliberately re-affirms neither with a DB round-trip that
+      // would have nothing to query.
       return;
     }
   }

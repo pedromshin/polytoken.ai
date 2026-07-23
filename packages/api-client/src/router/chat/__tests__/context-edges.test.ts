@@ -88,7 +88,11 @@ import {
 
 import { __resetColumnExistsCacheForTests } from "../../_column-detect";
 import { appRouter } from "../../../root";
-import { computeSourceRefKey, type ContextEdgeSourceRef } from "../context-edges";
+import {
+  computeSourceRefKey,
+  contextEdgeSourceRefSchema,
+  type ContextEdgeSourceRef,
+} from "../context-edges";
 
 const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
 const USER_B = { id: "20000000-0000-0000-0000-00000000000b" };
@@ -313,10 +317,71 @@ describe("computeSourceRefKey", () => {
       `genui_panel:${MESSAGE_ID}:2`,
     ],
     [{ type: "email_thread", threadId: THREAD_ID }, `email_thread:${THREAD_ID}`],
+    // CH-01/DR-05 — vault_file: the full tenant-relative key path.
+    [
+      { type: "vault_file", path: ["invoices", "2026"], name: "q3.pdf" },
+      "vault_file:invoices/2026/q3.pdf",
+    ],
+    // A file at the vault root has an empty path → no leading segment.
+    [{ type: "vault_file", path: [], name: "notes.txt" }, "vault_file:notes.txt"],
   ];
 
   it.each(cases)("Test 13-16: %o -> %s", (sourceRef, expected) => {
     expect(computeSourceRefKey(sourceRef)).toBe(expected);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// contextEdgeSourceRefSchema — the vault_file variant's traversal gate
+// (CH-01/DR-05). A vault_file ref is tenant-relative and never carries a
+// userId; the ONE threat is a "../other-tenant" segment, closed HERE.
+// ---------------------------------------------------------------------------
+
+describe("contextEdgeSourceRefSchema — vault_file traversal gate", () => {
+  it("accepts a well-formed vault_file ref (nested path + basename)", () => {
+    expect(
+      contextEdgeSourceRefSchema.safeParse({
+        type: "vault_file",
+        path: ["invoices", "2026"],
+        name: "q3.pdf",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts a vault-root file (empty path)", () => {
+    expect(
+      contextEdgeSourceRefSchema.safeParse({
+        type: "vault_file",
+        path: [],
+        name: "notes.txt",
+      }).success,
+    ).toBe(true);
+  });
+
+  it.each([
+    { path: [".."], name: "passwd", why: "parent-traversal path segment" },
+    { path: ["ok"], name: "..", why: "parent-traversal name" },
+    { path: ["a/b"], name: "x", why: "embedded separator in path segment" },
+    { path: ["ok"], name: "a\\b", why: "embedded backslash in name" },
+    { path: ["."], name: "x", why: "dot-segment path" },
+    { path: ["ok"], name: "", why: "empty name" },
+    // Full parity with the vaultKey chokepoint (fail-early, not fail-at-read):
+    { path: [".emptyFolderPlaceholder"], name: "x", why: "reserved placeholder segment" },
+    { path: ["ok"], name: "trailing ", why: "trailing space (edge-space)" },
+    { path: [" leading"], name: "x", why: "leading space (edge-space)" },
+    { path: ["ok"], name: "foo.", why: "trailing dot" },
+  ])("rejects $why", ({ path, name }) => {
+    expect(
+      contextEdgeSourceRefSchema.safeParse({ type: "vault_file", path, name }).success,
+    ).toBe(false);
+  });
+
+  it("rejects an oversize ref before it can overflow the source_ref_key index", () => {
+    const bigSeg = "a".repeat(255);
+    const path = Array.from({ length: 32 }, () => bigSeg); // 32*256 + name >> 1024
+    expect(
+      contextEdgeSourceRefSchema.safeParse({ type: "vault_file", path, name: "x.pdf" }).success,
+    ).toBe(false);
   });
 });
 

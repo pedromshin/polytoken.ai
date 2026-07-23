@@ -55,7 +55,18 @@ import { api } from "~/trpc/react";
 
 export type SendableObject =
   | { readonly kind: "knowledge_node"; readonly nodeId: string; readonly label?: string }
-  | { readonly kind: "document"; readonly documentId: string; readonly label?: string };
+  | { readonly kind: "document"; readonly documentId: string; readonly label?: string }
+  // CH-01/DR-03 — a vault file. Addressed by its TENANT-RELATIVE location
+  // (folder path segments + basename), never a userId/key; the server resolves
+  // it against ctx.user.id at read time. Supports BOTH channels: canvas (a
+  // `file` node) and chat (a `vault_file` context edge, DR-05's "AI reads the
+  // attachment" seam).
+  | {
+      readonly kind: "vault_file";
+      readonly path: readonly string[];
+      readonly name: string;
+      readonly label?: string;
+    };
 
 export type SendableKind = SendableObject["kind"];
 export type SendChannel = "chat" | "canvas";
@@ -70,6 +81,7 @@ export type CanvasNodeSpec = Pick<AddCanvasNodeInput, "nodeType" | "data">;
 /** Canvas node.data label caps (mirror node-data-schemas.ts's per-type max). */
 const KNOWLEDGE_PREVIEW_LABEL_MAX = 80;
 const DOCUMENT_LABEL_MAX = 120;
+const FILE_LABEL_MAX = 120;
 
 function truncate(value: string, max: number): string {
   return value.length > max ? value.slice(0, max) : value;
@@ -85,6 +97,8 @@ export function objectToSourceRef(object: SendableObject): ContextEdgeSourceRef 
       return { type: "knowledge_node", nodeId: object.nodeId };
     case "document":
       return null;
+    case "vault_file":
+      return { type: "vault_file", path: [...object.path], name: object.name };
   }
 }
 
@@ -116,6 +130,17 @@ export function objectToCanvasNode(object: SendableObject): CanvasNodeSpec | nul
             : {}),
         },
       };
+    case "vault_file":
+      return {
+        nodeType: "file",
+        data: {
+          path: [...object.path],
+          name: object.name,
+          ...(object.label !== undefined
+            ? { label: truncate(object.label, FILE_LABEL_MAX) }
+            : {}),
+        },
+      };
   }
 }
 
@@ -124,7 +149,9 @@ export function supportsChannel(kind: SendableKind, channel: SendChannel): boole
   const probe: SendableObject =
     kind === "knowledge_node"
       ? { kind: "knowledge_node", nodeId: "" }
-      : { kind: "document", documentId: "" };
+      : kind === "document"
+        ? { kind: "document", documentId: "" }
+        : { kind: "vault_file", path: [], name: "" };
   return channel === "chat"
     ? objectToSourceRef(probe) !== null
     : objectToCanvasNode(probe) !== null;

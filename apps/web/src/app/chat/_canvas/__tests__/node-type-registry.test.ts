@@ -44,6 +44,7 @@ describe("computeNodeRegistryHash", () => {
       "circle-pack": NODE_TYPE_REGISTRY["circle-pack"]!,
       chat: NODE_TYPE_REGISTRY.chat!,
       spreadsheet: NODE_TYPE_REGISTRY.spreadsheet!,
+      file: NODE_TYPE_REGISTRY.file!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(
       computeNodeRegistryHash(NODE_TYPE_REGISTRY),

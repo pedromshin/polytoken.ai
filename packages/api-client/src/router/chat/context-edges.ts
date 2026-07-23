@@ -70,6 +70,43 @@ function isTableUnavailableError(error: unknown): boolean {
 // resolver. Validated at this tRPC boundary (FOUND-6).
 // ---------------------------------------------------------------------------
 
+/** Control characters: C0 (NUL..US) and DEL (mirrors vault-keys' CONTROL_CHAR_RE). */
+const VAULT_CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
+
+/** A safe vault path/name segment — the vault-keys chokepoint's rules
+ * (VaultSegmentSchema), re-declared here so a `vault_file` sourceRef can never
+ * carry a "../other-tenant" traversal into `chat_context_edges`. Traversal is
+ * the ONE real threat a vault_file ref poses (see assertSourceRefOwnership's
+ * vault_file case in @polytoken/db/ownership); this is where it is closed at
+ * the write boundary. */
+function isSafeVaultSegment(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value.length <= 255 &&
+    value !== "." &&
+    value !== ".." &&
+    // Full parity with @polytoken/db vault-keys VaultSegmentSchema so a segment
+    // that would be REJECTED by the vaultKey chokepoint at read time cannot be
+    // persisted here in the first place (fail-early, not fail-at-read):
+    value !== ".emptyFolderPlaceholder" && // RESERVED
+    value === value.trim() && // EDGE_SPACE (no leading/trailing whitespace)
+    !value.endsWith(".") && // TRAILING_DOT
+    !value.includes("/") &&
+    !value.includes("\\") &&
+    !VAULT_CONTROL_CHAR_RE.test(value)
+  );
+}
+
+const vaultSegmentSchema = z.string().refine(isSafeVaultSegment, {
+  message: "vault segment must be safe (no empty/dot/separator/control/reserved/edge-space/trailing-dot)",
+});
+
+// Bound the TOTAL ref size so the derived source_ref_key stays well under
+// Postgres's btree index-row limit (~2704 B) — a 32×255 path would otherwise
+// overflow the partial-unique index and surface as an opaque INTERNAL error
+// instead of a clean 400. Realistic vault paths are far smaller.
+const MAX_VAULT_REF_CHARS = 1024;
+
 export const contextEdgeSourceRefSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("source_ledger"), ledgerId: z.string().uuid() }),
   z.object({ type: z.literal("knowledge_node"), nodeId: z.string().uuid() }),
@@ -79,7 +116,29 @@ export const contextEdgeSourceRefSchema = z.discriminatedUnion("type", [
     partIndex: z.number().int().nonnegative(),
   }),
   z.object({ type: z.literal("email_thread"), threadId: z.string().uuid() }),
-]);
+  // FEATURE-CATALOG CH-01/DR-05 — a vault file attached as chat context. The ref
+  // is TENANT-RELATIVE (folder path segments + basename), resolved against
+  // ctx.user.id at read time; it never carries a userId, so it cannot address
+  // another tenant's object. Every segment is gated to the vault-keys
+  // safe-segment rules so a traversal can never ride in.
+  z.object({
+    type: z.literal("vault_file"),
+    path: z.array(vaultSegmentSchema).max(32),
+    name: vaultSegmentSchema,
+  }),
+]).superRefine((ref, ctx) => {
+  // discriminatedUnion members must stay plain ZodObjects, so the vault_file
+  // total-size bound lives here rather than on the member.
+  if (ref.type === "vault_file") {
+    const total = ref.path.reduce((n, seg) => n + seg.length + 1, 0) + ref.name.length;
+    if (total > MAX_VAULT_REF_CHARS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `vault_file ref exceeds ${MAX_VAULT_REF_CHARS} total path chars`,
+      });
+    }
+  }
+});
 export type ContextEdgeSourceRef = z.infer<typeof contextEdgeSourceRefSchema>;
 
 /**
@@ -98,6 +157,11 @@ export function computeSourceRefKey(sourceRef: ContextEdgeSourceRef): string {
       return `genui_panel:${sourceRef.messageId}:${sourceRef.partIndex}`;
     case "email_thread":
       return `email_thread:${sourceRef.threadId}`;
+    case "vault_file":
+      // The full tenant-relative key path. Segments are already validated safe
+      // (no separators/traversal), so a "/"-join is an unambiguous identity: no
+      // two distinct (path, name) pairs can collide on the same string.
+      return `vault_file:${[...sourceRef.path, sourceRef.name].join("/")}`;
   }
 }
 

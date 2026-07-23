@@ -195,6 +195,7 @@ export type CanvasNodeKind =
   | "desktop"
   | "circle-pack"
   | "spreadsheet"
+  | "file"
   | "unknown";
 
 /**
@@ -218,6 +219,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     desktop: "desktop",
     "circle-pack": "circle-pack",
     spreadsheet: "spreadsheet",
+    file: "file",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -338,6 +340,14 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   // double) without spending a hue (law 3); it is a static grid, not a live
   // daemon-backed surface, so it takes no right seam.
   spreadsheet: "border-l-4 border-l-ink border-double",
+  // DR-03 file: a vault file at rest — the user's OWN material, raw (rule-2 left
+  // weight, email-thread's evidence weight) resting on a SHELF (a BOTTOM rule).
+  // SOLID, never dotted: a stored file is a real artifact, not a guess (source)
+  // or a bounded view (knowledge-preview). No other kind rules its bottom edge,
+  // so rule-2 left + a bottom rule is distinct from every sibling — and it is
+  // NOT a live daemon surface (no right seam) and NOT a bound synthesis (no
+  // double) — without spending a hue (law 3).
+  file: "border-l-2 border-l-ink border-b-2 border-b-ink",
   unknown: "border-dotted",
 };
 
@@ -371,6 +381,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   desktop: "Desktop",
   "circle-pack": "Landscape",
   spreadsheet: "Table",
+  file: "File",
   unknown: "Unrecognized",
 };
 

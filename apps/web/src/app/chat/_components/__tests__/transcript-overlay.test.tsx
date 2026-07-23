@@ -68,6 +68,33 @@ vi.mock("~/trpc/react", () => ({
       // prompt. Reached because the docked host now mounts the REAL
       // `PanelActionsToolbar` — see the note on `genui` below.
       getHistory: { useQuery: () => ({ data: [] }) },
+      // CH-01: the real ChatNode now mounts a Composer with ComposerAttachments
+      // (useSendTo + chip rail). Additive stubs — this suite asserts overlay
+      // resolution, not attach.
+      listContextEdges: { useQuery: () => ({ data: [] }) },
+      createContextEdge: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      addCanvasNode: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      removeContextEdge: { useMutation: () => ({ mutate: vi.fn() }) },
+    },
+    useUtils: () => ({
+      chat: {
+        listContextEdges: {
+          cancel: async () => undefined,
+          getData: () => undefined,
+          setData: () => undefined,
+          invalidate: async () => undefined,
+        },
+        getCanvasLayout: {
+          cancel: async () => undefined,
+          getData: () => null,
+          setData: () => undefined,
+          invalidate: async () => undefined,
+        },
+      },
+    }),
+    files: {
+      requestUpload: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      list: { useQuery: () => ({ data: { entries: [] }, isPending: false, isError: false }) },
     },
     // ────────────────────────────────────────────────────────────────────
     // 61-08 — THIS BLOCK IS EVIDENCE, NOT A CHORE.

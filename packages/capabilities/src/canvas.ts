@@ -81,6 +81,25 @@ function isHttpUrl(value: string): boolean {
   return parsed.protocol === "https:" || parsed.protocol === "http:";
 }
 
+/** Control characters: C0 (NUL..US) and DEL (mirrors node-data-schemas.ts's VAULT_CONTROL_CHAR_RE). */
+const VAULT_CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
+
+/** A safe vault path/name segment — MIRRORED from node-data-schemas.ts's
+ * isSafeVaultSegment (no empty, no dot-segments, no separators, no control
+ * chars, <=255). Re-declared here because substrate sits BELOW api-client in
+ * the dependency graph and cannot import the files router's VaultSegmentSchema. */
+function isSafeVaultSegment(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value.length <= 255 &&
+    value !== "." &&
+    value !== ".." &&
+    !value.includes("/") &&
+    !value.includes("\\") &&
+    !VAULT_CONTROL_CHAR_RE.test(value)
+  );
+}
+
 // ---------------------------------------------------------------------------
 // CANVAS_NODE_DATA_SCHEMAS — the per-type node.data allowlist, MIRRORED from
 // apps/web/src/app/chat/_canvas/node-type-registry.ts (see module header for
@@ -181,6 +200,27 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
   spreadsheet: z
     .object({
       spreadsheetId: z.string().uuid(),
+      label: z.string().max(120).optional(),
+    })
+    .strict(),
+  // FEATURE-CATALOG DR-03 — file node: ref-only. node.data carries ONLY the
+  // vault object's tenant-relative location (folder path segments + basename)
+  // and an optional label; the blob NEVER rides along. Every segment is gated
+  // to the vault-keys chokepoint's safe-segment rules so a tampered layout row
+  // can never smuggle a "../other-tenant" traversal (MIRRORED from
+  // node-data-schemas.ts's FileNodeDataSchema).
+  file: z
+    .object({
+      path: z
+        .array(
+          z.string().refine(isSafeVaultSegment, {
+            message: "path segment must be a safe vault name (no traversal/separators)",
+          }),
+        )
+        .max(32),
+      name: z.string().refine(isSafeVaultSegment, {
+        message: "name must be a safe vault name (no traversal/separators)",
+      }),
       label: z.string().max(120).optional(),
     })
     .strict(),

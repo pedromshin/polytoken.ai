@@ -57,6 +57,7 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   desktop: { sessionId: "sess-1", status: "running", region: "eu-central", shape: "CPX41" },
   "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
   spreadsheet: { spreadsheetId: SOME_UUID, label: "Invoices" },
+  file: { path: ["invoices", "2026"], name: "q3.pdf", label: "Q3 invoice" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

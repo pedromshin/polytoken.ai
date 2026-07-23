@@ -65,6 +65,7 @@ export const CANVAS_NODE_TYPE_IDS = Object.freeze([
   "desktop",
   "circle-pack",
   "spreadsheet",
+  "file",
 ] as const);
 
 export type CanvasNodeTypeId = (typeof CANVAS_NODE_TYPE_IDS)[number];

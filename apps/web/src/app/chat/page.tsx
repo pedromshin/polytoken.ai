@@ -224,6 +224,7 @@ function ConversationView({
                 isStreaming={controller.activeStreamState === "streaming"}
                 onSubmit={controller.handleSubmit}
                 onStop={controller.handleStop}
+                conversationId={conversationId}
               />
             </div>
           </TranscriptPanelHost>

@@ -28,7 +28,7 @@
  * sourceRef is a small, versioned, jsonb discriminated union (kept jsonb, not
  * four nullable typed columns, so a future 5th source kind needs no
  * migration — mirrors apps/web's node-data-schemas.ts per-type convention).
- * It holds exactly these four shapes (the authoritative form every
+ * It holds exactly these shapes (the authoritative form every
  * downstream Phase 56 plan — the tRPC Zod boundary, the Python per-type
  * resolver — must read from this one place):
  *
@@ -40,6 +40,14 @@
  *     -> sourceRefKey `genui_panel:<messageId>:<partIndex>`
  *   { type: "email_thread", threadId: <uuid> }
  *     -> sourceRefKey `email_thread:<threadId>`
+ *   { type: "vault_file", path: <string[]>, name: <string> }   (CH-01/DR-05)
+ *     -> sourceRefKey `vault_file:<path.join("/")>/<name>`
+ *     A vault file attached in the composer. TENANT-RELATIVE by construction:
+ *     the ref carries no userId and is resolved against the conversation
+ *     owner's storage prefix at read time, so it can never address another
+ *     tenant's object — assertSourceRefOwnership's vault_file case is therefore
+ *     an always-owned no-op, and traversal (the one real threat) is closed at
+ *     the tRPC Zod boundary by validating every segment.
  *
  * sourceRefKey is the derived, stable string form of sourceRef, used solely
  * as the identity column for the partial unique index below — it must be

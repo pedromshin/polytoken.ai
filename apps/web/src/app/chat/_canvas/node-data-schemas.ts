@@ -133,6 +133,67 @@ export const SpreadsheetNodeDataSchema = z
 export type SpreadsheetNodeData = z.infer<typeof SpreadsheetNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// FileNodeDataSchema — file node.data (FEATURE-CATALOG DR-03: a vault file as a
+// first-class canvas node). Ref-only like every sibling: node.data carries ONLY
+// the vault object's tenant-RELATIVE location (folder path segments + basename)
+// and an optional label — NEVER the blob, never a signed URL. The file
+// rehydrates (name/size/download) through the ownership-gated files router,
+// resolved against `ctx.user.id` at read time, so the ref never carries a
+// userId and can never address another tenant's object.
+//
+// THE PATH IS THE THREAT SURFACE (mirrors SourceNodeDataSchema's url gate):
+// node.data arrives from chat_canvas_layouts, a user-writable row, and the
+// restore path re-validates only the generic CanvasSnapshotSchema — NOT this
+// per-type schema. A ".."/"." segment or an embedded separator, if a downstream
+// reader built a storage key naively, would walk out of the user's prefix.
+// `isSafeVaultSegment` gates EVERY segment to the same rules the vault-keys
+// chokepoint enforces (packages/api-client's VaultSegmentSchema: no empty, no
+// dot-segments, no separators, no control chars, <=255), so a tampered row can
+// never smuggle a traversal into node.data. The eventual read STILL re-parses
+// through `vaultKey(ctx.user.id, …)` — this is defense in depth, not the only
+// guard.
+// ---------------------------------------------------------------------------
+
+/** Control characters: C0 (NUL..US) and DEL — mirrors vault-keys' CONTROL_CHAR_RE. */
+const VAULT_CONTROL_CHAR_RE = /[\u0000-\u001F\u007F]/;
+
+/** A single vault path/name segment is safe iff it survives the vault-keys
+ * chokepoint's rules (VaultSegmentSchema). Re-declared here (not imported) so
+ * this stays the ONE Zod boundary and its capabilities-package MIRROR can be
+ * field-for-field identical without either importing the files router. */
+function isSafeVaultSegment(value: string): boolean {
+  return (
+    value.length > 0 &&
+    value.length <= 255 &&
+    value !== "." &&
+    value !== ".." &&
+    !value.includes("/") &&
+    !value.includes("\\") &&
+    !VAULT_CONTROL_CHAR_RE.test(value)
+  );
+}
+
+export const FileNodeDataSchema = z
+  .object({
+    /** The vault folder path as validated segments; empty array = vault root. */
+    path: z
+      .array(
+        z.string().refine(isSafeVaultSegment, {
+          message: "path segment must be a safe vault name (no traversal/separators)",
+        }),
+      )
+      .max(32),
+    /** The file basename — the same safe-segment rules as a path component. */
+    name: z.string().refine(isSafeVaultSegment, {
+      message: "name must be a safe vault name (no traversal/separators)",
+    }),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type FileNodeData = z.infer<typeof FileNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // SourceNodeDataSchema — source node.data (RCNV-02/RSRCH-03: auto-collected
 // research sources as canvas nodes, zero capture ceremony).
 //

@@ -95,17 +95,45 @@ const expandNodeQuery = {
   refetch: vi.fn(),
 };
 
+const FAKE_SEND_TO_UTILS = {
+  chat: {
+    listContextEdges: {
+      cancel: async () => undefined,
+      getData: () => undefined,
+      setData: () => undefined,
+      invalidate: async () => undefined,
+    },
+    getCanvasLayout: {
+      cancel: async () => undefined,
+      getData: () => null,
+      setData: () => undefined,
+      invalidate: async () => undefined,
+    },
+  },
+};
+
 vi.mock("~/trpc/react", () => ({
   api: {
     useQueries: (cb: (t: Record<string, never>) => unknown[]) => {
       cb({} as Record<string, never>);
       return [];
     },
+    // CH-01: ChatNode's Composer now renders ComposerAttachments (useSendTo +
+    // the chip rail). All additive/stubbed — this suite asserts law, not attach.
+    useUtils: () => FAKE_SEND_TO_UTILS,
     chat: {
       listConversations: { useQuery: () => ({ data: [] }) },
       getHistory: { useQuery: () => ({ data: [] }) },
       createConversation: { useMutation: () => ({ mutateAsync: vi.fn() }) },
       attachConversationToThread: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      listContextEdges: { useQuery: () => ({ data: [] }) },
+      createContextEdge: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      addCanvasNode: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      removeContextEdge: { useMutation: () => ({ mutate: vi.fn() }) },
+    },
+    files: {
+      requestUpload: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      list: { useQuery: () => ({ data: { entries: [] }, isPending: false, isError: false }) },
     },
     emails: { threadCard: { useQuery: () => threadCardQuery } },
     knowledge: { expandNode: { useQuery: () => expandNodeQuery } },

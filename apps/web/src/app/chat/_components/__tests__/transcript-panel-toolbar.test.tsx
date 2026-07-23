@@ -81,6 +81,32 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({ data: [{ id: CONVERSATION_ID, title: "Fixture chat" }] }),
       },
       getHistory: { useQuery: () => ({ data: [] }) },
+      // CH-01: the real ChatNode mounts a Composer with ComposerAttachments —
+      // additive stubs (this suite asserts the toolbar mounts once, not attach).
+      listContextEdges: { useQuery: () => ({ data: [] }) },
+      createContextEdge: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      addCanvasNode: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+      removeContextEdge: { useMutation: () => ({ mutate: vi.fn() }) },
+    },
+    useUtils: () => ({
+      chat: {
+        listContextEdges: {
+          cancel: async () => undefined,
+          getData: () => undefined,
+          setData: () => undefined,
+          invalidate: async () => undefined,
+        },
+        getCanvasLayout: {
+          cancel: async () => undefined,
+          getData: () => null,
+          setData: () => undefined,
+          invalidate: async () => undefined,
+        },
+      },
+    }),
+    files: {
+      requestUpload: { useMutation: () => ({ mutateAsync: vi.fn() }) },
+      list: { useQuery: () => ({ data: { entries: [] }, isPending: false, isError: false }) },
     },
     genui: {
       applyPanelEdit: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },

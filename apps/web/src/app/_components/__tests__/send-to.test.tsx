@@ -121,6 +121,12 @@ const documentObject: SendableObject = {
   documentId: DOCUMENT_ID,
   label: "Q3 research report",
 };
+const fileObject: SendableObject = {
+  kind: "vault_file",
+  path: ["invoices", "2026"],
+  name: "q3.pdf",
+  label: "Q3 invoice",
+};
 
 // --- a harness exposing the hook's handlers as buttons ---------------------
 
@@ -199,11 +205,31 @@ describe("pure mappers — correct typed ref per kind", () => {
     });
   });
 
+  it("vault_file -> BOTH rails: a vault_file sourceRef AND a file node (CH-01/DR-03)", () => {
+    expect(objectToSourceRef(fileObject)).toEqual({
+      type: "vault_file",
+      path: ["invoices", "2026"],
+      name: "q3.pdf",
+    });
+    expect(objectToCanvasNode(fileObject)).toEqual({
+      nodeType: "file",
+      data: { path: ["invoices", "2026"], name: "q3.pdf", label: "Q3 invoice" },
+    });
+  });
+
+  it("vault_file at the vault root maps with an empty path and no label", () => {
+    expect(
+      objectToCanvasNode({ kind: "vault_file", path: [], name: "notes.txt" }),
+    ).toEqual({ nodeType: "file", data: { path: [], name: "notes.txt" } });
+  });
+
   it("supportsChannel gates per kind", () => {
     expect(supportsChannel("knowledge_node", "chat")).toBe(true);
     expect(supportsChannel("knowledge_node", "canvas")).toBe(true);
     expect(supportsChannel("document", "chat")).toBe(false);
     expect(supportsChannel("document", "canvas")).toBe(true);
+    expect(supportsChannel("vault_file", "chat")).toBe(true);
+    expect(supportsChannel("vault_file", "canvas")).toBe(true);
   });
 
   it("truncates an over-long canvas label to the node.data cap (knowledge = 80)", () => {
