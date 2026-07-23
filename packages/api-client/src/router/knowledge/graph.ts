@@ -28,7 +28,16 @@
  *   NOT a direct FK on EmailComponents (UI-SPEC Note #3 is incorrect).
  */
 
-import { and, count, eq, inArray, isNull, or } from "drizzle-orm";
+import {
+  and,
+  count,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  notInArray,
+  or,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -44,6 +53,7 @@ import {
 } from "@polytoken/db/schema";
 import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
+import { RETIRED_SYSTEM_TYPE_SLUGS } from "../retired-entity-types";
 import { protectedProcedure } from "../../trpc";
 
 // ---------------------------------------------------------------------------
@@ -332,13 +342,29 @@ export const knowledgeGraphProcedures = {
       // entire seeded taxonomy — breaking the D-02 "never blank" guarantee.
       // Always union system defaults with the caller's OWNED rows (TENA-03:
       // the scope is owned-derived, never the raw client importerId).
-      const entityTypeWhere =
+      const entityTypeScope =
         scope.length > 0
           ? or(
               isNull(EntityTypes.importerId),
               inArray(EntityTypes.importerId, scope),
             )
           : isNull(EntityTypes.importerId);
+
+      // Deactivated types (0049 retired the maritime system set) must not
+      // surface as graph nodes. The explicit slug exclusion is belt-and-braces
+      // for environments whose DB predates 0049/0050 — it only ever targets
+      // SYSTEM rows (importer_id IS NULL), never a user's own custom type that
+      // happens to reuse a slug.
+      // De Morgan of NOT(system-row AND retired-slug) — keeps every operand
+      // a plain SQL value (drizzle's not() rejects and()'s `| undefined`).
+      const entityTypeWhere = and(
+        eq(EntityTypes.isActive, true),
+        or(
+          isNotNull(EntityTypes.importerId),
+          notInArray(EntityTypes.slug, [...RETIRED_SYSTEM_TYPE_SLUGS]),
+        ),
+        entityTypeScope,
+      );
 
       const entityTypeRows = await ctx.db
         .select({
@@ -362,7 +388,7 @@ export const knowledgeGraphProcedures = {
             )
           : isNull(EntityTypeFields.importerId);
 
-      const fieldRows = await ctx.db
+      const allFieldRows = await ctx.db
         .select({
           id: EntityTypeFields.id,
           label: EntityTypeFields.label,
@@ -373,6 +399,13 @@ export const knowledgeGraphProcedures = {
         })
         .from(EntityTypeFields)
         .where(entityTypeFieldWhere);
+
+      // Fields of hidden (inactive/retired) types would render as orphan
+      // nodes with dangling has_field edges — keep only fields whose parent
+      // type made it into the graph.
+      const fieldRows = allFieldRows.filter((row) =>
+        typeLabelById.has(row.entityTypeId),
+      );
 
       // Group fields by parent type so entity_type nodes can carry their field
       // chips (NodeDetailPane "Fields" section).
@@ -458,7 +491,7 @@ export const knowledgeGraphProcedures = {
           eq(EntityInstances.isActive, true),
         );
 
-        const instanceRows = await ctx.db
+        const allInstanceRows = await ctx.db
           .select({
             id: EntityInstances.id,
             displayName: EntityInstances.displayName,
@@ -466,6 +499,12 @@ export const knowledgeGraphProcedures = {
           })
           .from(EntityInstances)
           .where(instanceWhere);
+
+        // Instances of hidden (inactive/retired) types would emit dangling
+        // instance_of edges — drop them alongside their type.
+        const instanceRows = allInstanceRows.filter((row) =>
+          typeLabelById.has(row.entityTypeId),
+        );
 
         for (const row of instanceRows) {
           addNode({
@@ -760,6 +799,10 @@ export const knowledgeGraphProcedures = {
           );
 
         for (const row of referencedInstanceRows) {
+          // Same hidden-type guard as the includeInstances branch: an edge to
+          // an instance of a retired type degrades (dropped client-side)
+          // rather than resurrecting the type via a dangling instance_of.
+          if (!typeLabelById.has(row.entityTypeId)) continue;
           addNode({
             id: row.id,
             type: "entity_instance",

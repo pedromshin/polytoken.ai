@@ -17,13 +17,23 @@
  * foreign user's field override can never ride along on a system type.
  */
 
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  eq,
+  inArray,
+  isNotNull,
+  isNull,
+  notInArray,
+  or,
+  sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 import { EntityTypeFields, EntityTypes } from "@polytoken/db/schema";
 import { userOwnedImporterIds } from "@polytoken/db/ownership";
 
 import { createTRPCRouter, protectedProcedure } from "../trpc";
+import { RETIRED_SYSTEM_TYPE_SLUGS } from "./retired-entity-types";
 import { entityTypesWriteProcedures } from "./entity-types-write";
 
 // ---------------------------------------------------------------------------
@@ -200,9 +210,18 @@ export const entityTypesRouter = createTRPCRouter({
             )
           : isNull(EntityTypeFields.importerId);
 
+      // Retired maritime SYSTEM types never surface — not even under
+      // includeInactive (they are being purged, not awaiting re-activation).
+      // De Morgan of NOT(system-row AND retired-slug): only importer-NULL
+      // rows are targeted; a user's custom type reusing a slug is untouched.
+      const notRetired = or(
+        isNotNull(EntityTypes.importerId),
+        notInArray(EntityTypes.slug, [...RETIRED_SYSTEM_TYPE_SLUGS]),
+      );
+
       const whereClause = includeInactive
-        ? typeScope
-        : and(eq(EntityTypes.isActive, true), typeScope);
+        ? and(notRetired, typeScope)
+        : and(eq(EntityTypes.isActive, true), notRetired, typeScope);
 
       const rows = await ctx.db
         .select({
