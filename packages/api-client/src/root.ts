@@ -11,6 +11,7 @@ import { genuiRouter } from "./router/genui";
 import { knowledgeRouter } from "./router/knowledge";
 import { referencesRouter } from "./router/references";
 import { searchRouter } from "./router/search";
+import { spreadsheetsRouter } from "./router/spreadsheets";
 import { createTRPCRouter } from "./trpc";
 
 export const appRouter = createTRPCRouter({
@@ -27,6 +28,7 @@ export const appRouter = createTRPCRouter({
   capabilities: capabilitiesRouter,
   desktop: desktopRouter,
   search: searchRouter,
+  spreadsheets: spreadsheetsRouter,
 });
 
 // export type definition of API

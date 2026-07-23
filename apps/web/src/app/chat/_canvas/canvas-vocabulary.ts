@@ -193,6 +193,7 @@ export type CanvasNodeKind =
   | "browser"
   | "editor"
   | "desktop"
+  | "spreadsheet"
   | "unknown";
 
 /**
@@ -214,6 +215,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     browser: "browser",
     editor: "editor",
     desktop: "desktop",
+    spreadsheet: "spreadsheet",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -321,6 +323,13 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   browser: "border-l border-l-ink border-r-2 border-r-ink border-dotted",
   editor: "border-l-2 border-l-ink border-r-2 border-r-ink border-double",
   desktop: "border-l-2 border-l-ink border-r-2 border-r-ink border-dotted",
+  // CV-03 spreadsheet: the user's own STRUCTURED material composed into a bound
+  // artifact — a whole dataset, heavier than a single document (rule-4, chat's
+  // weight) AND a bound artifact (the DOUBLE rule, document's mark). rule-4 +
+  // double is distinct from chat (rule-4, no double) and document (rule-2,
+  // double) without spending a hue (law 3); it is a static grid, not a live
+  // daemon-backed surface, so it takes no right seam.
+  spreadsheet: "border-l-4 border-l-ink border-double",
   unknown: "border-dotted",
 };
 
@@ -352,6 +361,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   browser: "Browser",
   editor: "Editor",
   desktop: "Desktop",
+  spreadsheet: "Table",
   unknown: "Unrecognized",
 };
 

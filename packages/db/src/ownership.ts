@@ -44,6 +44,7 @@ import { ForwardingAddresses } from "./schema/forwarding-addresses";
 import { Importers } from "./schema/importers";
 import { KnowledgeNodes } from "./schema/knowledge-nodes";
 import { References } from "./schema/references";
+import { Spreadsheets } from "./schema/spreadsheets";
 import { Threads } from "./schema/threads";
 
 /** The Drizzle handle every ownership function accepts as its first parameter. */
@@ -289,6 +290,32 @@ export async function assertDesktopSessionOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("desktop_session", sessionId);
+  }
+}
+
+/**
+ * assertSpreadsheetOwnership — resolves when spreadsheets.user_id = userId.
+ * Direct user_id, no join (mirrors assertDocumentOwnership — spreadsheets is
+ * NOT an importer-descendant, FEATURE-CATALOG CV-03). Throws OwnershipError
+ * otherwise/missing (fail-closed, no existence oracle). This is the ONLY path
+ * any tRPC procedure (the `spreadsheets.byId` read, the `table.update`
+ * mutation) uses to gate a single spreadsheet — never an ad-hoc per-call-site
+ * user_id filter.
+ */
+export async function assertSpreadsheetOwnership(
+  db: OwnershipDb,
+  spreadsheetId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: Spreadsheets.userId })
+    .from(Spreadsheets)
+    .where(eq(Spreadsheets.id, spreadsheetId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("spreadsheet", spreadsheetId);
   }
 }
 

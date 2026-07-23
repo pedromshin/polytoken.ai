@@ -60,6 +60,30 @@ export type {
   CanvasScope,
 } from "./canvas.js";
 
+export {
+  MAX_TABLE_COLUMNS,
+  MAX_TABLE_ROWS,
+  SPREADSHEET_FIELD_TYPES,
+  tableCreateInputSchema,
+  tableUpdateInputSchema,
+  failClosedSpreadsheetStore,
+  tableCreateCapability,
+  tableUpdateCapability,
+  TABLE_CAPABILITIES,
+} from "./table.js";
+
+export type {
+  TableColumn,
+  TableRow,
+  TableCreateInput,
+  TableCreateOutput,
+  TableUpdateInput,
+  TableUpdateOutput,
+  SpreadsheetStore,
+  TableExecCtx,
+  TableScope,
+} from "./table.js";
+
 export type {
   ExternalTrust,
   ExternalCapabilityCandidate,

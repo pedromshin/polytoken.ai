@@ -37,7 +37,7 @@ const manifestEntrySchema = z
   .strict();
 
 describe("BUILTIN_CAPABILITY_MANIFEST", () => {
-  it("mirrors exactly the frozen builtin id set (13 daemon + 4 desktop + 3 canvas + 4 chat tools + deep_research)", () => {
+  it("mirrors exactly the frozen builtin id set (13 daemon + 4 desktop + 3 canvas + 2 table + 4 chat tools + deep_research)", () => {
     expect([...BUILTIN_CAPABILITY_MANIFEST].map((e) => e.id).sort()).toEqual(
       [
         // daemon builtins (apps/daemon/src/tools/capabilities.ts BUILTIN_CAPABILITIES)
@@ -65,6 +65,9 @@ describe("BUILTIN_CAPABILITY_MANIFEST", () => {
         "canvas.addNode",
         "canvas.connect",
         "canvas.removeNode",
+        // control-plane table mutation (packages/capabilities/src/table.ts, CV-03)
+        "table.create",
+        "table.update",
         // chat (email-listener container.py registry wiring)
         "lookup_entity",
         "search_emails",

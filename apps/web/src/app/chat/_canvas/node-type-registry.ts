@@ -23,6 +23,7 @@ import {
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
   SourceNodeDataSchema,
+  SpreadsheetNodeDataSchema,
 } from "./node-data-schemas";
 
 export interface NodeTypeRegistryEntry {
@@ -97,6 +98,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: DesktopNodeDataSchema,
     description:
       "Desktop node — a jailed remote-desktop panel shell anchored on an opaque sessionId (never a gateway url/token); no iframe mounted yet, keyed on the desktop.* control-plane capabilities (spawn/attach/hibernate/destroy).",
+  },
+  spreadsheet: {
+    id: "spreadsheet",
+    dataSchema: SpreadsheetNodeDataSchema,
+    description:
+      "Spreadsheet node — renders a stored table's columns/rows as a read-only grid anchored on a spreadsheetId ref (never the fetched cells); the table rehydrates via api.spreadsheets.byId (ownership-gated) and is produced/updated by the table.* control-plane capabilities (create/update).",
   },
 };
 
