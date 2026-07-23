@@ -13,6 +13,7 @@ from app.container import create_container
 from app.infrastructure.observability.logging import setup_logging
 from app.presentation.api.health import router as health_router
 from app.presentation.api.v1.backfill_email import router as backfill_email_router
+from app.presentation.api.v1.backfill_reprocess import router as backfill_reprocess_router
 from app.presentation.api.v1.chat_models import router as chat_models_router
 from app.presentation.api.v1.chat_sources import router as chat_sources_router
 from app.presentation.api.v1.chat_stream import router as chat_stream_router
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(inbound_email_router)
     app.include_router(sns_inbound_router)
     app.include_router(backfill_email_router)
+    app.include_router(backfill_reprocess_router)
     app.include_router(emails_router)
     app.include_router(components_router)
     app.include_router(entity_instances_router)

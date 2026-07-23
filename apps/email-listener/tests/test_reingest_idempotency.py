@@ -253,23 +253,23 @@ def test_two_consecutive_reprocesses_do_not_grow_pages_or_pending_regions() -> N
         # Initial ingest: 2 pages, 2 proposals per page.
         assert len(repo.pages()) == 2
         initial_page_ids = {c.id for c in repo.pages()}
-        assert len(repo.pending_regions()) == 4
+        assert len(repo.pending_regions()) == 6
 
         first = asyncio.run(reprocess.execute(email_id=email.id))
         pages_after_first = repo.pages()
         assert len(pages_after_first) == 2, "reprocess duplicated attachment_page rows"
         assert {c.id for c in pages_after_first} == initial_page_ids, "page ids drifted across re-ingest"
-        assert len(repo.pending_regions()) == 4, "reprocess accumulated pending regions"
-        assert first["superseded_components"] == 4
-        assert len(repo.superseded_regions()) == 4
+        assert len(repo.pending_regions()) == 6, "reprocess accumulated pending regions"
+        assert first["superseded_components"] == 6
+        assert len(repo.superseded_regions()) == 6
 
         second = asyncio.run(reprocess.execute(email_id=email.id))
         pages_after_second = repo.pages()
         assert len(pages_after_second) == 2, "second reprocess duplicated attachment_page rows"
         assert {c.id for c in pages_after_second} == initial_page_ids
-        assert len(repo.pending_regions()) == 4, "second reprocess accumulated pending regions"
-        assert second["superseded_components"] == 4
-        assert len(repo.superseded_regions()) == 8  # audit trail grows; live rows do not
+        assert len(repo.pending_regions()) == 6, "second reprocess accumulated pending regions"
+        assert second["superseded_components"] == 6
+        assert len(repo.superseded_regions()) == 12  # audit trail grows; live rows do not
 
 
 @skip_no_pdf
@@ -310,5 +310,5 @@ def test_historical_uuid4_page_duplicates_do_not_multiply_regions_on_reprocess()
         result = asyncio.run(reprocess.execute(email_id=email.id))
 
         # Still 2 physical pages' worth of proposals: 2 regions x 2 pages.
-        assert len(repo.pending_regions()) == 4, "duplicate page rows multiplied the proposed regions"
-        assert result["superseded_components"] == 4
+        assert len(repo.pending_regions()) == 6, "duplicate page rows multiplied the proposed regions"
+        assert result["superseded_components"] == 6

@@ -53,6 +53,7 @@ from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.resolve_ingest_entities import ResolveIngestEntitiesUseCase
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.domain.entities.attachment import Attachment
+from app.domain.entities.component import Component
 from app.domain.entities.email import Email
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -63,6 +64,8 @@ from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import RawEmailStore
 from app.domain.ports.thread_resolver import ThreadResolver
+from app.domain.services.email_body_identity import email_body_component_id
+from app.domain.services.html_to_text import html_to_text
 from app.domain.services.mime_parser import ParsedAttachment, ParsedEmail, parse_mime
 from app.domain.services.pipeline_health import (
     AdapterDegradation,
@@ -76,6 +79,15 @@ logger = structlog.get_logger(__name__)
 # parse_error is a human-readable failure summary, not a stack-trace dump —
 # cap it so a pathological attachment list cannot bloat the email row.
 _PARSE_ERROR_MAX_LEN = 2000
+
+# Email-body component bounds. The body is segmented like an attachment page,
+# so cap the text (and the synthetic line-tokens the segmenter serializes) to
+# keep the segmenter prompt bounded on very long marketing/HTML emails.
+_BODY_MAX_CHARS = 12000
+_BODY_MAX_LINES = 250
+# Placeholder full-page polygon (a body has no visual geometry). 4 corners,
+# normalized [0,1], clockwise from top-left — mirrors propose_regions.
+_FULL_PAGE_POLYGON: list[list[float]] = [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]
 
 
 @dataclass(frozen=True)
@@ -237,8 +249,18 @@ class IngestInboundEmailUseCase:
                     if failure is not None:
                         failures.append(failure)
 
-            # Propose region Components from all page Components persisted above.
-            # Failure must not propagate to the SNS-facing caller.
+            # Persist the EMAIL BODY as an extractable component BEFORE region
+            # proposal, so a body-only email (no attachments) still yields
+            # entities. Isolated exactly like an attachment: a failure here is
+            # recorded and drives 'failed' but never aborts the pipeline.
+            try:
+                await self._ingest_body(saved, parsed)
+            except Exception as exc:
+                logger.exception("email_body_ingest_failed", email_id=saved.id)
+                failures.append(failure_entry("email_body", repr(exc)))
+
+            # Propose region Components from all page Components persisted above
+            # (attachment pages AND the email body). Failure must not propagate.
             try:
                 await self._propose_regions.execute(email_id=saved.id, importer_id=importer_id)
             except Exception as exc:
@@ -397,6 +419,57 @@ class IngestInboundEmailUseCase:
                 exc_info=True,
             )
             return None
+
+    async def _ingest_body(self, email: Email, parsed: ParsedEmail) -> None:
+        """Persist the email body as a single 'email_body' component (idempotent).
+
+        Prefers the text/plain body; falls back to HTML->text when only HTML is
+        present. No-ops on an empty body. The id is deterministic (uuid5 of the
+        email id) so reprocess UPSERTs in place instead of duplicating.
+
+        The body has no visual geometry, so line-level tokens are synthesized
+        with placeholder stacked bboxes — this lets ProposeRegionsUseCase
+        segment the body into candidate entity regions with the SAME code path
+        it uses for attachment pages (the polygons are placeholders and are
+        never rendered as overlay boxes; only the region children matter for
+        entity classification).
+        """
+        text = (parsed.body_text or "").strip() or html_to_text(parsed.body_html or "")
+        text = text.strip()
+        if not text:
+            return
+        text = text[:_BODY_MAX_CHARS]
+        lines = [line.strip() for line in text.splitlines() if line.strip()][:_BODY_MAX_LINES]
+        if not lines:
+            return
+
+        height = 1.0 / len(lines)
+        tokens = [
+            {"text": line, "bbox": [0.0, round(index * height, 6), 1.0, round(height, 6)]}
+            for index, line in enumerate(lines)
+        ]
+        component = Component(
+            id=email_body_component_id(email.id),
+            email_id=email.id,
+            importer_id=email.importer_id,
+            attachment_id=None,
+            parent_component_id=None,
+            source_type="email_body",
+            location={"page_index": 0, "polygon": _FULL_PAGE_POLYGON},
+            content_text=text,
+            content_markdown=None,
+            content_raw={"source": "email_body", "tokens": tokens},
+            embedding=None,
+            sequence_index=0,
+            extraction_status="pending",
+        )
+        await self._components.save_many([component])
+        logger.info(
+            "email_body_component_persisted",
+            email_id=email.id,
+            line_count=len(lines),
+            char_count=len(text),
+        )
 
     async def _ingest_attachment(self, email: Email, index: int, parsed: ParsedAttachment) -> str | None:
         """Store + persist one attachment; returns a failure summary or None.

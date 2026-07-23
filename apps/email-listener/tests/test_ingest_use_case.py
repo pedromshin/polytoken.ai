@@ -305,8 +305,12 @@ def test_unsupported_attachment_is_skipped_ingestion_still_completes() -> None:
 
     assert email is not None
     assert email.importer_id == IMPORTER_ID
-    # save_many not called (no page Components produced)
-    components.save_many.assert_not_awaited()
+    # No attachment page Components produced (unsupported type), but the email
+    # BODY is still persisted as an email_body component so bodyless-of-
+    # attachments emails are not silently unprocessed.
+    saved = [c for call in components.save_many.await_args_list for c in call.args[0]]
+    assert not [c for c in saved if c.source_type == "attachment_page"]
+    assert [c for c in saved if c.source_type == "email_body"]
 
 
 def test_propose_regions_called_once_after_all_attachments() -> None:
@@ -938,3 +942,88 @@ def test_resolution_failure_still_allows_other_stage_failures_to_coexist() -> No
     assert email.parse_error is not None
     assert "propose_regions" in email.parse_error
     assert "entity_resolution" in email.parse_error
+
+
+# ---------------------------------------------------------------------------
+# Email-body extraction — a body-only email must still produce an extractable
+# component so entity extraction is not attachment-only.
+# ---------------------------------------------------------------------------
+
+
+def _saved_components(mocks: dict[str, MagicMock]) -> list[Component]:
+    out: list[Component] = []
+    for call in mocks["components"].save_many.await_args_list:
+        out.extend(call.args[0])
+    return out
+
+
+def test_body_only_email_persists_email_body_component() -> None:
+    """An email with a body but NO attachment still yields an 'email_body' component."""
+    use_case, mocks = _make_use_case(_raw_email(with_attachment=False))
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    bodies = [c for c in _saved_components(mocks) if c.source_type == "email_body"]
+    assert len(bodies) == 1
+    body = bodies[0]
+    assert body.email_id == email.id
+    assert body.importer_id == IMPORTER_ID
+    assert body.attachment_id is None
+    assert body.extraction_status == "pending"
+    assert "see attached" in body.content_text
+    # Deterministic id → reprocess upserts in place.
+    from app.domain.services.email_body_identity import email_body_component_id
+
+    assert body.id == email_body_component_id(email.id)
+    # Synthetic line tokens are present so propose_regions can segment it.
+    assert body.content_raw is not None
+    assert body.content_raw["source"] == "email_body"
+    assert isinstance(body.content_raw["tokens"], list)
+    assert body.content_raw["tokens"]
+
+
+def test_body_component_persisted_before_propose_regions() -> None:
+    """The body component is saved BEFORE region proposal runs (so it gets segmented)."""
+    order: list[str] = []
+    components = MagicMock()
+
+    async def _save_many(cs: list[Component]) -> list[Component]:
+        if any(c.source_type == "email_body" for c in cs):
+            order.append("save_body")
+        return cs
+
+    components.save_many = AsyncMock(side_effect=_save_many)
+    components.find_by_email_id = AsyncMock(return_value=[])
+
+    propose = MagicMock()
+
+    async def _propose(**_kw: object) -> list[Component]:
+        order.append("propose_regions")
+        return []
+
+    propose.execute = AsyncMock(side_effect=_propose)
+
+    use_case, _mocks = _make_use_case(
+        _raw_email(with_attachment=False), components=components, propose_regions=propose
+    )
+    asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert order == ["save_body", "propose_regions"]
+
+
+def test_empty_body_email_persists_no_body_component() -> None:
+    """A whitespace-only body yields no email_body component (no-op, not a failure)."""
+    msg = EmailMessage()
+    msg["From"] = "x@y.com"
+    msg["To"] = "agent@magnitudetech.com.br"
+    msg["Subject"] = "empty"
+    msg["Date"] = "Wed, 10 Jun 2026 14:30:00 +0000"
+    msg["Message-ID"] = "<empty-001@y.com>"
+    msg.set_content("   ")
+
+    use_case, mocks = _make_use_case(bytes(msg))
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    assert not [c for c in _saved_components(mocks) if c.source_type == "email_body"]
+    # A missing body is not an error — the email still finalizes cleanly.
+    assert email.parse_status == "parsed"

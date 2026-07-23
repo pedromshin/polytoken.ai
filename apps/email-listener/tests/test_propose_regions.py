@@ -132,6 +132,47 @@ class TestProposeRegionsUseCase:
         return use_case_cls(components=repo, segmenter=segmenter), repo
 
     # ------------------------------------------------------------------
+    # Email body is segmented like an attachment page
+    # ------------------------------------------------------------------
+
+    def test_email_body_page_is_segmented_into_regions(self) -> None:
+        """A source_type='email_body' component flows through region proposal
+        exactly like an attachment page (body extraction, not attachment-only)."""
+        body = Component(
+            id=str(uuid.uuid4()),
+            email_id=self.EMAIL_ID,
+            importer_id=self.IMPORTER_ID,
+            attachment_id=None,
+            parent_component_id=None,
+            source_type="email_body",
+            location={"page_index": 0, "polygon": [[0, 0], [1, 0], [1, 1], [0, 1]]},
+            content_text="Invoice No. 12345\nDue 2026-07-01",
+            content_markdown=None,
+            content_raw={
+                "source": "email_body",
+                "tokens": [
+                    {"text": "Invoice No. 12345", "bbox": [0.0, 0.0, 1.0, 0.5]},
+                    {"text": "Due 2026-07-01", "bbox": [0.0, 0.5, 1.0, 0.5]},
+                ],
+            },
+            embedding=None,
+            sequence_index=0,
+            extraction_status="pending",
+        )
+        proposals = [ProposedRegion("Invoice No. 12345", (0,), "invoice_number", None, 0)]
+        segmenter = _make_fake_segmenter(proposals_per_call=[proposals])
+        use_case, _repo = self._make_use_case([body], segmenter)
+
+        result = asyncio.run(use_case.execute(email_id=self.EMAIL_ID, importer_id=self.IMPORTER_ID))
+
+        assert len(result) == 1
+        child = result[0]
+        assert child.source_type == "region"
+        assert child.parent_component_id == body.id
+        assert child.attachment_id is None
+        assert child.content_text == "Invoice No. 12345"
+
+    # ------------------------------------------------------------------
     # Grounded geometry (04-14)
     # ------------------------------------------------------------------
 
