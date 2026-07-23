@@ -1,0 +1,150 @@
+[
+  {
+    "id": "seed-ci-0001",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1001\nSeller: Acme Trading Co., Ltd.\nTotal: 8,450.00 USD\nTerms: FOB",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1001",
+      "vendor_name": "Acme Trading Co., Ltd.",
+      "total_amount": 8450.0,
+      "currency": "USD",
+      "incoterm": "FOB"
+    },
+    "corrected_fields": null,
+    "confidence_score": 0.94,
+    "status": "confirmed",
+    "created_at": "2026-07-01T10:00:00+00:00"
+  },
+  {
+    "id": "seed-ci-0002",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1002\nSeller: Acme Trading Co., Ltd.\nTotal: 12,580.00 USD\nTerms: CIF",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1002",
+      "vendor_name": "Acme Trading",
+      "total_amount": 12500.0,
+      "currency": "USD",
+      "incoterm": "CIF"
+    },
+    "corrected_fields": {
+      "vendor_name": "Acme Trading Co., Ltd.",
+      "total_amount": 12580.0
+    },
+    "confidence_score": 0.71,
+    "status": "confirmed",
+    "created_at": "2026-07-02T10:00:00+00:00"
+  },
+  {
+    "id": "seed-ci-0003",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1003\nSeller: Shenzhen Widget Works\nTotal amount due: US$ 3,975.50\nTerms: EXW",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1003",
+      "vendor_name": "Shenzhen Widget Works",
+      "total_amount": 3975.5,
+      "currency": "US$",
+      "incoterm": "EXW"
+    },
+    "corrected_fields": {
+      "currency": "USD"
+    },
+    "confidence_score": 0.66,
+    "status": "confirmed",
+    "created_at": "2026-07-03T10:00:00+00:00"
+  },
+  {
+    "id": "seed-pl-0004",
+    "entity_type_slug": "packing_list",
+    "component_text": "PACKING LIST\nTotal packages: 42 cartons\nGross weight: 1,250.5 kg\nNet weight: 1,180.0 kg",
+    "extracted_fields": {
+      "package_count": 42,
+      "gross_weight_kg": 1150.0,
+      "net_weight_kg": 1180.0
+    },
+    "corrected_fields": {
+      "gross_weight_kg": 1250.5
+    },
+    "confidence_score": 0.8,
+    "status": "confirmed",
+    "created_at": "2026-07-04T10:00:00+00:00"
+  },
+  {
+    "id": "seed-bl-0005",
+    "entity_type_slug": "bill_of_lading",
+    "component_text": "BILL OF LADING\nB/L No: MSCUAB123456\nVessel: MSC AURORA V.024E\nPort of Loading: CNSHA — Shanghai\nPort of Discharge: BRSSZ — Santos",
+    "extracted_fields": {
+      "bl_number": "MSCUAB123456",
+      "port_of_loading": "Shanghai",
+      "port_of_discharge": "BRSSZ — Santos"
+    },
+    "corrected_fields": {
+      "vessel_name": "MSC AURORA V.024E",
+      "port_of_loading": "CNSHA — Shanghai"
+    },
+    "confidence_score": 0.62,
+    "status": "confirmed",
+    "created_at": "2026-07-05T10:00:00+00:00"
+  },
+  {
+    "id": "seed-ci-0006",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1006\nSeller: Global Parts GmbH\nTotal: 21,000.00 EUR\nTerms: DAP",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1006",
+      "vendor_name": "Global Parts GmbH",
+      "total_amount": 21000.0,
+      "currency": "EUR",
+      "incoterm": "DAP"
+    },
+    "corrected_fields": null,
+    "confidence_score": 0.9,
+    "status": "confirmed",
+    "created_at": "2026-07-06T10:00:00+00:00"
+  },
+  {
+    "id": "seed-bl-0007",
+    "entity_type_slug": "bill_of_lading",
+    "component_text": "BILL OF LADING\nB/L No: HLCUSH987654\nVessel: EVER GIVEN V.118W\nPort of Loading: CNNGB — Ningbo\nPort of Discharge: BRRIG — Rio Grande",
+    "extracted_fields": {
+      "bl_number": "HLCUSH987654",
+      "vessel_name": "EVER GIVEN V.118W",
+      "port_of_loading": "CNNGB — Ningbo",
+      "port_of_discharge": "BRRIG — Rio Grande"
+    },
+    "corrected_fields": {},
+    "confidence_score": 0.88,
+    "status": "confirmed",
+    "created_at": "2026-07-07T10:00:00+00:00"
+  },
+  {
+    "id": "seed-ci-0008",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1008\nSeller: Shenzhen Widget Works\nTotal: 5,120.00 USD\nTerms: FOB Shanghai",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1008",
+      "vendor_name": "Shenzhen Widget Works",
+      "total_amount": 5120.0,
+      "currency": "USD",
+      "incoterm": "FOB Shanghai"
+    },
+    "corrected_fields": {
+      "incoterm": "FOB",
+      "currency": " USD "
+    },
+    "confidence_score": 0.77,
+    "status": "confirmed",
+    "created_at": "2026-07-08T10:00:00+00:00"
+  },
+  {
+    "id": "seed-ci-0009-superseded",
+    "entity_type_slug": "commercial_invoice",
+    "component_text": "COMMERCIAL INVOICE\nInvoice No: INV-2024-1002 (first pass, later reprocessed)",
+    "extracted_fields": {
+      "invoice_number": "INV-2024-1002"
+    },
+    "corrected_fields": null,
+    "confidence_score": 0.4,
+    "status": "superseded",
+    "created_at": "2026-07-02T09:00:00+00:00"
+  }
+]
