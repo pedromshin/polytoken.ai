@@ -31,6 +31,7 @@ import {
   type RuleDecision,
   type RuleSuggestionEntry,
 } from "./mail-rule-review";
+import { PipelineHealthPanel } from "./pipeline-health-panel";
 
 /** The inbox-list projection of an email (a subset of the emails.list row). */
 export interface InboxEmailItem extends InboxEmail {
@@ -123,6 +124,13 @@ function FiltersRail({
           );
         })}
       </nav>
+
+      {/* Pipeline health — per-importer received / analyzed / failed-at-stage
+          counts, in-rail so triage and pipeline trust live on one surface. */}
+      <div className="mt-4 border-t border-hair pt-3">
+        <PipelineHealthPanel />
+      </div>
+
       <p className="mt-4 border-t border-hair pt-2.5 text-xs leading-relaxed text-pencil">
         Forward mail to your personal polytoken address and I&rsquo;ll read it
         and pull out what matters. Find yours under{" "}

@@ -34,7 +34,14 @@
  * No font-medium (500) anywhere — only font-normal (400) or font-semibold (600).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { toast } from "sonner";
 import {
   Background,
@@ -63,6 +70,10 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@polytoken
 import { api } from "~/trpc/react";
 
 import { FilterRail, type NodeTypeKey } from "./filter-rail";
+import {
+  KnowledgeSearchPanel,
+  shouldRunKnowledgeSearch,
+} from "./knowledge-search-panel";
 import { GraphToolbar } from "./graph-toolbar";
 import { GraphErrorState, GraphNoSchemaState } from "./graph-states";
 import { mergeGraph } from "./graph-merge";
@@ -317,6 +328,22 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
     includeInstances,
     includeEmails: visibleTypes.has("email") || visibleTypes.has("email_component"),
   });
+
+  // -------------------------------------------------------------------------
+  // KG-8 (web reachability) — knowledge search. The query is deferred (React
+  // 19 useDeferredValue) so keystrokes never queue a request per character,
+  // and gated on the shared min-length rule. Results are EXTRACTED-tier only
+  // by construction (the trgm RPC reads through the extracted_only view).
+  // -------------------------------------------------------------------------
+
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const deferredSearchQuery = useDeferredValue(searchQuery);
+  const searchEnabled = shouldRunKnowledgeSearch(deferredSearchQuery);
+
+  const knowledgeSearch = api.knowledge.search.useQuery(
+    { query: deferredSearchQuery.trim() },
+    { enabled: searchEnabled },
+  );
 
   // -------------------------------------------------------------------------
   // Auto-show instances when count is below threshold (D-02 convenience)
@@ -653,6 +680,18 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
     setSelectedNodeId(nodeId);
   }, []);
 
+  // KG-8 — selecting a search result selects the node on the canvas and
+  // centers it (knowledge_node is in DEFAULT_VISIBLE_TYPES, so the node is
+  // rendered; fitView is a no-op for an id not on the canvas).
+  const handleSelectSearchResult = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    rfInstance.current?.fitView({
+      nodes: [{ id: nodeId }],
+      padding: 0.8,
+      duration: 400,
+    });
+  }, []);
+
   // Selection overlay — applied at render time so a node click never re-runs the
   // dagre layout (which lives in initialNodes, keyed on [data, visibleTypes]) and
   // so dragged positions survive selection. selectedNodeId is the single source
@@ -695,15 +734,28 @@ export function KnowledgeGraph({ className }: KnowledgeGraphProps): React.ReactE
         direction="horizontal"
         className="flex-1 overflow-hidden"
       >
-        {/* Zone 1: Filter Rail — defaultSize 18% */}
+        {/* Zone 1: Search + Filter Rail — defaultSize 18% */}
         <ResizablePanel defaultSize={18} minSize={12} maxSize={28}>
-          <FilterRail
-            visibleTypes={visibleTypes}
-            onToggleType={handleToggleType}
-            showInstances={showInstances}
-            onToggleInstances={handleToggleInstances}
-            counts={railCounts}
-          />
+          <div className="flex h-full flex-col">
+            {/* KG-8 — knowledge search, finally reachable from the surface */}
+            <KnowledgeSearchPanel
+              query={searchQuery}
+              onQueryChange={setSearchQuery}
+              results={searchEnabled ? knowledgeSearch.data?.items : undefined}
+              isLoading={searchEnabled && knowledgeSearch.isLoading}
+              isError={searchEnabled && knowledgeSearch.isError}
+              onSelectResult={handleSelectSearchResult}
+            />
+            <div className="min-h-0 flex-1">
+              <FilterRail
+                visibleTypes={visibleTypes}
+                onToggleType={handleToggleType}
+                showInstances={showInstances}
+                onToggleInstances={handleToggleInstances}
+                counts={railCounts}
+              />
+            </div>
+          </div>
         </ResizablePanel>
 
         <ResizableHandle withHandle />

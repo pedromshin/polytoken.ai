@@ -128,12 +128,92 @@ export interface ExplicitEdgeRow {
   readonly id: string;
   readonly sourceNodeId: string;
   readonly targetRefId: string | null | undefined;
+  readonly targetRefType?: string | null | undefined;
   readonly relationType: string;
   readonly tier: string | null | undefined;
   readonly isActive: boolean | null | undefined;
   readonly confidence?: number | null | undefined;
   readonly provenance?: unknown;
   readonly source?: string | null | undefined;
+}
+
+// ---------------------------------------------------------------------------
+// KG-2 (read-layer half): a suggestion must never shadow a confirmed edge
+// ---------------------------------------------------------------------------
+
+const SUGGESTION_EDGE_TIERS = new Set<string>(["INFERRED", "AMBIGUOUS"]);
+
+function edgeIdentityKey(row: ExplicitEdgeRow): string {
+  return `${row.sourceNodeId}|${row.targetRefId}|${row.relationType}`;
+}
+
+/**
+ * dedupeShadowedSuggestionEdges — KG-2 (email-system-review report): the
+ * listener's re-confirm flow historically deactivated human-promoted
+ * EXTRACTED edges and re-inserted the same relation as a fresh INFERRED
+ * suggestion; the listener-lane fix stops the deactivation, but existing
+ * data (and any transitional write) can leave BOTH an active EXTRACTED edge
+ * and an active suggestion-tier duplicate for the same
+ * (source, target, relation) identity.
+ *
+ * This read-layer guard keeps the graph honest: when an active EXTRACTED
+ * edge exists for an identity, INFERRED/AMBIGUOUS duplicates of that SAME
+ * identity are dropped from the payload — the user is never re-asked to
+ * promote a relation they already promoted. Distinct identities are never
+ * touched. Pure; never mutates the input. Exported for DB-free testing.
+ */
+export function dedupeShadowedSuggestionEdges<T extends ExplicitEdgeRow>(
+  rows: ReadonlyArray<T>,
+): T[] {
+  const extractedKeys = new Set<string>();
+  for (const row of rows) {
+    if (
+      row.isActive === true &&
+      row.tier === "EXTRACTED" &&
+      row.targetRefId !== null &&
+      row.targetRefId !== undefined
+    ) {
+      extractedKeys.add(edgeIdentityKey(row));
+    }
+  }
+
+  return rows.filter((row) => {
+    if (row.tier == null || !SUGGESTION_EDGE_TIERS.has(row.tier)) return true;
+    if (row.targetRefId === null || row.targetRefId === undefined) return true;
+    return !extractedKeys.has(edgeIdentityKey(row));
+  });
+}
+
+// ---------------------------------------------------------------------------
+// KG-3 (read-layer half): knowledge→entity_instance edges must be renderable
+// ---------------------------------------------------------------------------
+
+/**
+ * collectMissingEntityInstanceTargets — KG-3 (email-system-review report):
+ * 'about'/'possibly_about' edges target entity INSTANCES
+ * (target_ref_type = 'entity_instance'), but instance nodes are only in the
+ * payload when includeInstances is set — so the frontend's
+ * both-endpoints-visible filter silently dropped exactly the edges KG-3 is
+ * about, and "the knowledge graph never links region knowledge to entity
+ * instances" stayed true on screen even once the listener emits them.
+ *
+ * Returns the DISTINCT entity_instance target ids referenced by active
+ * explicit edges that are NOT already emitted as nodes, so the procedure can
+ * fetch and include them. Pure; exported for DB-free testing.
+ */
+export function collectMissingEntityInstanceTargets(
+  rows: ReadonlyArray<ExplicitEdgeRow>,
+  emittedNodeIds: ReadonlySet<string>,
+): string[] {
+  const missing = new Set<string>();
+  for (const row of rows) {
+    if (row.isActive !== true) continue;
+    if (row.targetRefType !== "entity_instance") continue;
+    if (row.targetRefId === null || row.targetRefId === undefined) continue;
+    if (emittedNodeIds.has(row.targetRefId)) continue;
+    missing.add(row.targetRefId);
+  }
+  return [...missing];
 }
 
 /**
@@ -622,6 +702,7 @@ export const knowledgeGraphProcedures = {
                 id: KnowledgeNodeEdges.id,
                 sourceNodeId: KnowledgeNodeEdges.sourceNodeId,
                 targetRefId: KnowledgeNodeEdges.targetRefId,
+                targetRefType: KnowledgeNodeEdges.targetRefType,
                 relationType: KnowledgeNodeEdges.relationType,
                 tier: KnowledgeNodeEdges.tier,
                 isActive: KnowledgeNodeEdges.isActive,
@@ -642,7 +723,63 @@ export const knowledgeGraphProcedures = {
               )
           : [];
 
-      for (const row of explicitEdgeRows) {
+      // KG-2 (read-layer half): drop INFERRED/AMBIGUOUS duplicates of an
+      // active EXTRACTED edge with the same (source, target, relation)
+      // identity — a promoted relation must never re-appear as a fresh
+      // suggestion asking to be promoted again.
+      const dedupedExplicitEdgeRows =
+        dedupeShadowedSuggestionEdges(explicitEdgeRows);
+
+      // KG-3 (read-layer half): 'about'/'possibly_about' (and any promoted)
+      // knowledge→entity_instance edges reference instance nodes that are
+      // absent from the payload when includeInstances=false — and the
+      // frontend drops edges whose endpoints aren't in the node set. Fetch
+      // and include exactly the referenced instances (bounded to the owned
+      // scope) so region knowledge visibly links to the entity it is about.
+      const missingInstanceTargetIds = collectMissingEntityInstanceTargets(
+        dedupedExplicitEdgeRows,
+        emittedNodeIds,
+      );
+
+      if (missingInstanceTargetIds.length > 0 && scope.length > 0) {
+        const referencedInstanceRows = await ctx.db
+          .select({
+            id: EntityInstances.id,
+            displayName: EntityInstances.displayName,
+            entityTypeId: EntityInstances.entityTypeId,
+          })
+          .from(EntityInstances)
+          .where(
+            and(
+              inArray(EntityInstances.id, missingInstanceTargetIds),
+              // TENA-03: a foreign-tenant target id yields no node (the edge
+              // then degrades exactly as before — dropped client-side).
+              inArray(EntityInstances.importerId, scope),
+              eq(EntityInstances.isActive, true),
+            ),
+          );
+
+        for (const row of referencedInstanceRows) {
+          addNode({
+            id: row.id,
+            type: "entity_instance",
+            label: row.displayName,
+            entityTypeId: row.entityTypeId,
+            entityTypeName: typeLabelById.get(row.entityTypeId) ?? null,
+          });
+          // Keep the taxonomy anchored: same instance_of edge shape as the
+          // includeInstances branch (ids cannot collide — that branch already
+          // emitted any instance it fetched, which excludes these).
+          edges.push({
+            id: `instance-type-${row.id}`,
+            source: row.id,
+            target: row.entityTypeId,
+            relationType: "instance_of",
+          });
+        }
+      }
+
+      for (const row of dedupedExplicitEdgeRows) {
         const shaped = shapeExplicitEdgeRow(row);
         if (shaped !== null) edges.push(shaped);
       }
