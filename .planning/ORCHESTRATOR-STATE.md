@@ -24,14 +24,22 @@ on: `git worktree add -b <branch> .claude/worktrees/<name> HEAD` MYSELF, then
 parallel Agent-tool agents pointed at those dirs. Verify with skeptic Agent
 runs, merge in main loop.
 
-## Batch 3a in flight (agents on manual worktrees, all forked 9e93f6d)
-- st04-resynth (ST-04 rebuild, reqs A–H)
-- b3-ai01 (canvas.addNode/connect/removeNode capability triple)
-- b3-ai02 (capability 4-way projection matrix + enforcement gate)
-- b3-ai05 (cross-surface omnibox, search mode)
-- b3-en02 (merge-review queue /entities/review)
-Batch 3b AFTER st04 merges (listener files free): AI-03 ingest-time resolution,
-AI-06 graph-memory chat retrieval, AI-04 send-to-chat/canvas affordances.
+## Batch 3a DONE 2026-07-23T06:5xZ (5c72a60 pushed)
+All 5 merged after fable-5 skeptic verification + main-loop fixes:
+- ST-04 pipeline health (degraded/skipped lifecycle, exact-count endpoint) +
+  forgery guard (closed KNOWN_STAGES vocab — skeptic proved filename injection)
+- AI-01 canvas triple + .finite()/self-loop hardening; AI-02 projection gate
+  (fired on AI-01's 3 new caps at merge exactly as designed → entries added)
+- AI-05 omnibox (5 tenancy-scoped arms); EN-02 review queue + deterministic ORDER BY
+Suites: listener full green 91.51%, capabilities 47, api-client 639, web 1440.
+Committer identity: had to amend agent commits to noreply@anthropic.com (git config
+in worktrees didn't inherit) — DO THIS for every future agent commit before merge.
+
+## Batch 3b in flight (agents on b3b-* worktrees, forked 5c72a60)
+- b3b-ai03 (ingest-time entity resolution + edge proposal, as ST-04 post-persist stage)
+- b3b-ai06 (graph-backed chat memory, canon-tier read + suggest-only writeback)
+- b3b-ai04 (universal send-to-chat/canvas affordance, calls AI-01 procedures)
+Batch 4 (W3 canvas+viz) queues next: CI-01..07, TM-01..03, EN-01→CV-03 spreadsheet.
 
 Batch 1 DONE: 3 gap docs (c1bf55c) + 4 W0 fixes merged (92c9098), all suites green.
 Batch 1R DONE 2026-07-23T04:4xZ (e158449 pushed): ING-6/RES-1/REG-1 repairs merged.
@@ -48,12 +56,13 @@ clean; api-client 568/568; db (PGlite) 27/27; web tsc clean; emails/[id] 79/80.
 - Trailer for every commit:
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>` + `Claude-Session: https://claude.ai/code/session_01RZuPfFSoRaTp59yqF91AZs`
 
-## Active workflow
-- Run ID: `wf_05119d6c-159` (Batch 2 / W1: evals, st04, kg-ui, snappy, hygiene, infra)
-- Script: `/tmp/claude-0/-home-user-polytoken-ai/a7169b4b-2d04-50fc-9192-30f267d087bc/scratchpad/batch-2-w1.js`
-- Resume (after container death): `Workflow({scriptPath: <above>, resumeFromRunId: "wf_05119d6c-159"})` — NO args, ever.
-- Journal: `/root/.claude/projects/-home-user-polytoken-ai/a7169b4b-2d04-50fc-9192-30f267d087bc/subagents/workflows/wf_05119d6c-159/journal.jsonl`
-- Prior batches (all cached): `wf_acbedf4e-6ec` (B1), `wf_b93b55e9-cca` (B1R)
+## Active work — Batch 3b (3 Agent-tool agents on manual worktrees b3b-ai03/ai06/ai04, forked 5c72a60)
+Not a Workflow — plain background Agents. If container dies: the worktrees +
+their committed branches survive on disk; check `git -C .claude/worktrees/b3b-<n>
+log` and `git branch --list 'b3b-*'`. Uncommitted agent work is lost on death →
+relaunch that lane's Agent (worktree keeps partial files). As each returns:
+fable-5 skeptic verify → amend committer to noreply@anthropic.com → merge → verify → push.
+- Prior workflows (cached): wf_acbedf4e-6ec (B1), wf_b93b55e9-cca (B1R), wf_05119d6c-159 (B2)
 
 ## Batch plan (whole program)
 | Batch | Contents | Status |
