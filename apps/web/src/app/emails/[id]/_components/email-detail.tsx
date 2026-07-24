@@ -8,6 +8,8 @@ import { Button } from "@polytoken/ui/button";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
 import { EmailBodyView } from "~/components/email-preview/body-view";
+import { PreviewCarousel } from "~/components/email-preview/preview-carousel";
+import { useEmailPreview } from "~/components/email-preview/use-email-preview";
 import { useSignedAttachmentUrl } from "~/hooks/use-signed-attachment-url";
 import { api } from "~/trpc/react";
 
@@ -184,6 +186,13 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   // the shared hook (WR-01/08), behavior unchanged.
   const activeSignedUrl = useSignedAttachmentUrl(activeAttachmentId);
 
+  // EMBEDDED (inbox) attachment carousel (Task 3): the slide model + lazy PDF
+  // page counts. Enabled only in embedded mode — the query dedupes with the
+  // `emails.detail` query above (same key), so this adds no extra fetch. In the
+  // standalone editor (non-embedded) this stays disabled (null id) and the
+  // full four-zone CanvasShell editor renders as before.
+  const preview = useEmailPreview(embedded ? emailId : null);
+
   // ---- Canvas shell view-toggle state ----
   const [showRegions, setShowRegions] = useState<boolean>(true);
   const [showHistory, setShowHistory] = useState<boolean>(false);
@@ -294,6 +303,12 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   // re-open the attachment and the body would be unreachable.
   const didAutoOpenRef = useRef(false);
   useEffect(() => {
+    // EMBEDDED (inbox): the carousel owns attachment rendering and lazily mounts
+    // react-pdf only for near-viewport slides. Auto-opening the first PDF here
+    // would eagerly mount the heavy PdfPreviewPane on every inbox selection and
+    // fetch a signed URL nobody asked for — exactly the inbox-scroll cost the
+    // carousel exists to avoid. Skip it; the carousel is the embedded surface.
+    if (embedded) return;
     if (didAutoOpenRef.current) return;
     if (activeAttachmentId !== null) return;
     const atts = data?.attachments ?? [];
@@ -373,6 +388,60 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
 
   const { email, attachments } = data;
   const subject = email.subject ?? "(no subject)";
+
+  // ---- EMBEDDED (inbox) attachment carousel (Task 3) ----
+  // Selecting a message in the inbox (`/?email=<id>`) renders THIS branch. The
+  // attachments render as a horizontal, swipeable carousel — one slide for the
+  // body, one per attachment, and one slide PER PAGE for multi-page PDFs, with
+  // mixed formats (PDF / image / download card) coexisting. Offscreen slides
+  // are placeholders (PreviewCarousel mounts only active ± 1), and the react-pdf
+  // bearing slide view is next/dynamic'd, so pdfjs never ships with the inbox
+  // shell and a 200-page PDF never mounts every page. Region overlays render
+  // through the SHARED OverlayLayer (AttachmentPageView), the same box layer the
+  // standalone editor uses — no forked overlay code.
+  //
+  // Returned early, BEFORE the editor-only view-model derivations below, so the
+  // inbox pays for none of the four-zone editor machinery. Editing (draw /
+  // confirm / layers / inspector) remains the non-embedded editor's job; a
+  // follow-up can re-home editing onto the carousel or unify the body's
+  // text-anchored highlights into the same OverlayLayer.
+  if (embedded) {
+    return (
+      <Root className="flex h-full flex-col">
+        <div className="flex shrink-0 items-center justify-end gap-3 border-b border-hair px-row-x py-2">
+          <ParseStatusMarker status={email.parseStatus} error={email.parseError} />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Reprocess this email"
+            disabled={reprocessMutation.isPending}
+            onClick={() => setReprocessDialogOpen(true)}
+          >
+            Reprocess
+          </Button>
+        </div>
+
+        <ReprocessDialog
+          open={reprocessDialogOpen}
+          onOpenChange={setReprocessDialogOpen}
+          onConfirm={() => {
+            reprocessMutation.mutate({ emailId });
+            setReprocessDialogOpen(false);
+          }}
+        />
+
+        <div className="min-h-0 flex-1">
+          <PreviewCarousel
+            slides={preview.slides}
+            bodyText={email.bodyText}
+            bodyHtml={email.bodyHtml}
+            components={preview.data?.components ?? []}
+            onDocumentLoad={preview.onDocumentLoad}
+          />
+        </div>
+      </Root>
+    );
+  }
 
   // attachment_page parent for the current page (createRegion / classify).
   const pageComponentId =
@@ -710,68 +779,45 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
 
   return (
     <Root className="flex flex-col h-full">
-      {embedded ? (
-        // EMBEDDED (inbox): the inbox already renders the subject + meta above
-        // this editor, so the compact row carries only the parse status + the
-        // reprocess action — no back-link, no second subject, no focus-steal.
-        <div className="flex shrink-0 items-center justify-end gap-3 border-b border-hair px-row-x py-2">
-          <ParseStatusMarker
-            status={email.parseStatus}
-            error={email.parseError}
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Reprocess this email"
-            disabled={reprocessMutation.isPending}
-            onClick={() => setReprocessDialogOpen(true)}
-          >
-            Reprocess
-          </Button>
-        </div>
-      ) : (
-        /* Header row: back link, subject, parse-status marker, reprocess button.
-            Mirrors the reference's .rp-head — the subject leads, everything
-            else is chrome ranged around it. */
-        <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-hair px-row-x py-row-y">
-          <Link
-            href="/"
-            className="text-sm text-faded transition-colors hover:text-ink"
-          >
-            ← Back to inbox
-          </Link>
-          {/* The subject is the user's own mail, not our label for it — law 2
-              gives the document's words the serif. This is also the page's a11y
-              entry point: h1Ref + tabIndex={-1} + the mount-focus effect are
-              load-bearing, and the subject stays a plain React text node
-              (T-60-02) — never interpolated into a class or a style. */}
-          <h1
-            ref={h1Ref}
-            className="flex-1 truncate font-serif text-xl font-semibold text-ink outline-none"
-            data-evidence
-            tabIndex={-1}
-          >
-            {subject}
-          </h1>
-          {/* ING-6: the lifecycle is now driven by the listener — 'failed' /
-              'degraded' are reachable states, rendered visibly distinct (ink
-              weight, never madder) with the recorded parse_error surfaced. */}
-          <ParseStatusMarker
-            status={email.parseStatus}
-            error={email.parseError}
-          />
+      {/* Header row: back link, subject, parse-status marker, reprocess button.
+          Mirrors the reference's .rp-head — the subject leads, everything else
+          is chrome ranged around it. (The embedded/inbox surface returns the
+          carousel far above and never reaches this standalone-editor header.) */}
+      <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-hair px-row-x py-row-y">
+        <Link
+          href="/"
+          className="text-sm text-faded transition-colors hover:text-ink"
+        >
+          ← Back to inbox
+        </Link>
+        {/* The subject is the user's own mail, not our label for it — law 2
+            gives the document's words the serif. This is also the page's a11y
+            entry point: h1Ref + tabIndex={-1} + the mount-focus effect are
+            load-bearing, and the subject stays a plain React text node
+            (T-60-02) — never interpolated into a class or a style. */}
+        <h1
+          ref={h1Ref}
+          className="flex-1 truncate font-serif text-xl font-semibold text-ink outline-none"
+          data-evidence
+          tabIndex={-1}
+        >
+          {subject}
+        </h1>
+        {/* ING-6: the lifecycle is now driven by the listener — 'failed' /
+            'degraded' are reachable states, rendered visibly distinct (ink
+            weight, never madder) with the recorded parse_error surfaced. */}
+        <ParseStatusMarker status={email.parseStatus} error={email.parseError} />
 
-          <Button
-            variant="outline"
-            size="sm"
-            aria-label="Reprocess this email"
-            disabled={reprocessMutation.isPending}
-            onClick={() => setReprocessDialogOpen(true)}
-          >
-            Reprocess Email
-          </Button>
-        </header>
-      )}
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label="Reprocess this email"
+          disabled={reprocessMutation.isPending}
+          onClick={() => setReprocessDialogOpen(true)}
+        >
+          Reprocess Email
+        </Button>
+      </header>
 
       <ReprocessDialog
         open={reprocessDialogOpen}
