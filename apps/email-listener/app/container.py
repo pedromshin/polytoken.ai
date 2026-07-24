@@ -16,14 +16,6 @@ from anthropic import AsyncAnthropicBedrock
 from dishka import AsyncContainer, Provider, Scope, make_async_container
 from supabase import Client
 
-from app.application.use_cases.backfill_inbound_email import BackfillInboundEmailUseCase
-from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
-from app.application.use_cases.pipeline_health import GetPipelineHealthUseCase
-from app.application.use_cases.propose_regions import ProposeRegionsUseCase
-from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailUseCase
-from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
-from app.application.use_cases.resolve_ingest_entities import ResolveIngestEntitiesUseCase
-from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.composition import (
     anticipatory_providers,
     chat_turn_providers,
@@ -31,21 +23,13 @@ from app.composition import (
     document_region_providers,
     entity_providers,
     genui_providers,
+    ingestion_providers,
     llm_adapter_providers,
     repository_providers,
 )
-from app.domain.ports.attachment_repository import AttachmentRepository
-from app.domain.ports.attachment_storage import AttachmentStorage
-from app.domain.ports.component_repository import ComponentRepository
-from app.domain.ports.email_repository import EmailRepository
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
-from app.domain.ports.entity_instance_repository import EntityInstanceRepository
-from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
-from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStore
-from app.domain.ports.segmenter_protocol import SegmenterProtocol
-from app.domain.ports.thread_resolver import ThreadResolver
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.ocr.textract_adapter import TextractOcrAdapter
@@ -53,14 +37,7 @@ from app.infrastructure.pdf.parser_registry import get_parser, register
 from app.infrastructure.pdf.pdf_parser import PdfParser
 from app.infrastructure.raw_email_store_routing import RoutingRawEmailStore
 from app.infrastructure.s3.raw_email_store import S3RawEmailStore
-from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentStorage
 from app.infrastructure.supabase.client import get_supabase_client
-from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
-from app.infrastructure.supabase.forwarding_address_repository import SupabaseForwardingAddressRepository
-from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
-from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
-from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
-from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
 from app.settings import get_settings
 
 
@@ -86,11 +63,6 @@ def _provide_anthropic_client() -> AsyncAnthropicBedrock:
     return get_anthropic_client()
 
 
-def _provide_backfill_raw_email_store(client: Client) -> BackfillRawEmailStore:
-    """Writable backfill raw MIME store on Supabase Storage (private bucket)."""
-    return SupabaseRawEmailBackfillStore(client=client, bucket=get_settings().RAW_EMAILS_BUCKET)
-
-
 def _provide_raw_email_store(backfill_store: BackfillRawEmailStore) -> RawEmailStore:
     """Raw MIME reads routed by id namespace: SES ids -> S3, bf- ids -> Supabase.
 
@@ -100,46 +72,6 @@ def _provide_raw_email_store(backfill_store: BackfillRawEmailStore) -> RawEmailS
     s3_client = boto3.client("s3", region_name=settings.ses_s3_region)
     ses_store = S3RawEmailStore(bucket=settings.SES_S3_BUCKET, prefix=settings.ses_s3_prefix, client=s3_client)
     return RoutingRawEmailStore(ses_store=ses_store, backfill_store=backfill_store)
-
-
-def _provide_attachment_storage(client: Client) -> AttachmentStorage:
-    """Attachment blob storage on Supabase Storage (private bucket)."""
-    return SupabaseAttachmentStorage(client=client, bucket=get_settings().ATTACHMENTS_BUCKET)
-
-
-def _provide_ingestion_config() -> IngestionConfig:
-    return IngestionConfig(default_importer_id=get_settings().DEFAULT_IMPORTER_ID)
-
-
-def _provide_importer_resolver(client: Client) -> ImporterResolver:
-    """SupabaseImporterRepository bound to the ImporterResolver port.
-
-    Uses the DEFAULT_IMPORTER_ID setting as the malformed-sender fallback
-    (T-04-34: malformed senders fall back rather than creating junk rows).
-    """
-    return SupabaseImporterRepository(
-        client=client,
-        default_importer_id=get_settings().DEFAULT_IMPORTER_ID,
-    )
-
-
-def _provide_thread_resolver(client: Client) -> ThreadResolver:
-    """SupabaseThreadRepository bound to the ThreadResolver port (Phase 45, THRD-01).
-
-    Resolved once per ingest, right after importer_id — mirrors
-    _provide_importer_resolver's shape and the ImporterResolver DI pattern.
-    """
-    return SupabaseThreadRepository(client=client)
-
-
-def _provide_forwarding_address_resolver(client: Client) -> ForwardingAddressResolver:
-    """SupabaseForwardingAddressRepository bound to the ForwardingAddressResolver port.
-
-    Phase 45, THRD-04. Resolved before importer_resolver inside execute() —
-    its output anchors newly-created importers to the forwarding token's
-    owning user_id. Mirrors _provide_importer_resolver/_provide_thread_resolver.
-    """
-    return SupabaseForwardingAddressRepository(client=client)
 
 
 def _provide_embedder() -> EmbeddingProtocol:
@@ -175,96 +107,6 @@ def _provide_parser_registry() -> object:
     return get_parser
 
 
-
-
-def _provide_resolve_ingest_entities_use_case(
-    components: ComponentRepository,
-    entity_instances: EntityInstanceRepository,
-    client: Client,
-) -> ResolveIngestEntitiesUseCase:
-    """Factory for ResolveIngestEntitiesUseCase (AI-03).
-
-    SupabaseEntityResolutionRepository and SupabaseKnowledgeGraphRepository are
-    concrete infrastructure classes (no port Protocol), so — mirroring
-    _provide_promote_entity_use_case / _provide_confirm_region_use_case — this
-    factory instantiates them directly from the Client rather than binding them
-    as ports. The use case is ALWAYS constructible (its test suite exists
-    regardless of the flag); whether the ingest pipeline actually runs it is
-    gated by INGEST_ENTITY_RESOLUTION_ENABLED inside _provide_ingest_use_case.
-    """
-    return ResolveIngestEntitiesUseCase(
-        components=components,
-        entity_instances=entity_instances,
-        resolution_repo=SupabaseEntityResolutionRepository(client=client),
-        knowledge=SupabaseKnowledgeGraphRepository(client=client),
-    )
-
-
-def _provide_ingest_use_case(
-    raw_store: RawEmailStore,
-    email_repo: EmailRepository,
-    attachment_repo: AttachmentRepository,
-    attachment_storage: AttachmentStorage,
-    config: IngestionConfig,
-    components: ComponentRepository,
-    segmenter: SegmenterProtocol,
-    propose_regions: ProposeRegionsUseCase,
-    importer_resolver: ImporterResolver,
-    thread_resolver: ThreadResolver,
-    forwarding_resolver: ForwardingAddressResolver,
-    suggest_entity_types: SuggestEntityTypesUseCase,
-    resolve_ingest_entities: ResolveIngestEntitiesUseCase,
-) -> IngestInboundEmailUseCase:
-    """Factory for IngestInboundEmailUseCase.
-
-    ParserRegistryPort is a Callable type alias with forward-ref annotations
-    that dishka cannot analyse at runtime.  We obtain the registry by calling
-    _provide_parser_registry() directly inside this factory (idempotent guard
-    ensures no double-registration).
-
-    SegmenterProtocol is accepted as a parameter to force dishka to create the
-    segmenter first; we don't need it here directly since ProposeRegionsUseCase
-    already holds a reference to it, but the dependency ensures correct ordering.
-
-    SuggestEntityTypesUseCase is injected and passed through so the ingest
-    pipeline auto-classifies candidate regions after propose_regions (best-effort).
-
-    thread_resolver (Phase 45, THRD-01) is resolved right after importer_id
-    inside execute() and is best-effort (T-45-03-02): a resolution failure
-    never fails ingestion.
-
-    forwarding_resolver (Phase 45, THRD-04) is resolved BEFORE importer_id
-    inside execute() and is also best-effort (T-45-05-03): its output anchors
-    a newly-created importer to the forwarding token's owning user_id.
-
-    resolve_ingest_entities (AI-03) is the ingest-time entity-resolution stage.
-    It is injected ALWAYS but wired into the use case only when
-    INGEST_ENTITY_RESOLUTION_ENABLED is set — a False flag passes None, so the
-    pipeline STRUCTURALLY omits the stage (a real kill-switch, not a mutation),
-    matching the SEARCH_KNOWLEDGE_TOOL_ENABLED exposure-gate convention.
-    """
-    raw_registry = _provide_parser_registry()
-    # _provide_parser_registry returns ``object`` to satisfy dishka; cast back
-    # to the correct callable type for IngestInboundEmailUseCase.
-    parser_registry: ParserRegistryPort = raw_registry  # type: ignore[assignment]
-    resolution_enabled = get_settings().INGEST_ENTITY_RESOLUTION_ENABLED
-    return IngestInboundEmailUseCase(
-        raw_store=raw_store,
-        email_repo=email_repo,
-        attachment_repo=attachment_repo,
-        attachment_storage=attachment_storage,
-        config=config,
-        components=components,
-        parser_registry=parser_registry,
-        propose_regions=propose_regions,
-        importer_resolver=importer_resolver,
-        thread_resolver=thread_resolver,
-        forwarding_resolver=forwarding_resolver,
-        suggest_entity_types=suggest_entity_types,
-        resolve_ingest_entities=resolve_ingest_entities if resolution_enabled else None,
-    )
-
-
 def _provide_httpx_client() -> httpx.AsyncClient:
     """Shared httpx AsyncClient singleton for outbound streaming HTTP calls (OpenRouter, D-07 seam).
 
@@ -296,18 +138,16 @@ def _build_provider() -> Provider:
     # the four chat-spine repos) lives in app.composition.repository_providers.register.
     repository_providers.register(provider)
 
-    # ── Ingestion adapters ────────────────────────────────────────────────────
-    provider.provide(_provide_backfill_raw_email_store, provides=BackfillRawEmailStore)
-    provider.provide(_provide_raw_email_store, provides=RawEmailStore)
-    provider.provide(_provide_attachment_storage, provides=AttachmentStorage)
-    provider.provide(_provide_ingestion_config, provides=IngestionConfig)
-    provider.provide(_provide_importer_resolver, provides=ImporterResolver)
-    # Thread resolution at ingest time (Phase 45, THRD-01) — mirrors the
-    # importer resolver binding above.
-    provider.provide(_provide_thread_resolver, provides=ThreadResolver)
-    # Forwarding-token resolution at ingest time (Phase 45, THRD-04) — resolved
-    # before importer_resolver inside execute() to anchor new importers.
-    provider.provide(_provide_forwarding_address_resolver, provides=ForwardingAddressResolver)
+    # ── boto3-anchor ingestion factories — MUST STAY (boot-test patch targets) ──
+    # These two build a boto3 client directly, so the boot test's `app.container.boto3`
+    # patch resolves them here; moving them would break that safety net. The rest of the
+    # ingestion surface is the extracted group below.
+    provider.provide(_provide_raw_email_store, provides=RawEmailStore)  # S3 (boto3)
+    # ParserRegistryPort is a Callable type alias with forward-ref annotations dishka can't
+    # analyse; the factory is annotated `-> object` and registered under the alias key. It
+    # builds a Textract boto3 client (patch target) and is also called DIRECTLY by the moved
+    # _provide_ingest_use_case (via a deferred import) — both reasons keep it here.
+    provider.provide(_provide_parser_registry, provides=ParserRegistryPort)  # Textract (boto3)
 
     # ── Embedder (Bedrock Titan; boto3 client built directly, so stays here) ──
     provider.provide(_provide_embedder, provides=EmbeddingProtocol)
@@ -317,28 +157,17 @@ def _build_provider() -> Provider:
     # the transport router live in app.composition.llm_adapter_providers.register.
     llm_adapter_providers.register(provider)
 
-    # ── Segmentation / parser registry ───────────────────────────────────────
-    # ParserRegistryPort is a Callable type alias with forward-ref annotations;
-    # dishka cannot analyse it at runtime.  We register the factory as
-    # provides=ParserRegistryPort (the alias acts as a key) but annotate the
-    # factory return as ``object`` to sidestep the UndefinedTypeAnalysisError.
-    provider.provide(_provide_parser_registry, provides=ParserRegistryPort)
+    # ── Ingestion surface — extracted group (Track 2 decomposition) ────────────
+    # The 12 movable ingestion bindings — backfill raw-MIME store, attachment storage,
+    # ingestion config, the importer/thread/forwarding resolvers, the ingest-time
+    # entity-resolution stage, the ingest use case, and the four top-level pipeline use
+    # cases (Receive/Reprocess/Backfill/PipelineHealth) — live in
+    # app.composition.ingestion_providers.register. The two boto3-anchor factories above
+    # (_provide_raw_email_store, _provide_parser_registry) STAY here; the moved ingest
+    # factory calls _provide_parser_registry via a deferred import (its docstring explains
+    # the circular-import avoidance), so the boot patch stays effective.
+    ingestion_providers.register(provider)
 
-    # ── Use cases ─────────────────────────────────────────────────────────────
-    provider.provide(ReceiveInboundEmailUseCase)
-    # IngestInboundEmailUseCase takes parser_registry: ParserRegistryPort which
-    # is a Callable type alias with forward-ref annotations that dishka cannot
-    # analyse.  Use a factory function instead of provide(class) to sidestep the
-    # UndefinedTypeAnalysisError.
-    # ResolveIngestEntitiesUseCase (AI-03): concrete resolution + knowledge
-    # repos are instantiated inside its factory; injected into the ingest
-    # factory, which gates it on INGEST_ENTITY_RESOLUTION_ENABLED.
-    provider.provide(_provide_resolve_ingest_entities_use_case, provides=ResolveIngestEntitiesUseCase)
-    provider.provide(_provide_ingest_use_case, provides=IngestInboundEmailUseCase)
-    provider.provide(ReprocessEmailUseCase)
-    provider.provide(BackfillInboundEmailUseCase)
-    # ST-04: pipeline-health read model (GET /v1/pipeline/health).
-    provider.provide(GetPipelineHealthUseCase)
     # ── Document-region write surface — extracted group (Track 2 decomposition) ──
     # Region proposal + confirmation, the seven region-edit write-side use cases, document
     # classification, the component-relationship setters + origin-aware field-deny, and the
