@@ -28,6 +28,11 @@ const CHAT_STREAM_REQUEST_SCHEMA = z.object({
   conversation_id: z.string().uuid(),
   user_text: z.string().min(1).max(8_000),
   model_id: z.string().min(1),
+  // Per-conversation reasoning dials (use-model-settings.ts). Optional so a
+  // pre-dial client sends the unchanged body; forwarded verbatim to FastAPI
+  // (which ignores unknown fields today — Pydantic default extra="ignore").
+  model_mode: z.enum(["standard", "thinking"]).optional(),
+  reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
 });
 
 interface ListenerConfig {

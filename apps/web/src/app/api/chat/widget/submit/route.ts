@@ -26,6 +26,11 @@ const CHAT_WIDGET_SUBMIT_REQUEST_SCHEMA = z.object({
   interaction_id: z.string().uuid(),
   model_id: z.string().min(1),
   result: z.record(z.unknown()),
+  // Per-conversation reasoning dials (use-model-settings.ts) — a widget-submit
+  // continuation is a model turn too, so it carries the same dials. Optional +
+  // forwarded verbatim; see the stream route for the FastAPI-compat rationale.
+  model_mode: z.enum(["standard", "thinking"]).optional(),
+  reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
 });
 
 interface ListenerConfig {

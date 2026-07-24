@@ -19,6 +19,10 @@ const CHAT_REGENERATE_REQUEST_SCHEMA = z.object({
   conversation_id: z.string().uuid(),
   assistant_message_id: z.string().uuid(),
   model_id: z.string().min(1),
+  // Per-conversation reasoning dials (use-model-settings.ts). Optional +
+  // forwarded verbatim; see the stream route for the FastAPI-compat rationale.
+  model_mode: z.enum(["standard", "thinking"]).optional(),
+  reasoning_effort: z.enum(["low", "medium", "high"]).optional(),
 });
 
 interface ListenerConfig {

@@ -28,6 +28,8 @@
 
 import { useCallback, useRef, useState } from "react";
 
+import type { ModelSettings } from "./use-model-settings";
+
 // ---------------------------------------------------------------------------
 // Types — mirror app/domain/ports/chat_repositories.py's ChatRunEventType and
 // chat_stream.py's `{"type", "seq", "data"}` SSE frame shape (22-06/22-07).
@@ -161,8 +163,16 @@ export interface UseChatStreamOptions {
 export interface UseChatStreamResult {
   readonly state: StreamState;
   readonly parts: readonly MessagePart[];
-  readonly send: (userText: string, modelId: string) => void;
-  readonly regenerate: (assistantMessageId: string, modelId: string) => void;
+  readonly send: (
+    userText: string,
+    modelId: string,
+    settings?: ModelSettings,
+  ) => void;
+  readonly regenerate: (
+    assistantMessageId: string,
+    modelId: string,
+    settings?: ModelSettings,
+  ) => void;
   /** Posts a widget interaction result to /api/chat/widget/submit and, on
    * success, reuses the SAME reader/accumulator loop as send() so the
    * continuation turn streams like any other turn (D-01). On rejection,
@@ -171,6 +181,7 @@ export interface UseChatStreamResult {
     interactionId: string,
     result: Readonly<Record<string, unknown>>,
     modelId: string,
+    settings?: ModelSettings,
   ) => void;
   readonly stop: () => void;
 }
@@ -215,6 +226,22 @@ function toChatRunEvent(value: unknown): ChatRunEvent | null {
       : {};
   const seq = typeof record.seq === "number" ? record.seq : null;
   return { type: type as ChatRunEventType, seq, data };
+}
+
+/**
+ * modelSettingsBody — folds the per-conversation reasoning dials into the
+ * snake_case fields the FastAPI chat routes read alongside `model_id`. Returns
+ * an EMPTY object when no settings are supplied, so an un-threaded caller sends
+ * exactly the pre-dial body (byte-for-byte backward compatible). The two keys
+ * ride in the SAME request that carries model_id — the send path is the one
+ * place these dials are read, so the FAB writing them and the model call
+ * reading them share a single source of truth (use-model-settings.ts).
+ */
+export function modelSettingsBody(
+  settings: ModelSettings | undefined,
+): Record<string, string> {
+  if (!settings) return {};
+  return { model_mode: settings.mode, reasoning_effort: settings.effort };
 }
 
 /**
@@ -529,22 +556,24 @@ export function useChatStream({
   );
 
   const send = useCallback(
-    (userText: string, modelId: string) => {
+    (userText: string, modelId: string, settings?: ModelSettings) => {
       void runStream("/api/chat/stream", {
         conversation_id: conversationId,
         user_text: userText,
         model_id: modelId,
+        ...modelSettingsBody(settings),
       });
     },
     [conversationId, runStream],
   );
 
   const regenerate = useCallback(
-    (assistantMessageId: string, modelId: string) => {
+    (assistantMessageId: string, modelId: string, settings?: ModelSettings) => {
       void runStream("/api/chat/regenerate", {
         conversation_id: conversationId,
         assistant_message_id: assistantMessageId,
         model_id: modelId,
+        ...modelSettingsBody(settings),
       });
     },
     [conversationId, runStream],
@@ -555,6 +584,7 @@ export function useChatStream({
       interactionId: string,
       result: Readonly<Record<string, unknown>>,
       modelId: string,
+      settings?: ModelSettings,
     ) => {
       void runStream(
         "/api/chat/widget/submit",
@@ -563,6 +593,7 @@ export function useChatStream({
           interaction_id: interactionId,
           model_id: modelId,
           result,
+          ...modelSettingsBody(settings),
         },
         (status, reason) => onWidgetRejected?.(status, reason),
       );
