@@ -202,7 +202,7 @@ def test_promote_source_use_case_factory_wires_source_capture_handler() -> None:
     from unittest.mock import MagicMock
 
     from app.application.use_cases.confirm_action_dispatch import SourceCaptureHandler
-    from app.container import _provide_promote_source_ledger_entry_use_case
+    from app.composition.entity_providers import _provide_promote_source_ledger_entry_use_case
     from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 
     client = MagicMock()

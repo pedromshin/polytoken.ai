@@ -161,7 +161,7 @@ def test_promote_edge_use_case_factory_instantiates_repo_directly() -> None:
     and threads through the ImporterResolver collaborator (Phase 44-03)."""
     from unittest.mock import MagicMock
 
-    from app.container import _provide_promote_edge_use_case
+    from app.composition.entity_providers import _provide_promote_edge_use_case
 
     client = MagicMock()
     importer_resolver = MagicMock()
