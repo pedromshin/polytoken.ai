@@ -81,7 +81,7 @@ from app.application.use_cases.set_component_relationship import (
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.application.use_cases.synthesize_knowledge import KnowledgeSynthesizerService
-from app.composition import genui_providers, repository_providers
+from app.composition import genui_providers, llm_adapter_providers, repository_providers
 from app.domain.ports.anticipatory_ports import AnticipatoryCapStore, AppropriatenessJudge
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -117,7 +117,6 @@ from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.anticipatory.in_memory_cap_store import InMemoryAnticipatoryCapStore
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
 from app.infrastructure.llm.anticipatory_judge_adapter import BedrockAppropriatenessJudgeAdapter
-from app.infrastructure.llm.autofill_adapter import AnthropicAutofiller
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.chat_tools import (
     build_emit_clarify_widget_tool,
@@ -126,9 +125,6 @@ from app.infrastructure.llm.chat_tools import (
     build_emit_ui_spec_tool,
 )
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
-from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
-from app.infrastructure.llm.openrouter_chat_adapter import OpenRouterChatAdapter
-from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.ocr.textract_adapter import TextractOcrAdapter
 from app.infrastructure.pdf.parser_registry import get_parser, register
 from app.infrastructure.pdf.pdf_parser import PdfParser
@@ -242,22 +238,6 @@ def _provide_forwarding_address_resolver(client: Client) -> ForwardingAddressRes
     return SupabaseForwardingAddressRepository(client=client)
 
 
-def _provide_autofiller(client: AsyncAnthropicBedrock) -> AutofillProtocol:
-    """AnthropicAutofiller backed by AWS Bedrock — implements AutofillProtocol."""
-    return AnthropicAutofiller(client=client, model_id=get_settings().bedrock_model_id)
-
-
-def _provide_entity_type_classifier(client: AsyncAnthropicBedrock) -> EntityTypeClassifierProtocol:
-    """AnthropicEntityTypeClassifier backed by AWS Bedrock — implements EntityTypeClassifierProtocol.
-
-    Uses the SAME configured Bedrock model as autofill (settings.bedrock_model_id).
-    The hardcoded legacy haiku model 404s ("marked by provider as Legacy … upgrade
-    to an active model"); the configured model is the active, invokable one. This is
-    one batched call per document, so the larger model's cost/latency is fine.
-    """
-    return AnthropicEntityTypeClassifier(client=client, model_id=get_settings().bedrock_model_id)
-
-
 def _provide_embedder() -> EmbeddingProtocol:
     """EmbeddingAdapter backed by AWS Bedrock Amazon Titan Text Embeddings V2 (1536-dim).
 
@@ -331,11 +311,6 @@ def _provide_autofill_fields_use_case(
         embedder=embedder,
         retrieval=retrieval,
     )
-
-
-def _provide_segmenter(client: AsyncAnthropicBedrock) -> SegmenterProtocol:
-    """AnthropicSegmenter backed by AWS Bedrock — implements SegmenterProtocol."""
-    return AnthropicSegmenter(client=client, model_id=get_settings().bedrock_model_id)
 
 
 def _provide_parser_registry() -> object:
@@ -653,30 +628,6 @@ def _provide_httpx_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=None))
 
 
-def _provide_bedrock_chat_adapter(client: AsyncAnthropicBedrock) -> BedrockChatAdapter:
-    """BedrockChatAdapter — one ChatProvider implementation (Phase 22, D-22).
-
-    Reuses the shared AsyncAnthropicBedrock client (already bound above as a
-    singleton). Bound to its own concrete type (not the ChatProvider Protocol)
-    because OpenRouterChatAdapter implements the SAME Protocol structurally —
-    the chat orchestration layer (22-06) selects between them by the picked
-    model's registry transport, not via a single Protocol-keyed binding.
-    """
-    settings = get_settings()
-    return BedrockChatAdapter(
-        client=client,
-        inactivity_timeout_seconds=settings.CHAT_INACTIVITY_TIMEOUT_SECONDS,
-    )
-
-
-def _provide_chat_provider_router(
-    bedrock: BedrockChatAdapter,
-    openrouter: OpenRouterChatAdapter,
-) -> ChatProviderRouter:
-    """ChatProviderRouter — routes a picked model_id to its registry transport (Phase 22-06)."""
-    return ChatProviderRouter(bedrock=bedrock, openrouter=openrouter)
-
-
 def _provide_run_chat_turn(
     messages: ChatMessageRepository,
     runs: ChatRunRepository,
@@ -967,23 +918,6 @@ def _provide_submit_widget_interaction(
     )
 
 
-def _provide_openrouter_chat_adapter(http_client: httpx.AsyncClient) -> OpenRouterChatAdapter:
-    """OpenRouterChatAdapter — the second ChatProvider implementation (Phase 22, D-07, D-22).
-
-    Reuses the shared httpx.AsyncClient singleton. api_key is read once here via
-    settings.openrouter_api_key (T-22-06, server-side only) — an empty key means
-    every .stream() call raises fail-closed (D-07) until OPENROUTER_API_KEY is
-    configured for this environment.
-    """
-    settings = get_settings()
-    return OpenRouterChatAdapter(
-        api_key=settings.openrouter_api_key,
-        base_url=settings.OPENROUTER_BASE_URL,
-        http_client=http_client,
-        inactivity_timeout_seconds=settings.CHAT_INACTIVITY_TIMEOUT_SECONDS,
-    )
-
-
 def _provide_cost_ledger_repository(client: Client) -> CostLedgerRepository:
     """SupabaseCostLedgerRepository — chat_cost_ledger adapter (FOUND-3, D-20/D-22)."""
     return SupabaseCostLedgerRepository(client=client)
@@ -1037,12 +971,13 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # before importer_resolver inside execute() to anchor new importers.
     provider.provide(_provide_forwarding_address_resolver, provides=ForwardingAddressResolver)
 
-    # ── LLM adapters (Bedrock) ────────────────────────────────────────────────
-    provider.provide(_provide_segmenter, provides=SegmenterProtocol)
-    provider.provide(_provide_autofiller, provides=AutofillProtocol)
+    # ── Embedder (Bedrock Titan; boto3 client built directly, so stays here) ──
     provider.provide(_provide_embedder, provides=EmbeddingProtocol)
-    # Entity-type classifier: ONE call classifies all candidate regions of a document.
-    provider.provide(_provide_entity_type_classifier, provides=EntityTypeClassifierProtocol)
+
+    # ── LLM adapters + chat transport — extracted group (Track 2 decomposition) ──
+    # Autofiller / entity-type classifier / segmenter + both ChatProvider adapters +
+    # the transport router live in app.composition.llm_adapter_providers.register.
+    llm_adapter_providers.register(provider)
 
     # ── Segmentation / parser registry ───────────────────────────────────────
     # ParserRegistryPort is a Callable type alias with forward-ref annotations;
@@ -1133,17 +1068,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # All bindings live in app.composition.genui_providers.register (behavior unchanged).
     genui_providers.register(provider)
 
-    # ── Chat spine — multi-provider ChatProvider implementations (Phase 22) ──
-    # Both adapters structurally implement ChatProvider but are bound to their
-    # own concrete types: the chat orchestration layer (22-06) will select
-    # between them by the picked model's registry transport.
-    provider.provide(_provide_bedrock_chat_adapter, provides=BedrockChatAdapter)
-    provider.provide(_provide_openrouter_chat_adapter, provides=OpenRouterChatAdapter)
-
-    # ── Chat spine — provider router (Phase 22-06) ───────────────────────────
-    # The chat-spine persistence repos (message/run/conversation/widget-interaction)
-    # are bound in repository_providers.register above; the router selects a transport.
-    provider.provide(_provide_chat_provider_router, provides=ChatProviderRouter)
+    # Chat transport (both ChatProvider adapters + the router) is bound in
+    # llm_adapter_providers.register above; the chat-spine persistence repos in
+    # repository_providers.register. What remains here is the turn use case itself.
 
     # ── Dual-channel genui — chat turn + submit use case (Phase 24-01/24-02) ──
     provider.provide(_provide_run_chat_turn, provides=RunChatTurn)
