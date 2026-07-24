@@ -4,7 +4,21 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: BATCH 3 SHIPPED TO MAIN ✅ (2026-07-24, main @ 8dd874e) — Vercel prod build triggered
+## Status: ADD-NODES SHIPPED TO MAIN ✅ (2026-07-24, main @ 71a0ff4) — Vercel building
+
+> Pedro (justifiably) called out that "add nodes of various types" / "landscape isn't on the
+> canvas" was NOT done — I had wrongly filed it as low-priority polish. FIXED and shipped:
+>   - 71a0ff4 feat(web): AddNodeMenu — a touch-reachable "Add node" dropdown in the canvas
+>     Panel (the pane right-click menu was desktop-only, so a phone couldn't place a node).
+>     Offers Email treemap + Drive treemap (circle-pack LANDSCAPES placed directly, no picker)
+>     and Email thread… / Knowledge node… (existing pickers). handleAddCirclePack + circle-pack
+>     added to PANE_ADDABLE + pane onAddNode + CANVAS_NODE_DIMENSIONS. Task #22 now DONE
+>     (canvas-on-mobile + gesture isolation + add-node incl. landscape). 5 new tests; web 136
+>     files / 1718 green; prod build clean. Verify at https://polytoken.ai (canvas → top-right
+>     "+" Add node → Email treemap).
+> Fast-forwarded main 8dd874e..71a0ff4 (web-only; only Vercel builds).
+
+## Prior status: BATCH 3 SHIPPED TO MAIN ✅ (2026-07-24, main @ 8dd874e) — Vercel prod build triggered
 
 > Pedro said "full go to main with everything ... no users, ship and I'll verify once up."
 > Fast-forwarded main 1525a44..8dd874e (11 commits, web/api-client/planning only — NO listener
