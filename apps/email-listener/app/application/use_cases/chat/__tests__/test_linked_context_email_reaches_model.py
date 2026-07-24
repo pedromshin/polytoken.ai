@@ -15,12 +15,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 
 from app.application.use_cases.chat.linked_context import system_prompt_with_linked_context
 from app.domain.entities.email import Email
 from app.domain.ports.chat_context_edge_repository import ContextEdge
+from app.domain.ports.chat_repositories import ChatMessageRepository
+from app.domain.ports.email_repository import EmailRepository
 
 _BASE_PROMPT = "You are a helpful assistant."
 _THREAD_ID = "11111111-1111-1111-1111-111111111111"
@@ -113,8 +116,10 @@ async def _run(email_repo: _EmailRepo, *, importer_ids: Sequence[str] | None) ->
         context_edges=_EdgeRepo([_email_thread_edge()]),
         source_ledger=None,
         knowledge_graph=None,
-        messages=_MessagesStub(),
-        email_repository=email_repo,
+        # Deliberately partial test doubles — cast to the ports they stand in for
+        # (only the email_thread read path is exercised, see the stub docstrings).
+        messages=cast("ChatMessageRepository", _MessagesStub()),
+        email_repository=cast("EmailRepository", email_repo),
     )
 
 
@@ -171,8 +176,8 @@ async def test_no_edges_leaves_base_prompt_byte_identical() -> None:
         context_edges=_EdgeRepo([]),
         source_ledger=None,
         knowledge_graph=None,
-        messages=_MessagesStub(),
-        email_repository=repo,
+        messages=cast("ChatMessageRepository", _MessagesStub()),
+        email_repository=cast("EmailRepository", repo),
     )
 
     assert prompt == _BASE_PROMPT
