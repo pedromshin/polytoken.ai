@@ -74,6 +74,24 @@ To turn the safe hooks on, add this to `.claude/settings.json` (skip the two Ses
 }
 ```
 
+## ⚠️ Execution backend NOT installed — the skills are prompt-shells
+
+What's vendored is the **prompt layer** (the `/gsd:*` commands, agents, and skills as markdown).
+Several GSD workflows also call an **execution backend** that is NOT installed here:
+- a `gsd-tools` CLI (e.g. `gsd-tools query validate.context`), and
+- workflow libs the skills load by absolute path, e.g. `@~/.claude/gsd-core/workflows/<name>.md`.
+
+Those ship in the npm package (`@opengsd/gsd-core`'s `bin/` + `gsd-core/` dirs), which the vendor
+copy deliberately omits (they'd need a build + `~/.claude` install that doesn't persist in this
+ephemeral container). Consequence: a command like `/gsd:health` loads but can't run its tool calls,
+so it can't fully self-execute. The prompt-driven skills (plan/discuss/execute reasoning) still work;
+only the tool-backed queries/validators are inert.
+
+To get full execution, add this to the **environment setup script** (persists per session, unlike a
+manual `~/.claude` copy): `npx -y @opengsd/gsd-core@latest` (installs the CLI + workflow libs to the
+paths the skills expect). Until then, drive GSD by hand — which is what the 2026-07-24 state
+reconciliation did (see `ORCHESTRATOR-STATE.md` ⭐ CURRENT block) in place of `/gsd:health`.
+
 ## Updating GSD later
 
 Re-run the vendor: shallow-clone `open-gsd/gsd-core`, copy `commands/gsd`, `agents/gsd-*`,

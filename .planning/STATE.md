@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.11
 milestone_name: Research Core & the Capability Spine
 status: in-progress
-last_updated: "2026-07-22T00:00:00.000Z"
+last_updated: "2026-07-24T00:00:00.000Z"
 progress:
   total_phases: 6
   completed_phases: 1
@@ -19,6 +19,11 @@ progress:
 > (the single live run ledger); for the forward build sequence use
 > **`.planning/assessment/2026-07-24/00-MASTER-PLAN.md`**. The 07-22 META-AUDIT referenced
 > below is superseded — do not orient a fresh session on it.
+>
+> **Reconciled 2026-07-24:** GSD Core v1.8.0 was vendored into the repo (`.planning/GSD-INSTALL.md`) —
+> `/gsd:*` commands, agents and skills now live under `.claude/`. This `STATE.md` remains the
+> structural milestone tracker; the ⭐ CURRENT block at the top of `ORCHESTRATOR-STATE.md` is the
+> live status and lists what shipped since (visible batch, Track 2 split, the Treemap landscape).
 
 ## Project Reference
 

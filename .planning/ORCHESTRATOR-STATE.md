@@ -6,6 +6,41 @@
 > the RESUME PROTOCOL below. Strategic `/compact` is safe at any batch boundary — this file + pushed
 > branches hold all durable state, so nothing critical lives only in chat.
 
+## ⭐ CURRENT — 2026-07-24 · session_016dmeeGLzwLPZfRwGpByHmn · branch `claude/polytoken-email-infra-cont-qi9q5g`
+> **This block is the live "where are we."** Everything below the RESUME PROTOCOL is chronological
+> history (newest-first); the `01RZ`/`jzz1pg`-session standing config at the very BOTTOM of this file
+> (batch plan / merge protocol / completion criterion) is **SUPERSEDED** — all of that session's
+> `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
+> **no autonomous backstop is active.**
+
+**Shipped to main since the last chronological block:**
+- **Visible batch #1–#6** — all on main (the dead `wf_6f85ee71` workflow was recovered by hand). DONE.
+- **Track 2 — `container.py` split**: 5 of ~9 groups extracted (genui, repositories, llm_adapter,
+  cost, anticipatory); 1434→1039 lines; ultracode-audited (88=88 bindings, nothing dropped) with a
+  full-graph boot safety net. Remaining 4 groups (chat_turn→document_region→entity→ingestion) are
+  spec'd turnkey in `assessment/2026-07-24/12-container-split-remaining.md`. All shipped.
+- **Landscape redesign**: replaced the circle-pack with a WizTree-style **labelled Treemap** primitive
+  (`@polytoken/ui/treemap`); all 3 consumers swapped; design-law law-2 serif fix (`evidenceLabels`);
+  leftover circle iconography → `LayoutDashboard`. Commits `47fee11`, `242a04c`. On main.
+  **VISUAL sign-off owed** — Pedro's eyes on the `polytoken.ai` Landscape tab (jsdom proves no pixels;
+  this container can't run the screenshot/geometry gates).
+- **GSD Core v1.8.0** vendored into the repo (commands + agents + skills + hooks); reconciliation in
+  `.planning/GSD-INSTALL.md`. Commit `9f89865`. NOTE: skills/commands are prompt-shells; the
+  `gsd-tools` execution backend is NOT installed (so `/gsd:*` self-execution is partial — see
+  GSD-INSTALL.md "execution backend" note).
+
+**State reconciled (this update, 2026-07-24):** GSD's `STATE.md` stays the structural milestone
+tracker (v1.11); **THIS file is the live ledger.** The bottom-of-file `01RZ`/`jzz1pg` standing config
+is quarantined under a SUPERSEDED header.
+
+**NEXT (Pedro chose "reconcile state" 2026-07-24 — DONE by this block). Open build fronts, master-plan order:**
+1. **Track 2 finish** — 4 remaining container groups (low-risk mechanical, fully spec'd).
+2. **Track 3 FOUNDATION (task #7)** — graphile-worker durable runtime [fixes the silent email loss] +
+   Workspace→Canvas→Node rows. Best as a worktree-isolated multiagent workflow.
+3. **Track 1** — Terraform remote state + import ALL live resources (careful; NO `apply` before import).
+4. **The "lives in it" proof (Pedro-only, gates everything)** — sign in on the deployed app + forward
+   real mail (LIVE-03/04, CLUS-07). Nothing built counts as "usable" until this runs once.
+
 ## RESUME PROTOCOL — a fresh/resumed session does this FIRST
 1. Branch is `claude/polytoken-email-infra-cont-qi9q5g`. `git fetch origin`; confirm you're on it.
 2. Read `.planning/assessment/2026-07-24/00-MASTER-PLAN.md` (the sequenced plan) + this ledger's top
@@ -519,6 +554,13 @@ DB-clock cutoff; supersede lte / count gt; cutoff None ⇒ skip supersede).
 Verified on merged tree: listener full suite exit 0 + mypy/ruff/lint-imports
 clean; api-client 568/568; db (PGlite) 27/27; web tsc clean; emails/[id] 79/80.
 4 OCR corpus failures are pre-existing environmental (Textract deps absent).
+
+## --- ⛔ SUPERSEDED: `01RZ`/`jzz1pg`-session standing config (HISTORIC — do NOT action) ---
+> The block below is the prior grand-orchestrator session's operational scaffolding (branch
+> `…-jzz1pg`, session `01RZ…`, fable-5 policy, its 7-batch program, its completion criterion + hourly
+> backstop). It is kept for provenance only. The CURRENT session is `qi9q5g` / `016d…` on opus-4.8;
+> the live truth is the ⭐ CURRENT block at the TOP of this file. Every Routine referenced below has
+> `ended_reason=run_once_fired` — none will fire again; there is nothing here to run or delete.
 
 - Branch: `claude/polytoken-email-infra-cont-jzz1pg` (all merges land here; NO PR)
 - Model policy: fable-5 (verify panels/synthesis) · opus-4.8 (mutations/security, session default) · sonnet-5 (mechanical). Never haiku.
