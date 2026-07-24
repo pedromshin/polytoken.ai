@@ -32,6 +32,19 @@
    (broad platform vs email wedge) is OPEN — it only reorders feature Tracks 6 vs 7/8/9 (downstream
    of the foundation), so it does NOT block Tracks 0–3.
 
+## SHIPPED TO MAIN — visible batch (4/6) · 2026-07-24 14:4x UTC · merge `8ed86ce`
+The wf_6f85ee71-d16 build workflow DIED mid-run (journal froze 12:36 UTC after 3 slice results;
+no live process). Recovered by hand and shipped the real work:
+- ✅ #1 treemap zoom-out (`04c6015`) · ✅ #2 attachment carousel (`31a4cce`) · ✅ #4 screenshot fix
+  (`456200e`) — were committed+pushed by the workflow before it died.
+- ✅ #3 chat auto-load + FAB (`c10d03c`, +787) — was BUILT but left UNCOMMITTED in the worktree;
+  recovered the 8 modified + 5 new files and committed on-branch.
+- Merged all 4 into the feature branch (no conflicts), ran FULL gates GREEN: `tsc -p apps/web` ✓ ·
+  vitest 1753 passed / 141 files ✓ · placeholder `next build` ✓. Fast-forwarded `main`
+  (`2615ebc..8ed86ce`) = ONE Vercel build. Feature branch + all `wf1-*` pushed.
+- ❌ STILL OWED (workflow never produced these): #5 GenUI graceful-fail (empty branch) and
+  #6 email-context-in-chat (never started). Next batch — redo both by hand, ship, then foundation.
+
 ## Status: ASSESSMENT + MASTER PLAN DELIVERED ✅ · foundation started (2026-07-24)
 
 > Pedro pasted the "optimized handoff" (assessment-and-plan brief) + "use ultracode and best model",
