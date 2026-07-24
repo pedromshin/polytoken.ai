@@ -784,6 +784,44 @@ export function ChatCanvas({
     [nodes, setNodes, persistence, canvasStore, history],
   );
 
+  // CV-03: place a spreadsheet node for an ALREADY-CREATED sheet (the blank
+  // create happens in AddNodeMenu, which owns the mutation, then hands us the
+  // new id). node.data carries only the spreadsheetId ref; the grid rehydrates
+  // via api.spreadsheets.byId on the node. Uses nodesRef (fresh, not a stale
+  // closure) since the caller awaited an async create before this runs.
+  const handleAddSpreadsheet = useCallback(
+    (spreadsheetId: string) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodesRef.current.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, width: 420, height: 320 },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `spreadsheet:${crypto.randomUUID()}`,
+        type: "spreadsheet",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { spreadsheetId },
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [setNodes, persistence, canvasStore, history],
+  );
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -1343,6 +1381,7 @@ export function ChatCanvas({
                           onAddKnowledge={() =>
                             setKnowledgeOpenNonce((n) => n + 1)
                           }
+                          onAddSpreadsheet={handleAddSpreadsheet}
                         />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}

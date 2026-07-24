@@ -19,12 +19,14 @@
  */
 
 import * as React from "react";
+import { toast } from "sonner";
 import {
   CircleDashed,
   HardDrive,
   Mail,
   Network,
   Plus,
+  Table as TableIcon,
 } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
@@ -37,6 +39,8 @@ import {
   DropdownMenuTrigger,
 } from "@polytoken/ui/dropdown-menu";
 
+import { api } from "~/trpc/react";
+
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 
 export interface AddNodeMenuProps {
@@ -46,7 +50,19 @@ export interface AddNodeMenuProps {
   readonly onAddEmailThread: () => void;
   /** Open the knowledge-node search picker. */
   readonly onAddKnowledge: () => void;
+  /** Place a spreadsheet node for a freshly-created blank sheet. */
+  readonly onAddSpreadsheet: (spreadsheetId: string) => void;
 }
+
+/** A blank 3-column sheet — the starting point the agent (or the user) fills. */
+const BLANK_SHEET = {
+  title: "Untitled spreadsheet",
+  columns: [
+    { name: "Column 1", type: "text" as const },
+    { name: "Column 2", type: "text" as const },
+    { name: "Column 3", type: "text" as const },
+  ],
+};
 
 /**
  * AddNodeMenu — the canvas's primary, touch-reachable "add a node" affordance.
@@ -55,7 +71,22 @@ export function AddNodeMenu({
   onAddCirclePack,
   onAddEmailThread,
   onAddKnowledge,
+  onAddSpreadsheet,
 }: AddNodeMenuProps): React.ReactElement {
+  // The blank-sheet create lives here (this component can reach api) so the
+  // canvas host's add handler stays sync — it just places the node once the id
+  // is back.
+  const createSpreadsheet = api.spreadsheets.create.useMutation();
+
+  async function handleAddSpreadsheet(): Promise<void> {
+    try {
+      const { spreadsheetId } = await createSpreadsheet.mutateAsync(BLANK_SHEET);
+      onAddSpreadsheet(spreadsheetId);
+    } catch {
+      toast.error("Couldn't create a spreadsheet. Try again.");
+    }
+  }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -78,6 +109,16 @@ export function AddNodeMenu({
         <DropdownMenuItem onSelect={() => onAddCirclePack("drive")}>
           <HardDrive className="size-4 shrink-0 text-faded" aria-hidden />
           Drive treemap
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            // Keep the menu's own close from racing the async create.
+            e.preventDefault();
+            void handleAddSpreadsheet();
+          }}
+        >
+          <TableIcon className="size-4 shrink-0 text-faded" aria-hidden />
+          Spreadsheet
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onAddEmailThread}>

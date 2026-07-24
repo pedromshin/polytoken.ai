@@ -14,6 +14,21 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+const createMutateAsync = vi.fn(async (_input?: unknown) => ({
+  spreadsheetId: "5c5c5c5c-0000-0000-0000-000000000001",
+  created: true as const,
+}));
+
+vi.mock("~/trpc/react", () => ({
+  api: {
+    spreadsheets: {
+      create: { useMutation: () => ({ mutateAsync: createMutateAsync }) },
+    },
+  },
+}));
+
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+
 import { AddNodeMenu } from "../add-node-menu";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -25,6 +40,7 @@ interface Handlers {
   onAddCirclePack: ReturnType<typeof vi.fn>;
   onAddEmailThread: ReturnType<typeof vi.fn>;
   onAddKnowledge: ReturnType<typeof vi.fn>;
+  onAddSpreadsheet: ReturnType<typeof vi.fn>;
 }
 
 async function mountMenu(): Promise<Handlers> {
@@ -32,6 +48,7 @@ async function mountMenu(): Promise<Handlers> {
     onAddCirclePack: vi.fn(),
     onAddEmailThread: vi.fn(),
     onAddKnowledge: vi.fn(),
+    onAddSpreadsheet: vi.fn(),
   };
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -85,14 +102,30 @@ afterEach(async () => {
 });
 
 describe("AddNodeMenu", () => {
-  it("offers all four addable node types", async () => {
+  it("offers every addable node type", async () => {
     await mountMenu();
     await openMenu();
     const labels = menuItems().map((el) => el.textContent ?? "");
     expect(labels.some((l) => l.includes("Email treemap"))).toBe(true);
     expect(labels.some((l) => l.includes("Drive treemap"))).toBe(true);
+    expect(labels.some((l) => l.includes("Spreadsheet"))).toBe(true);
     expect(labels.some((l) => l.includes("Email thread"))).toBe(true);
     expect(labels.some((l) => l.includes("Knowledge node"))).toBe(true);
+  });
+
+  it("Spreadsheet creates a blank sheet, then places a node for its id", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    createMutateAsync.mockClear();
+    await clickItem("Spreadsheet");
+    // Let the async create + placement settle.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createMutateAsync).toHaveBeenCalledTimes(1);
+    expect(h.onAddSpreadsheet).toHaveBeenCalledWith(
+      "5c5c5c5c-0000-0000-0000-000000000001",
+    );
   });
 
   it("Email treemap adds a mailbox-scoped circle-pack", async () => {
