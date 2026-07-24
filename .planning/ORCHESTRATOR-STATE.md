@@ -42,8 +42,20 @@ no live process). Recovered by hand and shipped the real work:
 - Merged all 4 into the feature branch (no conflicts), ran FULL gates GREEN: `tsc -p apps/web` ✓ ·
   vitest 1753 passed / 141 files ✓ · placeholder `next build` ✓. Fast-forwarded `main`
   (`2615ebc..8ed86ce`) = ONE Vercel build. Feature branch + all `wf1-*` pushed.
-- ❌ STILL OWED (workflow never produced these): #5 GenUI graceful-fail (empty branch) and
-  #6 email-context-in-chat (never started). Next batch — redo both by hand, ship, then foundation.
+- ✅ BATCH 2 (was owed) SHIPPED by hand · merge `2e01108`:
+  - #5 GenUI graceful-fail (`4fc7e2e`): added `safeInvokeAction` — button/form action handlers now
+    catch BOTH a sync throw and a rejected-promise return (host handlers are async), log
+    server-side, no-op to the user. Was: sync-only try/catch → async rejection crashed the surface.
+    632 genui tests green + new regression test.
+  - #6 email-context-in-chat (`2e01108`): the production fix already existed (importer-scoped linked
+    context, Phases 44-09/56-04) but was UNTESTED. Added the regression guard at
+    `system_prompt_with_linked_context`: owned importer_ids → email subject+body reach the prompt;
+    no importer_ids → default read → [] → dropped (documents the bug). ruff+format+lint-imports+3 tests green.
+  - Full web gates re-run green (tsc ✓ · genui-boundary vitest ✓ · placeholder next build ✓) since #5
+    changed genui (bundled into apps/web). Fast-forwarded main (`60a93f3..2e01108`) = one Vercel build.
+- ✅✅ ALL 6 VISIBLE SLICES (#1–#6) NOW ON MAIN. The dead-workflow batch is fully recovered + shipped.
+  NEXT: Task #7 FOUNDATION — Track 2 (split container.py FIRST) → Track 1 (TF state) → Track 3
+  (graphile-worker + Workspace→Canvas→Node rows). Strategic FORK still OPEN (doesn't block 2/1/3).
 
 ## Status: ASSESSMENT + MASTER PLAN DELIVERED ✅ · foundation started (2026-07-24)
 
