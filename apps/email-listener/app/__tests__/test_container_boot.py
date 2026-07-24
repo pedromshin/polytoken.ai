@@ -73,6 +73,7 @@ from app.application.use_cases.set_component_relationship import (
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.container import create_container
+from app.domain.ports.job_enqueuer import JobEnqueuer
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 
 # Deep-fan-in top-level providers. Resolving each pulls in its transitive deps (66/88 of the
@@ -155,6 +156,13 @@ def test_container_resolves_every_binding() -> None:
             # DI key explicitly so the registration itself is guarded (no isinstance — it's a fn).
             parser_registry = await container.get(ParserRegistryPort)
             assert callable(parser_registry), "ParserRegistryPort resolved to a non-callable"
+
+            # JobEnqueuer (Track 3a) is a Protocol port with NO fan-in from the roots above (the
+            # SNS receiver / backfill resolve it from request scope at call time, not via injection),
+            # so guard its DI registration explicitly here — a break would otherwise only surface as
+            # a prod mail-path 500 once INGEST_ENQUEUE_ENABLED is flipped on.
+            enqueuer = await container.get(JobEnqueuer)
+            assert hasattr(enqueuer, "enqueue"), "JobEnqueuer resolved without an enqueue method"
 
             await container.close()
 
