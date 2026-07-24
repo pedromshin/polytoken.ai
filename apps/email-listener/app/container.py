@@ -47,7 +47,6 @@ from app.application.use_cases.edit_region import (
     RejectRegionUseCase,
     SplitRegionUseCase,
 )
-from app.application.use_cases.evaluate_anticipatory_candidates import EvaluateAnticipatoryCandidates
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
 from app.application.use_cases.manage_entity_types import (
     CreateEntityTypeUseCase,
@@ -81,8 +80,13 @@ from app.application.use_cases.set_component_relationship import (
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.application.use_cases.synthesize_knowledge import KnowledgeSynthesizerService
-from app.composition import genui_providers, llm_adapter_providers, repository_providers
-from app.domain.ports.anticipatory_ports import AnticipatoryCapStore, AppropriatenessJudge
+from app.composition import (
+    anticipatory_providers,
+    cost_providers,
+    genui_providers,
+    llm_adapter_providers,
+    repository_providers,
+)
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
 from app.domain.ports.autofill_protocol import AutofillProtocol
@@ -114,9 +118,7 @@ from app.domain.ports.source_ledger_repository import SourceLedgerRepository
 from app.domain.ports.thread_resolver import ThreadResolver
 from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
-from app.infrastructure.anticipatory.in_memory_cap_store import InMemoryAnticipatoryCapStore
 from app.infrastructure.llm.anthropic_client import get_anthropic_client
-from app.infrastructure.llm.anticipatory_judge_adapter import BedrockAppropriatenessJudgeAdapter
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.chat_tools import (
     build_emit_clarify_widget_tool,
@@ -137,7 +139,6 @@ from app.infrastructure.supabase.forwarding_address_repository import SupabaseFo
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
-from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
 from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
 from app.infrastructure.tools.duckduckgo_search_provider import DuckDuckGoSearchProvider
 from app.infrastructure.tools.lookup_entity_executor import (
@@ -587,35 +588,6 @@ def _provide_ingest_use_case(
     )
 
 
-def _provide_anticipatory_judge(client: AsyncAnthropicBedrock) -> AppropriatenessJudge:
-    """BedrockAppropriatenessJudgeAdapter — gate #1 of the ANTIC-02 dark pipeline (D-07/D-09).
-
-    Registered so the pipeline is DI-constructible (D-01); the pipeline itself
-    is not invoked anywhere in the live turn loop (D-12 — dark by default via
-    ANTICIPATORY_PROMPTING_ENABLED=False, checked by the caller, not here).
-    """
-    settings = get_settings()
-    return BedrockAppropriatenessJudgeAdapter(
-        client=client,
-        model_id=settings.anticipatory_judge_model_id,
-        max_tokens=settings.ANTICIPATORY_JUDGE_MAX_TOKENS,
-        timeout_seconds=settings.ANTICIPATORY_JUDGE_TIMEOUT_SECONDS,
-        threshold=settings.ANTICIPATORY_APPROPRIATENESS_THRESHOLD,
-    )
-
-
-def _provide_evaluate_anticipatory_candidates(
-    judge: AppropriatenessJudge,
-    cap_store: AnticipatoryCapStore,
-) -> EvaluateAnticipatoryCandidates:
-    """Factory for EvaluateAnticipatoryCandidates — the ANTIC-02 gate-chain use case (D-01/D-08).
-
-    Both collaborators are the domain PORTS (not concrete adapters) — mirrors
-    every other Protocol-typed use case factory in this module.
-    """
-    return EvaluateAnticipatoryCandidates(judge=judge, cap_store=cap_store)
-
-
 def _provide_httpx_client() -> httpx.AsyncClient:
     """Shared httpx AsyncClient singleton for outbound streaming HTTP calls (OpenRouter, D-07 seam).
 
@@ -918,27 +890,6 @@ def _provide_submit_widget_interaction(
     )
 
 
-def _provide_cost_ledger_repository(client: Client) -> CostLedgerRepository:
-    """SupabaseCostLedgerRepository — chat_cost_ledger adapter (FOUND-3, D-20/D-22)."""
-    return SupabaseCostLedgerRepository(client=client)
-
-
-def _provide_cost_circuit_breaker(ledger: CostLedgerRepository) -> CostCircuitBreaker:
-    """CostCircuitBreaker — fail-closed pre-turn gate + mid-stream abort (STREAM-03, D-20/D-21).
-
-    Caps come ONLY from settings (D-21) — passed in here at construction time,
-    never overridable per-call.
-    """
-    settings = get_settings()
-    return CostCircuitBreaker(
-        ledger=ledger,
-        per_turn_cap_usd=settings.COST_CAP_PER_TURN_USD,
-        per_session_cap_usd=settings.COST_CAP_PER_SESSION_USD,
-        per_day_cap_usd=settings.COST_CAP_PER_DAY_USD,
-        per_round_cap_usd=settings.COST_CAP_PER_ROUND_USD,
-    )
-
-
 def _build_provider() -> Provider:  # noqa: PLR0915
     """Return a configured dishka Provider with all app-scoped bindings."""
     provider = Provider(scope=Scope.APP)
@@ -1057,11 +1008,9 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(RejectMergeUseCase)
     provider.provide(UnmergeEntityUseCase)
 
-    # ── Cost governance — ledger + fail-closed circuit breaker (FOUND-3, D-20/D-21) ──
-    # CostLedgerRepository: Protocol port → SupabaseCostLedgerRepository adapter.
-    provider.provide(_provide_cost_ledger_repository, provides=CostLedgerRepository)
-    # CostCircuitBreaker: fail-closed pre-turn gate + mid-stream abort (STREAM-03, D-20/D-21).
-    provider.provide(_provide_cost_circuit_breaker, provides=CostCircuitBreaker)
+    # ── Cost governance — extracted group (Track 2 decomposition) ─────────────
+    # Cost ledger + fail-closed circuit breaker → app.composition.cost_providers.register.
+    cost_providers.register(provider)
 
     # ── GenUI generation layer (Phase 13-03) — extracted group (Track 2 decomposition) ──
     # Dual-LLM declarative-spec pipeline + parallel code-island path + NL re-theme resolver.
@@ -1076,13 +1025,11 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(_provide_run_chat_turn, provides=RunChatTurn)
     provider.provide(_provide_submit_widget_interaction, provides=SubmitWidgetInteraction)
 
-    # ── Anticipatory-prompting SPIKE — dark gate-chain pipeline (Phase 25-02, D-01/D-12) ──
-    # Registered so the whole pipeline is real, DI-constructible infrastructure — NOT invoked
-    # anywhere in the live turn loop. ANTICIPATORY_PROMPTING_ENABLED defaults to False; live
-    # observation wiring into the turn loop is a documented Plan 25-03 seam.
-    provider.provide(_provide_anticipatory_judge, provides=AppropriatenessJudge)
-    provider.provide(InMemoryAnticipatoryCapStore, provides=AnticipatoryCapStore)
-    provider.provide(_provide_evaluate_anticipatory_candidates, provides=EvaluateAnticipatoryCandidates)
+    # ── Anticipatory-prompting SPIKE — extracted group (Track 2 decomposition) ─
+    # Dark gate-chain pipeline (Phase 25-02): DI-constructible but NOT invoked in the live
+    # turn loop (ANTICIPATORY_PROMPTING_ENABLED defaults False). Bindings in
+    # app.composition.anticipatory_providers.register.
+    anticipatory_providers.register(provider)
 
     return provider
 
