@@ -4,7 +4,43 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: EDITOR-MERGE SHIPPED TO MAIN ✅ (2026-07-24, main @ 54622c1) — Vercel building
+## Status: DOCUMENT-NODE SHIPPED TO MAIN ✅ (2026-07-24, main @ 2615ebc) — Vercel building
+
+> New session (opus-4.8, session_016dmeeGLzwLPZfRwGpByHmn) resuming the unattended run.
+> Branch is now `claude/polytoken-email-infra-cont-qi9q5g` (the prior `-jzz1pg` work was all
+> consolidated onto main @ 0dd20bb before this session; nothing lost). On resume the tree was
+> clean and fully shipped (HEAD == origin/main == 0dd20bb). Shipped ONE safe increment:
+>   - 2615ebc feat(web): document create-from-scratch node from the canvas Add-node menu.
+>     The `document` node type + data schema + capabilities mirror already existed (a reference
+>     node needing an existing documentId); this added the missing CREATE-BLANK path — a
+>     `documents.create` tRPC mutation (owner stamped server-side, inserts a minimal blank
+>     ReportDocument envelope spec.id===row.id/blocks:[], returns {documentId, created:true}; no
+>     apps/web import, no new capability — plain owner-scoped write like the read router), an
+>     AddNodeMenu "Document" item + handleAddDocument host handler mirroring the spreadsheet
+>     create→place, and document node dims (300×140). NO new node type → NO mirror drift.
+>   Gates: api-client tsc clean + documents.create control-plane test 3/3; web tsc clean + full
+>   vitest 136 files/1720 green; placeholder next build clean (all routes compiled). Web/
+>   api-client only → only the Vercel build fires. Fast-forwarded main 0dd20bb..2615ebc.
+>   ⚠️ VISUAL: the document node component (document-node.tsx) already ships unchanged; the only
+>   NEW pixels are one dropdown item mirroring the adjacent "Spreadsheet" item. jsdom does no
+>   layout + this container can't run the screenshot/geometry gates, so verify at
+>   https://polytoken.ai (canvas → top-right "+" Add node → Document → node places, opens the
+>   blank doc). Very low visual risk.
+>
+> REMAINING (unchanged, both need the LIVE loop / Pedro — NOT blind-shipped this session):
+>   1. AI-BUILDS-A-NODE-FROM-A-PROMPT (marquee) — canvas.addNode as an EMIT-STYLE client-applied
+>      agent tool + a new web seam routing the tool-result to the ReactFlow store. All-or-nothing,
+>      needs the live agent→canvas loop to verify. Build WITH Pedro.
+>   2. CHAT WRITES FILES INTO A NODE — scoped this session: NO document.*/files.write capability
+>      exists anywhere, and the Python chat loop currently offers ZERO write tools (all 4 read).
+>      Requires a document.create/update capability + DocumentStore port + fail-closed default +
+>      Drizzle store binding + Python registry registration + wiring a write tool into the Python
+>      tool loop (container.py + chat_tools.py build_*_tool). Same "needs the live agent loop to
+>      verify" risk as the marquee → deferred to an attended session, not blind-shipped.
+>   3. #13 listener-auth hardening still DEFERRED (runbook staged). drizzle 0050 tracking row still
+>      self-heals on next migrate (cosmetic).
+
+## Prior status: EDITOR-MERGE SHIPPED TO MAIN ✅ (2026-07-24, main @ 54622c1) — Vercel building
 
 > Pedro: "everything is everything" — do it all, no more asking. Shipped the HEADLINE that
 > had been dodged all session:
