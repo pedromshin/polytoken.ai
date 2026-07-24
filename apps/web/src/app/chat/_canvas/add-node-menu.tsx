@@ -22,6 +22,7 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   CircleDashed,
+  FileText,
   HardDrive,
   Mail,
   Network,
@@ -52,6 +53,8 @@ export interface AddNodeMenuProps {
   readonly onAddKnowledge: () => void;
   /** Place a spreadsheet node for a freshly-created blank sheet. */
   readonly onAddSpreadsheet: (spreadsheetId: string) => void;
+  /** Place a document node for a freshly-created blank document. */
+  readonly onAddDocument: (documentId: string) => void;
 }
 
 /** A blank 3-column sheet — the starting point the agent (or the user) fills. */
@@ -72,11 +75,13 @@ export function AddNodeMenu({
   onAddEmailThread,
   onAddKnowledge,
   onAddSpreadsheet,
+  onAddDocument,
 }: AddNodeMenuProps): React.ReactElement {
-  // The blank-sheet create lives here (this component can reach api) so the
-  // canvas host's add handler stays sync — it just places the node once the id
-  // is back.
+  // The blank-sheet/blank-document creates live here (this component can reach
+  // api) so the canvas host's add handlers stay sync — they just place the node
+  // once the id is back.
   const createSpreadsheet = api.spreadsheets.create.useMutation();
+  const createDocument = api.documents.create.useMutation();
 
   async function handleAddSpreadsheet(): Promise<void> {
     try {
@@ -84,6 +89,16 @@ export function AddNodeMenu({
       onAddSpreadsheet(spreadsheetId);
     } catch {
       toast.error("Couldn't create a spreadsheet. Try again.");
+    }
+  }
+
+  async function handleAddDocument(): Promise<void> {
+    try {
+      // No input needed — a blank document defaults to "Untitled document".
+      const { documentId } = await createDocument.mutateAsync({});
+      onAddDocument(documentId);
+    } catch {
+      toast.error("Couldn't create a document. Try again.");
     }
   }
 
@@ -119,6 +134,16 @@ export function AddNodeMenu({
         >
           <TableIcon className="size-4 shrink-0 text-faded" aria-hidden />
           Spreadsheet
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={(e) => {
+            // Keep the menu's own close from racing the async create.
+            e.preventDefault();
+            void handleAddDocument();
+          }}
+        >
+          <FileText className="size-4 shrink-0 text-faded" aria-hidden />
+          Document
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onAddEmailThread}>

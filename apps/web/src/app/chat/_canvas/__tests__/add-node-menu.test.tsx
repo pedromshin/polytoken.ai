@@ -19,10 +19,18 @@ const createMutateAsync = vi.fn(async (_input?: unknown) => ({
   created: true as const,
 }));
 
+const createDocumentMutateAsync = vi.fn(async (_input?: unknown) => ({
+  documentId: "d0c0d0c0-0000-0000-0000-000000000001",
+  created: true as const,
+}));
+
 vi.mock("~/trpc/react", () => ({
   api: {
     spreadsheets: {
       create: { useMutation: () => ({ mutateAsync: createMutateAsync }) },
+    },
+    documents: {
+      create: { useMutation: () => ({ mutateAsync: createDocumentMutateAsync }) },
     },
   },
 }));
@@ -41,6 +49,7 @@ interface Handlers {
   onAddEmailThread: ReturnType<typeof vi.fn>;
   onAddKnowledge: ReturnType<typeof vi.fn>;
   onAddSpreadsheet: ReturnType<typeof vi.fn>;
+  onAddDocument: ReturnType<typeof vi.fn>;
 }
 
 async function mountMenu(): Promise<Handlers> {
@@ -49,6 +58,7 @@ async function mountMenu(): Promise<Handlers> {
     onAddEmailThread: vi.fn(),
     onAddKnowledge: vi.fn(),
     onAddSpreadsheet: vi.fn(),
+    onAddDocument: vi.fn(),
   };
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -109,6 +119,7 @@ describe("AddNodeMenu", () => {
     expect(labels.some((l) => l.includes("Email treemap"))).toBe(true);
     expect(labels.some((l) => l.includes("Drive treemap"))).toBe(true);
     expect(labels.some((l) => l.includes("Spreadsheet"))).toBe(true);
+    expect(labels.some((l) => l.includes("Document"))).toBe(true);
     expect(labels.some((l) => l.includes("Email thread"))).toBe(true);
     expect(labels.some((l) => l.includes("Knowledge node"))).toBe(true);
   });
@@ -125,6 +136,21 @@ describe("AddNodeMenu", () => {
     expect(createMutateAsync).toHaveBeenCalledTimes(1);
     expect(h.onAddSpreadsheet).toHaveBeenCalledWith(
       "5c5c5c5c-0000-0000-0000-000000000001",
+    );
+  });
+
+  it("Document creates a blank document, then places a node for its id", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    createDocumentMutateAsync.mockClear();
+    await clickItem("Document");
+    // Let the async create + placement settle.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(createDocumentMutateAsync).toHaveBeenCalledTimes(1);
+    expect(h.onAddDocument).toHaveBeenCalledWith(
+      "d0c0d0c0-0000-0000-0000-000000000001",
     );
   });
 

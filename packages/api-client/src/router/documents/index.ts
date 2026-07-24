@@ -25,6 +25,8 @@
  * large document body is never streamed into the list response.
  */
 
+import { randomUUID } from "node:crypto";
+
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -112,5 +114,50 @@ export const documentsRouter = createTRPCRouter({
       const row = rows[0];
       if (!row) return null;
       return row;
+    }),
+
+  /**
+   * create — a brand-new, EMPTY document owned by the caller (the canvas
+   * "Add node ▸ Document" / document-from-scratch path). Mirrors
+   * spreadsheets.create: the owner is stamped server-side from `ctx.user.id`
+   * (never a client field, INV-8/9), the insert is a plain owner-scoped write
+   * (no `document.*` capability exists — the read router is likewise plain
+   * Drizzle), and it returns just the new id (the `document` canvas node
+   * rehydrates title/date via `byId`, ref-only).
+   *
+   * The `spec` column has no default, so a blank document must supply a minimal
+   * `ReportDocument` envelope. Its RICH block grammar is owned by apps/web
+   * (`documents/_lib/report-document.ts`) and crosses this boundary as jsonb —
+   * this package stays free of any apps/web import (see file header). An EMPTY
+   * document needs only the four required top-level fields, so the minimal
+   * envelope is constructed here as a literal (never importing that type).
+   * `spec.id === row.id` keeps the stored id and the typeset id in lockstep,
+   * and `blocks: []` renders as a clean empty reading view (document-detail's
+   * `isReportDocumentSpec` guard only requires `blocks` to be an array).
+   */
+  create: protectedProcedure
+    .input(
+      z
+        .object({
+          title: z.string().trim().min(1).max(200).optional(),
+        })
+        .default({}),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const id = randomUUID();
+      const title = input.title ?? "Untitled document";
+      const spec = {
+        id,
+        title,
+        generatedAt: new Date().toISOString(),
+        blocks: [],
+      };
+
+      const rows = await ctx.db
+        .insert(Documents)
+        .values({ id, userId: ctx.user.id, title, spec })
+        .returning({ id: Documents.id });
+
+      return { documentId: rows[0]?.id ?? id, created: true as const };
     }),
 });

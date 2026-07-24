@@ -39,6 +39,8 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
   // circle-pack landscape — mirrors circle-pack-node.tsx's fixed 360×320 shell.
   "circle-pack": { width: 360, height: 320 },
   spreadsheet: { width: 420, height: 320 },
+  // document node — mirrors document-node.tsx's fixed h-[140px] w-[300px] shell.
+  document: { width: 300, height: 140 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

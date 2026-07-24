@@ -822,6 +822,44 @@ export function ChatCanvas({
     [setNodes, persistence, canvasStore, history],
   );
 
+  // DOCS-02: place a document node for an ALREADY-CREATED blank document (the
+  // create happens in AddNodeMenu, which owns the mutation, then hands us the
+  // new id). node.data carries only the documentId ref; the node rehydrates
+  // title/date via api.documents.byId. Mirrors handleAddSpreadsheet exactly,
+  // with the document node's own 300×140 shell.
+  const handleAddDocument = useCallback(
+    (documentId: string) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodesRef.current.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, width: 300, height: 140 },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `document:${crypto.randomUUID()}`,
+        type: "document",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { documentId },
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [setNodes, persistence, canvasStore, history],
+  );
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -1382,6 +1420,7 @@ export function ChatCanvas({
                             setKnowledgeOpenNonce((n) => n + 1)
                           }
                           onAddSpreadsheet={handleAddSpreadsheet}
+                          onAddDocument={handleAddDocument}
                         />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}
