@@ -6,6 +6,7 @@ save() upserts on (importer_id, message_id) for idempotent ingestion.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from datetime import datetime
 from typing import Any, cast
@@ -81,22 +82,28 @@ class SupabaseEmailRepository:
 
     async def save(self, email: Email) -> Email:
         """Upsert on (importer_id, message_id); returns the persisted entity."""
-        result = self._client.table("emails").upsert(_to_row(email), on_conflict="importer_id,message_id").execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("emails").upsert(_to_row(email), on_conflict="importer_id,message_id").execute()
+        )
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def find_by_id(self, email_id: str) -> Email | None:
-        result = self._client.table("emails").select("*").eq("id", email_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("emails").select("*").eq("id", email_id).execute()
+        )
         if not result.data:
             return None
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def find_by_message_id(self, importer_id: str, message_id: str) -> Email | None:
-        result = (
-            self._client.table("emails")
-            .select("*")
-            .eq("importer_id", importer_id)
-            .eq("message_id", message_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("*")
+                .eq("importer_id", importer_id)
+                .eq("message_id", message_id)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -106,33 +113,39 @@ class SupabaseEmailRepository:
         query = self._client.table("emails").select("*")
         if importer_id is not None:
             query = query.eq("importer_id", importer_id)
-        result = query.order("received_at", desc=True).range(offset, offset + limit - 1).execute()
+        result = await asyncio.to_thread(
+            lambda: query.order("received_at", desc=True).range(offset, offset + limit - 1).execute()
+        )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def list_by_importer_ids(self, importer_ids: list[str], limit: int, offset: int) -> list[Email]:
         """Scope to the given importer ids (Phase 44, TENA-03) — never all rows."""
         if not importer_ids:
             return []
-        result = (
-            self._client.table("emails")
-            .select("*")
-            .in_("importer_id", importer_ids)
-            .order("received_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("*")
+                .in_("importer_id", importer_ids)
+                .order("received_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def list_by_thread_id(self, *, importer_id: str, thread_id: str, limit: int, offset: int = 0) -> list[Email]:
         """Scoped to importer_id — a thread_id from a foreign importer resolves to [] (Phase 54-05, CLUS-02)."""
-        result = (
-            self._client.table("emails")
-            .select("*")
-            .eq("importer_id", importer_id)
-            .eq("thread_id", thread_id)
-            .order("received_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("*")
+                .eq("importer_id", importer_id)
+                .eq("thread_id", thread_id)
+                .order("received_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -142,14 +155,16 @@ class SupabaseEmailRepository:
         """Thread read scoped to the caller's OWNED importer set — empty importer_ids returns [], never all rows."""
         if not importer_ids:
             return []
-        result = (
-            self._client.table("emails")
-            .select("*")
-            .in_("importer_id", list(importer_ids))
-            .eq("thread_id", thread_id)
-            .order("received_at", desc=True)
-            .range(offset, offset + limit - 1)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("*")
+                .in_("importer_id", list(importer_ids))
+                .eq("thread_id", thread_id)
+                .order("received_at", desc=True)
+                .range(offset, offset + limit - 1)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -160,7 +175,7 @@ class SupabaseEmailRepository:
         )
         if parse_status is not None:
             query = query.eq("parse_status", parse_status)
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         return int(result.count or 0)
 
     async def list_parse_errors(self, importer_id: str, *, parse_status: str) -> list[str]:
@@ -174,7 +189,7 @@ class SupabaseEmailRepository:
         offset = 0
         errors: list[str] = []
         while True:
-            result = (
+            query = (
                 self._client.table("emails")
                 .select("parse_error")
                 .eq("importer_id", importer_id)
@@ -182,8 +197,8 @@ class SupabaseEmailRepository:
                 .not_.is_("parse_error", "null")
                 .order("id")
                 .range(offset, offset + page_size - 1)
-                .execute()
             )
+            result = await asyncio.to_thread(query.execute)
             rows = cast("list[dict[str, Any]]", result.data or [])
             errors.extend(cast("str", row["parse_error"]) for row in rows if row.get("parse_error"))
             if len(rows) < page_size:
@@ -193,15 +208,17 @@ class SupabaseEmailRepository:
     async def update_parse_status(
         self, email_id: str, status: str, error: str | None, *, parsed_at: datetime | None = None
     ) -> None:
-        (
-            self._client.table("emails")
-            .update(
-                {
-                    "parse_status": status,
-                    "parse_error": error,
-                    "parsed_at": parsed_at.isoformat() if parsed_at else None,
-                }
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .update(
+                    {
+                        "parse_status": status,
+                        "parse_error": error,
+                        "parsed_at": parsed_at.isoformat() if parsed_at else None,
+                    }
+                )
+                .eq("id", email_id)
+                .execute()
             )
-            .eq("id", email_id)
-            .execute()
         )

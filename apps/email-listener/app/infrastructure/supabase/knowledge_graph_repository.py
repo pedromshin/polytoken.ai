@@ -8,6 +8,7 @@ wrapped in strip_nul, table().upsert/insert/update().execute() call shapes.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Iterable, Sequence
 from typing import Any, cast
@@ -191,10 +192,14 @@ class SupabaseKnowledgeGraphRepository:
         )
         if existing is not None:
             node_id = str(cast("dict[str, Any]", existing)["id"])
-            self._client.table("knowledge_nodes").update(payload).eq("id", node_id).execute()
+            await asyncio.to_thread(
+                lambda: self._client.table("knowledge_nodes").update(payload).eq("id", node_id).execute()
+            )
             return node_id
 
-        result = self._client.table("knowledge_nodes").insert(payload).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("knowledge_nodes").insert(payload).execute()
+        )
         if not result.data:
             raise ValueError(f"knowledge_nodes insert returned no data: importer_id={importer_id}")
         return str(cast("dict[str, Any]", result.data[0])["id"])
@@ -215,7 +220,7 @@ class SupabaseKnowledgeGraphRepository:
         query = (
             query.eq("scope_ref_id", scope_ref_id) if scope_ref_id is not None else query.is_("scope_ref_id", "null")
         )
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         if not result.data:
             return None
         return cast("dict[str, object]", result.data[0])
@@ -231,7 +236,9 @@ class SupabaseKnowledgeGraphRepository:
         to check `is_active` on the returned dict; today's linked-context
         resolver does not distinguish).
         """
-        result = self._client.table("knowledge_nodes").select("*").eq("id", node_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("knowledge_nodes").select("*").eq("id", node_id).execute()
+        )
         if not result.data:
             return None
         return cast("dict[str, object]", result.data[0])
@@ -256,7 +263,9 @@ class SupabaseKnowledgeGraphRepository:
             source=source,
             provenance=provenance,
         )
-        self._client.table("knowledge_node_edges").insert(payload).execute()
+        await asyncio.to_thread(
+            lambda: self._client.table("knowledge_node_edges").insert(payload).execute()
+        )
 
     async def deactivate_edges_for_node(self, source_node_id: str) -> None:
         """Set is_active=False on all active edges for source_node_id.
@@ -264,21 +273,25 @@ class SupabaseKnowledgeGraphRepository:
         NEVER deletes rows -- supersede is a status transition, preserving
         the audit trail (T-29-05).
         """
-        (
-            self._client.table("knowledge_node_edges")
-            .update({"is_active": False})
-            .eq("source_node_id", source_node_id)
-            .eq("is_active", True)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .update({"is_active": False})
+                .eq("source_node_id", source_node_id)
+                .eq("is_active", True)
+                .execute()
+            )
         )
 
     async def find_active_edges_for_node(self, source_node_id: str) -> list[dict[str, object]]:
-        result = (
-            self._client.table("knowledge_node_edges")
-            .select("*")
-            .eq("source_node_id", source_node_id)
-            .eq("is_active", True)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .select("*")
+                .eq("source_node_id", source_node_id)
+                .eq("is_active", True)
+                .execute()
+            )
         )
         return [cast("dict[str, object]", row) for row in result.data]
 
@@ -292,18 +305,22 @@ class SupabaseKnowledgeGraphRepository:
         docstring. No other consumer may read knowledge_node_edges for
         auto-injection purposes.
         """
-        nodes_result = self._client.table("knowledge_nodes").select("id").eq("importer_id", importer_id).execute()
+        nodes_result = await asyncio.to_thread(
+            lambda: self._client.table("knowledge_nodes").select("id").eq("importer_id", importer_id).execute()
+        )
         node_ids = [str(cast("dict[str, Any]", row)["id"]) for row in nodes_result.data]
         if not node_ids:
             return []
 
-        result = (
-            self._client.table("knowledge_node_edges")
-            .select("*")
-            .in_("source_node_id", node_ids)
-            .eq("tier", "EXTRACTED")
-            .eq("is_active", True)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .select("*")
+                .in_("source_node_id", node_ids)
+                .eq("tier", "EXTRACTED")
+                .eq("is_active", True)
+                .execute()
+            )
         )
         return [cast("dict[str, object]", row) for row in result.data]
 
@@ -315,11 +332,13 @@ class SupabaseKnowledgeGraphRepository:
         automatically. Flattens the nested `knowledge_nodes.importer_id` onto
         the returned dict for PromoteEdgeUseCase's tenant guard (T-30-07).
         """
-        result = (
-            self._client.table("knowledge_node_edges")
-            .select("*, knowledge_nodes(importer_id)")
-            .eq("id", edge_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .select("*, knowledge_nodes(importer_id)")
+                .eq("id", edge_id)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -342,13 +361,15 @@ class SupabaseKnowledgeGraphRepository:
         filter and was updated.
         """
         payload = cast("dict[str, Any]", strip_nul({"tier": "EXTRACTED", "promotion": promotion}))
-        result = (
-            self._client.table("knowledge_node_edges")
-            .update(payload)
-            .eq("id", edge_id)
-            .eq("is_active", True)
-            .in_("tier", ["INFERRED", "AMBIGUOUS"])
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .update(payload)
+                .eq("id", edge_id)
+                .eq("is_active", True)
+                .in_("tier", ["INFERRED", "AMBIGUOUS"])
+                .execute()
+            )
         )
         return bool(result.data)
 
@@ -393,14 +414,16 @@ class SupabaseKnowledgeGraphRepository:
     async def _vector_search_query(self, *, embedding: list[float], importer_id: str) -> list[dict[str, Any]]:
         """Dense cosine similarity query over knowledge_nodes.embedding (HNSW)."""
         try:
-            result = self._client.rpc(
-                _VECTOR_RPC,
-                {
-                    "query_embedding": embedding,
-                    "match_importer_id": importer_id,
-                    "match_count": _SEARCH_CANDIDATE_LIMIT,
-                },
-            ).execute()
+            result = await asyncio.to_thread(
+                lambda: self._client.rpc(
+                    _VECTOR_RPC,
+                    {
+                        "query_embedding": embedding,
+                        "match_importer_id": importer_id,
+                        "match_count": _SEARCH_CANDIDATE_LIMIT,
+                    },
+                ).execute()
+            )
             return cast("list[dict[str, Any]]", result.data or [])
         except Exception:
             logger.exception(
@@ -412,14 +435,16 @@ class SupabaseKnowledgeGraphRepository:
     async def _trgm_search_query(self, *, query_text: str, importer_id: str) -> list[dict[str, Any]]:
         """pg_trgm similarity query over knowledge_nodes title/content."""
         try:
-            result = self._client.rpc(
-                _TRGM_RPC,
-                {
-                    "query_text": query_text,
-                    "match_importer_id": importer_id,
-                    "match_count": _SEARCH_CANDIDATE_LIMIT,
-                },
-            ).execute()
+            result = await asyncio.to_thread(
+                lambda: self._client.rpc(
+                    _TRGM_RPC,
+                    {
+                        "query_text": query_text,
+                        "match_importer_id": importer_id,
+                        "match_count": _SEARCH_CANDIDATE_LIMIT,
+                    },
+                ).execute()
+            )
             return cast("list[dict[str, Any]]", result.data or [])
         except Exception:
             logger.exception(
@@ -446,27 +471,31 @@ class SupabaseKnowledgeGraphRepository:
         if not ids:
             return []
         try:
-            edges_result = (
-                self._client.table("knowledge_node_edges")
-                .select("source_node_id")
-                .eq("target_ref_type", _CAPTURED_SOURCE_TARGET_REF_TYPE)
-                .in_("target_ref_id", ids)
-                .eq("is_active", True)
-                .execute()
+            edges_result = await asyncio.to_thread(
+                lambda: (
+                    self._client.table("knowledge_node_edges")
+                    .select("source_node_id")
+                    .eq("target_ref_type", _CAPTURED_SOURCE_TARGET_REF_TYPE)
+                    .in_("target_ref_id", ids)
+                    .eq("is_active", True)
+                    .execute()
+                )
             )
             edge_rows = cast("list[dict[str, Any]]", edges_result.data or [])
             node_ids = list({str(row["source_node_id"]) for row in edge_rows if row.get("source_node_id")})
             if not node_ids:
                 return []
-            nodes_result = (
-                self._client.table("knowledge_nodes")
-                .select("id, title, content")
-                .in_("id", node_ids)
-                .eq("importer_id", importer_id)
-                .eq("source", _CAPTURED_SOURCE_SOURCE)
-                .eq("scope_ref_type", _CAPTURED_SOURCE_SCOPE_REF_TYPE)
-                .eq("is_active", True)
-                .execute()
+            nodes_result = await asyncio.to_thread(
+                lambda: (
+                    self._client.table("knowledge_nodes")
+                    .select("id, title, content")
+                    .in_("id", node_ids)
+                    .eq("importer_id", importer_id)
+                    .eq("source", _CAPTURED_SOURCE_SOURCE)
+                    .eq("scope_ref_type", _CAPTURED_SOURCE_SCOPE_REF_TYPE)
+                    .eq("is_active", True)
+                    .execute()
+                )
             )
         except Exception:
             logger.exception(
@@ -527,8 +556,13 @@ class SupabaseKnowledgeGraphRepository:
 
     async def _seed_is_valid(self, *, node_id: str, importer_id: str) -> bool:
         """Fail-closed seed check: exists, is_active, and same-importer as the caller (T-37-03)."""
-        seed_result = (
-            self._client.table("knowledge_nodes").select("id, importer_id, is_active").eq("id", node_id).execute()
+        seed_result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_nodes")
+                .select("id, importer_id, is_active")
+                .eq("id", node_id)
+                .execute()
+            )
         )
         seed_rows = cast("list[dict[str, Any]]", seed_result.data or [])
         if not seed_rows:
@@ -603,23 +637,27 @@ class SupabaseKnowledgeGraphRepository:
         """
         if not candidate_ids:
             return {}
-        result = (
-            self._client.table("knowledge_nodes_extracted_only")
-            .select("id, title, content, scope, scope_ref_id, tier, confidence")
-            .in_("id", list(candidate_ids))
-            .eq("importer_id", importer_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_nodes_extracted_only")
+                .select("id, title, content, scope, scope_ref_id, tier, confidence")
+                .in_("id", list(candidate_ids))
+                .eq("importer_id", importer_id)
+                .execute()
+            )
         )
         rows = cast("list[dict[str, Any]]", result.data or [])
         return {str(row["id"]): row for row in rows}
 
     async def _fetch_edges_for_node(self, node_id: str) -> list[dict[str, Any]]:
         """Fetch active knowledge_node_edges rows touching node_id as either endpoint."""
-        result = (
-            self._client.table("knowledge_node_edges")
-            .select("*")
-            .or_(f"source_node_id.eq.{node_id},target_ref_id.eq.{node_id}")
-            .eq("is_active", True)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("knowledge_node_edges")
+                .select("*")
+                .or_(f"source_node_id.eq.{node_id},target_ref_id.eq.{node_id}")
+                .eq("is_active", True)
+                .execute()
+            )
         )
         return cast("list[dict[str, Any]]", result.data or [])

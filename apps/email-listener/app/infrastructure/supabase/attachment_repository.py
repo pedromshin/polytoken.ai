@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, cast
 
 from supabase import Client
@@ -47,14 +48,18 @@ class SupabaseAttachmentRepository:
 
     async def save(self, attachment: Attachment) -> Attachment:
         """Upsert an attachment row; returns the persisted entity."""
-        result = self._client.table("email_attachments").upsert(_to_row(attachment), on_conflict="id").execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_attachments").upsert(_to_row(attachment), on_conflict="id").execute()
+        )
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def count_by_email_ids(self, email_ids: list[str]) -> dict[str, int]:
         """Return {email_id: attachment_count} for the given email ids."""
         if not email_ids:
             return {}
-        result = self._client.table("email_attachments").select("email_id").in_("email_id", email_ids).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_attachments").select("email_id").in_("email_id", email_ids).execute()
+        )
         counts: dict[str, int] = {}
         for row in result.data:
             email_id = cast("dict[str, Any]", row)["email_id"]
@@ -63,5 +68,7 @@ class SupabaseAttachmentRepository:
 
     async def find_by_email_id(self, email_id: str) -> list[Attachment]:
         """Return all attachments for the given email_id (tenant-bound via email_id)."""
-        result = self._client.table("email_attachments").select("*").eq("email_id", email_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_attachments").select("*").eq("email_id", email_id).execute()
+        )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]

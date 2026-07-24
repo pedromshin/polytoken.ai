@@ -38,6 +38,7 @@ infrastructure imports permitted (verified by lint-imports).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import structlog
@@ -187,7 +188,16 @@ class ResolveIngestEntitiesUseCase:
             display_name = (component.content_text or "").strip()[:_NAME_MAX] or component.id
             embedding: list[float] | None = list(component.embedding) if component.embedding else None
 
-            candidates = self._resolution_repo.find_candidates(
+            # EntityResolutionRepository.find_candidates is a SYNC def whose two
+            # RPC arms each block on a network round-trip (WR-06). It was previously
+            # called inline without await, so it ran the blocking work directly on
+            # the shared uvicorn event loop. Offload it to a worker thread AND
+            # actually await it so one slow resolution can't freeze the loop.
+            # Pass the args straight to to_thread (it forwards *args/**kwargs) so
+            # every loop-varying value is bound eagerly at call time — no lambda
+            # late-binding hazard (ruff B023 / the A1 warning), and no wrapper.
+            candidates = await asyncio.to_thread(
+                self._resolution_repo.find_candidates,
                 display_name=display_name,
                 identifiers={},
                 entity_type_id=entity_type_id,

@@ -22,6 +22,7 @@ applied incrementally per-email instead of batch Union-Find):
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 from typing import Any, cast
 
@@ -71,30 +72,36 @@ class SupabaseThreadRepository:
         thread_ids: set[str] = set()
 
         if candidate_ids:
-            forward = (
-                self._client.table("emails")
-                .select("thread_id")
-                .eq("importer_id", importer_id)
-                .in_("message_id", sorted(candidate_ids))
-                .execute()
+            forward = await asyncio.to_thread(
+                lambda: (
+                    self._client.table("emails")
+                    .select("thread_id")
+                    .eq("importer_id", importer_id)
+                    .in_("message_id", sorted(candidate_ids))
+                    .execute()
+                )
             )
             thread_ids.update(_distinct_thread_ids(cast("list[dict[str, Any]]", forward.data)))
 
-        backward_reply = (
-            self._client.table("emails")
-            .select("thread_id")
-            .eq("importer_id", importer_id)
-            .eq("in_reply_to", message_id)
-            .execute()
+        backward_reply = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("thread_id")
+                .eq("importer_id", importer_id)
+                .eq("in_reply_to", message_id)
+                .execute()
+            )
         )
         thread_ids.update(_distinct_thread_ids(cast("list[dict[str, Any]]", backward_reply.data)))
 
-        backward_ref = (
-            self._client.table("emails")
-            .select("thread_id")
-            .eq("importer_id", importer_id)
-            .contains("references_ids", [message_id])
-            .execute()
+        backward_ref = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("thread_id")
+                .eq("importer_id", importer_id)
+                .contains("references_ids", [message_id])
+                .execute()
+            )
         )
         thread_ids.update(_distinct_thread_ids(cast("list[dict[str, Any]]", backward_ref.data)))
 
@@ -123,13 +130,15 @@ class SupabaseThreadRepository:
 
         window_start = (received_at - self._tier2_window).isoformat()
         window_end = (received_at + self._tier2_window).isoformat()
-        result = (
-            self._client.table("emails")
-            .select("subject, thread_id")
-            .eq("importer_id", importer_id)
-            .gte("received_at", window_start)
-            .lte("received_at", window_end)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .select("subject, thread_id")
+                .eq("importer_id", importer_id)
+                .gte("received_at", window_start)
+                .lte("received_at", window_end)
+                .execute()
+            )
         )
         rows = cast("list[dict[str, Any]]", result.data)
         matching_thread_ids = {
@@ -142,7 +151,9 @@ class SupabaseThreadRepository:
         return None
 
     async def _create_thread(self, *, importer_id: str, subject: str | None) -> str:
-        result = self._client.table("threads").insert({"importer_id": importer_id, "subject": subject}).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("threads").insert({"importer_id": importer_id, "subject": subject}).execute()
+        )
         row = cast("dict[str, Any]", result.data[0])
         return str(row["id"])
 
@@ -156,11 +167,13 @@ class SupabaseThreadRepository:
         """
         canonical = min(thread_ids)
         losing_ids = [thread_id for thread_id in thread_ids if thread_id != canonical]
-        (
-            self._client.table("emails")
-            .update({"thread_id": canonical})
-            .eq("importer_id", importer_id)
-            .in_("thread_id", losing_ids)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("emails")
+                .update({"thread_id": canonical})
+                .eq("importer_id", importer_id)
+                .in_("thread_id", losing_ids)
+                .execute()
+            )
         )
         return canonical

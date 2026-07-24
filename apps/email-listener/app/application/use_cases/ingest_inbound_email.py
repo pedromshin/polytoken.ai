@@ -41,6 +41,7 @@ Parse-status lifecycle (ING-6, extended by ST-04):
 
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from collections.abc import Sequence
@@ -168,7 +169,9 @@ class IngestInboundEmailUseCase:
     async def execute(self, ses_message_id: str, recipients: Sequence[str] = ()) -> Email:
         """Ingest the email identified by the SES message id; returns the persisted Email."""
         raw = await self._raw_store.fetch(ses_message_id)
-        parsed = parse_mime(raw)
+        # parse_mime is CPU-bound (full MIME tree walk + decode); offload it so a
+        # large multipart email cannot block the shared uvicorn event loop (WR-06).
+        parsed = await asyncio.to_thread(parse_mime, raw)
 
         # Resolve the forwarding-token owner BEFORE importer resolution (Phase 45,
         # THRD-04): best-effort/non-fatal (T-45-05-03) — a resolver exception
@@ -434,7 +437,12 @@ class IngestInboundEmailUseCase:
         never rendered as overlay boxes; only the region children matter for
         entity classification).
         """
-        text = (parsed.body_text or "").strip() or html_to_text(parsed.body_html or "")
+        # Prefer text/plain; fall back to HTML->text only when there is no plain
+        # body. html_to_text is CPU-bound (full HTML parse) — offload it so a
+        # large marketing email cannot block the shared uvicorn event loop (WR-06).
+        text = (parsed.body_text or "").strip()
+        if not text:
+            text = await asyncio.to_thread(html_to_text, parsed.body_html or "")
         text = text.strip()
         if not text:
             return

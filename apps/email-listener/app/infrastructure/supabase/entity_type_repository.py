@@ -12,6 +12,7 @@ per the live schema + D-27 Claude's Discretion).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from typing import Any, cast
 
@@ -115,7 +116,7 @@ class SupabaseEntityTypeRepository:
         )
         query = query.is_("importer_id", None) if importer_id is None else query.eq("importer_id", importer_id)
 
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         if not result.data:
             return None
         return _from_row(cast("dict[str, Any]", result.data[0]))
@@ -126,8 +127,13 @@ class SupabaseEntityTypeRepository:
         Id is a global primary key (not importer-scoped); tenant isolation is
         enforced on the component row that carries the entity_type_id (D-18).
         """
-        result = (
-            self._client.table("entity_types").select("*, entity_type_fields(*)").eq("id", entity_type_id).execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_types")
+                .select("*, entity_type_fields(*)")
+                .eq("id", entity_type_id)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -152,7 +158,7 @@ class SupabaseEntityTypeRepository:
         query = self._client.table("entity_types").select("*, entity_type_fields(*)").eq("is_active", True)
         query = query.is_("importer_id", None) if importer_id is None else query.eq("importer_id", importer_id)
 
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     # ── Writes (09-03, D-26/D-27) ────────────────────────────────────────────
@@ -175,7 +181,7 @@ class SupabaseEntityTypeRepository:
             "is_active": True,
         }
         try:
-            result = self._client.table("entity_types").insert(payload).execute()
+            result = await asyncio.to_thread(lambda: self._client.table("entity_types").insert(payload).execute())
         except APIError as exc:
             if exc.code == _UNIQUE_VIOLATION:
                 raise ValueError(f"entity type {_SLUG_EXISTS_MARKER}: {slug}") from exc
@@ -200,7 +206,9 @@ class SupabaseEntityTypeRepository:
             patch["is_active"] = is_active
 
         if patch:
-            result = self._client.table("entity_types").update(patch).eq("id", entity_type_id).execute()
+            result = await asyncio.to_thread(
+                lambda: self._client.table("entity_types").update(patch).eq("id", entity_type_id).execute()
+            )
             if not result.data:
                 raise ValueError(f"EntityType not found: {entity_type_id}")
 
@@ -235,7 +243,7 @@ class SupabaseEntityTypeRepository:
             "config": {"is_identifier": is_identifier},
         }
         try:
-            result = self._client.table("entity_type_fields").insert(payload).execute()
+            result = await asyncio.to_thread(lambda: self._client.table("entity_type_fields").insert(payload).execute())
         except APIError as exc:
             if exc.code == _UNIQUE_VIOLATION:
                 raise ValueError(f"field {_SLUG_EXISTS_MARKER}: {slug}") from exc
@@ -271,7 +279,9 @@ class SupabaseEntityTypeRepository:
 
         if patch:
             try:
-                result = self._client.table("entity_type_fields").update(patch).eq("id", field_id).execute()
+                result = await asyncio.to_thread(
+                    lambda: self._client.table("entity_type_fields").update(patch).eq("id", field_id).execute()
+                )
             except APIError as exc:
                 if exc.code == _UNIQUE_VIOLATION:
                     raise ValueError(f"field {_SLUG_EXISTS_MARKER}: {slug}") from exc
@@ -290,34 +300,40 @@ class SupabaseEntityTypeRepository:
         if existing is None:
             raise ValueError(f"EntityTypeField not found: {field_id}")
         config = {**dict(existing.get("config") or {}), "is_active": False}
-        result = self._client.table("entity_type_fields").update({"config": config}).eq("id", field_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("entity_type_fields").update({"config": config}).eq("id", field_id).execute()
+        )
         if not result.data:
             raise ValueError(f"EntityTypeField not found: {field_id}")
         return _field_from_row(cast("dict[str, Any]", result.data[0]))
 
     async def delete_field(self, field_id: str) -> None:
         """Hard-delete a field row (caller guarantees zero confirmed references)."""
-        self._client.table("entity_type_fields").delete().eq("id", field_id).execute()
+        await asyncio.to_thread(
+            lambda: self._client.table("entity_type_fields").delete().eq("id", field_id).execute()
+        )
 
     async def reorder_fields(self, entity_type_id: str, ordered_field_ids: list[str]) -> None:
         """Set sort_order = position for each id in the given order (one update per id)."""
         for position, field_id in enumerate(ordered_field_ids):
-            (
+            query = (
                 self._client.table("entity_type_fields")
                 .update({"sort_order": position})
                 .eq("id", field_id)
                 .eq("entity_type_id", entity_type_id)
-                .execute()
             )
+            await asyncio.to_thread(query.execute)
 
     async def count_confirmed_references(self, field_id: str) -> int:
         """Count confirmed components referencing this field (D-27 delete-guard)."""
-        result = (
-            self._client.table("email_components")
-            .select("id", count=CountMethod.exact)
-            .eq("entity_type_field_id", field_id)
-            .eq("extraction_status", "confirmed")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("id", count=CountMethod.exact)
+                .eq("entity_type_field_id", field_id)
+                .eq("extraction_status", "confirmed")
+                .execute()
+            )
         )
         return int(result.count or 0)
 
@@ -330,7 +346,9 @@ class SupabaseEntityTypeRepository:
         return refreshed
 
     async def _find_field_row(self, field_id: str) -> dict[str, Any] | None:
-        result = self._client.table("entity_type_fields").select("*").eq("id", field_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("entity_type_fields").select("*").eq("id", field_id).execute()
+        )
         if not result.data:
             return None
         return cast("dict[str, Any]", result.data[0])
