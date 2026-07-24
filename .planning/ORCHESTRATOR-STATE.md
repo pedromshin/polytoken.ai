@@ -15,10 +15,16 @@
 
 **Shipped to main since the last chronological block:**
 - **Visible batch #1–#6** — all on main (the dead `wf_6f85ee71` workflow was recovered by hand). DONE.
-- **Track 2 — `container.py` split**: 5 of ~9 groups extracted (genui, repositories, llm_adapter,
-  cost, anticipatory); 1434→1039 lines; ultracode-audited (88=88 bindings, nothing dropped) with a
-  full-graph boot safety net. Remaining 4 groups (chat_turn→document_region→entity→ingestion) are
-  spec'd turnkey in `assessment/2026-07-24/12-container-split-remaining.md`. All shipped.
+- **Track 2 — `container.py` split: COMPLETE (9/9 groups).** First 5 (genui, repositories, llm_adapter,
+  cost, anticipatory) + the final 4 this session (chat_turn `2e8aac6` → document_region `5bfc8e7` →
+  entity `9d00777` → ingestion `58e975e`, all on main). `container.py` is now a pure composition root:
+  the client singletons + three boto3 anchors (raw_email_store/parser_registry/embedder — the boot
+  test's patch targets), and one `register()` call per group. **1434 → 218 lines.** ultracode-audited
+  (88=88 bindings, nothing dropped) with a full-graph boot safety net. Ingestion group is
+  `all_movable=false`: the moved ingest factory calls the staying `_provide_parser_registry` via a
+  DEFERRED import (avoids the load-time circular import; boto3 patch still resolves). Verify loop green
+  every group: boot gate + full app suite + lint-imports + mypy-neutral. The merge-conflict magnet is
+  fully dissolved.
 - **Landscape redesign**: replaced the circle-pack with a WizTree-style **labelled Treemap** primitive
   (`@polytoken/ui/treemap`); all 3 consumers swapped; design-law law-2 serif fix (`evidenceLabels`);
   leftover circle iconography → `LayoutDashboard`. Commits `47fee11`, `242a04c`. On main.
@@ -33,13 +39,20 @@
 tracker (v1.11); **THIS file is the live ledger.** The bottom-of-file `01RZ`/`jzz1pg` standing config
 is quarantined under a SUPERSEDED header.
 
-**NEXT (Pedro chose "reconcile state" 2026-07-24 — DONE by this block). Open build fronts, master-plan order:**
-1. **Track 2 finish** — 4 remaining container groups (low-risk mechanical, fully spec'd).
+**NEXT (Track 2 finish DONE this block). Open build fronts, master-plan order:**
+1. ~~**Track 2 finish**~~ — DONE (9/9 groups on main, `container.py` 1434→218). ✅
 2. **Track 3 FOUNDATION (task #7)** — graphile-worker durable runtime [fixes the silent email loss] +
-   Workspace→Canvas→Node rows. Best as a worktree-isolated multiagent workflow.
+   Workspace→Canvas→Node rows. Best as a worktree-isolated multiagent workflow. ← next big front.
 3. **Track 1** — Terraform remote state + import ALL live resources (careful; NO `apply` before import).
 4. **The "lives in it" proof (Pedro-only, gates everything)** — sign in on the deployed app + forward
    real mail (LIVE-03/04, CLUS-07). Nothing built counts as "usable" until this runs once.
+
+**Known loose end (pre-existing, NOT from this session's work):** `uv run mypy app` is RED — 4 errors
+in `app/application/use_cases/chat/__tests__/test_linked_context_email_reaches_model.py` (test stubs
+`_MessagesStub`/`_EmailRepo` don't satisfy the `ChatMessageRepository`/`EmailRepository` params of
+`system_prompt_with_linked_context`). Landed with task #6 (email-context-in-chat); on main before the
+Track 2 work. Every Track 2 group verified mypy-NEUTRAL against this baseline. Worth a small
+test-stub-typing fix.
 
 ## RESUME PROTOCOL — a fresh/resumed session does this FIRST
 1. Branch is `claude/polytoken-email-infra-cont-qi9q5g`. `git fetch origin`; confirm you're on it.
