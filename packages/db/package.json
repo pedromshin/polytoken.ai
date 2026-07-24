@@ -16,6 +16,9 @@
     "./ownership": {
       "default": "./src/ownership.ts"
     },
+    "./canvas-repository": {
+      "default": "./src/canvas-repository.ts"
+    },
     "./access-control": {
       "default": "./src/access-control.ts"
     }

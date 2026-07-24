@@ -23,13 +23,14 @@
  * return or clobber a conversation row.
  */
 
-import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-
-import { ChatCanvasLayouts } from "@polytoken/db/schema";
 
 import { protectedProcedure } from "../../trpc";
 import { CanvasSnapshotSchema } from "./canvas-schema";
+import {
+  readHomeCanvasLayout,
+  writeHomeCanvasLayout,
+} from "./canvas-store-backend";
 
 /** The single `scope` value a home-board layout row carries (migration 0046). */
 export const HOME_CANVAS_SCOPE = "home" as const;
@@ -48,67 +49,26 @@ export type SaveHomeCanvasLayoutInput = z.infer<
 
 export const chatHomeCanvasProcedures = {
   /**
-   * getHomeCanvasLayout — the caller's single home-scoped
-   * chat_canvas_layouts row, or null if they have never saved a home board.
-   * Keyed on (user_id = ctx.user.id, scope = 'home').
+   * getHomeCanvasLayout — the caller's single home-scoped board (blob or rows,
+   * per CANVAS_ROW_MODEL — same shape either way), or null if they have never
+   * saved a home board. Keyed strictly on ctx.user.id (the home board is owned by
+   * construction — no client id to check).
    */
   getHomeCanvasLayout: protectedProcedure.query(async ({ ctx }) => {
-    const [row] = await ctx.db
-      .select()
-      .from(ChatCanvasLayouts)
-      .where(
-        and(
-          eq(ChatCanvasLayouts.userId, ctx.user.id),
-          eq(ChatCanvasLayouts.scope, HOME_CANVAS_SCOPE),
-        ),
-      )
-      .limit(1);
-
-    return row ?? null;
+    return readHomeCanvasLayout(ctx.db, ctx.user.id);
   }),
 
   /**
    * saveHomeCanvasLayout — upsert the caller's home board (debounced last-
-   * write-wins snapshot from the client, exactly like saveCanvasLayout). The
-   * conflict target is the partial unique index on `user_id WHERE scope =
-   * 'home'` (0046), so a user's second save UPDATES their one home row rather
-   * than inserting a duplicate. `user_id`/`scope` are stamped from the session
-   * — never from the request body.
+   * write-wins snapshot from the client, exactly like saveCanvasLayout). The blob
+   * stays authoritative (its partial-unique-index upsert preserved verbatim in
+   * canvas-store-backend.ts); under dual_write/read_rows a best-effort row write
+   * mirrors it. `user_id`/`scope` are stamped from the session — never the body.
    */
   saveHomeCanvasLayout: protectedProcedure
     .input(saveHomeCanvasLayoutInputSchema)
     .mutation(async ({ ctx, input }) => {
-      const { snapshot } = input;
-
-      await ctx.db
-        .insert(ChatCanvasLayouts)
-        .values({
-          conversationId: null,
-          userId: ctx.user.id,
-          scope: HOME_CANVAS_SCOPE,
-          nodes: snapshot.nodes,
-          edges: snapshot.edges,
-          viewport: snapshot.viewport ?? null,
-          sharedState: snapshot.sharedState,
-          nodeRegistryVersion: snapshot.nodeRegistryVersion,
-        })
-        .onConflictDoUpdate({
-          target: ChatCanvasLayouts.userId,
-          // Inline literal (not eq(...) which drizzle emits as a $-param): a
-          // PARAMETERIZED partial-index predicate can't be matched to the
-          // partial unique index under prepared statements, breaking the upsert
-          // after ~5 executions per connection. The literal is safe — the value
-          // is a compile-time constant, never user input (skeptic finding).
-          targetWhere: sql`${ChatCanvasLayouts.scope} = 'home'`,
-          set: {
-            nodes: snapshot.nodes,
-            edges: snapshot.edges,
-            viewport: snapshot.viewport ?? null,
-            sharedState: snapshot.sharedState,
-            nodeRegistryVersion: snapshot.nodeRegistryVersion,
-            updatedAt: new Date(),
-          },
-        });
+      await writeHomeCanvasLayout(ctx.db, ctx.user.id, input.snapshot);
 
       return { saved: true };
     }),
