@@ -170,6 +170,61 @@ describe("CirclePack — zoom-out affordances (touch has no Escape key)", () => 
   });
 });
 
+describe("CirclePack — breadcrumb / reset / back (the way OUT)", () => {
+  const click = (el: Element) =>
+    act(async () => {
+      el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+  it("hides the whole nav bar at the root and shows it once drilled in", async () => {
+    const container = await mount(<CirclePack data={DATA} width={300} height={300} />);
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).toBeNull();
+    await click(container.querySelector('g[data-circle-id="0/0"]')!); // into a sender
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="circle-pack-reset"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="circle-pack-breadcrumb"]')).not.toBeNull();
+  });
+
+  it("renders a crumb per ancestor, root → focus, with the focus crumb disabled", async () => {
+    const container = await mount(<CirclePack data={DATA} width={300} height={300} />);
+    await click(container.querySelector('g[data-circle-id="0/0"]')!); // focus a sender
+    const crumbs = Array.from(
+      container.querySelectorAll('[data-testid="circle-pack-crumb"]'),
+    ) as HTMLButtonElement[];
+    expect(crumbs.map((c) => c.getAttribute("data-crumb-id"))).toEqual(["0", "0/0"]);
+    // The current-location crumb is not itself a jump target.
+    expect(crumbs.at(-1)!.disabled).toBe(true);
+    expect(crumbs[0]!.disabled).toBe(false);
+  });
+
+  it("clicking the root crumb resets all the way out", async () => {
+    const container = await mount(<CirclePack data={DATA} width={300} height={300} />);
+    await click(container.querySelector('g[data-circle-id="0/0"]')!);
+    const rootCrumb = container.querySelector('[data-crumb-id="0"]')!;
+    await click(rootCrumb);
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).toBeNull();
+  });
+
+  it("the reset control returns home from any depth", async () => {
+    const container = await mount(<CirclePack data={DATA} width={300} height={300} />);
+    await click(container.querySelector('g[data-circle-id="0/0"]')!);
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).not.toBeNull();
+    await click(container.querySelector('[data-testid="circle-pack-reset"]')!);
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).toBeNull();
+  });
+
+  it("the back button steps up exactly one level", async () => {
+    const container = await mount(<CirclePack data={DATA} width={300} height={300} />);
+    // drill root → sender (0/0)
+    await click(container.querySelector('g[data-circle-id="0/0"]')!);
+    let crumbs = container.querySelectorAll('[data-testid="circle-pack-crumb"]');
+    expect(crumbs.length).toBe(2); // [root, sender]
+    await click(container.querySelector('[data-testid="circle-pack-zoom-out"]')!);
+    // one level up = back at the root → nav bar gone
+    expect(container.querySelector('[data-testid="circle-pack-nav"]')).toBeNull();
+  });
+});
+
 describe("CirclePack — hover card", () => {
   it("shows a hover card naming the circle under the pointer", async () => {
     const container = await mount(<CirclePack data={DATA} width={300} height={300} />);

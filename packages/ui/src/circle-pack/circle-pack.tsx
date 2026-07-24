@@ -28,7 +28,7 @@
 
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { ZoomOut } from "lucide-react";
+import { ChevronRight, CornerLeftUp, House } from "lucide-react";
 
 import { cn } from "@polytoken/ui";
 
@@ -39,12 +39,19 @@ import {
   type PackOptions,
 } from "./circle-pack-layout";
 import {
+  ancestorsOf,
   CIRCLE_PACK_ROOT_ID,
   circlePackNavReducer,
   createCircleNavIndex,
   initialCirclePackNavState,
   type CirclePackNavState,
 } from "./circle-pack-zoom";
+import {
+  isDoubleTap,
+  isPinchOut,
+  touchSpan,
+  type TapRecord,
+} from "./circle-pack-gestures";
 
 export type { CircleDatum, PackedCircle } from "./circle-pack-layout";
 
@@ -184,8 +191,67 @@ export function CirclePack<TLeaf = unknown>({
   const viewMinY = frame.cy - frame.r;
   const viewSize = frame.r * 2;
 
+  // ── touch zoom-OUT gestures (touch has no Esc key / mouse-wheel) ───────────
+  // A double-tap and a pinch-out are the two finger idioms for "back out". They
+  // are recognized by the pure predicates in circle-pack-gestures.ts and both
+  // dispatch the SAME `zoomOut` — one zoom implementation, no fork. When a
+  // gesture fires we set `suppressClickRef` so the browser-synthesized click
+  // that trails a tap does not also re-drill.
+  const lastTapRef = useRef<TapRecord | null>(null);
+  const pinchStartRef = useRef<number | null>(null);
+  const pinchFiredRef = useRef(false);
+  const multiTouchRef = useRef(false);
+  const suppressClickRef = useRef(false);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length >= 2) {
+      multiTouchRef.current = true;
+      pinchFiredRef.current = false;
+      pinchStartRef.current = touchSpan(event.touches[0]!, event.touches[1]!);
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (
+      event.touches.length >= 2 &&
+      pinchStartRef.current !== null &&
+      !pinchFiredRef.current &&
+      isPinchOut(pinchStartRef.current, touchSpan(event.touches[0]!, event.touches[1]!))
+    ) {
+      pinchFiredRef.current = true;
+      suppressClickRef.current = true;
+      dispatch({ type: "zoomOut" });
+    }
+  }, []);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length > 0) return; // fingers still down — gesture ongoing
+    const wasMultiTouch = multiTouchRef.current;
+    multiTouchRef.current = false;
+    pinchStartRef.current = null;
+    pinchFiredRef.current = false;
+    // A two-finger gesture never counts as a tap toward a double-tap.
+    if (wasMultiTouch) return;
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const rec: TapRecord = { time: Date.now(), x: touch.clientX, y: touch.clientY };
+    if (isDoubleTap(lastTapRef.current, rec)) {
+      lastTapRef.current = null;
+      suppressClickRef.current = true; // swallow the second tap's drill-in click
+      dispatch({ type: "zoomOut" });
+    } else {
+      lastTapRef.current = rec;
+    }
+  }, []);
+
   const handleCircleClick = useCallback(
     (circle: PackedCircle<TLeaf>) => {
+      // A gesture (double-tap / pinch-out) already handled this touch as a
+      // zoom-OUT — swallow the trailing synthesized click so it doesn't re-drill.
+      if (suppressClickRef.current) {
+        suppressClickRef.current = false;
+        return;
+      }
       // Tapping the circle you are already zoomed to zooms OUT to its parent
       // (Bostock's convention). Without this — and with Escape being the only
       // other zoom-out — touch users had no way back up the hierarchy.
@@ -247,12 +313,26 @@ export function CirclePack<TLeaf = unknown>({
 
   const hovered = hoveredId ? byId.get(hoveredId) : undefined;
 
+  // The drill path root → … → focus, as clickable crumbs. Empty at the root
+  // (nothing to trail back through), so the whole nav bar hides at full zoom-out.
+  const trail = useMemo(
+    () =>
+      ancestorsOf(index, nav.focusId)
+        .map((id) => byId.get(id))
+        .filter((c): c is PackedCircle<TLeaf> => c !== undefined),
+    [index, nav.focusId, byId],
+  );
+  const zoomedIn = nav.focusId !== CIRCLE_PACK_ROOT_ID;
+
   return (
     <div
       role="group"
       aria-label={ariaLabel}
       tabIndex={0}
       onKeyDown={handleKeyDown}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       data-testid="circle-pack"
       className={cn(
         "relative select-none overflow-hidden rounded-card bg-bright outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink",
@@ -310,16 +390,77 @@ export function CirclePack<TLeaf = unknown>({
         })}
       </svg>
 
-      {nav.focusId !== CIRCLE_PACK_ROOT_ID ? (
-        <button
-          type="button"
-          data-testid="circle-pack-zoom-out"
-          aria-label="Zoom out"
-          onClick={() => dispatch({ type: "zoomOut" })}
-          className="absolute left-2 top-2 z-10 flex size-9 items-center justify-center rounded-full border border-rule bg-bright text-ink transition-colors hover:bg-ink-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      {/* Zoom-OUT chrome — only while drilled in (so the root view stays clean).
+          BACK steps up one level; the BREADCRUMB jumps to any ancestor; RESET
+          (home) returns to the root. All three are just `zoomOut` / `focus` /
+          `reset` on the one nav reducer — no second zoom implementation. */}
+      {zoomedIn ? (
+        <div
+          data-testid="circle-pack-nav"
+          className="pointer-events-none absolute inset-x-2 top-2 z-10 flex items-center gap-1.5"
         >
-          <ZoomOut className="size-4" aria-hidden />
-        </button>
+          <button
+            type="button"
+            data-testid="circle-pack-zoom-out"
+            aria-label="Zoom out"
+            title="Back (up one level)"
+            onClick={() => dispatch({ type: "zoomOut" })}
+            className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-rule bg-bright text-ink transition-colors hover:bg-ink-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:touch-target"
+          >
+            <CornerLeftUp className="size-4" aria-hidden />
+          </button>
+
+          <nav
+            aria-label="Breadcrumb"
+            data-testid="circle-pack-breadcrumb"
+            className="pointer-events-auto flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden rounded-full border border-rule bg-bright px-2 py-1"
+          >
+            {trail.map((circle, i) => {
+              const isLast = i === trail.length - 1;
+              const isRoot = circle.id === CIRCLE_PACK_ROOT_ID;
+              return (
+                <React.Fragment key={circle.id}>
+                  {i > 0 ? (
+                    <ChevronRight className="size-3 shrink-0 text-faded" aria-hidden />
+                  ) : null}
+                  <button
+                    type="button"
+                    data-testid="circle-pack-crumb"
+                    data-crumb-id={circle.id}
+                    aria-current={isLast ? "location" : undefined}
+                    disabled={isLast}
+                    onClick={() =>
+                      dispatch(
+                        isRoot
+                          ? { type: "reset" }
+                          : { type: "focus", id: circle.id },
+                      )
+                    }
+                    className={cn(
+                      "max-w-[9rem] shrink-0 truncate rounded-sm px-1 text-xs transition-colors",
+                      isLast
+                        ? "font-medium text-ink"
+                        : "text-faded hover:text-ink hover:underline",
+                    )}
+                  >
+                    {circle.datum.name}
+                  </button>
+                </React.Fragment>
+              );
+            })}
+          </nav>
+
+          <button
+            type="button"
+            data-testid="circle-pack-reset"
+            aria-label="Reset to root"
+            title="Reset to root"
+            onClick={() => dispatch({ type: "reset" })}
+            className="pointer-events-auto flex size-9 shrink-0 items-center justify-center rounded-full border border-rule bg-bright text-ink transition-colors hover:bg-ink-08 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 pointer-coarse:touch-target"
+          >
+            <House className="size-4" aria-hidden />
+          </button>
+        </div>
       ) : null}
 
       {hovered ? (
