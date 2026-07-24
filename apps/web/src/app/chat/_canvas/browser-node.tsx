@@ -44,6 +44,7 @@
 import * as React from "react";
 import { memo, useState } from "react";
 import { useDaemonTool } from "./_lib/use-daemon-tool";
+import type { ToolCallResult } from "./_lib/use-daemon-tool";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AppWindow, Camera, X } from "lucide-react";
@@ -108,6 +109,50 @@ export function browserNavigateIntent(raw: string): BrowserCapabilityIntent | nu
   };
 }
 
+/**
+ * ScreenshotFrame — the result of reading a `browser.screenshot` reply: either
+ * a renderable base64 PNG or a human-readable reason it is not usable.
+ */
+export type ScreenshotFrame =
+  | { readonly ok: true; readonly base64: string }
+  | { readonly ok: false; readonly error: string };
+
+/**
+ * readScreenshot — turn a `browser.screenshot` ToolCallResult into a renderable
+ * PNG or an honest error. DEFENSIVE BY CONSTRUCTION and NEVER THROWS.
+ *
+ * The daemon-tool wire type declares `output: Record<string, unknown>`, but
+ * that is only nominal: `use-daemon-tool`'s frame decoder casts `payload.output`
+ * straight through, so a malformed `tool.result` (one missing `output`, or with
+ * `output: null`, or with a non-string `base64`) resolves to `{ ok: true }` with
+ * an absent/wrong payload. The old call site read `frame.output.base64` directly
+ * — which threw `TypeError: Cannot read properties of undefined` on the missing-
+ * output case, and silently matched NEITHER branch on the wrong-type case. Both
+ * left the panel wedged on "Loading" forever (a fire-and-forget async handler
+ * swallows the throw as an unhandled rejection). This function collapses every
+ * one of those shapes into a value the caller can render.
+ *
+ * A `truncated` frame is also refused: the daemon caps raw bytes BEFORE base64
+ * encoding, so a truncated payload is a partial PNG that renders as a broken
+ * image — better to say so than to paint a corrupt <img>.
+ */
+export function readScreenshot(frame: ToolCallResult): ScreenshotFrame {
+  if (!frame.ok) return { ok: false, error: frame.error };
+  // `output` is untrusted at runtime despite its type — read it as unknown.
+  const output = frame.output as Record<string, unknown> | null | undefined;
+  const base64 = output?.base64;
+  if (typeof base64 !== "string" || base64.length === 0) {
+    return { ok: false, error: "the daemon returned no screenshot image" };
+  }
+  if (output?.truncated === true) {
+    return {
+      ok: false,
+      error: "the screenshot exceeded the daemon output cap and was truncated",
+    };
+  }
+  return { ok: true, base64 };
+}
+
 export const BrowserNode = memo(function BrowserNode({
   id,
   data,
@@ -150,11 +195,16 @@ export const BrowserNode = memo(function BrowserNode({
           return;
         }
         const frame = await daemon.call("browser.screenshot", {});
-        if (frame.ok && typeof frame.output.base64 === "string") {
-          setShot(frame.output.base64);
+        // readScreenshot is total: it never throws and always resolves to ok OR
+        // error, so a malformed frame surfaces a message instead of wedging the
+        // panel on "Loading" forever (the old `frame.output.base64` read threw
+        // on a missing output and matched no branch on a non-string base64).
+        const result = readScreenshot(frame);
+        if (result.ok) {
+          setShot(result.base64);
           setPendingIntent(null);
-        } else if (!frame.ok) {
-          setLiveError(frame.error);
+        } else {
+          setLiveError(result.error);
         }
       })();
     }
