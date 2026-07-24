@@ -52,7 +52,7 @@ const WORKSPACE_ID = "50000000-0000-0000-0000-000000000001";
 const NOW = new Date("2026-07-24T00:00:00.000Z");
 
 type Row = Record<string, unknown>;
-type InsertRec = { values: Row; set?: Row; returning: boolean };
+type InsertRec = { values: Row; set?: Row; returning: boolean; onConflictDoNothing?: boolean };
 type Seed = {
   chatCanvasLayouts?: Row[];
   canvases?: Row[];
@@ -113,6 +113,10 @@ function createFakeDb(seed: Seed = {}, opts: { returningEmpty?: boolean } = {}) 
         },
         onConflictDoUpdate(cfg: { set: Row }) {
           rec.set = cfg.set;
+          return chain;
+        },
+        onConflictDoNothing() {
+          rec.onConflictDoNothing = true;
           return chain;
         },
         returning() {
@@ -467,6 +471,60 @@ describe("readCanvasLayout — read_rows", () => {
     const fake = createFakeDb({ canvases: [], chatCanvasLayouts: [blobRow] });
     const row = await readCanvasLayout(fake.db, CONVERSATION_ID);
     expect(row).toEqual(blobRow);
+  });
+
+  it("prefers the RICHER blob when the canvas row is a strict subset (agent-minted partial canvas)", async () => {
+    // The data-loss window the adversarial review caught: under dual_write an agent
+    // addNode mints a 1-node canvas over an N-node blob; at read_rows the partial row
+    // must NOT shadow the richer blob (which is still dual-written / authoritative).
+    process.env.CANVAS_ROW_MODEL = "read_rows";
+    const blobRow = {
+      id: "blob-1",
+      conversationId: CONVERSATION_ID,
+      nodes: [{ id: "chat:c" }, { id: "n1" }, { id: "n2" }], // richer: 3 nodes
+      edges: [],
+      viewport: null,
+      sharedState: {},
+      nodeRegistryVersion: "vblob",
+    };
+    const fake = createFakeDb({
+      canvases: [
+        { id: CANVAS_ID, viewport: null, sharedState: {}, nodeRegistryVersion: "v9", createdAt: NOW, updatedAt: NOW },
+      ],
+      canvasNodes: [
+        { nodeKey: "chat:c", type: "chat", position: { x: 0, y: 0 }, width: null, height: null, data: { conversationId: "c" } },
+      ], // partial: 1 node
+      canvasEdges: [],
+      chatCanvasLayouts: [blobRow],
+    });
+    const row = await readCanvasLayout(fake.db, CONVERSATION_ID);
+    expect(row).toEqual(blobRow); // the blob wins — no silent 1-node data loss
+  });
+
+  it("uses the row once it is at parity with the blob (backfilled) — LWW race closed", async () => {
+    process.env.CANVAS_ROW_MODEL = "read_rows";
+    const blobRow = {
+      id: "blob-1",
+      conversationId: CONVERSATION_ID,
+      nodes: [{ id: "chat:c" }], // 1 node
+      edges: [],
+      viewport: null,
+      sharedState: {},
+      nodeRegistryVersion: "vblob",
+    };
+    const fake = createFakeDb({
+      canvases: [
+        { id: CANVAS_ID, viewport: null, sharedState: {}, nodeRegistryVersion: "v9", createdAt: NOW, updatedAt: NOW },
+      ],
+      canvasNodes: [
+        { nodeKey: "chat:c", type: "chat", position: { x: 0, y: 0 }, width: null, height: null, data: { conversationId: "c" } },
+      ], // 1 node — at parity with the blob
+      canvasEdges: [],
+      chatCanvasLayouts: [blobRow],
+    });
+    const row = await readCanvasLayout(fake.db, CONVERSATION_ID);
+    expect(row).not.toBeNull();
+    expect(row!.nodeRegistryVersion).toBe("v9"); // the ROW won (from canvas rows, not the blob)
   });
 });
 

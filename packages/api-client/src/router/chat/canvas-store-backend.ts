@@ -213,7 +213,15 @@ export async function writeHomeBlob(
 // ===========================================================================
 
 /** Find-or-create the owner's personal workspace (mirrors workspaces.create's
- * owner-membership seeding), so an auto-created canvas has a valid workspace_id. */
+ * owner-membership seeding), so an auto-created canvas has a valid workspace_id.
+ *
+ * Accepted low-severity race: a user legitimately owns MANY workspaces, so there is no
+ * unique constraint on owner_user_id to onConflict against — concurrent FIRST-writes for
+ * a brand-new user (before any workspace exists) can create a duplicate 'Personal'
+ * workspace. This is benign: the find always returns the OLDEST (createdAt asc), so reads
+ * are deterministic and the duplicate is just an extra empty workspace row. A stricter
+ * fix would require a workspace-model decision (a dedicated is_personal flag + partial
+ * unique index) that is out of scope for the row-model cutover. */
 async function ensurePersonalWorkspace(
   db: CanvasStoreDb,
   ownerUserId: string,
@@ -260,12 +268,25 @@ async function ensureConversationCanvasId(
   if (existing) return existing;
 
   const workspaceId = await ensurePersonalWorkspace(db, ownerUserId);
+  // Race-safe first-create: a concurrent create (a parallel agent op, or an agent
+  // addNodeRow overlapping the client's best-effort autosave writeConversationRow)
+  // would otherwise both pass the `existing` check and the second INSERT would
+  // violate the partial unique index idx_canvases_conversation_id — surfacing as an
+  // unhandled 500 on the read_rows agent path. onConflictDoNothing + re-select makes
+  // the first-write idempotent, mirroring the blob writers' onConflict idiom above.
   const inserted = await db
     .insert(Canvases)
     .values({ workspaceId, ownerUserId, conversationId, kind: "conversation" })
+    .onConflictDoNothing({
+      target: Canvases.conversationId,
+      where: sql`${Canvases.conversationId} is not null`,
+    })
     .returning({ id: Canvases.id });
-  const id = inserted[0]?.id;
-  if (!id) throw new Error("canvas insert returned no id");
+  if (inserted[0]?.id) return inserted[0].id;
+  // Conflict (DO NOTHING → empty returning): a concurrent create won the unique index.
+  // Re-select the row it committed rather than throwing a 500.
+  const id = await findConversationCanvasId(db, conversationId);
+  if (!id) throw new Error("canvas insert/select returned no id");
   return id;
 }
 
@@ -289,6 +310,9 @@ async function ensureHomeCanvasId(
   if (existing) return existing;
 
   const workspaceId = await ensurePersonalWorkspace(db, userId);
+  // Race-safe first-create (see ensureConversationCanvasId): concurrent home writes
+  // would violate the partial unique index idx_canvases_home_owner. onConflictDoNothing
+  // + re-select makes it idempotent.
   const inserted = await db
     .insert(Canvases)
     .values({
@@ -297,9 +321,14 @@ async function ensureHomeCanvasId(
       conversationId: null,
       kind: HOME_SCOPE,
     })
+    .onConflictDoNothing({
+      target: Canvases.ownerUserId,
+      where: sql`${Canvases.kind} = 'home'`,
+    })
     .returning({ id: Canvases.id });
-  const id = inserted[0]?.id;
-  if (!id) throw new Error("home canvas insert returned no id");
+  if (inserted[0]?.id) return inserted[0].id;
+  const id = await findHomeCanvasId(db, userId);
+  if (!id) throw new Error("home canvas insert/select returned no id");
   return id;
 }
 
@@ -327,6 +356,20 @@ function buildRow(
     createdAt: canvas.createdAt,
     updatedAt: canvas.updatedAt,
   };
+}
+
+/** True when the assembled ROW snapshot is at least as complete as the blob (>= nodes
+ * AND >= edges). Under read_rows an agent op (addNodeRow) can mint a canvas that is a
+ * strict SUBSET of a richer pre-existing blob before the P9 backfill reconciles it;
+ * preferring the blob whenever the row is behind closes that data-loss window. The blob
+ * is still dual-written under read_rows, so it is current. Once the backfill brings rows
+ * to parity, per-row agent writes keep them >= blob, so the row wins (LWW race closed). */
+function rowAtLeastAsRich(
+  row: ChatCanvasLayoutRow,
+  blob: ChatCanvasLayoutRow,
+): boolean {
+  const len = (v: unknown): number => (Array.isArray(v) ? v.length : 0);
+  return len(row.nodes) >= len(blob.nodes) && len(row.edges) >= len(blob.edges);
 }
 
 export async function readConversationRow(
@@ -444,10 +487,17 @@ export async function readCanvasLayout(
   conversationId: string,
 ): Promise<ChatCanvasLayoutRow | null> {
   if (canvasRowMode() === "read_rows") {
-    const row = await readConversationRow(db, conversationId);
-    // Defensive fallback: a canvas not yet created/backfilled reads from the blob
-    // (never a blank canvas). The blob is still dual-written under read_rows.
-    return row ?? readConversationBlob(db, conversationId);
+    const [row, blob] = await Promise.all([
+      readConversationRow(db, conversationId),
+      readConversationBlob(db, conversationId),
+    ]);
+    // Prefer the row ONLY when it exists and is not BEHIND the blob. A canvas can be a
+    // strict subset of the blob (an agent addNode minted a 1-node canvas over an N-node
+    // blob) until the P9 backfill reconciles it — in that window the richer blob wins,
+    // so read_rows never shows LESS than dual_write did (closes the partial-canvas
+    // data-loss window). Keying the fallback on parity, not mere row EXISTENCE.
+    if (row && (!blob || rowAtLeastAsRich(row, blob))) return row;
+    return blob;
   }
   return readConversationBlob(db, conversationId);
 }
@@ -472,8 +522,14 @@ export async function readHomeCanvasLayout(
   userId: string,
 ): Promise<ChatCanvasLayoutRow | null> {
   if (canvasRowMode() === "read_rows") {
-    const row = await readHomeRow(db, userId);
-    return row ?? readHomeBlob(db, userId);
+    const [row, blob] = await Promise.all([
+      readHomeRow(db, userId),
+      readHomeBlob(db, userId),
+    ]);
+    // Parity fallback (see readCanvasLayout): the richer blob wins until the row is
+    // backfilled to parity, so a partial home canvas can't shadow a richer blob.
+    if (row && (!blob || rowAtLeastAsRich(row, blob))) return row;
+    return blob;
   }
   return readHomeBlob(db, userId);
 }
