@@ -37,15 +37,24 @@
 > Gates on every commit: web tsc clean + full vitest (134 files / 1709 tests) green.
 > Dead worktrees removed.
 >
-> STILL TODO on this batch (the parts the dead agents never reached):
+> UPDATE 2 (2026-07-24, opus, later backstop): more landed to the branch —
+>   - bc05e60 feat(web): searchable inbox picker for chat email-context (#23 email-selection).
+>     New ThreadPickerDialog (CommandDialog: search + subject/count·time/snippet rows) replaces
+>     the flat subject-only slice(0,20) in the composer attach menu. 4 new tests. → Task #23
+>     is now FULLY DONE (FAB + double-send + skeleton + picker).
+>   Gates: web tsc clean + vitest 135 files / 1713 tests green.
+>
+> STILL TODO on this batch:
 >   - #21 HEADLINE: "editor is email preview itself, no separate things. just one thing." —
 >     merge the /emails/[id] editor INTO the inbox inline preview as ONE surface + redirect the
 >     route to /?email=<id>. NOT started (only the body-overlay half is done). This is the big
->     multi-file refactor; do it attended or early in a fresh session with incremental commits
->     (restart-prone env). Scout report for it is in the session transcript.
->   - #22: treemap node full-screen EXPAND affordance + add-node menu entry ("Email treemap").
->   - #23: searchable shared ThreadPicker for chat email-context (replace the flat subject-only
->     composer dropdown; pattern exists in _canvas/add-email-thread-popover.tsx).
+>     multi-file refactor and is UX-heavy — it genuinely needs VISUAL verification (jsdom does
+>     no layout; CLAUDE.md law), so it is staged for an ATTENDED session, not the unattended
+>     backstop loop. Scout report for it is in the session transcript.
+>   - #22 (polish, LOW priority — core "explore the treemap inside the canvas" is already met
+>     by the gesture-isolation commit): treemap node full-screen EXPAND affordance + a pane
+>     "Add node ▸ Email treemap" entry (handleAddCirclePack in chat-canvas.tsx, data
+>     {scope:"mailbox"}). Nice-to-have; the AI can already place circle-pack nodes.
 > NOT fast-forwarded to main yet — batching with the remaining editor-merge so it is ONE
 > Vercel deploy (cost-conscious, per Pedro's request to watch build/infra costs). Everything on
 > the branch is independently complete + gated, so it is deployable whenever desired.
