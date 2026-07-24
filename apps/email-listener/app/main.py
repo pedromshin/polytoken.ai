@@ -25,6 +25,7 @@ from app.presentation.api.v1.entity_types import router as entity_types_router
 from app.presentation.api.v1.genui import router as genui_router
 from app.presentation.api.v1.genui_code import router as genui_code_router
 from app.presentation.api.v1.inbound_email import router as inbound_email_router
+from app.presentation.api.v1.ingest_job import router as ingest_job_router
 from app.presentation.api.v1.knowledge_edges import router as knowledge_edges_router
 from app.presentation.api.v1.pipeline_health import router as pipeline_health_router
 from app.presentation.api.v1.sns_inbound import router as sns_inbound_router
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(inbound_email_router)
     app.include_router(sns_inbound_router)
+    app.include_router(ingest_job_router)
     app.include_router(backfill_email_router)
     app.include_router(backfill_reprocess_router)
     app.include_router(emails_router)
