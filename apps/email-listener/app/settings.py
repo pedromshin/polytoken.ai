@@ -219,6 +219,18 @@ class BaseAppSettings(BaseSettings):
     # SEARCH_KNOWLEDGE_TOOL_ENABLED's convention.
     INGEST_ENTITY_RESOLUTION_ENABLED: bool = True
 
+    # --- Durable ingestion cutover (Track 3a) ---
+    # When True, the SNS receiver ENQUEUES a durable `ingest_inbound_email` job
+    # (a {ses_message_id, recipients} pointer) via the JobEnqueuer instead of
+    # running the heavy S3+MIME+OCR+Bedrock pipeline inline, and returns 500 on a
+    # failed enqueue so SNS retries — strictly safer than today's silent-200 loss.
+    # Default False: flag-OFF preserves the exact current inline path byte-for-byte.
+    # The reversible cutover switch (flip without a redeploy); the worker that
+    # drains the queue is deployed separately (Part B). Mirrors the plain-bool
+    # convention of INGEST_ENTITY_RESOLUTION_ENABLED, but defaults OFF (a cutover,
+    # not an always-on feature).
+    INGEST_ENQUEUE_ENABLED: bool = False
+
     # --- Anticipatory prompting SPIKE (Phase 25, ANTIC-01/02) ---
     # D-12: single global off switch. When False, run_triggers short-circuits to []
     # before any trigger evaluates — zero candidates produced, pipeline fully dark.
