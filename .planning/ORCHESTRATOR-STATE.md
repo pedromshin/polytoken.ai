@@ -1,8 +1,36 @@
 # ORCHESTRATOR-STATE — grand orchestrator run ledger
 
-> Read by the hourly backstop Routine (trig_01FYyp3Kpfa2vgWBY56N4Gq1) and by any resumed session.
-> UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
-> source of truth for "where are we"; chat context is disposable.
+> THE single source of truth for "where are we"; chat context is disposable. UPDATE at every batch
+> launch, completion, and merge. No autonomous backstop Routine is active (Pedro's call) — recovery
+> after a session/container death is MANUAL: a fresh session (or Pedro) reads this file and follows
+> the RESUME PROTOCOL below. Strategic `/compact` is safe at any batch boundary — this file + pushed
+> branches hold all durable state, so nothing critical lives only in chat.
+
+## RESUME PROTOCOL — a fresh/resumed session does this FIRST
+1. Branch is `claude/polytoken-email-infra-cont-qi9q5g`. `git fetch origin`; confirm you're on it.
+2. Read `.planning/assessment/2026-07-24/00-MASTER-PLAN.md` (the sequenced plan) + this ledger's top
+   Status block (what's in flight).
+3. IN-FLIGHT WORKFLOWS do NOT survive a container death — re-check by hand:
+   - Visible build batch: branches `claude/wf1-*` are pushed to origin (treemap-zoomout,
+     attachment-carousel, chat-autoload-fab, genui-action-graceful, screenshot-fix, and
+     email-context-in-chat when it lands). If not yet merged, run the SHIP PROTOCOL (step 4);
+     re-verify each branch before merging if the workflow died mid-run.
+   - Foundation workflows (Track 2/1/3): check this ledger for what was launched.
+4. SHIP PROTOCOL (visible batch): merge each adversarially-verified `wf1-*` branch into the feature
+   branch (drop any that failed verify); run FULL gates — `npx tsc --noEmit -p apps/web` + `npx
+   vitest run` (apps/web) + placeholder `SKIP_ENV_VALIDATION=1 NEXT_DIST_DIR=.next-verify next build`
+   then `git checkout -- apps/web/next-env.d.ts apps/web/tsconfig.json`; fast-forward `main`
+   (`git push origin HEAD:main`) = ONE Vercel build; give Pedro per-fix click-paths at polytoken.ai.
+5. THEN foundation IN ORDER: Track 2 (split `container.py` FIRST — the merge-conflict magnet — then
+   the other god-files + TypeScript CI + real-Postgres tenant-isolation job) → Track 1 (Terraform
+   remote state + import ALL live resources; NO `apply` before that) → Track 3 (graphile-worker
+   durable runtime [fixes the silent email loss] + Workspace→Canvas→Node rows; sole migration owner).
+6. GUARDRAILS: commit trailers (`Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` + the
+   `Claude-Session` line); NEVER the model id in commits; NO PR unless Pedro asks; obey the CLAUDE.md
+   live-infra landmines (never rename magnitudetech/nauta resources; no `terraform apply` without
+   imported remote state); models fable-5 / opus-4.8 / sonnet-5 only, never haiku. The strategic FORK
+   (broad platform vs email wedge) is OPEN — it only reorders feature Tracks 6 vs 7/8/9 (downstream
+   of the foundation), so it does NOT block Tracks 0–3.
 
 ## Status: ASSESSMENT + MASTER PLAN DELIVERED ✅ · foundation started (2026-07-24)
 
