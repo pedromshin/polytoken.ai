@@ -95,3 +95,6 @@ apps/daemon/\\tmp\\daemon-tools-*
 .planning/graphs/.last-build-snapshot.json
 .planning/night-run/HEARTBEAT
 .planning/.pending-auth-captures.jsonl
+
+# Track 3a co-located worker build output
+/apps/worker/dist/
