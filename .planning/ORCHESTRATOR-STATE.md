@@ -55,6 +55,12 @@ is quarantined under a SUPERSEDED header.
      service_role GRANT) and the A6 worker↔Python-HTTP seam (drain + 500→attempts++) are proven end-to-end.
    - **Everything flag-OFF by default = zero runtime change.** All gates green (listener full `uv run pytest`
      + mypy + ruff + lint-imports; web/db tsc + vitest for db/api-client/apps/web).
+   - **Adversarial review pass** (4 dimension reviewers → refute-by-default verify): 5 findings → 2 CONFIRMED
+     (both flag-gated canvas-cutover data-safety holes) FIXED — (1) HIGH: a partial agent-minted canvas row
+     could shadow+clobber a richer blob at read_rows; now the read fallback is PARITY-keyed (blob wins until
+     the row is backfilled to parity). (2) MED: concurrent canvas create raced the partial unique index → 500;
+     now onConflictDoNothing + re-select. 3 findings refuted; 2 refuted-but-cheap hardenings applied
+     (JobEnqueuer now in the boot test; worker env-int parse guarded).
    - **DEFERRED (by design):** A7 Dockerfile-rollout (docker daemon down here; = P4, Pedro) · A9
      deep_research turn-detach (changes the live streaming turn; Part B) · A8 DLQ ops tRPC router
      (no admin-auth pattern exists — don't invent one as a side effect; query `graphile_worker.jobs`
