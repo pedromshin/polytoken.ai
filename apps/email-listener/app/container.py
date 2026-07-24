@@ -16,29 +16,15 @@ from anthropic import AsyncAnthropicBedrock
 from dishka import AsyncContainer, Provider, Scope, make_async_container
 from supabase import Client
 
-from app.application.use_cases.autofill import AutofillUseCase
-from app.application.use_cases.autofill_fields import AutofillFieldsUseCase
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
 from app.application.use_cases.backfill_inbound_email import BackfillInboundEmailUseCase
-from app.application.use_cases.classify_document import ClassifyDocumentUseCase
 from app.application.use_cases.confirm_action_dispatch import (
     SourceCaptureHandler,
 )
-from app.application.use_cases.confirm_region import ConfirmRegionUseCase
 from app.application.use_cases.curate_entity_merge import (
     ConfirmMergeUseCase,
     RejectMergeUseCase,
     UnmergeEntityUseCase,
-)
-from app.application.use_cases.deny_field import DenyFieldUseCase
-from app.application.use_cases.edit_region import (
-    AcceptRegionUseCase,
-    CreateRegionUseCase,
-    MergeRegionsUseCase,
-    NestRegionUseCase,
-    RedrawRegionUseCase,
-    RejectRegionUseCase,
-    SplitRegionUseCase,
 )
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
 from app.application.use_cases.manage_entity_types import (
@@ -58,25 +44,18 @@ from app.application.use_cases.receive_inbound_email import ReceiveInboundEmailU
 from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
 from app.application.use_cases.resolve_entity_candidates import ResolveEntityCandidatesUseCase
 from app.application.use_cases.resolve_ingest_entities import ResolveIngestEntitiesUseCase
-from app.application.use_cases.set_component_relationship import (
-    SetComponentEntityTypeUseCase,
-    SetComponentFieldRelationshipUseCase,
-    SetComponentRoleUseCase,
-)
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
-from app.application.use_cases.synthesize_knowledge import KnowledgeSynthesizerService
 from app.composition import (
     anticipatory_providers,
     chat_turn_providers,
     cost_providers,
+    document_region_providers,
     genui_providers,
     llm_adapter_providers,
     repository_providers,
 )
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
-from app.domain.ports.autofill_protocol import AutofillProtocol
-from app.domain.ports.autofill_retrieval_event_repository import AutofillRetrievalEventRepository
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.email_repository import EmailRepository
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
@@ -87,10 +66,8 @@ from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
 from app.domain.ports.importer_resolver import ImporterResolver
-from app.domain.ports.knowledge_synthesizer import KnowledgeSynthesizer
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStore
-from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.source_ledger_repository import SourceLedgerRepository
 from app.domain.ports.thread_resolver import ThreadResolver
@@ -201,68 +178,6 @@ def _provide_embedder() -> EmbeddingProtocol:
     return EmbeddingAdapter(client=client)
 
 
-def _provide_autofill_use_case(
-    components: ComponentRepository,
-    entity_types: EntityTypeRepository,
-    extractions: ExtractionRepository,
-    autofiller: AutofillProtocol,
-    embedder: EmbeddingProtocol,
-    retrieval: RetrievalPort,
-    entity_instances: EntityInstanceRepository,
-    retrieval_events: AutofillRetrievalEventRepository,
-) -> AutofillUseCase:
-    """Factory for AutofillUseCase wired with the 04-08 few-shot retrieval ports.
-
-    AutofillUseCase accepts ``embedder``/``retrieval``/``entity_instances``/
-    ``retrieval_events`` as Optional with None defaults so unit tests can omit
-    them; dishka does not auto-inject defaulted Optional params, so this
-    factory passes them explicitly to enable the few-shot path (D-15), the
-    cheap recall win (RECALL-01, 31-01), and the retrieval-outcome
-    instrumentation write (RECALL-02, 31-02) in the live container.  When
-    retrieval returns [] the use case still preserves the cold-start path
-    (D-13); a resolved-entity read failure or instrumentation write failure
-    never breaks autofill (both best-effort).
-    """
-    return AutofillUseCase(
-        components=components,
-        entity_types=entity_types,
-        extractions=extractions,
-        autofiller=autofiller,
-        embedder=embedder,
-        retrieval=retrieval,
-        entity_instances=entity_instances,
-        retrieval_events=retrieval_events,
-    )
-
-
-def _provide_autofill_fields_use_case(
-    components: ComponentRepository,
-    entity_types: EntityTypeRepository,
-    extractions: ExtractionRepository,
-    autofiller: AutofillProtocol,
-    segmenter: SegmenterProtocol,
-    embedder: EmbeddingProtocol,
-    retrieval: RetrievalPort,
-) -> AutofillFieldsUseCase:
-    """Factory for AutofillFieldsUseCase (09-02b) with the few-shot + segmenter ports.
-
-    Mirrors _provide_autofill_use_case: AutofillFieldsUseCase accepts
-    ``embedder``/``retrieval`` as Optional (None defaults) which dishka won't
-    auto-inject, so they are passed explicitly to keep the D-15 few-shot path
-    active.  ``segmenter`` drives the entity-scoped sub-field auto-detect (D-13);
-    its constructor param is typed ``object`` in the use case to avoid a
-    Protocol-introspection issue, so it is passed positionally here as the
-    SegmenterProtocol-resolved instance.
-    """
-    return AutofillFieldsUseCase(
-        components=components,
-        entity_types=entity_types,
-        extractions=extractions,
-        autofiller=autofiller,
-        segmenter=segmenter,
-        embedder=embedder,
-        retrieval=retrieval,
-    )
 
 
 def _provide_parser_registry() -> object:
@@ -313,49 +228,6 @@ def _provide_promote_entity_use_case(
     )
 
 
-def _provide_confirm_region_use_case(
-    components: ComponentRepository,
-    extractions: ExtractionRepository,
-    embedder: EmbeddingProtocol,
-    entity_instances: EntityInstanceRepository,
-    client: Client,
-) -> ConfirmRegionUseCase:
-    """Factory for ConfirmRegionUseCase.
-
-    SupabaseKnowledgeGraphRepository is a concrete infrastructure class (not a
-    port) — dishka cannot bind it via provide(class) because Protocol-typed
-    params require explicit provides=. Mirrors _provide_promote_entity_use_case:
-    instantiates the adapter directly, builds KnowledgeSynthesizerService on top
-    of it, and injects the service into ConfirmRegionUseCase so the D-13
-    synthesis hook is live (SYNTH-01).
-    """
-    knowledge_repo = SupabaseKnowledgeGraphRepository(client=client)
-    knowledge_synthesizer: KnowledgeSynthesizer = KnowledgeSynthesizerService(
-        components=components,
-        knowledge=knowledge_repo,
-        entity_instances=entity_instances,
-    )
-    return ConfirmRegionUseCase(
-        components=components,
-        extractions=extractions,
-        embedder=embedder,
-        knowledge_synthesizer=knowledge_synthesizer,
-    )
-
-
-def _provide_set_component_entity_type_use_case(
-    components: ComponentRepository,
-    corrections: EntityTypeCorrectionRepository,
-) -> SetComponentEntityTypeUseCase:
-    """Factory for SetComponentEntityTypeUseCase (Phase 57-01, LEARN-01).
-
-    SetComponentEntityTypeUseCase accepts ``corrections`` as Optional with a
-    None default so existing unit tests/non-wired construction keep working;
-    dishka does not auto-inject defaulted Optional params (mirrors
-    _provide_autofill_use_case), so this factory passes it explicitly to wire
-    the best-effort correction-capture hook in the live container.
-    """
-    return SetComponentEntityTypeUseCase(components=components, corrections=corrections)
 
 
 def _provide_suggest_entity_types_use_case(
@@ -551,7 +423,7 @@ def _provide_httpx_client() -> httpx.AsyncClient:
     return httpx.AsyncClient(timeout=httpx.Timeout(10.0, read=None))
 
 
-def _build_provider() -> Provider:  # noqa: PLR0915
+def _build_provider() -> Provider:
     """Return a configured dishka Provider with all app-scoped bindings."""
     provider = Provider(scope=Scope.APP)
 
@@ -609,7 +481,6 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     # factory, which gates it on INGEST_ENTITY_RESOLUTION_ENABLED.
     provider.provide(_provide_resolve_ingest_entities_use_case, provides=ResolveIngestEntitiesUseCase)
     provider.provide(_provide_ingest_use_case, provides=IngestInboundEmailUseCase)
-    provider.provide(ProposeRegionsUseCase)
     # SuggestEntityTypesUseCase (Phase 57-02, LEARN-02): factory passes the
     # optional EntityTypeCorrectionRepository collaborator explicitly — dishka
     # won't auto-inject a defaulted Optional param (mirrors
@@ -619,31 +490,14 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(BackfillInboundEmailUseCase)
     # ST-04: pipeline-health read model (GET /v1/pipeline/health).
     provider.provide(GetPipelineHealthUseCase)
-    # AutofillUseCase has Optional embedder/retrieval params (None defaults) that
-    # dishka won't auto-inject — use a factory to wire the 04-08 few-shot ports.
-    provider.provide(_provide_autofill_use_case, provides=AutofillUseCase)
-    # AutofillFieldsUseCase (09-02b) — same Optional embedder/retrieval shape +
-    # segmenter for the entity-scoped auto-detect; factory passes them explicitly.
-    provider.provide(_provide_autofill_fields_use_case, provides=AutofillFieldsUseCase)
-    provider.provide(_provide_confirm_region_use_case, provides=ConfirmRegionUseCase)
-    # Region-edit write side (Phase 06) — all auto-inject ComponentRepository.
-    provider.provide(AcceptRegionUseCase)
-    provider.provide(RejectRegionUseCase)
-    provider.provide(RedrawRegionUseCase)
-    provider.provide(SplitRegionUseCase)
-    provider.provide(MergeRegionsUseCase)
-    provider.provide(NestRegionUseCase)
-    provider.provide(ClassifyDocumentUseCase)
-    provider.provide(CreateRegionUseCase)
-    # Relationship setters + origin-aware deny (Phase 09-02a) — all auto-inject
-    # ComponentRepository (DenyFieldUseCase also auto-injects ExtractionRepository).
-    provider.provide(SetComponentRoleUseCase)
-    # SetComponentEntityTypeUseCase (Phase 57-01, LEARN-01): factory passes the
-    # optional EntityTypeCorrectionRepository collaborator explicitly — dishka
-    # won't auto-inject a defaulted Optional param (mirrors _provide_autofill_use_case).
-    provider.provide(_provide_set_component_entity_type_use_case, provides=SetComponentEntityTypeUseCase)
-    provider.provide(SetComponentFieldRelationshipUseCase)
-    provider.provide(DenyFieldUseCase)
+    # ── Document-region write surface — extracted group (Track 2 decomposition) ──
+    # Region proposal + confirmation, the seven region-edit write-side use cases, document
+    # classification, the component-relationship setters + origin-aware field-deny, and the
+    # two autofill use cases — 16 bindings in app.composition.document_region_providers.register.
+    # EmbeddingProtocol is consumed by the autofill/ConfirmRegion factories but PROVIDED by
+    # the must-stay _provide_embedder above (boto3 patch target) — injected, never re-provided.
+    document_region_providers.register(provider)
+
     # Entity-type / field management (Phase 09-03, D-26/D-27) — all auto-inject
     # EntityTypeRepository (already bound to SupabaseEntityTypeRepository above).
     provider.provide(CreateEntityTypeUseCase)
