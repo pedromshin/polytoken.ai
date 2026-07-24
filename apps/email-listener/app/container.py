@@ -24,6 +24,7 @@ from app.composition import (
     entity_providers,
     genui_providers,
     ingestion_providers,
+    job_providers,
     llm_adapter_providers,
     repository_providers,
 )
@@ -151,6 +152,11 @@ def _build_provider() -> Provider:
 
     # ── Embedder (Bedrock Titan; boto3 client built directly, so stays here) ──
     provider.provide(_provide_embedder, provides=EmbeddingProtocol)
+
+    # ── Durable job-queue enqueue seam (Track 3a) — extracted group ────────────
+    # JobEnqueuer → SupabaseJobEnqueuer (the public.enqueue_job wrapper). Reuses the
+    # cached Client; the SNS receiver + backfill enqueue durable ingest jobs through it.
+    job_providers.register(provider)
 
     # ── LLM adapters + chat transport — extracted group (Track 2 decomposition) ──
     # Autofiller / entity-type classifier / segmenter + both ChatProvider adapters +
