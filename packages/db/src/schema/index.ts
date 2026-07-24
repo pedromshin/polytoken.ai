@@ -45,3 +45,6 @@ export * from "./file-versions";
 export * from "./workspaces";
 export * from "./workspace-members";
 export * from "./resource-shares";
+export * from "./canvases";
+export * from "./canvas-nodes";
+export * from "./canvas-edges";

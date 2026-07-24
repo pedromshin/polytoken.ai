@@ -33,6 +33,7 @@ import { eq } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import * as schema from "./schema";
+import { Canvases } from "./schema/canvases";
 import { ChatConversations } from "./schema/chat-conversations";
 import { ChatMessages } from "./schema/chat-messages";
 import { ChatSourceLedger } from "./schema/chat-source-ledger";
@@ -316,6 +317,33 @@ export async function assertSpreadsheetOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("spreadsheet", spreadsheetId);
+  }
+}
+
+/**
+ * assertCanvasOwnership — resolves when canvases.owner_user_id = userId. Direct
+ * owner anchor, no join (mirrors assertDocumentOwnership — canvases carries a
+ * DIRECT owner_user_id, Track 3b D9). Throws OwnershipError otherwise/missing
+ * (fail-closed, no existence oracle). This is the ONLY path any canvas
+ * row-model read/write gates a single canvas on — never an ad-hoc per-call-site
+ * owner filter. Descendant node/edge scoping resolves the ancestor canvas first
+ * and calls this. (RLS is defense-in-depth; a workspace-member widening path,
+ * when built, layers on top via assertCanAccess, not here.)
+ */
+export async function assertCanvasOwnership(
+  db: OwnershipDb,
+  canvasId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: Canvases.ownerUserId })
+    .from(Canvases)
+    .where(eq(Canvases.id, canvasId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("canvas", canvasId);
   }
 }
 

@@ -21,6 +21,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  assertCanvasOwnership,
   assertComponentOwnership,
   assertConversationOwnership,
   assertEmailOwnership,
@@ -307,6 +308,33 @@ describe("assertForwardingAddressOwnership", () => {
 
     await expect(
       assertForwardingAddressOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// assertCanvasOwnership (Track 3b) — direct owner_user_id, no join
+// ---------------------------------------------------------------------------
+
+describe("assertCanvasOwnership", () => {
+  it("resolves when canvases.owner_user_id = userId", async () => {
+    const db = createFakeDb([{ userId: OWNER_ID }]);
+    await expect(
+      assertCanvasOwnership(db, TARGET_ID, OWNER_ID),
+    ).resolves.toBeUndefined();
+  });
+
+  it("throws OwnershipError when the canvas belongs to another user", async () => {
+    const db = createFakeDb([{ userId: OTHER_USER_ID }]);
+    await expect(
+      assertCanvasOwnership(db, TARGET_ID, OWNER_ID),
+    ).rejects.toThrow(OwnershipError);
+  });
+
+  it("throws OwnershipError when the canvas does not exist (no existence oracle)", async () => {
+    const db = createFakeDb([]);
+    await expect(
+      assertCanvasOwnership(db, TARGET_ID, OWNER_ID),
     ).rejects.toThrow(OwnershipError);
   });
 });

@@ -358,6 +358,13 @@
       "when": 1784900200000,
       "tag": "0050_purge_maritime_data",
       "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1784927229991,
+      "tag": "0052_canvas_node_promotion",
+      "breakpoints": true
     }
   ]
 }
