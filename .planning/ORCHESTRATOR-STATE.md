@@ -20,12 +20,35 @@
 >   - 6695956 feat(web): text-anchored body-region highlighter (CSS Custom Highlight API) —
 >     the CORRECT fix for the misaligned body overlays (the "PEDREDRO," garble). Pure matcher
 >     unit-tested (6 green). Wiring lands with the editor-merge.
-> TWO worktree agents in flight (isolated worktrees, opus): (a) merge the /emails/[id] editor
-> INTO the inbox inline preview as the single surface + wire the highlighter + redirect the
-> route; (b) canvas-on-mobile + circle-pack treemap node gesture-isolation/expand + FAB
-> overlap + double-send latch + stuck-skeleton fallback + shared ThreadPicker for chat email
-> context. On completion: integrate both worktrees onto the feature branch, full gates, then
-> fast-forward main (ONE Vercel deploy).
+> UPDATE 2026-07-24 (opus): both worktree agents were KILLED mid-run by a container restart
+> (~75min, no completion notification). Their partial diffs were SALVAGED from the worktrees,
+> repaired, gated, and committed to the feature branch. Landed since:
+>   - db7f077 feat(web): canvas on mobile (dropped the isMobile→chat coercion; toggle shown on
+>     every viewport) + FAB overlap fix (bottom-24 when a composer is present) + double-send
+>     latch (composer submittingRef + controller sendInFlightRef) + stuck-skeleton terminal
+>     fallback (MessageTurn flips genui boundary out of streaming on stopped/interrupted/
+>     cost_capped — NOT on "completed", which is the D-01 async-resume case; that distinction
+>     also fixed a transcript-panel-toolbar force-lock regression). +::highlight CSS rule.
+>   - 903bea5 fix(web): wired the body-region highlighter into body-view.tsx — dropped the
+>     broken polygon OverlayLayer path; body overlays now render CORRECTLY (text-anchored).
+>     The "email preview needs to work and show overlays correctly" HALF of the headline is DONE.
+>   - 991b659 fix(web): circle-pack treemap node gesture isolation (nowheel nopan nodrag) so
+>     the pack is explorable inside the canvas without panning the board.
+> Gates on every commit: web tsc clean + full vitest (134 files / 1709 tests) green.
+> Dead worktrees removed.
+>
+> STILL TODO on this batch (the parts the dead agents never reached):
+>   - #21 HEADLINE: "editor is email preview itself, no separate things. just one thing." —
+>     merge the /emails/[id] editor INTO the inbox inline preview as ONE surface + redirect the
+>     route to /?email=<id>. NOT started (only the body-overlay half is done). This is the big
+>     multi-file refactor; do it attended or early in a fresh session with incremental commits
+>     (restart-prone env). Scout report for it is in the session transcript.
+>   - #22: treemap node full-screen EXPAND affordance + add-node menu entry ("Email treemap").
+>   - #23: searchable shared ThreadPicker for chat email-context (replace the flat subject-only
+>     composer dropdown; pattern exists in _canvas/add-email-thread-popover.tsx).
+> NOT fast-forwarded to main yet — batching with the remaining editor-merge so it is ONE
+> Vercel deploy (cost-conscious, per Pedro's request to watch build/infra costs). Everything on
+> the branch is independently complete + gated, so it is deployable whenever desired.
 >
 > PROD DB STATE (verified via Management API, 2026-07-24): drizzle.__drizzle_migrations
 > showed 50 rows = through 0049. Hash check confirmed 0048 (3540513969…) + 0049 (8ea707f9…)
