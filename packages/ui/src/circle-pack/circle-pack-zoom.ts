@@ -42,8 +42,10 @@ export type CirclePackNavAction =
   | { readonly type: "focus"; readonly id: string }
   /** Enter: zoom the viewport into the cursor (or its parent if the cursor is a leaf). */
   | { readonly type: "zoomIn" }
-  /** Esc: zoom the viewport out to the current focus's parent. */
+  /** Esc / back / double-tap / pinch-out: zoom out to the current focus's parent. */
   | { readonly type: "zoomOut" }
+  /** Reset control / breadcrumb "root": zoom the viewport all the way back out. */
+  | { readonly type: "reset" }
   /** ArrowLeft/ArrowRight: move the cursor among its siblings. */
   | { readonly type: "sibling"; readonly dir: "next" | "prev" }
   /** ArrowDown: move the cursor to its first child. */
@@ -79,6 +81,39 @@ function parentOrSelf(index: CircleNavIndex, id: string): string {
 }
 
 /**
+ * clampFocusId — the min/max ZOOM CLAMP as a pure function. The viewport can
+ * only ever frame a CONTAINER: the root is the fully-zoomed-OUT extent (it fills
+ * the box) and an internal node is as far IN as the frame goes. A leaf is never
+ * a valid focus — you cannot zoom "past" it — so a leaf clamps to its parent,
+ * and an unknown id clamps to the root. This guarantees the interpolated viewBox
+ * never overshoots the root outward or a leaf inward.
+ */
+export function clampFocusId(index: CircleNavIndex, id: string): string {
+  if (!index.ids.has(id)) return CIRCLE_PACK_ROOT_ID;
+  const leaf = index.isLeaf.get(id) ?? true;
+  return leaf ? parentOrSelf(index, id) : id;
+}
+
+/**
+ * ancestorsOf — the drill PATH from the root down to `id` inclusive
+ * (`[root, …, id]`), the model behind the clickable breadcrumb. An unknown id
+ * yields an empty path. Guards against a malformed (cyclic) index by bounding
+ * the walk to the number of known ids.
+ */
+export function ancestorsOf(index: CircleNavIndex, id: string): string[] {
+  if (!index.ids.has(id)) return [];
+  const path: string[] = [];
+  let cur: string | null = id;
+  let guard = index.ids.size + 1;
+  while (cur !== null && guard-- > 0) {
+    path.push(cur);
+    cur = index.parentOf.get(cur) ?? null;
+  }
+  path.reverse();
+  return path;
+}
+
+/**
  * circlePackNavReducer — the whole navigation contract as a pure function.
  * Never throws and never lands on a non-existent id: an action referencing an
  * unknown id (a stale event against a re-laid-out hierarchy) is a no-op.
@@ -91,24 +126,29 @@ export function circlePackNavReducer(
   switch (action.type) {
     case "focus": {
       if (!index.ids.has(action.id)) return state;
-      // A leaf can't be zoomed INTO — the viewport frames its parent while the
-      // cursor lands on the leaf (so a click both highlights and reveals it).
-      const leaf = index.isLeaf.get(action.id) ?? true;
-      const focusId = leaf ? parentOrSelf(index, action.id) : action.id;
+      // A leaf can't be zoomed INTO — the viewport frames its parent (the clamp)
+      // while the cursor lands on the leaf (so a click both highlights it and
+      // reveals it).
+      const focusId = clampFocusId(index, action.id);
       return { focusId, cursorId: action.id };
     }
     case "zoomIn": {
       const { cursorId } = state;
       if (!index.ids.has(cursorId)) return state;
-      const leaf = index.isLeaf.get(cursorId) ?? true;
-      const focusId = leaf ? parentOrSelf(index, cursorId) : cursorId;
+      const focusId = clampFocusId(index, cursorId);
       if (focusId === state.focusId) return state;
       return { focusId, cursorId };
     }
     case "zoomOut": {
       const parent = index.parentOf.get(state.focusId) ?? null;
-      if (parent === null) return state; // already at the root
+      if (parent === null) return state; // clamped at the root — no overshoot
       return { focusId: parent, cursorId: parent };
+    }
+    case "reset": {
+      if (state.focusId === CIRCLE_PACK_ROOT_ID && state.cursorId === CIRCLE_PACK_ROOT_ID) {
+        return state; // already home
+      }
+      return initialCirclePackNavState();
     }
     case "sibling": {
       const parent = index.parentOf.get(state.cursorId) ?? null;

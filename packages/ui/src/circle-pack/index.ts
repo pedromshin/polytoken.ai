@@ -22,7 +22,18 @@ export {
   circlePackNavReducer,
   createCircleNavIndex,
   initialCirclePackNavState,
+  clampFocusId,
+  ancestorsOf,
   type CircleNavIndex,
   type CirclePackNavState,
   type CirclePackNavAction,
 } from "./circle-pack-zoom";
+export {
+  isDoubleTap,
+  isPinchOut,
+  touchSpan,
+  DOUBLE_TAP_MS,
+  DOUBLE_TAP_SLOP,
+  PINCH_OUT_THRESHOLD,
+  type TapRecord,
+} from "./circle-pack-gestures";
