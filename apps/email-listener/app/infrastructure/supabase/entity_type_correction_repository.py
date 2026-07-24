@@ -15,6 +15,7 @@ style (apps/email-listener/app/infrastructure/supabase/retrieval_repository.py).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -58,7 +59,7 @@ class SupabaseEntityTypeCorrectionRepository:
             "previous_entity_type_id": previous_entity_type_id,
             "corrected_entity_type_id": corrected_entity_type_id,
         }
-        self._client.table(_TABLE).insert(payload).execute()
+        await asyncio.to_thread(lambda: self._client.table(_TABLE).insert(payload).execute())
 
     async def find_similar(
         self,
@@ -73,14 +74,16 @@ class SupabaseEntityTypeCorrectionRepository:
         Never raises — an empty/failed RPC returns [] (degrade-safe, D-13).
         """
         try:
-            result = self._client.rpc(
-                _TRGM_RPC,
-                {
-                    "query_text": query_text,
-                    "match_importer_id": importer_id,
-                    "match_count": top_n,
-                },
-            ).execute()
+            result = await asyncio.to_thread(
+                lambda: self._client.rpc(
+                    _TRGM_RPC,
+                    {
+                        "query_text": query_text,
+                        "match_importer_id": importer_id,
+                        "match_count": top_n,
+                    },
+                ).execute()
+            )
             rows: list[dict[str, Any]] = result.data or []
         except Exception:
             logger.exception(

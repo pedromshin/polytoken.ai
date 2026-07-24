@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, cast
 
 from postgrest.base_request_builder import CountMethod
@@ -72,17 +73,23 @@ class SupabaseComponentRepository:
     async def save_many(self, components: list[Component]) -> list[Component]:
         """Bulk upsert components; embedding tuple serialized to list[float]."""
         payload = [_to_row(c) for c in components]
-        result = self._client.table("email_components").upsert(payload, on_conflict="id").execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_components").upsert(payload, on_conflict="id").execute()
+        )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def find_by_id(self, component_id: str) -> Component | None:
-        result = self._client.table("email_components").select("*").eq("id", component_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_components").select("*").eq("id", component_id).execute()
+        )
         if not result.data:
             return None
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def find_by_email_id(self, email_id: str) -> list[Component]:
-        result = self._client.table("email_components").select("*").eq("email_id", email_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_components").select("*").eq("email_id", email_id).execute()
+        )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def find_unclassified_candidate_regions(self, email_id: str) -> list[Component]:
@@ -94,29 +101,38 @@ class SupabaseComponentRepository:
         only after a user accepts them. Either way they are unclassified (role
         IS NULL) and awaiting an entity-type suggestion. Confirmed/rejected/
         superseded regions are excluded."""
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("email_id", email_id)
-            .eq("source_type", "region")
-            .in_("extraction_status", ["pending", "candidate"])
-            .is_("role", "null")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("email_id", email_id)
+                .eq("source_type", "region")
+                .in_("extraction_status", ["pending", "candidate"])
+                .is_("role", "null")
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def update_embedding(self, component_id: str, embedding: tuple[float, ...]) -> None:
         """Persist a computed embedding vector onto a component row (halfvec column)."""
-        (self._client.table("email_components").update({"embedding": list(embedding)}).eq("id", component_id).execute())
+        await asyncio.to_thread(
+            lambda: self._client.table("email_components")
+            .update({"embedding": list(embedding)})
+            .eq("id", component_id)
+            .execute()
+        )
 
     async def find_pages_by_attachment(self, attachment_id: str) -> list[Component]:
         """Return the attachment_page components for an attachment (any page)."""
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("attachment_id", attachment_id)
-            .eq("source_type", "attachment_page")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("attachment_id", attachment_id)
+                .eq("source_type", "attachment_page")
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -127,8 +143,13 @@ class SupabaseComponentRepository:
         during AutofillFieldsUseCase, or a page's regions. Filtered by
         parent_component_id directly (already importer-scoped via the FK cascade).
         """
-        result = (
-            self._client.table("email_components").select("*").eq("parent_component_id", page_component_id).execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("parent_component_id", page_component_id)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -140,13 +161,15 @@ class SupabaseComponentRepository:
         be fed straight back into a created_at comparison without any app-side
         clock arithmetic (clock-skew mitigation for supersede_pending_regions).
         """
-        result = (
-            self._client.table("email_components")
-            .select("created_at")
-            .eq("email_id", email_id)
-            .order("created_at", desc=True)
-            .limit(1)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("created_at")
+                .eq("email_id", email_id)
+                .order("created_at", desc=True)
+                .limit(1)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -175,7 +198,7 @@ class SupabaseComponentRepository:
         )
         if created_before is not None:
             query = query.lte("created_at", created_before)
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         return len(result.data)
 
     async def count_pending_regions_created_since(self, email_id: str, cutoff: str | None) -> int:
@@ -197,7 +220,7 @@ class SupabaseComponentRepository:
         )
         if cutoff is not None:
             query = query.gt("created_at", cutoff)
-        result = query.execute()
+        result = await asyncio.to_thread(query.execute)
         return result.count or 0
 
     async def update_status(self, component_id: str, status: str) -> Component:
@@ -206,11 +229,13 @@ class SupabaseComponentRepository:
         Raises ValueError when no row is matched (component deleted or never existed).
         This prevents IndexError propagating as an unformatted 500 from FastAPI.
         """
-        result = (
-            self._client.table("email_components")
-            .update({"extraction_status": status})
-            .eq("id", component_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .update({"extraction_status": status})
+                .eq("id", component_id)
+                .execute()
+            )
         )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
@@ -222,11 +247,13 @@ class SupabaseComponentRepository:
         Raises ValueError when no row is matched (component deleted or never existed).
         This prevents IndexError propagating as an unformatted 500 from FastAPI.
         """
-        result = (
-            self._client.table("email_components")
-            .update({"parent_component_id": parent_id})
-            .eq("id", component_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .update({"parent_component_id": parent_id})
+                .eq("id", component_id)
+                .execute()
+            )
         )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
@@ -238,7 +265,9 @@ class SupabaseComponentRepository:
         Raises ValueError when no row is matched (component deleted or never existed),
         mirroring update_status — prevents IndexError surfacing as an unformatted 500.
         """
-        result = self._client.table("email_components").update({"role": role}).eq("id", component_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("email_components").update({"role": role}).eq("id", component_id).execute()
+        )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
         return _from_row(cast("dict[str, Any]", result.data[0]))
@@ -248,11 +277,13 @@ class SupabaseComponentRepository:
 
         Raises ValueError when no row is matched.
         """
-        result = (
-            self._client.table("email_components")
-            .update({"entity_type_id": entity_type_id})
-            .eq("id", component_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .update({"entity_type_id": entity_type_id})
+                .eq("id", component_id)
+                .execute()
+            )
         )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
@@ -268,16 +299,18 @@ class SupabaseComponentRepository:
 
         One UPDATE writes both columns. Raises ValueError when no row is matched.
         """
-        result = (
-            self._client.table("email_components")
-            .update(
-                {
-                    "parent_component_id": parent_component_id,
-                    "entity_type_field_id": entity_type_field_id,
-                }
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .update(
+                    {
+                        "parent_component_id": parent_component_id,
+                        "entity_type_field_id": entity_type_field_id,
+                    }
+                )
+                .eq("id", component_id)
+                .execute()
             )
-            .eq("id", component_id)
-            .execute()
         )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
@@ -288,11 +321,13 @@ class SupabaseComponentRepository:
 
         Raises ValueError when no row is matched.
         """
-        result = (
-            self._client.table("email_components")
-            .update({"entity_type_field_id": None})
-            .eq("id", component_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .update({"entity_type_field_id": None})
+                .eq("id", component_id)
+                .execute()
+            )
         )
         if not result.data:
             raise ValueError(f"Component not found: {component_id}")
@@ -306,7 +341,9 @@ class SupabaseComponentRepository:
         read-modify-write, so concurrent denies never lose entries. No-op when the
         component does not exist (the use case has already verified the parent).
         """
-        self._client.rpc(
-            "append_denied_polygon",
-            {"p_component_id": component_id, "p_polygon": polygon},
-        ).execute()
+        await asyncio.to_thread(
+            lambda: self._client.rpc(
+                "append_denied_polygon",
+                {"p_component_id": component_id, "p_polygon": polygon},
+            ).execute()
+        )

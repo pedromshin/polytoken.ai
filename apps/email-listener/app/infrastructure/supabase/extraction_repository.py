@@ -5,6 +5,7 @@ supersede_active uses update(status="superseded") — never delete (D-16).
 
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 from typing import Any, cast
 
@@ -64,20 +65,26 @@ class SupabaseExtractionRepository:
 
     async def save(self, record: ExtractionRecord) -> ExtractionRecord:
         """Upsert an extraction record; returns the persisted entity."""
-        result = self._client.table("extraction_records").upsert(_to_row(record), on_conflict="id").execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("extraction_records").upsert(_to_row(record), on_conflict="id").execute()
+        )
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def find_by_component_id(self, component_id: str) -> list[ExtractionRecord]:
         """Return all extraction records for a given component."""
-        result = self._client.table("extraction_records").select("*").eq("component_id", component_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("extraction_records").select("*").eq("component_id", component_id).execute()
+        )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
     async def supersede_active(self, component_id: str) -> None:
         """Mark all active records for the component as superseded — never delete (D-16)."""
-        (
-            self._client.table("extraction_records")
-            .update({"status": "superseded"})
-            .eq("component_id", component_id)
-            .neq("status", "superseded")
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("extraction_records")
+                .update({"status": "superseded"})
+                .eq("component_id", component_id)
+                .neq("status", "superseded")
+                .execute()
+            )
         )

@@ -9,6 +9,7 @@ path unaffected.
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 from typing import Any, cast
 
@@ -64,7 +65,8 @@ class SupabaseForwardingAddressRepository:
             if token is None:
                 continue
 
-            result = self._client.table("forwarding_addresses").select("user_id").eq("token", token).execute()
+            query = self._client.table("forwarding_addresses").select("user_id").eq("token", token)
+            result = await asyncio.to_thread(query.execute)
             if result.data:
                 row = cast("dict[str, Any]", result.data[0])
                 user_id = str(row["user_id"])

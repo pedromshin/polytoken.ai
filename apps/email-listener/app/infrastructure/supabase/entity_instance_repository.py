@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, cast
 
 from supabase import Client
@@ -86,12 +87,14 @@ class SupabaseEntityInstanceRepository:
         self._client = client
 
     async def find_by_id(self, entity_instance_id: str) -> EntityInstance | None:
-        result = (
-            self._client.table("entity_instances")
-            .select("*")
-            .eq("id", entity_instance_id)
-            .eq("source", _SOURCE)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .select("*")
+                .eq("id", entity_instance_id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -102,14 +105,16 @@ class SupabaseEntityInstanceRepository:
         importer_id: str,
         entity_type_id: str,
     ) -> list[EntityInstance]:
-        result = (
-            self._client.table("entity_instances")
-            .select("*")
-            .eq("importer_id", importer_id)
-            .eq("entity_type_id", entity_type_id)
-            .eq("source", _SOURCE)
-            .eq("is_active", True)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .select("*")
+                .eq("importer_id", importer_id)
+                .eq("entity_type_id", entity_type_id)
+                .eq("source", _SOURCE)
+                .eq("is_active", True)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -126,12 +131,14 @@ class SupabaseEntityInstanceRepository:
           - preserve is_active + merged_into when the row was merged away
             (merged_into is set), so a merged duplicate never reappears.
         """
-        existing = (
-            self._client.table("entity_instances")
-            .select("aliases,is_active,merged_into")
-            .eq("id", entity.id)
-            .eq("source", _SOURCE)
-            .execute()
+        existing = await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .select("aliases,is_active,merged_into")
+                .eq("id", entity.id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )
 
         payload = _to_row(entity)
@@ -153,7 +160,9 @@ class SupabaseEntityInstanceRepository:
                 payload["is_active"] = bool(row.get("is_active", False))
                 payload["merged_into"] = row["merged_into"]
 
-        result = self._client.table("entity_instances").upsert(payload, on_conflict="id").execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("entity_instances").upsert(payload, on_conflict="id").execute()
+        )
         if not result.data:
             raise ValueError(f"EntityInstance upsert returned no data: {entity.id}")
         return _from_row(cast("dict[str, Any]", result.data[0]))
@@ -182,10 +191,12 @@ class SupabaseEntityInstanceRepository:
             "similarity_score": similarity_score,
             "was_selected": was_selected,
         }
-        (
-            self._client.table("component_entity_candidate_links")
-            .upsert(payload, on_conflict="component_id,entity_instance_id")
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .upsert(payload, on_conflict="component_id,entity_instance_id")
+                .execute()
+            )
         )
 
     async def mark_candidate_selected(
@@ -194,12 +205,14 @@ class SupabaseEntityInstanceRepository:
         entity_instance_id: str,
     ) -> None:
         """Set was_selected=True for the winning candidate link (D-09)."""
-        (
-            self._client.table("component_entity_candidate_links")
-            .update({"was_selected": True})
-            .eq("component_id", component_id)
-            .eq("entity_instance_id", entity_instance_id)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .update({"was_selected": True})
+                .eq("component_id", component_id)
+                .eq("entity_instance_id", entity_instance_id)
+                .execute()
+            )
         )
 
     async def append_alias(
@@ -218,12 +231,14 @@ class SupabaseEntityInstanceRepository:
         if alias in existing.aliases:
             return
         new_aliases = [*existing.aliases, alias]
-        (
-            self._client.table("entity_instances")
-            .update({"aliases": new_aliases})
-            .eq("id", entity_instance_id)
-            .eq("source", _SOURCE)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .update({"aliases": new_aliases})
+                .eq("id", entity_instance_id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )
 
     async def remove_alias(
@@ -242,12 +257,14 @@ class SupabaseEntityInstanceRepository:
         if alias not in existing.aliases:
             return
         new_aliases = [a for a in existing.aliases if a != alias]
-        (
-            self._client.table("entity_instances")
-            .update({"aliases": new_aliases})
-            .eq("id", entity_instance_id)
-            .eq("source", _SOURCE)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .update({"aliases": new_aliases})
+                .eq("id", entity_instance_id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )
 
     async def find_merged_children(
@@ -259,12 +276,14 @@ class SupabaseEntityInstanceRepository:
         Rows where merged_into == entity_instance_id, scoped to
         source='email_extracted' (D-21). Empty when the id is not a survivor.
         """
-        result = (
-            self._client.table("entity_instances")
-            .select("*")
-            .eq("merged_into", entity_instance_id)
-            .eq("source", _SOURCE)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .select("*")
+                .eq("merged_into", entity_instance_id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )
         return [_from_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -273,13 +292,15 @@ class SupabaseEntityInstanceRepository:
         importer_id: str,
     ) -> list[Component]:
         """Return confirmed role='entity' components for backfill (D-10)."""
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("importer_id", importer_id)
-            .eq("role", "entity")
-            .eq("extraction_status", "confirmed")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("importer_id", importer_id)
+                .eq("role", "entity")
+                .eq("extraction_status", "confirmed")
+                .execute()
+            )
         )
         return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -294,14 +315,16 @@ class SupabaseEntityInstanceRepository:
         Used by PromoteEntityOnConfirmUseCase to build occurrence links,
         identifiers, and display_name from the confirmed field values.
         """
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("parent_component_id", parent_component_id)
-            .eq("role", "field")
-            .eq("extraction_status", "confirmed")
-            .not_.is_("entity_type_field_id", "null")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("parent_component_id", parent_component_id)
+                .eq("role", "field")
+                .eq("extraction_status", "confirmed")
+                .not_.is_("entity_type_field_id", "null")
+                .execute()
+            )
         )
         return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -314,13 +337,15 @@ class SupabaseEntityInstanceRepository:
         Deliberately email-scoped (not importer-scoped like list_confirmed_entity_components)
         because co-occurrence means "confirmed in the same email".
         """
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("email_id", email_id)
-            .eq("role", "entity")
-            .eq("extraction_status", "confirmed")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("email_id", email_id)
+                .eq("role", "entity")
+                .eq("extraction_status", "confirmed")
+                .execute()
+            )
         )
         return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -334,12 +359,14 @@ class SupabaseEntityInstanceRepository:
         None is expected on first confirm, since PromoteEntityOnConfirmUseCase (which
         writes the selected link) runs after the synthesizer in the confirm flow.
         """
-        result = (
-            self._client.table("component_entity_candidate_links")
-            .select("*")
-            .eq("component_id", component_id)
-            .eq("was_selected", True)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .select("*")
+                .eq("component_id", component_id)
+                .eq("was_selected", True)
+                .execute()
+            )
         )
         if not result.data:
             return None
@@ -355,13 +382,15 @@ class SupabaseEntityInstanceRepository:
         Deterministic, LLM-free co-occurrence signal: components sharing the email that have
         not themselves been confirmed yet.
         """
-        result = (
-            self._client.table("email_components")
-            .select("*")
-            .eq("email_id", email_id)
-            .eq("role", "entity")
-            .neq("extraction_status", "confirmed")
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("*")
+                .eq("email_id", email_id)
+                .eq("role", "entity")
+                .neq("extraction_status", "confirmed")
+                .execute()
+            )
         )
         return [_from_component_row(cast("dict[str, Any]", row)) for row in result.data]
 
@@ -374,12 +403,14 @@ class SupabaseEntityInstanceRepository:
         Reads component_entity_candidate_links for was_selected=False links, resolves each
         entity_instance_id, and drops any that fail to resolve.
         """
-        result = (
-            self._client.table("component_entity_candidate_links")
-            .select("*")
-            .eq("component_id", component_id)
-            .eq("was_selected", False)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .select("*")
+                .eq("component_id", component_id)
+                .eq("was_selected", False)
+                .execute()
+            )
         )
         instances: list[EntityInstance] = []
         for row in result.data:
@@ -405,11 +436,13 @@ class SupabaseEntityInstanceRepository:
         component in its email, read that component's email_id, then return every
         component in that email. Empty when the entity has no links yet.
         """
-        link_result = (
-            self._client.table("component_entity_candidate_links")
-            .select("component_id")
-            .eq("entity_instance_id", entity_instance_id)
-            .execute()
+        link_result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .select("component_id")
+                .eq("entity_instance_id", entity_instance_id)
+                .execute()
+            )
         )
         component_ids = [
             cast("dict[str, Any]", row)["component_id"]
@@ -419,11 +452,13 @@ class SupabaseEntityInstanceRepository:
         if not component_ids:
             return []
 
-        comp_result = (
-            self._client.table("email_components")
-            .select("email_id")
-            .in_("id", component_ids)
-            .execute()
+        comp_result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("email_id")
+                .in_("id", component_ids)
+                .execute()
+            )
         )
         email_ids = {
             cast("dict[str, Any]", row)["email_id"]
@@ -433,11 +468,13 @@ class SupabaseEntityInstanceRepository:
         if not email_ids:
             return []
 
-        all_result = (
-            self._client.table("email_components")
-            .select("id")
-            .in_("email_id", sorted(email_ids))
-            .execute()
+        all_result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("email_components")
+                .select("id")
+                .in_("email_id", sorted(email_ids))
+                .execute()
+            )
         )
         return [cast("dict[str, Any]", row)["id"] for row in all_result.data]
 
@@ -457,12 +494,14 @@ class SupabaseEntityInstanceRepository:
         subject_components = await self._email_component_ids_for_entity(entity_instance_id)
         if not subject_components:
             return
-        (
-            self._client.table("component_entity_candidate_links")
-            .update({"was_selected": True})
-            .in_("component_id", subject_components)
-            .eq("entity_instance_id", target_id)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("component_entity_candidate_links")
+                .update({"was_selected": True})
+                .in_("component_id", subject_components)
+                .eq("entity_instance_id", target_id)
+                .execute()
+            )
         )
 
     async def dismiss_candidate_link(
@@ -480,22 +519,26 @@ class SupabaseEntityInstanceRepository:
         """
         subject_components = await self._email_component_ids_for_entity(entity_instance_id)
         if subject_components:
-            (
-                self._client.table("component_entity_candidate_links")
-                .update({"was_dismissed": True})
-                .in_("component_id", subject_components)
-                .eq("entity_instance_id", target_id)
-                .execute()
+            await asyncio.to_thread(
+                lambda: (
+                    self._client.table("component_entity_candidate_links")
+                    .update({"was_dismissed": True})
+                    .in_("component_id", subject_components)
+                    .eq("entity_instance_id", target_id)
+                    .execute()
+                )
             )
 
         target_components = await self._email_component_ids_for_entity(target_id)
         if target_components:
-            (
-                self._client.table("component_entity_candidate_links")
-                .update({"was_dismissed": True})
-                .in_("component_id", target_components)
-                .eq("entity_instance_id", entity_instance_id)
-                .execute()
+            await asyncio.to_thread(
+                lambda: (
+                    self._client.table("component_entity_candidate_links")
+                    .update({"was_dismissed": True})
+                    .in_("component_id", target_components)
+                    .eq("entity_instance_id", entity_instance_id)
+                    .execute()
+                )
             )
 
     async def set_merge_state(
@@ -515,10 +558,12 @@ class SupabaseEntityInstanceRepository:
             "is_active": is_active,
             "merged_into": merged_into,
         }
-        (
-            self._client.table("entity_instances")
-            .update(payload)
-            .eq("id", entity_instance_id)
-            .eq("source", _SOURCE)
-            .execute()
+        await asyncio.to_thread(
+            lambda: (
+                self._client.table("entity_instances")
+                .update(payload)
+                .eq("id", entity_instance_id)
+                .eq("source", _SOURCE)
+                .execute()
+            )
         )

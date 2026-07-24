@@ -13,6 +13,7 @@ hard-fails on a weird From header (T-04-34).
 
 from __future__ import annotations
 
+import asyncio
 import re
 from typing import Any, cast
 
@@ -88,25 +89,27 @@ class SupabaseImporterRepository:
             return self._default_importer_id
 
         if user_id is None:
-            return self._resolve_legacy_no_owner(slug)
+            return await self._resolve_legacy_no_owner(slug)
 
         # Owner known: scope the lookup by (user_id, slug) so we never hand back
         # another tenant's importer for the same domain.
-        existing_id = self._find_owned_importer_id(slug, user_id)
+        existing_id = await self._find_owned_importer_id(slug, user_id)
         if existing_id is not None:
             return existing_id
 
         # No importer for this owner+domain yet — insert one anchored to user_id.
         domain = slug.replace("-", ".")
         try:
-            self._client.table("importers").insert(
-                {"slug": slug, "name": domain, "user_id": user_id},
-            ).execute()
+            await asyncio.to_thread(
+                lambda: self._client.table("importers")
+                .insert({"slug": slug, "name": domain, "user_id": user_id})
+                .execute()
+            )
         except Exception:
             # Either a concurrent insert by the SAME user (idempotent redelivery)
             # or a global-slug collision with a DIFFERENT tenant. Re-check
             # ownership: only OUR row is safe to return.
-            owned_after_conflict = self._find_owned_importer_id(slug, user_id)
+            owned_after_conflict = await self._find_owned_importer_id(slug, user_id)
             if owned_after_conflict is not None:
                 return owned_after_conflict
             logger.warning(
@@ -117,7 +120,7 @@ class SupabaseImporterRepository:
             )
             return self._default_importer_id
 
-        created_id = self._find_owned_importer_id(slug, user_id)
+        created_id = await self._find_owned_importer_id(slug, user_id)
         importer_id = created_id if created_id is not None else self._default_importer_id
         logger.info(
             "importer_created",
@@ -127,14 +130,16 @@ class SupabaseImporterRepository:
         )
         return importer_id
 
-    def _resolve_legacy_no_owner(self, slug: str) -> str:
+    async def _resolve_legacy_no_owner(self, slug: str) -> str:
         """Legacy agent@ catch-all path: importer identity is the global slug.
 
         Returns the existing slug row if any, else falls back to
         default_importer_id (no forwarding owner to anchor a new row to —
         T-45-05-02).
         """
-        result = self._client.table("importers").select("id").eq("slug", slug).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("importers").select("id").eq("slug", slug).execute()
+        )
         if result.data:
             row = cast("dict[str, Any]", result.data[0])
             return str(row["id"])
@@ -145,14 +150,16 @@ class SupabaseImporterRepository:
         )
         return self._default_importer_id
 
-    def _find_owned_importer_id(self, slug: str, user_id: str) -> str | None:
+    async def _find_owned_importer_id(self, slug: str, user_id: str) -> str | None:
         """Return the importer id owned by user_id for this slug, or None."""
-        result = (
-            self._client.table("importers")
-            .select("id")
-            .eq("slug", slug)
-            .eq("user_id", user_id)
-            .execute()
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table("importers")
+                .select("id")
+                .eq("slug", slug)
+                .eq("user_id", user_id)
+                .execute()
+            )
         )
         if result.data:
             row = cast("dict[str, Any]", result.data[0])
@@ -165,5 +172,7 @@ class SupabaseImporterRepository:
         Empty list when the user owns no importers (fail-closed — callers
         must never fall back to "all importers" on an empty result).
         """
-        result = self._client.table("importers").select("id").eq("user_id", user_id).execute()
+        result = await asyncio.to_thread(
+            lambda: self._client.table("importers").select("id").eq("user_id", user_id).execute()
+        )
         return [str(cast("dict[str, Any]", row)["id"]) for row in result.data]
