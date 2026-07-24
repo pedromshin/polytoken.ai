@@ -4,7 +4,21 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: BATCH 3 IN FLIGHT 🔧 (2026-07-24, branch @ 6695956) — 2 UI worktree agents running; batch-2 fully live
+## Status: BATCH 3 SHIPPED TO MAIN ✅ (2026-07-24, main @ 8dd874e) — Vercel prod build triggered
+
+> Pedro said "full go to main with everything ... no users, ship and I'll verify once up."
+> Fast-forwarded main 1525a44..8dd874e (11 commits, web/api-client/planning only — NO listener
+> or migration changes, so ONLY the Vercel web build fires; listener untouched). Prod `next
+> build` verified clean locally first (every route compiled, static/dynamic gen OK) with
+> placeholder env. What went live: maritime hidden in Knowledge/entity-types, body overlays
+> fixed (text-anchored highlighter), canvas-on-mobile, FAB overlap fix, double-send latch,
+> stuck-skeleton fallback, searchable chat email picker, treemap gesture isolation. Verify at
+> https://polytoken.ai once Vercel finishes (~2-5 min). Migration 0050 was already applied to
+> prod earlier this session (data purge done).
+> NOT shipped (staged for an attended session): #21 editor-becomes-preview merge, #22 treemap
+> expand/add-node polish.
+
+## Prior status: BATCH 3 IN FLIGHT 🔧 (2026-07-24) — 2 UI worktree agents (salvaged after restart)
 
 > BATCH 2 is DONE and LIVE on prod. Listener deploy run 30052959299 (main@1525a44)
 > concluded **SUCCESS** ✅ (verified via actions_get 2026-07-24) — email-context importer
