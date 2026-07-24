@@ -245,6 +245,7 @@ vi.mock("~/trpc/react", () => ({
 // for router.prefetch — jsdom has no App Router mounted, so stub it.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { InboxThreePane, type InboxData } from "../inbox-three-pane";
@@ -419,9 +420,10 @@ describe("inbox-structure (ROADMAP criterion 1, the anti-re-token gate)", () => 
 
     // A rename (e.g. "reading" -> "preview") would change the SET, not just
     // shrink a count — asserting set equality is what a rename cannot
-    // silently pass. The fixture's default-selected email (EMAIL_1) carries
-    // entities, so the entities pane is present under this fixture.
-    expect(paneNames).toEqual(new Set(["filters", "threads", "reading", "entities"]));
+    // silently pass. The editor is the reading pane now (one surface), so the
+    // separate entities aside is gone — its entity detail lives in the editor's
+    // own inspector/layers/summary.
+    expect(paneNames).toEqual(new Set(["filters", "threads", "reading"]));
   });
 
   it("Leg 6: the entities rail — every fact carries a valid data-tier", async () => {
@@ -464,23 +466,26 @@ describe("inbox-structure (ROADMAP criterion 1, the anti-re-token gate)", () => 
     expect(container.textContent).toBe("");
   });
 
-  it("Leg 8: the reading body carries font-serif and a bounded measure (inline-preview era: EmailBodyView's max-w-prose)", async () => {
-    // The reading pane's body now renders through the shared EmailBodyView
-    // inside the PreviewCarousel (the two-step inbox→editor hop is gone).
-    // The law is unchanged — the body is the user's own words (serif +
-    // data-evidence) inside a bounded measure — but the bound is now the
-    // view's `max-w-prose` container rather than ReadingPreview's inline
-    // `max-w-[56ch]`.
+  it("Leg 8: the reading pane gives the user's own words (the subject) the serif + data-evidence pair", async () => {
+    // The editor IS the preview now, and it is next/dynamic'd (ssr:false), so
+    // the body renders inside the lazily-loaded editor (not in jsdom's first
+    // paint). The reading pane's own user-material element is the subject —
+    // law 2 (the user's words carry serif + data-evidence) is asserted on it.
     const container = await mount(
       <InboxThreePane data={FAKE_DATA} isLoading={false} isError={false} />,
     );
 
     const desktopRoot = findByExactClassName(container, "hidden h-full md:block");
-    const bodyEl = desktopRoot.querySelector<HTMLElement>('[data-field="body"]');
+    const readingPane = desktopRoot.querySelector<HTMLElement>(
+      '[data-pane="reading"]',
+    );
+    expect(readingPane).not.toBeNull();
 
-    expect(bodyEl).not.toBeNull();
-    expect(bodyEl?.className).toContain("font-serif");
-    expect(bodyEl?.hasAttribute("data-evidence")).toBe(true);
-    expect(bodyEl?.closest('[class*="max-w-prose"]')).not.toBeNull();
+    const subjectEl = readingPane!.querySelector<HTMLElement>(
+      '[data-field="subject"]',
+    );
+    expect(subjectEl).not.toBeNull();
+    expect(subjectEl?.className).toContain("font-serif");
+    expect(subjectEl?.hasAttribute("data-evidence")).toBe(true);
   });
 });

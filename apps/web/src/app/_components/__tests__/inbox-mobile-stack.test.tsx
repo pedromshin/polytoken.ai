@@ -150,6 +150,7 @@ vi.mock("~/trpc/react", () => ({
 // for router.prefetch — jsdom has no App Router mounted, so stub it.
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ prefetch: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 import { InboxThreePane, type InboxData } from "../inbox-three-pane";

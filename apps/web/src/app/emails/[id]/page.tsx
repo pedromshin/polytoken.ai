@@ -1,21 +1,18 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { EmailDetail } from "./_components/email-detail";
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}): Promise<Metadata> {
-  const { id: _id } = await params;
-  return { title: "Loading… — Polytoken" };
-}
-
+/**
+ * /emails/[id] — the standalone editor route is gone: the editor IS the inbox
+ * inline preview now ("no separate things. just one thing"). This route stays
+ * resolvable so every deep link into it (provenance, chat citations, knowledge,
+ * the omnibox, circle-pack leaves) keeps working — it redirects to the inbox
+ * with that email pre-selected (?email=<id>), where the same editor renders
+ * inline.
+ */
 export default async function EmailDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <EmailDetail emailId={id} />;
+  redirect(`/?email=${encodeURIComponent(id)}`);
 }

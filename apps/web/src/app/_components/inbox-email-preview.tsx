@@ -1,41 +1,55 @@
 "use client";
 
 /**
- * inbox-email-preview.tsx — the inline email preview pane (replaces the
- * text-only ReadingPreview and kills the inbox→editor two-step).
+ * inbox-email-preview.tsx — the inline email preview pane. The editor IS the
+ * preview now ("editor is the email preview itself, no separate things. just
+ * one thing"): selecting a row renders the FULL email editor in place — body +
+ * attachments, region overlays, layers/inspector — with no separate
+ * /emails/[id] surface and no "Open in editor" hop.
  *
- * The selected row now shows the WHOLE email in place: serif subject +
- * From/To meta (unchanged from ReadingPreview), the MAIL-01 rule-review slot
- * passed through UNCHANGED, then the PreviewCarousel — body first, then each
- * attachment page — with display-only region overlays. Editing still lives
- * on /emails/[id]; the footer link is the ONE remaining hop, for editing.
+ * The pane keeps its own subject + From/To meta header and the MAIL-01
+ * rule-review slot, then hands the rest of the frame to the embedded
+ * EmailDetail editor (embedded mode: no page <main>, no back-link, no
+ * focus-steal — a compact status/reprocess row instead).
  *
- * Data: `useEmailPreview` runs the same cheap `emails.detail` query the row
- * hover already prefetches, so the carousel's critical path is usually a
- * cache hit. The header and body fall back to the emails.list projection the
- * parent already holds, so the pane paints instantly even on a cold cache.
- *
- * pdfjs never loads with the inbox shell: the react-pdf-bearing slide view
- * is next/dynamic'd (ssr: false) inside PreviewCarousel and only mounts when
- * an attachment slide becomes near-active.
+ * The editor (react-pdf / CanvasShell / all the editing machinery) is
+ * next/dynamic'd with ssr:false so it never ships with the inbox shell and
+ * only loads when a preview actually mounts — preserving the old carousel's
+ * "pdfjs stays out of the inbox" property.
  */
 
 // Explicit React import — vitest's esbuild transform needs `React` in scope
 // when a test mounts this component (see inbox-three-pane.tsx's note).
 import * as React from "react";
-import Link from "next/link";
+import dynamic from "next/dynamic";
 
-import { PreviewCarousel } from "~/components/email-preview/preview-carousel";
-import { useEmailPreview } from "~/components/email-preview/use-email-preview";
+import { Skeleton } from "@polytoken/ui/skeleton";
 
 import type { InboxEmailItem } from "./inbox-three-pane";
+
+/** The full email editor, embedded. Lazy + client-only so the inbox shell
+ * never bundles react-pdf / the editor machinery until a preview mounts. */
+const EmailEditor = dynamic(
+  () =>
+    import("~/app/emails/[id]/_components/email-detail").then(
+      (m) => m.EmailDetail,
+    ),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="min-h-0 flex-1 p-4" aria-busy="true" aria-label="Loading…">
+        <Skeleton className="h-full w-full rounded-card" />
+      </div>
+    ),
+  },
+);
 
 interface InboxEmailPreviewProps {
   /** The emails.list projection the parent already resolved (instant paint). */
   readonly email: InboxEmailItem | null;
   /**
    * MAIL-01: the suggest-only rule-review panel for THIS email, rendered
-   * between the meta line and the carousel — in-context during triage (HEY
+   * between the meta line and the editor — in-context during triage (HEY
    * Screener model), never a settings destination. Pre-built by the parent
    * so this pane stays presentational. Passed through UNCHANGED.
    */
@@ -46,8 +60,6 @@ export function InboxEmailPreview({
   email,
   ruleReview,
 }: InboxEmailPreviewProps): React.ReactElement {
-  const preview = useEmailPreview(email?.id ?? null);
-
   if (!email) {
     return (
       <div
@@ -66,64 +78,36 @@ export function InboxEmailPreview({
     ? `${email.senderName} <${email.senderAddress}>`
     : email.senderAddress;
 
-  const detailEmail = preview.data?.email ?? null;
-  // Prefer the detail row (it carries bodyHtml); fall back to the list
-  // projection's bodyText so the body slide paints before detail resolves.
-  const bodyText = detailEmail?.bodyText ?? email.bodyText;
-  const bodyHtml = detailEmail?.bodyHtml ?? null;
-
   return (
     <div
       data-pane="reading"
-      className="flex h-full min-h-0 flex-col overflow-hidden bg-leaf p-panel"
+      className="flex h-full min-h-0 flex-col overflow-hidden bg-leaf"
     >
-      {/* .rp-head: the subject is the user's own material (law 2) — a serif
-          h2, not muted chrome. */}
-      <h2
-        data-field="subject"
-        data-evidence
-        className="min-w-0 font-serif text-xl text-ink"
-      >
-        {email.subject ?? "(no subject)"}
-      </h2>
+      <div className="shrink-0 px-panel pt-panel">
+        {/* .rp-head: the subject is the user's own material (law 2) — a serif
+            h2, not muted chrome. */}
+        <h2
+          data-field="subject"
+          data-evidence
+          className="min-w-0 font-serif text-xl text-ink"
+        >
+          {email.subject ?? "(no subject)"}
+        </h2>
 
-      {/* .rp-meta: From/To are the user's material but they are metadata,
-          not prose — sans, under a ruled boundary. */}
-      <div className="mt-2.5 shrink-0 border-b border-hair pb-3.5 text-xs text-faded">
-        From: {sender} · To: {email.toAddresses.join(", ") || "—"}
+        {/* .rp-meta: From/To are the user's material but they are metadata,
+            not prose — sans, under a ruled boundary. */}
+        <div className="mt-2.5 border-b border-hair pb-3.5 text-xs text-faded">
+          From: {sender} · To: {email.toAddresses.join(", ") || "—"}
+        </div>
+
+        {ruleReview}
       </div>
 
-      {ruleReview}
-
-      {preview.isError ? (
-        <div role="alert" className="mt-4 border border-rule p-panel text-center">
-          <p className="text-sm font-semibold text-ink">
-            Unable to load this email&rsquo;s preview.
-          </p>
-          <p className="mt-1 text-xs text-faded">
-            Please try refreshing the page.
-          </p>
-        </div>
-      ) : (
-        <PreviewCarousel
-          key={email.id}
-          slides={preview.slides}
-          bodyText={bodyText}
-          bodyHtml={bodyHtml}
-          components={preview.data?.components}
-          onDocumentLoad={preview.onDocumentLoad}
-        />
-      )}
-
-      {/* The one remaining hop — editing (regions, confirm/deny, reprocess)
-          lives on the editor surface. */}
-      <div className="mt-2 shrink-0 border-t border-hair pt-2.5">
-        <Link
-          href={`/emails/${email.id}`}
-          className="text-xs font-semibold text-ink underline underline-offset-2"
-        >
-          Open in editor →
-        </Link>
+      {/* The editor IS the preview. It fills the rest of the frame; on a phone
+          its side panels collapse to sheets (CanvasShell), on desktop they sit
+          inline. `key` remounts it per email so its internal state resets. */}
+      <div className="min-h-0 flex-1">
+        <EmailEditor key={email.id} emailId={email.id} embedded />
       </div>
     </div>
   );

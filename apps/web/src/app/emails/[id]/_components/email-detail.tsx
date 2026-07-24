@@ -155,9 +155,18 @@ function getCandidateFieldKey(
 
 interface EmailDetailProps {
   emailId: string;
+  /**
+   * EMBEDDED mode (the inbox inline preview — "editor is the email preview
+   * itself, no separate things"). When true the editor renders WITHOUT the
+   * page `<main>`, the back-to-inbox link, or the mount-focus `<h1>` (the inbox
+   * owns the subject and must not have focus stolen on every selection). A
+   * compact status/reprocess row replaces the full page header. Default false
+   * keeps the standalone-page behavior byte-identical.
+   */
+  embedded?: boolean;
 }
 
-export function EmailDetail({ emailId }: EmailDetailProps) {
+export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   const { data, isLoading, isError } = api.emails.detail.useQuery({
     id: emailId,
   });
@@ -274,8 +283,10 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
 
   const h1Ref = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    h1Ref.current?.focus();
-  }, []);
+    // Embedded in the inbox: the preview mounts on every selection change, so
+    // stealing focus to the subject would yank the caret off the thread list.
+    if (!embedded) h1Ref.current?.focus();
+  }, [embedded]);
 
   // Auto-open the first PDF attachment on load (the preview is the core
   // surface) — but only ONCE. After the user closes it, the canvas falls back
@@ -295,12 +306,16 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
     }
   }, [data, activeAttachmentId]);
 
+  // Page renders as <main>; embedded (inbox) renders as a plain <div> so it
+  // never nests a second <main> inside the inbox's landmark.
+  const Root = embedded ? "div" : "main";
+
   if (isLoading) {
     // The skeleton predicts the frame it stands in — a header bar, then the
     // canvas zone — so the load reads as this page assembling rather than as
     // three slabs that resemble nothing which ever arrives.
     return (
-      <main className="h-full">
+      <Root className="h-full">
         <div
           className="flex h-full flex-col"
           aria-busy="true"
@@ -316,7 +331,7 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
             <Skeleton className="h-full w-full rounded-card" />
           </div>
         </div>
-      </main>
+      </Root>
     );
   }
 
@@ -330,7 +345,7 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
     // leak server-side detail to the client for no user benefit. Whatever
     // went wrong, the user's move is the same: refresh.
     return (
-      <main className="h-full p-6">
+      <Root className="h-full p-6">
         <div role="alert" className="border border-rule p-panel">
           <p className="text-sm font-semibold text-ink">
             Failed to load email
@@ -339,20 +354,20 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
             Unable to load this email. Please try refreshing the page.
           </p>
         </div>
-      </main>
+      </Root>
     );
   }
 
   if (data === null || data === undefined) {
     return (
-      <main className="h-full p-6">
+      <Root className="h-full p-6">
         <div className="border border-rule p-panel">
           <p className="text-sm font-semibold text-ink">Email not found</p>
           <p className="mt-1 text-xs text-faded">
             Email not found. It may have been deleted or the link is invalid.
           </p>
         </div>
-      </main>
+      </Root>
     );
   }
 
@@ -683,53 +698,80 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
     ) : (
       // No attachment open — render the email body as the document. For a
       // body-only email (no attachment bytes, e.g. Gmail-forwarded) this IS the
-      // whole message; EmailBodyView also handles the truly-empty case.
-      <EmailBodyView bodyText={email.bodyText} bodyHtml={email.bodyHtml} />
+      // whole message; EmailBodyView also handles the truly-empty case. Passing
+      // `components` paints the email_body-sourced region highlights (text-
+      // anchored, display-only) so the body shows its detected regions too.
+      <EmailBodyView
+        bodyText={email.bodyText}
+        bodyHtml={email.bodyHtml}
+        components={components}
+      />
     );
 
   return (
-    <main className="flex flex-col h-full">
-      {/* Header row: back link, subject, parse-status marker, reprocess button.
-          Mirrors the reference's .rp-head — the subject leads, everything
-          else is chrome ranged around it. */}
-      <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-hair px-row-x py-row-y">
-        <Link
-          href="/"
-          className="text-sm text-faded transition-colors hover:text-ink"
-        >
-          ← Back to inbox
-        </Link>
-        {/* The subject is the user's own mail, not our label for it — law 2
-            gives the document's words the serif. This is also the page's a11y
-            entry point: h1Ref + tabIndex={-1} + the mount-focus effect are
-            load-bearing, and the subject stays a plain React text node
-            (T-60-02) — never interpolated into a class or a style. */}
-        <h1
-          ref={h1Ref}
-          className="flex-1 truncate font-serif text-xl font-semibold text-ink outline-none"
-          data-evidence
-          tabIndex={-1}
-        >
-          {subject}
-        </h1>
-        {/* ING-6: the lifecycle is now driven by the listener — 'failed' /
-            'degraded' are reachable states, rendered visibly distinct (ink
-            weight, never madder) with the recorded parse_error surfaced. */}
-        <ParseStatusMarker
-          status={email.parseStatus}
-          error={email.parseError}
-        />
+    <Root className="flex flex-col h-full">
+      {embedded ? (
+        // EMBEDDED (inbox): the inbox already renders the subject + meta above
+        // this editor, so the compact row carries only the parse status + the
+        // reprocess action — no back-link, no second subject, no focus-steal.
+        <div className="flex shrink-0 items-center justify-end gap-3 border-b border-hair px-row-x py-2">
+          <ParseStatusMarker
+            status={email.parseStatus}
+            error={email.parseError}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Reprocess this email"
+            disabled={reprocessMutation.isPending}
+            onClick={() => setReprocessDialogOpen(true)}
+          >
+            Reprocess
+          </Button>
+        </div>
+      ) : (
+        /* Header row: back link, subject, parse-status marker, reprocess button.
+            Mirrors the reference's .rp-head — the subject leads, everything
+            else is chrome ranged around it. */
+        <header className="flex shrink-0 flex-wrap items-center gap-4 border-b border-hair px-row-x py-row-y">
+          <Link
+            href="/"
+            className="text-sm text-faded transition-colors hover:text-ink"
+          >
+            ← Back to inbox
+          </Link>
+          {/* The subject is the user's own mail, not our label for it — law 2
+              gives the document's words the serif. This is also the page's a11y
+              entry point: h1Ref + tabIndex={-1} + the mount-focus effect are
+              load-bearing, and the subject stays a plain React text node
+              (T-60-02) — never interpolated into a class or a style. */}
+          <h1
+            ref={h1Ref}
+            className="flex-1 truncate font-serif text-xl font-semibold text-ink outline-none"
+            data-evidence
+            tabIndex={-1}
+          >
+            {subject}
+          </h1>
+          {/* ING-6: the lifecycle is now driven by the listener — 'failed' /
+              'degraded' are reachable states, rendered visibly distinct (ink
+              weight, never madder) with the recorded parse_error surfaced. */}
+          <ParseStatusMarker
+            status={email.parseStatus}
+            error={email.parseError}
+          />
 
-        <Button
-          variant="outline"
-          size="sm"
-          aria-label="Reprocess this email"
-          disabled={reprocessMutation.isPending}
-          onClick={() => setReprocessDialogOpen(true)}
-        >
-          Reprocess Email
-        </Button>
-      </header>
+          <Button
+            variant="outline"
+            size="sm"
+            aria-label="Reprocess this email"
+            disabled={reprocessMutation.isPending}
+            onClick={() => setReprocessDialogOpen(true)}
+          >
+            Reprocess Email
+          </Button>
+        </header>
+      )}
 
       <ReprocessDialog
         open={reprocessDialogOpen}
@@ -796,6 +838,6 @@ export function EmailDetail({ emailId }: EmailDetailProps) {
           canvas={canvasZone}
         />
       </div>
-    </main>
+    </Root>
   );
 }

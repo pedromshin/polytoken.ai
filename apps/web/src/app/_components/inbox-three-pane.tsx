@@ -8,8 +8,8 @@ import Link from "next/link";
 // this component directly (mirrors genui-panel-node.tsx's identical note —
 // found live, 53-03-PLAN.md Task 1, inbox-mobile-stack.test.tsx).
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { Button } from "@polytoken/ui/button";
@@ -179,6 +179,21 @@ export function InboxThreePane({
   // handleSelectMemberMobile below vs. the background default-select effect,
   // which only ever sets selectedEmailId).
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+
+  // Inbound deep-link seed: /emails/[id] redirects here as /?email=<id> so
+  // every provenance/chat/knowledge/omnibox link still resolves — it now opens
+  // that email in the inline editor. The param is a one-time seed per distinct
+  // value (it does not fight subsequent user selection).
+  const searchParams = useSearchParams();
+  const emailParam = searchParams.get("email");
+  const seededEmailParamRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (emailParam && emailParam !== seededEmailParamRef.current) {
+      seededEmailParamRef.current = emailParam;
+      setSelectedEmailId(emailParam);
+      setMobileView("detail");
+    }
+  }, [emailParam]);
 
   // Accumulated extra pages fetched via Load-more, appended after the seed page.
   const [extraItems, setExtraItems] = useState<ReadonlyArray<InboxThreadItem>>(
@@ -418,10 +433,11 @@ export function InboxThreePane({
   const utils = api.useUtils();
   const prefetchEmailDetail = useCallback(
     (emailId: string) => {
-      router.prefetch(`/emails/${emailId}`);
+      // The editor is inline now (no /emails/[id] navigation), so only the
+      // data cache needs warming — the row click just sets selection.
       void utils.emails.detail.prefetch({ id: emailId });
     },
-    [router, utils],
+    [utils],
   );
   const hoverPrefetch = useHoverPrefetch(prefetchEmailDetail);
 
@@ -430,13 +446,13 @@ export function InboxThreePane({
       {/* Desktop (>=md): the exact three-pane ResizablePanelGroup, byte-identical. */}
       <div data-tree="desktop" className="hidden h-full md:block">
         <ResizablePanelGroup direction="horizontal" className="h-full">
-      <ResizablePanel defaultSize={18} minSize={14}>
+      <ResizablePanel defaultSize={16} minSize={12}>
         <FiltersRail filter={filter} onFilterChange={setFilter} />
       </ResizablePanel>
 
       <ResizableHandle withHandle />
 
-      <ResizablePanel defaultSize={42} minSize={28}>
+      <ResizablePanel defaultSize={38} minSize={26}>
         <div data-pane="threads" className="flex h-full flex-col bg-leaf">
           <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-hair bg-leaf px-4 py-3">
             <h2 className="text-base font-semibold text-ink">Inbox</h2>
@@ -525,24 +541,13 @@ export function InboxThreePane({
 
       <ResizableHandle withHandle />
 
-      <ResizablePanel defaultSize={40}>
-        {/* Reading column + the fourth pane, as a horizontal flex INSIDE
-            this one ResizablePanel — not a fourth ResizablePanel (the
-            reference's `.entities` is a fixed-width aside, not a
-            resizable one; adding a panel would renegotiate all three
-            existing defaultSizes for no design gain). */}
-        <div className="flex h-full">
-          <div className="min-w-0 flex-1">
-            <InboxEmailPreview email={selectedEmail} ruleReview={ruleReviewPanel} />
-          </div>
-          <InboxEntitiesRail
-            entities={
-              selectedEmailId ? (entitiesByEmailId.get(selectedEmailId) ?? []) : []
-            }
-            emailId={selectedEmailId ?? ""}
-            onSelect={setSelectedEmailId}
-          />
-        </div>
+      <ResizablePanel defaultSize={46}>
+        {/* Reading column = the inline editor, which now IS the preview. The
+            separate entities aside was removed: the editor's own inspector /
+            layers / summary carry the entity detail, and the 4-zone editor
+            needs the whole pane's width to breathe (below md it collapses its
+            side panels into sheets — CanvasShell). */}
+        <InboxEmailPreview email={selectedEmail} ruleReview={ruleReviewPanel} />
       </ResizablePanel>
         </ResizablePanelGroup>
       </div>
