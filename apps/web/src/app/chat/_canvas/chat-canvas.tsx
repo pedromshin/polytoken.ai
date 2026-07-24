@@ -84,6 +84,7 @@ import {
 } from "./canvas-selection";
 import { useCanvasHistory } from "./use-canvas-history";
 import { CanvasEmptyState } from "./canvas-empty-state";
+import { AddNodeMenu } from "./add-node-menu";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   CanvasKeyboardHint,
@@ -161,6 +162,9 @@ const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)
 const PANE_ADDABLE_NODE_TYPES: ReadonlySet<string> = new Set([
   "email-thread",
   "knowledge-preview",
+  // circle-pack (the mailbox/drive landscape) needs no picker — its data is a
+  // bare scope ref, so the pane menu can materialize it directly (onAddNode).
+  "circle-pack",
 ]);
 
 /** Node types whose data maps to an AI-04 `SendableObject` (`useSendTo`
@@ -742,6 +746,44 @@ export function ChatCanvas({
     [nodes, setNodes, persistence, canvasStore, history],
   );
 
+  // TM-03/TM-04: materialize a circle-pack landscape node (mailbox or drive)
+  // near the viewport center, selected, cascading off any overlap — the same
+  // placement mechanics as handleAddEmailThread. No picker: the scope ref is
+  // all node.data needs; the sender→thread→email / folder→file hierarchy
+  // rehydrates on the node (emails.circlePackLandscape / files.folderSizeRollup).
+  const handleAddCirclePack = useCallback(
+    (scope: "mailbox" | "drive") => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodes.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, width: 360, height: 320 },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `circle-pack:${crypto.randomUUID()}`,
+        type: "circle-pack",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { scope },
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [nodes, setNodes, persistence, canvasStore, history],
+  );
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -929,6 +971,9 @@ export function ChatCanvas({
         if (nodeType === "email-thread") setEmailThreadOpenNonce((n) => n + 1);
         else if (nodeType === "knowledge-preview")
           setKnowledgeOpenNonce((n) => n + 1);
+        // circle-pack materializes directly (no picker) — default the mailbox
+        // landscape from the pane menu; the Panel's AddNodeMenu offers drive too.
+        else if (nodeType === "circle-pack") handleAddCirclePack("mailbox");
       },
       onPaste: runPaste,
       onFitView: runFitView,
@@ -1033,6 +1078,7 @@ export function ChatCanvas({
       canvasStore,
       sendToChat,
       defaultConversationId,
+      handleAddCirclePack,
     ],
   );
 
@@ -1285,6 +1331,19 @@ export function ChatCanvas({
                         each segment's hover fill to the card's radius.
                       */}
                       <div className="flex items-center overflow-hidden rounded-card border border-rule bg-bright">
+                        {/* Primary, touch-reachable "Add node" menu (mobile has
+                            no right-click pane menu). Offers the landscape
+                            treemaps directly + opens the thread/knowledge
+                            pickers via the popovers' nonces below. */}
+                        <AddNodeMenu
+                          onAddCirclePack={handleAddCirclePack}
+                          onAddEmailThread={() =>
+                            setEmailThreadOpenNonce((n) => n + 1)
+                          }
+                          onAddKnowledge={() =>
+                            setKnowledgeOpenNonce((n) => n + 1)
+                          }
+                        />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}
                           requestOpenNonce={emailThreadOpenNonce}
