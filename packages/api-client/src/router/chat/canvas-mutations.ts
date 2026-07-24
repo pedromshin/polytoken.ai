@@ -59,6 +59,7 @@ import {
 } from "@polytoken/capabilities";
 import { ChatCanvasLayouts } from "@polytoken/db/schema";
 import { assertConversationOwnership, type OwnershipDb } from "@polytoken/db/ownership";
+import { CanvasRepositoryError } from "@polytoken/db/canvas-repository";
 
 import { protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
@@ -68,6 +69,13 @@ import {
   MAX_CANVAS_NODES,
   type CanvasSnapshot,
 } from "./canvas-schema";
+import {
+  addNodeRow,
+  bestEffortRowWrite,
+  canvasRowMode,
+  connectRow,
+  removeNodeRow,
+} from "./canvas-store-backend";
 
 /** The canvas-mutation registry, resolved by id (INV-2). Built once at module load. */
 const registry = createCapabilityRegistry<CanvasExecCtx, CanvasScope>(CANVAS_CAPABILITIES);
@@ -342,50 +350,164 @@ async function runCanvasCapability(id: string, rawInput: unknown, db: DbHandle):
   return capability.execute(parsed as never, { store: createCanvasMutationStore(db) } as never);
 }
 
+/**
+ * Map a RowStore precondition error (thrown by CanvasRepository when RowStore is
+ * AUTHORITATIVE under CANVAS_ROW_MODEL=read_rows) to the same TRPCError codes the
+ * blob path raises: a full canvas -> PRECONDITION_FAILED, a missing connect
+ * endpoint -> BAD_REQUEST. Rethrows anything else untouched.
+ */
+function asTrpcError(err: unknown): never {
+  if (err instanceof CanvasRepositoryError) {
+    throw new TRPCError({
+      code: err.code === "ENDPOINT_MISSING" ? "BAD_REQUEST" : "PRECONDITION_FAILED",
+      message: err.message,
+    });
+  }
+  throw err;
+}
+
 // ---------------------------------------------------------------------------
 // Procedures
 // ---------------------------------------------------------------------------
 
 export const chatCanvasMutationProcedures = {
-  /** addCanvasNode — the server half of `canvas.addNode`. Ownership FIRST, then the capability. */
+  /**
+   * addCanvasNode — the server half of `canvas.addNode`. Ownership FIRST, then the
+   * capability. The persistence backend is chosen by CANVAS_ROW_MODEL: `off` /
+   * `dual_write` keep the blob authoritative (dual_write best-effort-mirrors to a
+   * row); `read_rows` makes the per-row RowStore authoritative (closing the
+   * whole-row LWW race) and best-effort-mirrors back to the blob. The output shape
+   * (`{ nodeId, nodeType, created }`) is identical in every mode.
+   */
   addCanvasNode: protectedProcedure
     .input(canvasAddNodeInputSchema)
     .mutation(async ({ ctx, input }) => {
       await assertOwnedOrNotFound(() =>
         assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
       );
-      return (await runCanvasCapability(
+
+      const mode = canvasRowMode();
+      if (mode === "read_rows") {
+        const row = await addNodeRow(
+          ctx.db,
+          input.conversationId,
+          ctx.user.id,
+          input.nodeType,
+          input.data,
+          input.position ?? undefined,
+        ).catch(asTrpcError);
+        await bestEffortRowWrite("addCanvasNode:blob", () =>
+          runCanvasCapability("canvas.addNode", input, ctx.db),
+        );
+        return {
+          nodeId: row.nodeKey,
+          nodeType: row.nodeType,
+          created: row.created,
+        } as CanvasAddNodeOutput;
+      }
+
+      const blob = (await runCanvasCapability(
         "canvas.addNode",
         input,
         ctx.db,
       )) as CanvasAddNodeOutput;
+      if (mode === "dual_write") {
+        await bestEffortRowWrite("addCanvasNode:row", () =>
+          addNodeRow(
+            ctx.db,
+            input.conversationId,
+            ctx.user.id,
+            input.nodeType,
+            input.data,
+            input.position ?? undefined,
+          ),
+        );
+      }
+      return blob;
     }),
 
-  /** connectCanvasNodes — the server half of `canvas.connect`. */
+  /** connectCanvasNodes — the server half of `canvas.connect`. Same backend swap. */
   connectCanvasNodes: protectedProcedure
     .input(canvasConnectInputSchema)
     .mutation(async ({ ctx, input }) => {
       await assertOwnedOrNotFound(() =>
         assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
       );
-      return (await runCanvasCapability(
+
+      const sourcePath = input.sourcePath ?? CANVAS_CONNECT_DEFAULT_SOURCE_PATH;
+      const targetKey = input.targetKey ?? CANVAS_CONNECT_DEFAULT_TARGET_KEY;
+
+      const mode = canvasRowMode();
+      if (mode === "read_rows") {
+        const row = await connectRow(
+          ctx.db,
+          input.conversationId,
+          ctx.user.id,
+          input.sourceNodeId,
+          input.targetNodeId,
+          sourcePath,
+          targetKey,
+        ).catch(asTrpcError);
+        await bestEffortRowWrite("connectCanvasNodes:blob", () =>
+          runCanvasCapability("canvas.connect", input, ctx.db),
+        );
+        return { edgeId: row.edgeKey, created: row.created } as CanvasConnectOutput;
+      }
+
+      const blob = (await runCanvasCapability(
         "canvas.connect",
         input,
         ctx.db,
       )) as CanvasConnectOutput;
+      if (mode === "dual_write") {
+        await bestEffortRowWrite("connectCanvasNodes:row", () =>
+          connectRow(
+            ctx.db,
+            input.conversationId,
+            ctx.user.id,
+            input.sourceNodeId,
+            input.targetNodeId,
+            sourcePath,
+            targetKey,
+          ),
+        );
+      }
+      return blob;
     }),
 
-  /** removeCanvasNode — the server half of `canvas.removeNode`. */
+  /** removeCanvasNode — the server half of `canvas.removeNode`. Same backend swap. */
   removeCanvasNode: protectedProcedure
     .input(canvasRemoveNodeInputSchema)
     .mutation(async ({ ctx, input }) => {
       await assertOwnedOrNotFound(() =>
         assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
       );
-      return (await runCanvasCapability(
+
+      const mode = canvasRowMode();
+      if (mode === "read_rows") {
+        const row = await removeNodeRow(ctx.db, input.conversationId, input.nodeId).catch(
+          asTrpcError,
+        );
+        await bestEffortRowWrite("removeCanvasNode:blob", () =>
+          runCanvasCapability("canvas.removeNode", input, ctx.db),
+        );
+        return {
+          removed: row.removed,
+          node: row.node,
+          detachedEdges: row.detachedEdges,
+        } as CanvasRemoveNodeOutput;
+      }
+
+      const blob = (await runCanvasCapability(
         "canvas.removeNode",
         input,
         ctx.db,
       )) as CanvasRemoveNodeOutput;
+      if (mode === "dual_write") {
+        await bestEffortRowWrite("removeCanvasNode:row", () =>
+          removeNodeRow(ctx.db, input.conversationId, input.nodeId),
+        );
+      }
+      return blob;
     }),
 };

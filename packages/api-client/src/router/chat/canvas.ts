@@ -18,13 +18,11 @@
  * conversationId surfaces as NOT_FOUND.
  */
 
-import { eq } from "drizzle-orm";
-
-import { ChatCanvasLayouts } from "@polytoken/db/schema";
 import { assertConversationOwnership } from "@polytoken/db/ownership";
 
 import { protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
+import { readCanvasLayout, writeCanvasLayout } from "./canvas-store-backend";
 import {
   CanvasSnapshotSchema,
   getCanvasLayoutInputSchema,
@@ -53,8 +51,10 @@ export type { CanvasSnapshot, GetCanvasLayoutInput, SaveCanvasLayoutInput };
 
 export const chatCanvasProcedures = {
   /**
-   * getCanvasLayout — the single chat_canvas_layouts row for conversationId,
-   * or null if the conversation has never saved a canvas layout.
+   * getCanvasLayout — the single chat_canvas_layouts-shaped row for
+   * conversationId, or null if the conversation has never saved a canvas layout.
+   * The persistence backend (blob vs rows) is chosen by CANVAS_ROW_MODEL; the
+   * returned shape is identical in every mode (canvas-store-backend.ts).
    */
   getCanvasLayout: protectedProcedure
     .input(getCanvasLayoutInputSchema)
@@ -63,18 +63,14 @@ export const chatCanvasProcedures = {
         assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
       );
 
-      const [row] = await ctx.db
-        .select()
-        .from(ChatCanvasLayouts)
-        .where(eq(ChatCanvasLayouts.conversationId, input.conversationId))
-        .limit(1);
-
-      return row ?? null;
+      return readCanvasLayout(ctx.db, input.conversationId);
     }),
 
   /**
    * saveCanvasLayout — upsert by conversationId (D-05/D-06 — one row per
-   * conversation, debounced last-write-wins snapshot from the client).
+   * conversation, debounced last-write-wins snapshot from the client). The blob
+   * stays authoritative; under CANVAS_ROW_MODEL=dual_write/read_rows a best-effort
+   * row write mirrors it (canvas-store-backend.ts).
    */
   saveCanvasLayout: protectedProcedure
     .input(saveCanvasLayoutInputSchema)
@@ -85,27 +81,7 @@ export const chatCanvasProcedures = {
         assertConversationOwnership(ctx.db, conversationId, ctx.user.id),
       );
 
-      await ctx.db
-        .insert(ChatCanvasLayouts)
-        .values({
-          conversationId,
-          nodes: snapshot.nodes,
-          edges: snapshot.edges,
-          viewport: snapshot.viewport ?? null,
-          sharedState: snapshot.sharedState,
-          nodeRegistryVersion: snapshot.nodeRegistryVersion,
-        })
-        .onConflictDoUpdate({
-          target: ChatCanvasLayouts.conversationId,
-          set: {
-            nodes: snapshot.nodes,
-            edges: snapshot.edges,
-            viewport: snapshot.viewport ?? null,
-            sharedState: snapshot.sharedState,
-            nodeRegistryVersion: snapshot.nodeRegistryVersion,
-            updatedAt: new Date(),
-          },
-        });
+      await writeCanvasLayout(ctx.db, conversationId, ctx.user.id, snapshot);
 
       return { saved: true };
     }),
