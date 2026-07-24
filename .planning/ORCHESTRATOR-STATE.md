@@ -39,20 +39,39 @@
 tracker (v1.11); **THIS file is the live ledger.** The bottom-of-file `01RZ`/`jzz1pg` standing config
 is quarantined under a SUPERSEDED header.
 
-**NEXT (Track 2 finish DONE this block). Open build fronts, master-plan order:**
+**NEXT. Open build fronts, master-plan order:**
 1. ~~**Track 2 finish**~~ — DONE (9/9 groups on main, `container.py` 1434→218). ✅
-2. **Track 3 FOUNDATION (task #7)** — graphile-worker durable runtime [fixes the silent email loss] +
-   Workspace→Canvas→Node rows. Best as a worktree-isolated multiagent workflow. ← next big front.
+2. **Track 3 FOUNDATION (task #7) — Part A BUILT on the feature branch (NOT yet on main).** Ran an
+   understand→design→critique workflow (design at `assessment/2026-07-24/20-track3-design.md`), then
+   built + gated the whole confirmed-buildable set:
+   - **3a durable runtime:** A1 to_thread-wrap the ingest path (102 sites) · A2 JobEnqueuer port+adapter+DI ·
+     A3 `public.enqueue_job` graphile wrapper migration (0053) · A4 flag-gated SNS enqueue
+     (`INGEST_ENQUEUE_ENABLED`, default off — the silent-loss fix) · A5 internal `/v1/emails/ingest-job`
+     (5xx-on-fail) · A6 `apps/worker` co-located graphile-worker Node package.
+   - **3b canvas rows:** B1 canvases/canvas_nodes/canvas_edges schema + 0052 · B2 CanvasRepository ·
+     B3 `CANVAS_ROW_MODEL` flag (default off) + Blob/Row backends.
+   - **PROVEN beyond gates:** stood up a real pg16 + graphile-worker 0.17.3 cluster in-container (via
+     `runuser`) → the A3 SECURITY-DEFINER wrapper (add_job.id shape, job_key idempotency, allowlist,
+     service_role GRANT) and the A6 worker↔Python-HTTP seam (drain + 500→attempts++) are proven end-to-end.
+   - **Everything flag-OFF by default = zero runtime change.** All gates green (listener full `uv run pytest`
+     + mypy + ruff + lint-imports; web/db tsc + vitest for db/api-client/apps/web).
+   - **DEFERRED (by design):** A7 Dockerfile-rollout (docker daemon down here; = P4, Pedro) · A9
+     deep_research turn-detach (changes the live streaming turn; Part B) · A8 DLQ ops tRPC router
+     (no admin-auth pattern exists — don't invent one as a side effect; query `graphile_worker.jobs`
+     by SQL meanwhile). RLS/apply-from-scratch for 0052 is Track-2-CI-gated (no pgvector here).
+   - **⚠️ Part-B rollout is Pedro's coordinated step (P0–P12 in the design doc):** merging listener code
+     to `main` AUTO-REDEPLOYS the LIVE mail receiver (`deploy-email-listener.yml`). So Part A stays on the
+     FEATURE BRANCH; production = apply migrations (P3, after install-schema) → merge → flip flags. I did
+     NOT self-merge Track 3 to main.
 3. **Track 1** — Terraform remote state + import ALL live resources (careful; NO `apply` before import).
 4. **The "lives in it" proof (Pedro-only, gates everything)** — sign in on the deployed app + forward
    real mail (LIVE-03/04, CLUS-07). Nothing built counts as "usable" until this runs once.
 
-**Known loose end (pre-existing, NOT from this session's work):** `uv run mypy app` is RED — 4 errors
-in `app/application/use_cases/chat/__tests__/test_linked_context_email_reaches_model.py` (test stubs
-`_MessagesStub`/`_EmailRepo` don't satisfy the `ChatMessageRepository`/`EmailRepository` params of
-`system_prompt_with_linked_context`). Landed with task #6 (email-context-in-chat); on main before the
-Track 2 work. Every Track 2 group verified mypy-NEUTRAL against this baseline. Worth a small
-test-stub-typing fix.
+**Fixed this block:** the pre-existing mypy-RED (task-6 linked-context test stubs) — now `mypy app` = 0
+issues. Also fixed a Track-2 fallout: 2 tests under `tests/` imported promote factories from `app.container`
+that the entity split moved to `app.composition.entity_providers` — missed because the Track-2 gate ran
+`pytest app` while CI runs the full `uv run pytest` (collects `tests/`). Repointed; full suite green.
+**Lesson: gate the listener with `uv run pytest` (no path), matching CI — not `pytest app`.**
 
 ## RESUME PROTOCOL — a fresh/resumed session does this FIRST
 1. Branch is `claude/polytoken-email-infra-cont-qi9q5g`. `git fetch origin`; confirm you're on it.
