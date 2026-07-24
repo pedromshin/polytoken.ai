@@ -16,6 +16,18 @@
 >   - AI-creates-a-node-from-a-prompt (tell the agent → it builds a genui data node from the
 >     right SQL). Listener + web; the big "wow". Design in .planning/research/2026-07-23-
 >     CANVAS-WORKSPACE-PLATFORM.md.
+>     PRECISE GAP (scouted 2026-07-24): the `canvas.addNode` CAPABILITY already exists fully
+>     (packages/capabilities/src/canvas.ts — canvasAddNodeInputSchema validates nodeType + data
+>     against CANVAS_NODE_DATA_SCHEMAS + position), and the listener has the genui generator
+>     (emit_ui_spec, genui_generator_adapter.py). What's MISSING: (a) canvas.addNode is NOT
+>     registered as a chat TOOL the agent can call in a turn (no wiring in
+>     apps/email-listener/app/application), and (b) no client seam applies an agent
+>     canvas-tool-result to the live ReactFlow canvas + persists it. Building (a) touches the
+>     LIVE chat agent's tool set — a subtle error there breaks normal chat (the existing
+>     critical path), which is exactly why this must be verified against the live stack, NOT
+>     blind-shipped from an unattended backstop. Start: register canvas.addNode/connect/
+>     removeNode as agent tools (mirror table.create/update wiring), stream the tool result,
+>     apply on the client via the existing canvas history/persistence seam.
 >   - chat writes files into a node (into an existing dir/drive node or a new one).
 >   - document node create flow (documents router has no create yet — needs a mutation).
 > #13 listener-auth still deferred pending Pedro.
