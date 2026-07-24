@@ -4,7 +4,27 @@
 > UPDATE THIS FILE at every batch launch, batch completion, and merge. This file is the single
 > source of truth for "where are we"; chat context is disposable.
 
-## Status: ADD-NODES SHIPPED TO MAIN ✅ (2026-07-24, main @ 71a0ff4) — Vercel building
+## Status: EDITOR-MERGE SHIPPED TO MAIN ✅ (2026-07-24, main @ 54622c1) — Vercel building
+
+> Pedro: "everything is everything" — do it all, no more asking. Shipped the HEADLINE that
+> had been dodged all session:
+>   - 54622c1 feat(web): the editor IS the email preview (one surface, no /emails/[id] hop).
+>     EmailDetail gains an `embedded` mode (no <main>/back-link/focus-steal, compact
+>     status/Reprocess row); inbox-email-preview renders it via next/dynamic ssr:false (keeps
+>     pdfjs out of the inbox shell) with subject+meta+rule-review header; /emails/[id] is now a
+>     server redirect → /?email=<id> (every deep link still resolves; inbox seeds selection
+>     from the param); reading pane widened + entities aside removed there (detail lives in the
+>     editor's inspector). Body view now gets `components` so inline body shows its text-anchored
+>     highlights. Tests updated (inbox-structure pane set, useSearchParams mocks, route-loading).
+>     Web 136 files / 1718 green; prod build clean (/emails/[id] → 200B redirect). Task #21 DONE.
+> Fast-forwarded main 71a0ff4..54622c1 (web-only; only Vercel builds).
+>
+> ALL of tasks #21-#24 now DONE. Remaining stretch items (from the broader vision, not yet
+> built): AI-creates-a-node-from-a-prompt (mobile genui-from-SQL), more directly-addable node
+> types (spreadsheet/document create flows), chat-creates-files-into-a-node. #13 listener-auth
+> still deferred pending Pedro.
+
+## Prior status: ADD-NODES SHIPPED TO MAIN ✅ (2026-07-24, main @ 71a0ff4) — Vercel building
 
 > Pedro (justifiably) called out that "add nodes of various types" / "landscape isn't on the
 > canvas" was NOT done — I had wrongly filed it as low-priority polish. FIXED and shipped:
