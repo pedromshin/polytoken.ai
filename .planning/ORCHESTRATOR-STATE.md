@@ -63,9 +63,12 @@ into grouped `app/composition/*.py` modules, each owning its factories + a `regi
 - ✅ SAFETY NET first (`3772eae`): `app/__tests__/test_container_boot.py` resolves all 19 major
   top-level providers under mocked clients — their transitive closure spans nearly the whole
   graph. This is the gate: any binding lost during a move fails here loudly.
-- ✅ GROUP 1 GenUI (`a28402b`): 11 factories → `app/composition/genui_providers.py`. container.py
-  1434 → 1252 lines. Verified: 13 boot tests + mypy + lint-imports + 304 genui tests green. Zero
-  behavior change.
+- ✅ GROUP 1 GenUI (`a28402b`): 11 factories → `app/composition/genui_providers.py`. 1434 → 1252.
+  Verified: 13 boot tests + mypy + lint-imports + 304 genui tests green. Zero behavior change.
+- ✅ GROUP 2 Supabase repositories (`26748ad`): the highest-churn cluster (every repo→port binding +
+  retrieval/correction/instrumentation factories + 4 chat-spine repos) → `repository_providers.py`.
+  1252 → 1165. Verified: 13 boot tests + mypy + lint-imports + 86 chat/retrieval tests green.
+  PATTERN PROVEN + safety-netted: each further group is low-risk mechanical continuation.
 - ⛔ CONSTRAINT (do not trip): the boot tests patch `app.container.get_supabase_client` /
   `get_anthropic_client` / `boto3`. The client-singleton factories that call those globals MUST
   stay in container.py — only move factories that take `client`/ports as INJECTED params.
