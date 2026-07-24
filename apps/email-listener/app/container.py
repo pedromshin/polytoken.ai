@@ -48,8 +48,6 @@ from app.application.use_cases.edit_region import (
     SplitRegionUseCase,
 )
 from app.application.use_cases.evaluate_anticipatory_candidates import EvaluateAnticipatoryCandidates
-from app.application.use_cases.generate_code_island import GenerateCodeIslandUseCase
-from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
 from app.application.use_cases.manage_entity_types import (
     CreateEntityTypeUseCase,
@@ -69,7 +67,6 @@ from app.application.use_cases.reprocess_email import ReprocessEmailUseCase
 from app.application.use_cases.research.deep_research import define_research_capability
 from app.application.use_cases.resolve_entity_candidates import ResolveEntityCandidatesUseCase
 from app.application.use_cases.resolve_ingest_entities import ResolveIngestEntitiesUseCase
-from app.application.use_cases.resolve_retheme import ResolveRethemeUseCase
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.run_chat_turn_confirm_action import (
     SUGGESTION_KIND_EDGE_TIER_PROMOTION,
@@ -84,6 +81,7 @@ from app.application.use_cases.set_component_relationship import (
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.application.use_cases.synthesize_knowledge import KnowledgeSynthesizerService
+from app.composition import genui_providers
 from app.domain.ports.anticipatory_ports import AnticipatoryCapStore, AppropriatenessJudge
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -106,17 +104,14 @@ from app.domain.ports.entity_type_correction_repository import EntityTypeCorrect
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.forwarding_address_resolver import ForwardingAddressResolver
-from app.domain.ports.generation_audit_repository import GenerationAuditRepository
 from app.domain.ports.importer_resolver import ImporterResolver
 from app.domain.ports.knowledge_synthesizer import KnowledgeSynthesizer
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStore
 from app.domain.ports.retrieval_port import RetrievalPort
-from app.domain.ports.retrieval_provider import RetrievalProvider
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.source_ledger_repository import SourceLedgerRepository
 from app.domain.ports.thread_resolver import ThreadResolver
-from app.domain.ports.ui_spec_template_repository import UiSpecTemplateRepository
 from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.anticipatory.in_memory_cap_store import InMemoryAnticipatoryCapStore
@@ -132,13 +127,6 @@ from app.infrastructure.llm.chat_tools import (
 )
 from app.infrastructure.llm.embedding_adapter import EmbeddingAdapter
 from app.infrastructure.llm.entity_type_classifier_adapter import AnthropicEntityTypeClassifier
-from app.infrastructure.llm.genui_code_generator_adapter import GenuiCodeGeneratorAdapter
-from app.infrastructure.llm.genui_code_judge_adapter import GenuiCodeJudgeAdapter
-from app.infrastructure.llm.genui_generator_adapter import GenuiGeneratorAdapter
-from app.infrastructure.llm.genui_quarantine_adapter import GenuiQuarantineAdapter
-from app.infrastructure.llm.genui_retheme_adapter import GenuiRethemeAdapter
-from app.infrastructure.llm.genui_retrieval_provider import LexicalRetrievalProvider
-from app.infrastructure.llm.genui_style_packs import DEFAULT_PACK_ID, is_known_pack_id
 from app.infrastructure.llm.openrouter_chat_adapter import OpenRouterChatAdapter
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.ocr.textract_adapter import TextractOcrAdapter
@@ -177,8 +165,6 @@ from app.infrastructure.supabase.supabase_chat_widget_interaction_repository imp
     SupabaseChatWidgetInteractionRepository,
 )
 from app.infrastructure.supabase.supabase_cost_ledger_repository import SupabaseCostLedgerRepository
-from app.infrastructure.supabase.supabase_generation_audit_repository import SupabaseGenerationAuditRepository
-from app.infrastructure.supabase.supabase_ui_spec_template_repository import SupabaseUiSpecTemplateRepository
 from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
 from app.infrastructure.tools.duckduckgo_search_provider import DuckDuckGoSearchProvider
 from app.infrastructure.tools.lookup_entity_executor import (
@@ -673,96 +659,6 @@ def _provide_ingest_use_case(
     )
 
 
-def _provide_genui_quarantine_adapter(client: AsyncAnthropicBedrock) -> GenuiQuarantineAdapter:
-    """GenuiQuarantineAdapter — Call A of the dual-LLM generation pipeline (D-09, SAFE-01)."""
-    settings = get_settings()
-    return GenuiQuarantineAdapter(
-        client=client,
-        model_id=settings.genui_model_id,
-        max_tokens=settings.GENUI_QUARANTINE_MAX_TOKENS,
-        timeout_seconds=settings.GENUI_TIMEOUT_SECONDS,
-    )
-
-
-def _provide_genui_generator_adapter(client: AsyncAnthropicBedrock) -> GenuiGeneratorAdapter:
-    """GenuiGeneratorAdapter — Call B of the dual-LLM generation pipeline (D-09, SAFE-02)."""
-    settings = get_settings()
-    return GenuiGeneratorAdapter(
-        client=client,
-        model_id=settings.genui_model_id,
-        escalation_model_id=settings.genui_escalation_model_id,
-        max_tokens=settings.GENUI_GENERATOR_MAX_TOKENS,
-        timeout_seconds=settings.GENUI_TIMEOUT_SECONDS,
-    )
-
-
-def _provide_genui_retheme_adapter(client: AsyncAnthropicBedrock) -> GenuiRethemeAdapter:
-    """GenuiRethemeAdapter — PANL-04's one-shot NL re-theme resolution (Plan 52-05).
-
-    Reuses the SAME AsyncAnthropicBedrock client + primary model as the
-    declarative generator (genui_model_id) — this is a cheap, one-shot
-    classification-shaped call, not a full generation, so it shares the
-    generator's model tier rather than introducing a new one.
-    """
-    settings = get_settings()
-    return GenuiRethemeAdapter(
-        client=client,
-        model_id=settings.genui_model_id,
-        max_tokens=settings.GENUI_RETHEME_MAX_TOKENS,
-        timeout_seconds=settings.GENUI_TIMEOUT_SECONDS,
-    )
-
-
-def _provide_resolve_retheme_use_case(resolver: GenuiRethemeAdapter) -> ResolveRethemeUseCase:
-    """Factory for ResolveRethemeUseCase — injects the is_known_pack_id predicate + default pack id.
-
-    is_known_pack_id/DEFAULT_PACK_ID are imported here at the composition
-    root (not inside resolve_retheme.py itself) so the use case module stays
-    lint-imports-clean — it never imports app.infrastructure directly (see
-    resolve_retheme.py's module docstring for the full rationale).
-    """
-    return ResolveRethemeUseCase(
-        resolver=resolver,
-        is_known_pack_id=is_known_pack_id,
-        default_pack_id=DEFAULT_PACK_ID,
-    )
-
-
-def _provide_genui_code_generator_adapter(client: AsyncAnthropicBedrock) -> GenuiCodeGeneratorAdapter:
-    """GenuiCodeGeneratorAdapter — Call B of the PARALLEL code-island path (D-09, SAFE-02).
-
-    Emits arbitrary JS island code instead of a declarative SpecRoot. Uses a DEDICATED,
-    larger tier (Sonnet + big token budget + longer timeout): arbitrary UI code is
-    quality-/size-critical and non-cacheable, and the compact-spec budget (3000 tokens)
-    truncates a full custom design → invalid tool call → fallback.
-    """
-    settings = get_settings()
-    return GenuiCodeGeneratorAdapter(
-        client=client,
-        model_id=settings.genui_code_model_id,
-        escalation_model_id=settings.genui_code_escalation_model_id,
-        max_tokens=settings.GENUI_CODE_MAX_TOKENS,
-        timeout_seconds=settings.GENUI_CODE_TIMEOUT_SECONDS,
-    )
-
-
-def _provide_genui_code_judge_adapter(client: AsyncAnthropicBedrock) -> GenuiCodeJudgeAdapter:
-    """GenuiCodeJudgeAdapter — ranks N code-island candidates and picks the best.
-
-    Part of the PARALLEL multi-candidate code-island path: the generator fans out N
-    candidates concurrently (varied temperature) and this judge ranks them. Uses the
-    dedicated judge model (Sonnet by default); output is tiny (an index + reason) so it
-    reuses the code-island timeout as an upper bound on the small, fast ranking call.
-    """
-    settings = get_settings()
-    return GenuiCodeJudgeAdapter(
-        client=client,
-        model_id=settings.genui_code_judge_model_id,
-        max_tokens=settings.GENUI_CODE_JUDGE_MAX_TOKENS,
-        timeout_seconds=settings.GENUI_CODE_TIMEOUT_SECONDS,
-    )
-
-
 def _provide_anticipatory_judge(client: AsyncAnthropicBedrock) -> AppropriatenessJudge:
     """BedrockAppropriatenessJudgeAdapter — gate #1 of the ANTIC-02 dark pipeline (D-07/D-09).
 
@@ -1155,11 +1051,6 @@ def _provide_openrouter_chat_adapter(http_client: httpx.AsyncClient) -> OpenRout
     )
 
 
-def _provide_generation_audit_repository(client: Client) -> GenerationAuditRepository:
-    """SupabaseGenerationAuditRepository — best-effort audit for generation events (GEN-05, D-19)."""
-    return SupabaseGenerationAuditRepository(client=client)
-
-
 def _provide_cost_ledger_repository(client: Client) -> CostLedgerRepository:
     """SupabaseCostLedgerRepository — chat_cost_ledger adapter (FOUND-3, D-20/D-22)."""
     return SupabaseCostLedgerRepository(client=client)
@@ -1178,54 +1069,6 @@ def _provide_cost_circuit_breaker(ledger: CostLedgerRepository) -> CostCircuitBr
         per_session_cap_usd=settings.COST_CAP_PER_SESSION_USD,
         per_day_cap_usd=settings.COST_CAP_PER_DAY_USD,
         per_round_cap_usd=settings.COST_CAP_PER_ROUND_USD,
-    )
-
-
-def _provide_ui_spec_template_repository(client: Client) -> UiSpecTemplateRepository:
-    """SupabaseUiSpecTemplateRepository — exact-match cache for validated UI specs (CACHE-01, D-17)."""
-    return SupabaseUiSpecTemplateRepository(client=client)
-
-
-def _provide_lexical_retrieval_provider() -> RetrievalProvider:
-    """LexicalRetrievalProvider bound to RetrievalProvider port (17-04, RAG-01)."""
-    return LexicalRetrievalProvider()
-
-
-def _provide_generate_ui_spec_use_case(
-    quarantine: GenuiQuarantineAdapter,
-    generator: GenuiGeneratorAdapter,
-    audit: GenerationAuditRepository,
-    templates: UiSpecTemplateRepository,
-    retrieval_provider: RetrievalProvider,
-) -> GenerateUiSpecUseCase:
-    """Factory for GenerateUiSpecUseCase — orchestrates the cache→quarantine→generate→audit pipeline."""
-    return GenerateUiSpecUseCase(
-        quarantine=quarantine,
-        generator=generator,
-        audit=audit,
-        templates=templates,
-        retrieval_provider=retrieval_provider,
-    )
-
-
-def _provide_generate_code_island_use_case(
-    quarantine: GenuiQuarantineAdapter,
-    code_generator: GenuiCodeGeneratorAdapter,
-    judge: GenuiCodeJudgeAdapter,
-    audit: GenerationAuditRepository,
-) -> GenerateCodeIslandUseCase:
-    """Factory for GenerateCodeIslandUseCase — orchestrates the PARALLEL quarantine→fan-out→judge→audit pipeline.
-
-    Reuses the quarantine adapter (Call A) and the audit repository; no cache (code is
-    non-deterministic). Fans out GENUI_CODE_CANDIDATES generations concurrently (varied
-    temperature) and ranks them with the judge. Mirrors _provide_generate_ui_spec_use_case.
-    """
-    return GenerateCodeIslandUseCase(
-        quarantine=quarantine,
-        code_generator=code_generator,
-        judge=judge,
-        audit=audit,
-        candidates=get_settings().GENUI_CODE_CANDIDATES,
     )
 
 
@@ -1364,40 +1207,16 @@ def _build_provider() -> Provider:  # noqa: PLR0915
     provider.provide(RejectMergeUseCase)
     provider.provide(UnmergeEntityUseCase)
 
-    # ── GenUI generation layer (Phase 13-03) ──────────────────────────────────
-    # Dual-LLM quarantine pipeline (D-09, SAFE-01/SAFE-02, D-02, D-05/D-06/D-07).
-    # GenuiQuarantineAdapter (Call A) + GenuiGeneratorAdapter (Call B) both use
-    # the shared AsyncAnthropicBedrock client (already bound above as singleton).
-    provider.provide(_provide_genui_quarantine_adapter, provides=GenuiQuarantineAdapter)
-    provider.provide(_provide_genui_generator_adapter, provides=GenuiGeneratorAdapter)
-    # GenerationAuditRepository: Protocol port → SupabaseGenerationAuditRepository adapter.
-    provider.provide(_provide_generation_audit_repository, provides=GenerationAuditRepository)
-    # CostLedgerRepository: Protocol port → SupabaseCostLedgerRepository adapter (FOUND-3, D-20).
+    # ── Cost governance — ledger + fail-closed circuit breaker (FOUND-3, D-20/D-21) ──
+    # CostLedgerRepository: Protocol port → SupabaseCostLedgerRepository adapter.
     provider.provide(_provide_cost_ledger_repository, provides=CostLedgerRepository)
     # CostCircuitBreaker: fail-closed pre-turn gate + mid-stream abort (STREAM-03, D-20/D-21).
     provider.provide(_provide_cost_circuit_breaker, provides=CostCircuitBreaker)
-    # UiSpecTemplateRepository: Protocol port → SupabaseUiSpecTemplateRepository adapter (CACHE-01).
-    provider.provide(_provide_ui_spec_template_repository, provides=UiSpecTemplateRepository)
-    # LexicalRetrievalProvider: deterministic/lexical RAG bound to RetrievalProvider port (17-04).
-    provider.provide(_provide_lexical_retrieval_provider, provides=RetrievalProvider)
-    # GenerateUiSpecUseCase factory: quarantine + generator + audit + templates + retrieval all resolved first.
-    provider.provide(_provide_generate_ui_spec_use_case, provides=GenerateUiSpecUseCase)
 
-    # ── GenUI re-theme resolution (PANL-04, Plan 52-05) ───────────────────────
-    # One-shot NL instruction -> {style_pack_id, token_overrides} resolution,
-    # reusing the SAME AsyncAnthropicBedrock client (no new Bedrock transport).
-    provider.provide(_provide_genui_retheme_adapter, provides=GenuiRethemeAdapter)
-    provider.provide(_provide_resolve_retheme_use_case, provides=ResolveRethemeUseCase)
-
-    # ── GenUI code-island layer (PARALLEL path) ───────────────────────────────
-    # Emits arbitrary JS island code via forced tool-use, alongside the declarative
-    # spec path above (which is untouched). Reuses GenuiQuarantineAdapter (Call A) +
-    # GenerationAuditRepository; no cache (code output is non-deterministic). The
-    # generator fans out N candidates concurrently (varied temperature) and the judge
-    # ranks them to return the best design.
-    provider.provide(_provide_genui_code_generator_adapter, provides=GenuiCodeGeneratorAdapter)
-    provider.provide(_provide_genui_code_judge_adapter, provides=GenuiCodeJudgeAdapter)
-    provider.provide(_provide_generate_code_island_use_case, provides=GenerateCodeIslandUseCase)
+    # ── GenUI generation layer (Phase 13-03) — extracted group (Track 2 decomposition) ──
+    # Dual-LLM declarative-spec pipeline + parallel code-island path + NL re-theme resolver.
+    # All bindings live in app.composition.genui_providers.register (behavior unchanged).
+    genui_providers.register(provider)
 
     # ── Chat spine — multi-provider ChatProvider implementations (Phase 22) ──
     # Both adapters structurally implement ChatProvider but are bound to their
