@@ -171,6 +171,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
 
@@ -193,6 +196,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={null}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     const emptyWrapper = trigger(empty).parentElement!;
@@ -206,6 +212,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     const openWrapper = trigger(open).parentElement!;
@@ -221,6 +230,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={null}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -240,6 +252,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -256,6 +271,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={null}
         onNewChat={onNewChat}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -271,6 +289,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={onOpenConversation}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -292,6 +313,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -338,6 +362,9 @@ describe("ChatQuickActionsFab (task #18)", () => {
         selectedConversation={SELECTED}
         onNewChat={vi.fn()}
         onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
       />,
     );
     await openMenu(container);
@@ -349,5 +376,53 @@ describe("ChatQuickActionsFab (task #18)", () => {
       dialog!.querySelector('input[placeholder="Search models…"]'),
       "the Model… dialog must host the SAME ModelPickerPanel as the header trigger",
     ).not.toBeNull();
+  });
+
+  it("Test 7: Model mode + Effort submenu triggers render and follow the conversation-scoped disable rule", async () => {
+    // Empty state — both dials are conversation-scoped, so disabled with no
+    // conversation (same rule as Model…/Rename…/Duplicate).
+    const empty = await mount(
+      <ChatQuickActionsFab
+        selectedConversation={null}
+        onNewChat={vi.fn()}
+        onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
+      />,
+    );
+    await openMenu(empty);
+    for (const label of ["Model mode", "Effort"]) {
+      expect(
+        menuItem(label).getAttribute("aria-disabled"),
+        `"${label}" must be disabled while selectedConversation is null`,
+      ).toBe("true");
+    }
+    await act(async () => {
+      roots.pop()!.unmount();
+    });
+    containers.pop()!.remove();
+    document.body
+      .querySelectorAll('[role="menu"], [data-radix-portal]')
+      .forEach((node) => node.remove());
+
+    // Conversation open — both dials become reachable.
+    const open = await mount(
+      <ChatQuickActionsFab
+        selectedConversation={SELECTED}
+        onNewChat={vi.fn()}
+        onOpenConversation={vi.fn()}
+        modelSettings={{ mode: "standard", effort: "medium" }}
+        onSetMode={vi.fn()}
+        onSetEffort={vi.fn()}
+      />,
+    );
+    await openMenu(open);
+    for (const label of ["Model mode", "Effort"]) {
+      expect(
+        menuItem(label).getAttribute("aria-disabled"),
+        `"${label}" must be enabled while a conversation is open`,
+      ).toBeNull();
+    }
   });
 });

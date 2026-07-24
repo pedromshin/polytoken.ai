@@ -30,7 +30,12 @@ import { SaveStatusIndicator } from "./_canvas/save-status-indicator";
 import { TranscriptPanelHost } from "./_canvas/transcript-panel-host";
 import type { SaveStatus } from "./_canvas/use-canvas-persistence";
 import { useConversationController } from "./_hooks/use-conversation-controller";
+import {
+  useModelSettings,
+  type UseModelSettingsResult,
+} from "./_hooks/use-model-settings";
 import { useWebllmEngine, type UseWebllmEngineResult } from "./_hooks/use-webllm-engine";
+import { reconcileSelectedConversation } from "./reconcile-selection";
 
 /**
  * ChatHeaderRule (61-03) — the frame's ONE header rule.
@@ -90,6 +95,10 @@ interface ConversationViewProps {
    * Threaded through to ChatCanvasIsland -> ChatCanvas ->
    * CanvasPersistenceContext. */
   readonly onOpenConversation: (conversationId: string) => void;
+  /** The open conversation's reasoning dials (mode + effort), the SAME object
+   * ChatPage hands the FAB — threaded into the controller so send/regenerate
+   * carry them in the model-call body (write-through, not a UI-only knob). */
+  readonly modelSettings: UseModelSettingsResult;
 }
 
 /**
@@ -110,8 +119,14 @@ function ConversationView({
   webllm,
   railToggle,
   onOpenConversation,
+  modelSettings,
 }: ConversationViewProps): React.ReactElement {
-  const controller = useConversationController({ conversationId, modelId, webllm });
+  const controller = useConversationController({
+    conversationId,
+    modelId,
+    webllm,
+    modelSettings: modelSettings.settings,
+  });
   const [viewMode, setViewMode] = useState<ChatCanvasViewMode>(() =>
     readStoredViewMode(conversationId),
   );
@@ -261,6 +276,14 @@ export default function ChatPage(): React.ReactElement {
   // re-downloads the (large, first-run-only) WebLLM model weights.
   const webllm = useWebllmEngine();
 
+  // The open conversation's reasoning dials (mode + effort). Lifted HERE (not
+  // inside ConversationView) so the SAME instance drives both the model-call
+  // send path (ConversationView -> controller) and the FAB's dial menus — one
+  // source of truth, keyed per conversation (use-model-settings.ts). Re-keys
+  // to the newly-selected conversation automatically; null (empty state)
+  // yields defaults + no-op setters.
+  const modelSettings = useModelSettings(selectedId);
+
   const utils = api.useUtils();
   const { data: conversations } = api.chat.listConversations.useQuery({});
   const createConversation = api.chat.createConversation.useMutation({
@@ -317,6 +340,37 @@ export default function ChatPage(): React.ReactElement {
     if (!mostRecent) return;
     autoOpenedRef.current = true;
     setSelectedId(mostRecent.id);
+  }, [conversations, selectedId]);
+
+  // RECONCILE-STALE-SELECTION (task #4, criterion c) — a selected conversation
+  // that vanishes from the list (hard-deleted in another tab, or an id that is
+  // no longer accessible to this user) must NEVER strand the main column on a
+  // permanent "Loading conversation…" (the `selectedId && !selectedConversation`
+  // branch). When the id we point at is gone AND we had previously seen it in a
+  // loaded list, fall back to the newest-available conversation, or the empty
+  // state (a fresh chat) if none remain.
+  //
+  // The "had previously seen it" guard is load-bearing: createConversation /
+  // duplicate set selectedId to a brand-new id BEFORE the invalidated
+  // listConversations refetch includes it, so that id is legitimately absent
+  // for one render — we must NOT bounce away from it. Only an id that was in a
+  // list and later disappeared is treated as stale.
+  const seenConversationIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (conversations === undefined) return;
+    // Snapshot "seen before this list" BEFORE folding in the current ids, so a
+    // freshly-created id (present now, absent from the prior seen set) is not
+    // mistaken for a vanished one.
+    const seenBefore = new Set(seenConversationIdsRef.current);
+    for (const conversation of conversations) {
+      seenConversationIdsRef.current.add(conversation.id);
+    }
+    const action = reconcileSelectedConversation({
+      selectedId,
+      conversationIds: conversations.map((conversation) => conversation.id),
+      seenIds: seenBefore,
+    });
+    if (action) setSelectedId(action.nextSelectedId);
   }, [conversations, selectedId]);
 
   // Constructed HERE (this component owns both booleans) and rendered into the
@@ -394,6 +448,7 @@ export default function ChatPage(): React.ReactElement {
               webllm={webllm}
               railToggle={railToggle}
               onOpenConversation={handleOpenConversation}
+              modelSettings={modelSettings}
             />
           ) : (
             <>
@@ -434,6 +489,9 @@ export default function ChatPage(): React.ReactElement {
             selectedConversation={selectedConversation}
             onNewChat={handleNewChat}
             onOpenConversation={handleOpenConversation}
+            modelSettings={modelSettings.settings}
+            onSetMode={modelSettings.setMode}
+            onSetEffort={modelSettings.setEffort}
             onSelectBrowserModel={async () => {
               // Same 22-11 gate as useConversationController's
               // handleSelectBrowserModel: ensure the engine/weights before

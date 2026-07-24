@@ -6,7 +6,7 @@
 // see genui-panel-node.tsx / 53-03 / 53-04's identical fix).
 import * as React from "react";
 import { useState } from "react";
-import { Copy, Cpu, MessageSquarePlus, Pencil, Zap } from "lucide-react";
+import { Copy, Cpu, Gauge, MessageSquarePlus, Pencil, SlidersHorizontal, Zap } from "lucide-react";
 
 import { cn } from "@polytoken/ui";
 import { Button } from "@polytoken/ui/button";
@@ -21,7 +21,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@polytoken/ui/dropdown-menu";
 import { Input } from "@polytoken/ui/input";
@@ -30,6 +35,13 @@ import { api } from "~/trpc/react";
 
 import { ModelPickerPanel } from "./model-picker-panel";
 import { type WebllmEntryState } from "./model-picker-entry";
+import {
+  MODEL_MODE_OPTIONS,
+  REASONING_EFFORT_OPTIONS,
+  type ModelMode,
+  type ModelSettings,
+  type ReasoningEffort,
+} from "../_hooks/use-model-settings";
 
 export interface ChatQuickActionsFabProps {
   /** The open conversation, or null on the empty-state branch — the
@@ -50,6 +62,15 @@ export interface ChatQuickActionsFabProps {
   readonly onSelectBrowserModel?: (modelId: string) => Promise<void>;
   /** Visual state for the model panel's browser rows (D-08). */
   readonly webllm?: WebllmEntryState;
+  /** The open conversation's reasoning dials — the SAME object ChatPage hands
+   * ConversationView's controller, so the menu's checkmarks reflect exactly
+   * what the next model call will send (write-through, single source of
+   * truth). */
+  readonly modelSettings: ModelSettings;
+  /** Write the reasoning MODE for the open conversation (use-model-settings). */
+  readonly onSetMode: (mode: ModelMode) => void;
+  /** Write the reasoning EFFORT for the open conversation (use-model-settings). */
+  readonly onSetEffort: (effort: ReasoningEffort) => void;
 }
 
 /**
@@ -69,6 +90,9 @@ export function ChatQuickActionsFab({
   onOpenConversation,
   onSelectBrowserModel,
   webllm,
+  modelSettings,
+  onSetMode,
+  onSetEffort,
 }: ChatQuickActionsFabProps): React.ReactElement {
   const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -140,10 +164,6 @@ export function ChatQuickActionsFab({
             New chat
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {/* TODO(model-controls): "model mode" and "reasoning effort" would
-              slot in here next to "Model…" — but neither exists anywhere in
-              the model registry/schema/stream path today. Flagged for a
-              separate end-to-end scoping; do not build UI-only knobs here. */}
           <DropdownMenuItem
             disabled={!hasConversation}
             onClick={() => setModelDialogOpen(true)}
@@ -151,6 +171,48 @@ export function ChatQuickActionsFab({
             <Cpu className="mr-2 size-4" aria-hidden />
             Model…
           </DropdownMenuItem>
+          {/* Model mode + Effort — the reasoning dials. These write through
+              onSetMode/onSetEffort to the SAME per-conversation store the send
+              path reads (use-model-settings.ts), so a change here rides the
+              next model call's request body. Radio groups reflect the current
+              value with a checkmark; Radix keeps them arrow-key navigable and
+              submenu-openable from the keyboard on desktop. */}
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger disabled={!hasConversation}>
+              <SlidersHorizontal className="mr-2 size-4" aria-hidden />
+              Model mode
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={modelSettings.mode}
+                onValueChange={(value) => onSetMode(value as ModelMode)}
+              >
+                {MODEL_MODE_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger disabled={!hasConversation}>
+              <Gauge className="mr-2 size-4" aria-hidden />
+              Effort
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              <DropdownMenuRadioGroup
+                value={modelSettings.effort}
+                onValueChange={(value) => onSetEffort(value as ReasoningEffort)}
+              >
+                {REASONING_EFFORT_OPTIONS.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
           <DropdownMenuItem
             disabled={!hasConversation}
             onClick={() => {

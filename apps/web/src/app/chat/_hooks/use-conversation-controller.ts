@@ -30,6 +30,7 @@ import {
   type StreamState,
   type StreamTerminalState,
 } from "./use-chat-stream";
+import type { ModelSettings } from "./use-model-settings";
 import type { UseWebllmEngineResult } from "./use-webllm-engine";
 
 export const STREAMING_TURN_ID = "__streaming-turn__";
@@ -280,6 +281,12 @@ export interface UseConversationControllerOptions {
    * so switching conversations never re-instantiates or re-downloads the
    * WebLLM engine (D-08). */
   readonly webllm: UseWebllmEngineResult;
+  /** Per-conversation reasoning dials (mode + effort), the SAME object the
+   * FAB writes (use-model-settings.ts). Threaded into the server-locus send /
+   * regenerate / widget-submit request bodies so the dials genuinely travel
+   * with the model call rather than being a UI-only knob. Optional — a caller
+   * that omits it sends the pre-dial body unchanged. */
+  readonly modelSettings?: ModelSettings;
 }
 
 /**
@@ -355,6 +362,7 @@ export function useConversationController({
   conversationId,
   modelId,
   webllm,
+  modelSettings,
 }: UseConversationControllerOptions): ConversationController {
   const utils = api.useUtils();
   const { data: historyRows } = api.chat.getHistory.useQuery({
@@ -469,9 +477,9 @@ export function useConversationController({
     (interactionId: string, result: Readonly<Record<string, unknown>>) => {
       setInFlightWidget({ interactionId, status: "submitting" });
       historyCountAtStreamStartRef.current = (historyRows ?? []).length;
-      chatStream.submitWidget(interactionId, result, modelId);
+      chatStream.submitWidget(interactionId, result, modelId, modelSettings);
     },
-    [chatStream, modelId, historyRows],
+    [chatStream, modelId, historyRows, modelSettings],
   );
 
   // Browser-locus send path (D-08/D-09) — the SIBLING of chatStream.send for
@@ -554,9 +562,9 @@ export function useConversationController({
         return;
       }
       historyCountAtStreamStartRef.current = (historyRows ?? []).length;
-      chatStream.send(text, modelId);
+      chatStream.send(text, modelId, modelSettings);
     },
-    [chatStream, modelId, historyRows, isBrowserLocus, runWebllmTurn, widgetInteractions],
+    [chatStream, modelId, historyRows, isBrowserLocus, runWebllmTurn, widgetInteractions, modelSettings],
   );
 
   const handleStop = useCallback(() => {
@@ -575,9 +583,9 @@ export function useConversationController({
       setSiblingOverrides({});
       setRegeneratingActiveId(assistantMessageId);
       historyCountAtStreamStartRef.current = (historyRows ?? []).length;
-      chatStream.regenerate(assistantMessageId, modelId);
+      chatStream.regenerate(assistantMessageId, modelId, modelSettings);
     },
-    [chatStream, modelId, historyRows],
+    [chatStream, modelId, historyRows, modelSettings],
   );
 
   // CHAT-05: retry is the same operation as regenerate once a message id
@@ -593,7 +601,7 @@ export function useConversationController({
       return;
     }
     historyCountAtStreamStartRef.current = (historyRows ?? []).length;
-    chatStream.send(lastSentTextRef.current, modelId);
+    chatStream.send(lastSentTextRef.current, modelId, modelSettings);
   }, [
     regeneratingActiveId,
     handleRegenerate,
@@ -602,6 +610,7 @@ export function useConversationController({
     historyRows,
     isBrowserLocus,
     runWebllmTurn,
+    modelSettings,
   ]);
 
   const handleNavigateSibling = useCallback(
