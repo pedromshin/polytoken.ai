@@ -69,7 +69,14 @@ is quarantined under a SUPERSEDED header.
      to `main` AUTO-REDEPLOYS the LIVE mail receiver (`deploy-email-listener.yml`). So Part A stays on the
      FEATURE BRANCH; production = apply migrations (P3, after install-schema) → merge → flip flags. I did
      NOT self-merge Track 3 to main.
-3. **Track 1** — Terraform remote state + import ALL live resources (careful; NO `apply` before import).
+3. **Track 1** — remote state + import. **Safe prep DONE; execution is Pedro-only** (no terraform
+   binary/creds in-container). Found + closed a real gap: `IMPORT-RUNBOOK.md` covered only the 5
+   forwarder resources, but the full stack is 46 — a fresh checkout's `apply` would try to CREATE the
+   live SES rules/SNS/S3 → mail outage. New `infrastructure/aws/REMOTE-STATE-RUNBOOK.md`: state
+   backend+lock setup, `init -migrate-state` as the primary path (imports nothing), the re-import
+   fallback with config-derivable mail-pipeline IDs + the for_each/count gotcha, and the hard gate
+   (`terraform plan` must show ZERO create/replace on any live resource before apply). main.tf's
+   commented backend block completed (dynamodb_table + encrypt). Commit `3c6b9b4`.
 4. **The "lives in it" proof (Pedro-only, gates everything)** — sign in on the deployed app + forward
    real mail (LIVE-03/04, CLUS-07). Nothing built counts as "usable" until this runs once.
 
