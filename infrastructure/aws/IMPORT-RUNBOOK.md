@@ -1,5 +1,11 @@
 # IMPORT-RUNBOOK — SES personal-mail forwarder drift codification
 
+> **Scope:** this runbook covers ONLY the 5 out-of-band `ses-forwarder.tf` resources. For the
+> **full-stack** remote-state migration (putting all 46 resources under a shared S3 backend so
+> any checkout can apply safely — the actual Track-1 goal), see
+> [`REMOTE-STATE-RUNBOOK.md`](./REMOTE-STATE-RUNBOOK.md). This file's imports + SES rule-order
+> warnings still apply within that larger process.
+
 The resources declared in `ses-forwarder.tf` (plus the `after` re-point of
 `forwarding-catchall` in `ses.tf`) codify infrastructure that **already exists
 live** in account `271369143207` (us-east-1). They were created outside

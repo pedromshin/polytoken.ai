@@ -12,11 +12,15 @@ terraform {
     }
   }
 
-  # Uncomment once you have an S3 bucket for state:
+  # Uncomment once the state bucket + lock table exist — see REMOTE-STATE-RUNBOOK.md
+  # (create bucket/lock, then `terraform init -migrate-state`). Do NOT apply before the
+  # full stack is confirmed in state (`terraform plan` shows no creates for live resources).
   # backend "s3" {
-  #   bucket = "nauta-services-terraform-state"
-  #   key    = "email-listener/terraform.tfstate"
-  #   region = "us-east-1"
+  #   bucket         = "nauta-services-terraform-state"
+  #   key            = "email-listener/terraform.tfstate"
+  #   region         = "us-east-1"
+  #   dynamodb_table = "nauta-services-terraform-locks"
+  #   encrypt        = true
   # }
 }
 
