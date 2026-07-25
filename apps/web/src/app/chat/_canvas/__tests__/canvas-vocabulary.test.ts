@@ -47,6 +47,11 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "rule-suggestions",
   "pipeline-health",
   "brief",
+  "usage",
+  "documents",
+  "references",
+  "search-all",
+  "conversations",
   "unknown",
 ];
 

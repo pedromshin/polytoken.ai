@@ -202,6 +202,11 @@ export type CanvasNodeKind =
   | "rule-suggestions"
   | "pipeline-health"
   | "brief"
+  | "usage"
+  | "documents"
+  | "references"
+  | "search-all"
+  | "conversations"
   | "unknown";
 
 /**
@@ -232,6 +237,11 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     "rule-suggestions": "rule-suggestions",
     "pipeline-health": "pipeline-health",
     brief: "brief",
+    usage: "usage",
+    documents: "documents",
+    references: "references",
+    "search-all": "search-all",
+    conversations: "conversations",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -369,6 +379,14 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   "rule-suggestions": "border-l border-l-ink border-b-2 border-b-ink border-dotted",
   "pipeline-health": "border-l border-l-ink border-r-2 border-r-ink",
   brief: "border-l border-l-ink border-t-2 border-t-ink",
+  // Wave 2 — five more agent-addable surface nodes. STRUCTURE only (ink rules +
+  // weight/double/dotted, never a hue, law 3); each pairwise-distinct from every
+  // other kind (verified against all 20 predecessors).
+  usage: "border-l border-l-ink border-b-2 border-b-ink",
+  documents: "border-l-2 border-l-ink border-t-2 border-t-ink border-double",
+  references: "border-l-4 border-l-ink border-t-2 border-t-ink",
+  "search-all": "border-l-4 border-l-ink border-b-2 border-b-ink",
+  conversations: "border-l-4 border-l-ink border-dotted",
   unknown: "border-dotted",
 };
 
@@ -409,6 +427,11 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   "rule-suggestions": "Rule suggestions",
   "pipeline-health": "Pipeline",
   brief: "Brief",
+  usage: "Usage",
+  documents: "Documents",
+  references: "References",
+  "search-all": "Search",
+  conversations: "Chats",
   unknown: "Unrecognized",
 };
 

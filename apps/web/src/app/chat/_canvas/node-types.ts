@@ -19,9 +19,11 @@ import { BriefNode } from "./brief-node";
 import { BrowserNode } from "./browser-node";
 import { ChatNode } from "./chat-node";
 import { CirclePackNode } from "./circle-pack-node";
+import { ConversationsNode } from "./conversations-node";
 import { DesktopNode } from "./desktop-node";
 import { DirectoryNode } from "./directory-node";
 import { DocumentNode } from "./document-node";
+import { DocumentsNode } from "./documents-node";
 import { EditorNode } from "./editor-node";
 import { EmailThreadNode } from "./email-thread-node";
 import { EntityNode } from "./entity-node";
@@ -30,11 +32,14 @@ import { GenuiPanelNode } from "./genui-panel-node";
 import { KnowledgePreviewNode } from "./knowledge-preview-node";
 import { KnowledgeSearchNode } from "./knowledge-search-node";
 import { PipelineHealthNode } from "./pipeline-health-node";
+import { ReferencesNode } from "./references-node";
 import { ReviewQueueNode } from "./review-queue-node";
 import { RuleSuggestionsNode } from "./rule-suggestions-node";
+import { SearchAllNode } from "./search-all-node";
 import { SourceNode } from "./source-node";
 import { SpreadsheetNode } from "./spreadsheet-node";
 import { UnknownNodeTypePlaceholder } from "./unknown-node-type-placeholder";
+import { UsageNode } from "./usage-node";
 
 export const nodeTypes: NodeTypes = {
   chat: ChatNode,
@@ -56,6 +61,11 @@ export const nodeTypes: NodeTypes = {
   "rule-suggestions": RuleSuggestionsNode,
   "pipeline-health": PipelineHealthNode,
   brief: BriefNode,
+  usage: UsageNode,
+  documents: DocumentsNode,
+  references: ReferencesNode,
+  "search-all": SearchAllNode,
+  conversations: ConversationsNode,
   // Plan 23-04 (restore + degrade, T-23-09/CANVAS-03): a node reconciled from
   // a persisted layout whose type this session's registry doesn't recognize
   // is rewritten to this fixed key (original type preserved in

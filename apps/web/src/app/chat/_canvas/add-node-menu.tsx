@@ -22,13 +22,17 @@ import * as React from "react";
 import { toast } from "sonner";
 import {
   Activity,
+  Bookmark,
   Box,
   CircleDashed,
   FileText,
+  Files,
+  Gauge,
   GitMerge,
   HardDrive,
   ListChecks,
   Mail,
+  MessagesSquare,
   Network,
   Newspaper,
   Plus,
@@ -58,7 +62,12 @@ export type SimpleNodeKind =
   | "review-queue"
   | "rule-suggestions"
   | "pipeline-health"
-  | "brief";
+  | "brief"
+  | "usage"
+  | "documents"
+  | "references"
+  | "search-all"
+  | "conversations";
 
 export interface AddNodeMenuProps {
   /** Place a circle-pack landscape of the given scope (no picker needed). */
@@ -200,6 +209,26 @@ export function AddNodeMenu({
         <DropdownMenuItem onSelect={() => onAddSimpleNode("brief")}>
           <Newspaper className="size-4 shrink-0 text-faded" aria-hidden />
           Daily brief
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("usage")}>
+          <Gauge className="size-4 shrink-0 text-faded" aria-hidden />
+          Spend meter
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("documents")}>
+          <Files className="size-4 shrink-0 text-faded" aria-hidden />
+          Recent documents
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("references")}>
+          <Bookmark className="size-4 shrink-0 text-faded" aria-hidden />
+          References
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("search-all")}>
+          <Search className="size-4 shrink-0 text-faded" aria-hidden />
+          Search everything
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("conversations")}>
+          <MessagesSquare className="size-4 shrink-0 text-faded" aria-hidden />
+          Recent chats
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

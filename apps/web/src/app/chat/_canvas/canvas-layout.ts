@@ -48,6 +48,12 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
   "rule-suggestions": { width: 340, height: 300 },
   "pipeline-health": { width: 360, height: 340 },
   brief: { width: 320, height: 340 },
+  // Wave 2 — five agent-addable surface nodes; dims mirror each component shell.
+  usage: { width: 280, height: 180 },
+  documents: { width: 320, height: 360 },
+  references: { width: 340, height: 380 },
+  "search-all": { width: 360, height: 440 },
+  conversations: { width: 300, height: 360 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

@@ -63,6 +63,11 @@ const VALID_FIXTURES: Record<string, Record<string, unknown>> = {
   "rule-suggestions": { label: "Rule suggestions" },
   "pipeline-health": { label: "Pipeline" },
   brief: { label: "Daily brief" },
+  usage: { label: "x" },
+  documents: { label: "x" },
+  references: { label: "x" },
+  "search-all": { query: "invoices" },
+  conversations: { label: "x" },
 };
 
 /** Canonical HOSTILE node.data per type — each violates the type's own boundary. */
@@ -86,6 +91,11 @@ const HOSTILE_FIXTURES: Record<string, Record<string, unknown>> = {
   "rule-suggestions": { smuggled: true }, // strict(): extra key
   "pipeline-health": { smuggled: true }, // strict(): extra key
   brief: { smuggled: true }, // strict(): extra key
+  usage: { smuggled: true }, // strict(): extra key
+  documents: { smuggled: true }, // strict(): extra key
+  references: { smuggled: true }, // strict(): extra key
+  "search-all": { smuggled: true }, // strict(): extra key
+  conversations: { smuggled: true }, // strict(): extra key
 };
 
 describe("canvas capability mirror (AI-01 drift alarm)", () => {

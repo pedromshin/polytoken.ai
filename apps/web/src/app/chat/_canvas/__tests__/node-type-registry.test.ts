@@ -51,6 +51,11 @@ describe("computeNodeRegistryHash", () => {
       "rule-suggestions": NODE_TYPE_REGISTRY["rule-suggestions"]!,
       "pipeline-health": NODE_TYPE_REGISTRY["pipeline-health"]!,
       brief: NODE_TYPE_REGISTRY.brief!,
+      usage: NODE_TYPE_REGISTRY.usage!,
+      documents: NODE_TYPE_REGISTRY.documents!,
+      references: NODE_TYPE_REGISTRY.references!,
+      "search-all": NODE_TYPE_REGISTRY["search-all"]!,
+      conversations: NODE_TYPE_REGISTRY.conversations!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(
       computeNodeRegistryHash(NODE_TYPE_REGISTRY),

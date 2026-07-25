@@ -19,7 +19,7 @@
  * reading ledger rows — a non-owned conversationId surfaces as NOT_FOUND.
  */
 
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, gte, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { ChatCostLedger } from "@polytoken/db/schema";
@@ -98,6 +98,77 @@ export function shapeSessionCost(
 }
 
 // ---------------------------------------------------------------------------
+// usage.summary — owner-scoped spend meter (system-to-user canvas `usage` node)
+// ---------------------------------------------------------------------------
+//
+// The FastAPI cost breaker (22-04, cost_circuit_breaker.py) is the sole
+// ENFORCEMENT authority and accepts no per-call cap — caps live ONLY in
+// settings (D-21). This procedure is the READ side of that same accounting:
+// it never gates a turn, it reports the caller's spend against those caps so
+// the canvas can render a live meter.
+//
+// SCOPING (owner, not conversation): chat_cost_ledger carries a DIRECT
+// `user_id` ownership anchor (Phase 44 — the ledger is NOT an importer
+// descendant, chat-cost-ledger.ts module doc). The day sum is therefore scoped
+// by `userId = ctx.user.id` — that WHERE clause IS the tenancy boundary, so no
+// conversation assertion is needed for the day path (there is no conversation
+// in it). The UTC-day window mirrors the breaker's `_day_cap_breached` exactly
+// (`created_at >= start-of-UTC-day`, cost_circuit_breaker.py:148-158), so the
+// meter and the gate agree on what "today" means.
+//
+// SESSION (optional): a session cap is per-conversation in the breaker
+// (`sum_for_conversation`). This node places with no conversation ref, so
+// `conversationId` is OPTIONAL; when present the caller's ownership of it is
+// asserted (NOT_FOUND on a non-owned id, sibling idiom) AND the sum is still
+// userId-filtered (defense in depth). When absent, sessionSpendUsd is null.
+//
+// CAPS: the numeric caps live in the Python settings module
+// (apps/email-listener/app/settings.py — COST_CAP_PER_TURN/SESSION/DAY_USD),
+// which the TS side has no import of. They are re-read here from the matching
+// env vars, defaulting to the SAME literals the settings dataclass declares, so
+// a deployment that raises a cap in the environment (D-21: "raising a cap is a
+// config change") moves both the gate and this meter together.
+
+/** Re-read a positive USD cap from the environment, falling back to the value
+ * the Python settings dataclass declares for the same name (settings.py). */
+function capFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return fallback;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** UTC start-of-today, the lower bound of the day window — identical semantics
+ * to the breaker's `datetime.now(UTC).date()` day boundary. */
+function startOfUtcDay(now: Date): Date {
+  return new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+  );
+}
+
+export const usageSummaryInputSchema = z.object({
+  // Optional: when supplied, the response also carries this conversation's
+  // session spend (owner-asserted). The canvas `usage` node passes nothing.
+  conversationId: z.string().uuid().optional(),
+});
+export type UsageSummaryInput = z.infer<typeof usageSummaryInputSchema>;
+
+export interface UsageCaps {
+  readonly perTurnUsd: number;
+  readonly perSessionUsd: number;
+  readonly perDayUsd: number;
+}
+
+export interface UsageSummaryOutput {
+  /** The caller's total USD spend since UTC start-of-today (all importers). */
+  readonly spendTodayUsd: number;
+  /** This conversation's total USD spend, or null when no conversationId given. */
+  readonly spendSessionUsd: number | null;
+  /** The configured caps (env → Python-settings defaults). */
+  readonly caps: UsageCaps;
+}
+
+// ---------------------------------------------------------------------------
 // Procedures
 // ---------------------------------------------------------------------------
 
@@ -135,5 +206,65 @@ export const chatCostProcedures = {
         .limit(MAX_BREAKDOWN_ROWS);
 
       return shapeSessionCost(rows);
+    }),
+
+  /**
+   * summary — the owner-scoped spend meter behind the canvas `usage` node.
+   * Read-only, never gates a turn. Day spend is scoped by `ctx.user.id`
+   * (the ledger's direct ownership anchor) over the UTC-day window the breaker
+   * uses; session spend is included only when a (owned) conversationId is
+   * passed. Caps mirror the Python settings caps (env → same defaults).
+   */
+  summary: protectedProcedure
+    .input(usageSummaryInputSchema)
+    .query(async ({ ctx, input }): Promise<UsageSummaryOutput> => {
+      const dayStart = startOfUtcDay(new Date());
+
+      const [todayRow] = await ctx.db
+        .select({
+          total: sql<string>`coalesce(sum(${ChatCostLedger.costUsd}), 0)`,
+        })
+        .from(ChatCostLedger)
+        .where(
+          and(
+            eq(ChatCostLedger.userId, ctx.user.id),
+            gte(ChatCostLedger.createdAt, dayStart),
+          ),
+        );
+
+      let spendSessionUsd: number | null = null;
+      if (input.conversationId !== undefined) {
+        // Owner-assert the conversation (NOT_FOUND on a non-owned id, sibling
+        // idiom) before summing — and still userId-filter (defense in depth).
+        await assertOwnedOrNotFound(() =>
+          assertConversationOwnership(
+            ctx.db,
+            input.conversationId as string,
+            ctx.user.id,
+          ),
+        );
+        const [sessionRow] = await ctx.db
+          .select({
+            total: sql<string>`coalesce(sum(${ChatCostLedger.costUsd}), 0)`,
+          })
+          .from(ChatCostLedger)
+          .where(
+            and(
+              eq(ChatCostLedger.userId, ctx.user.id),
+              eq(ChatCostLedger.conversationId, input.conversationId),
+            ),
+          );
+        spendSessionUsd = Number(sessionRow?.total ?? 0);
+      }
+
+      return {
+        spendTodayUsd: Number(todayRow?.total ?? 0),
+        spendSessionUsd,
+        caps: {
+          perTurnUsd: capFromEnv("COST_CAP_PER_TURN_USD", 0.5),
+          perSessionUsd: capFromEnv("COST_CAP_PER_SESSION_USD", 2.0),
+          perDayUsd: capFromEnv("COST_CAP_PER_DAY_USD", 5.0),
+        },
+      };
     }),
 };

@@ -17,9 +17,11 @@ import {
   BrowserNodeDataSchema,
   ChatNodeDataSchema,
   CirclePackNodeDataSchema,
+  ConversationsNodeDataSchema,
   DesktopNodeDataSchema,
   DirectoryNodeDataSchema,
   DocumentNodeDataSchema,
+  DocumentsNodeDataSchema,
   EditorNodeDataSchema,
   EmailThreadNodeDataSchema,
   EntityNodeDataSchema,
@@ -28,10 +30,13 @@ import {
   KnowledgePreviewNodeDataSchema,
   KnowledgeSearchNodeDataSchema,
   PipelineHealthNodeDataSchema,
+  ReferencesNodeDataSchema,
   ReviewQueueNodeDataSchema,
   RuleSuggestionsNodeDataSchema,
+  SearchAllNodeDataSchema,
   SourceNodeDataSchema,
   SpreadsheetNodeDataSchema,
+  UsageNodeDataSchema,
 } from "./node-data-schemas";
 
 export interface NodeTypeRegistryEntry {
@@ -160,6 +165,36 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: BriefNodeDataSchema,
     description:
       "Brief node — the daily morning brief as a board card (ref-only, DERIVED live); folds emails.listThreads + entities.reviewQueue + documents.list through shapeMorningBrief into new mail / merges to review / recent documents (HM-02).",
+  },
+  usage: {
+    id: "usage",
+    dataSchema: UsageNodeDataSchema,
+    description:
+      "Usage node — a spend meter as a board card (ref-only, DERIVED live); today's + this session's spend and the configured caps rehydrate via chat.summary (owner-scoped ChatCostLedger read).",
+  },
+  documents: {
+    id: "documents",
+    dataSchema: DocumentsNodeDataSchema,
+    description:
+      "Documents node — the recent-documents list as a board card (ref-only); rows rehydrate via documents.list (owner-scoped), each deep-linking into /documents/[id].",
+  },
+  references: {
+    id: "references",
+    dataSchema: ReferencesNodeDataSchema,
+    description:
+      "References node — the caller's saved references as a board card (ref-only); rows rehydrate via references.list (owner-scoped on ctx.user.id).",
+  },
+  "search-all": {
+    id: "search-all",
+    dataSchema: SearchAllNodeDataSchema,
+    description:
+      "Search node — an omnibox card over everything (ref-only) anchored on an optional query seed; results rehydrate via search.omnibox (typed query), each hit deep-linking to its source.",
+  },
+  conversations: {
+    id: "conversations",
+    dataSchema: ConversationsNodeDataSchema,
+    description:
+      "Conversations node — the recent-chats list as a board card (ref-only, DERIVED live); rows rehydrate via chat.listConversations (owner-scoped), each opening its conversation.",
   },
 };
 

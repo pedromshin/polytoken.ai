@@ -248,6 +248,15 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
   "rule-suggestions": z.object({ label: z.string().max(120).optional() }).strict(),
   "pipeline-health": z.object({ label: z.string().max(120).optional() }).strict(),
   brief: z.object({ label: z.string().max(120).optional() }).strict(),
+  // Wave 2 — five more agent-addable surface nodes, MIRRORED field-for-field
+  // from node-data-schemas.ts. Ref-only: at most a query seed + optional label.
+  usage: z.object({ label: z.string().max(120).optional() }).strict(),
+  documents: z.object({ label: z.string().max(120).optional() }).strict(),
+  references: z.object({ label: z.string().max(120).optional() }).strict(),
+  "search-all": z
+    .object({ query: z.string().max(200).optional(), label: z.string().max(120).optional() })
+    .strict(),
+  conversations: z.object({ label: z.string().max(120).optional() }).strict(),
 });
 
 /** The allowlisted node type ids — MUST stay id-set-equal with apps/web's NODE_TYPE_REGISTRY

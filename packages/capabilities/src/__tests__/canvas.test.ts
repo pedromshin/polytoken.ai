@@ -64,6 +64,11 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   "rule-suggestions": { label: "Rule suggestions" },
   "pipeline-health": { label: "Pipeline" },
   brief: { label: "Daily brief" },
+  usage: { label: "x" },
+  documents: { label: "x" },
+  references: { label: "x" },
+  "search-all": { query: "invoices" },
+  conversations: { label: "x" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

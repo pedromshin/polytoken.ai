@@ -303,6 +303,77 @@ export const CirclePackNodeDataSchema = z
 export type CirclePackNodeData = z.infer<typeof CirclePackNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// UsageNodeDataSchema — usage node.data (label only, ref-only). The spend meter
+// is DERIVED live from api.chat.summary at render time; node.data carries only an
+// optional display label, never fetched spend/caps. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const UsageNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type UsageNodeData = z.infer<typeof UsageNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// DocumentsNodeDataSchema — documents node.data (label only, ref-only). The
+// recent-documents list rehydrates via api.documents.list at render time (owner-
+// scoped); node.data carries only an optional display label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const DocumentsNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type DocumentsNodeData = z.infer<typeof DocumentsNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// ReferencesNodeDataSchema — references node.data (label only, ref-only). The
+// caller's saved references rehydrate via api.references.list at render time
+// (owner-scoped); node.data carries only an optional display label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const ReferencesNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type ReferencesNodeData = z.infer<typeof ReferencesNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// SearchAllNodeDataSchema — search-all node.data (search SEED + optional label
+// only). Ref-only: node.data carries ONLY a starting query and a label, NEVER
+// fetched results — the omnibox rehydrates via api.search.omnibox. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const SearchAllNodeDataSchema = z
+  .object({
+    query: z.string().max(200).optional(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type SearchAllNodeData = z.infer<typeof SearchAllNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// ConversationsNodeDataSchema — conversations node.data (label only, ref-only).
+// The recent-chats list is DERIVED live from api.chat.listConversations at render
+// time; node.data carries only an optional display label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const ConversationsNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type ConversationsNodeData = z.infer<typeof ConversationsNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // EntityNodeDataSchema — entity node.data (entity ref + optional label only).
 // Mirrors EmailThreadNodeDataSchema's exact provenance-ref-only discipline:
 // node.data carries ONLY an entityId ref, never fetched content (name / type /
