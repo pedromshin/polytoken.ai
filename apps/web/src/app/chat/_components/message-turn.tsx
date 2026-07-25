@@ -497,6 +497,13 @@ export function MessageTurn({
               );
             }
 
+            // Phase 73 (LCAN-01) — the agent-authored canvas parts are
+            // CANVAS-only intent (materialized by the canvas reconcile pass),
+            // never transcript content. No row in the chat thread.
+            if (part.type === "canvas_add_node" || part.type === "canvas_connect") {
+              return null;
+            }
+
             // THE DEFAULT (text) BRANCH — polytoken's voice on an assistant
             // turn, the user's own typed words on a user turn. SANS on both
             // (law 2, see the header). `MarkdownRenderer` is left exactly as

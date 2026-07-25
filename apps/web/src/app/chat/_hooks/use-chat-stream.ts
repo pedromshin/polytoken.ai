@@ -140,6 +140,31 @@ export type MessagePart =
       readonly toolName: string;
       readonly content: string;
       readonly isError: boolean;
+    }
+  // Phase 73 (LCAN-01/02) — the agent-authored canvas wedge. When the model
+  // calls the flag-gated listener tools `emit_canvas_node` / `emit_canvas_connect`,
+  // the listener persists these parts into the message so the canvas can
+  // materialize them on the post-turn `chat.getHistory` refetch — exactly the
+  // seam `genui_spec` uses. The client never trusts these for identity: the
+  // reconcile pass (use-canvas-persistence.ts) validates `nodeType` against the
+  // registry and the edge payload against EdgePayloadSchema before drawing, and
+  // materializes each part idempotently by a deterministic id so the refetch is
+  // a no-op. `handle`/`sourceHandle`/`targetHandle` are model-chosen, turn-local
+  // labels the reconcile resolves to `agent:{handle}` node ids so a connect can
+  // reference a node the same turn just added.
+  | {
+      readonly type: "canvas_add_node";
+      readonly handle: string;
+      readonly nodeType: string;
+      readonly data: Readonly<Record<string, unknown>>;
+      readonly position?: { readonly x: number; readonly y: number };
+    }
+  | {
+      readonly type: "canvas_connect";
+      readonly sourceHandle: string;
+      readonly targetHandle: string;
+      readonly sourcePath: string;
+      readonly targetKey: string;
     };
 
 export interface ChatStreamAccumulator {
@@ -208,6 +233,17 @@ const CHAT_RUN_EVENT_TYPES: ReadonlySet<string> = new Set<ChatRunEventType>([
 const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set<StreamTerminalState>(
   ["completed", "stopped", "failed", "cost_capped", "interrupted"],
 );
+
+/** Phase 73 (LCAN-01) — the flag-gated listener tools whose finalized parts
+ * (`canvas_add_node` / `canvas_connect`) are CANVAS-only intent, not transcript
+ * content. Their streaming `tool_call` deltas must NOT accumulate a transient
+ * `interactive_widget_streaming` skeleton in the chat thread (they aren't
+ * widgets) — the reducer skips them entirely and the canvas reconcile pass
+ * materializes the persisted parts from `chat.getHistory` after the turn. */
+const CANVAS_EMIT_TOOL_NAMES: ReadonlySet<string> = new Set([
+  "emit_canvas_node",
+  "emit_canvas_connect",
+]);
 
 function toChatRunEvent(value: unknown): ChatRunEvent | null {
   if (typeof value !== "object" || value === null) {
@@ -333,6 +369,12 @@ export function applyRunEvent(
     const chunk =
       typeof event.data.partial_json === "string" ? event.data.partial_json : "";
     const toolName = typeof event.data.tool_name === "string" ? event.data.tool_name : undefined;
+    // Phase 73 (LCAN-01) — canvas emit tools never render in the transcript;
+    // their parts materialize on the canvas post-turn. Skip the streaming
+    // placeholder entirely.
+    if (toolName !== undefined && CANVAS_EMIT_TOOL_NAMES.has(toolName)) {
+      return { parts: acc.parts, state: "streaming" };
+    }
     // A recognized interactive-widget tool (any tool_name other than the
     // default emit_ui_spec) streams into interactive_widget_streaming
     // instead of genui_spec_streaming (Phase 24 Task 3) — an ABSENT tool_name
@@ -370,6 +412,11 @@ export function applyRunEvent(
 
   if (event.type === "tool_result") {
     const toolName = typeof event.data.tool_name === "string" ? event.data.tool_name : undefined;
+    // Phase 73 (LCAN-01) — canvas emit tools produce no transcript part; the
+    // canvas reconcile pass owns their materialization (see the tool_call arm).
+    if (toolName !== undefined && CANVAS_EMIT_TOOL_NAMES.has(toolName)) {
+      return { parts: acc.parts, state: "streaming" };
+    }
     const isWidgetTool = toolName !== undefined && toolName !== "emit_ui_spec";
     if (isWidgetTool) {
       // The tool_result event for an interactive-widget tool carries no

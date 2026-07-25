@@ -55,6 +55,7 @@ import {
   type CanvasRect,
 } from "./canvas-layout";
 import type { CanvasStore } from "./canvas-store";
+import { EdgePayloadSchema } from "./edge-payload-schema";
 import { NODE_REGISTRY_VERSION } from "./node-registry-version";
 import { resolveNodeType } from "./node-type-registry";
 
@@ -103,6 +104,36 @@ export function sourceNodeId(sourceLedgerId: string): string {
   return `source:${sourceLedgerId}`;
 }
 
+/**
+ * agentNodeId — the canonical id for a node the AGENT authored via a
+ * `canvas_add_node` message part (Phase 73 / LCAN-01). Derived purely from the
+ * model-chosen `handle` so (a) the same part re-materializes to the SAME node
+ * on the post-turn refetch (idempotent no-op — never a duplicate), and (b) a
+ * later `canvas_connect` part can reference the node by the same handle. The
+ * `agent:` namespace keeps these ids from ever colliding with a
+ * `type:ref`-scheme node the UI or server verb places.
+ */
+export function agentNodeId(handle: string): string {
+  return `agent:${handle}`;
+}
+
+/**
+ * agentEdgeId — the deterministic id for an edge an agent authored via a
+ * `canvas_connect` part (LCAN-01). Keyed on the SAME dedup tuple the server
+ * verb dedupes on — (source, target, sourcePath, targetKey),
+ * `canvas-mutations.ts:195` — so re-materializing the identical connect part
+ * (post-turn refetch, or the same wire twice) is an idempotent no-op and never
+ * double-draws.
+ */
+export function agentEdgeId(
+  source: string,
+  target: string,
+  sourcePath: string,
+  targetKey: string,
+): string {
+  return `agent-edge:${source}::${target}::${sourcePath}::${targetKey}`;
+}
+
 // ---------------------------------------------------------------------------
 // reconcileNodesFromHistory — Pass 1 (restore + degrade) + Pass 2 (place new)
 // ---------------------------------------------------------------------------
@@ -145,6 +176,100 @@ function buildExpectedGenuiPanelSpecs(
     });
   }
   return specs;
+}
+
+/** An agent-authored node the reconcile pass should materialize from a
+ * `canvas_add_node` message part (Phase 73 / LCAN-01). `type` is already
+ * resolved against the registry (degraded to `unknown-node-type` if this
+ * session doesn't know it, mirroring Pass-1's degrade), so a bad model
+ * `nodeType` renders the inert placeholder instead of throwing. */
+interface ExpectedAgentNodeSpec {
+  readonly id: string;
+  readonly type: string;
+  readonly data: Record<string, unknown>;
+  readonly explicitPosition?: { readonly x: number; readonly y: number };
+}
+
+/** Every ACTIVE turn's `canvas_add_node` part → the node the agent asked the
+ * canvas to draw. The id is `agent:{handle}` so it is (a) idempotent across
+ * the post-turn refetch and (b) referenceable by a `canvas_connect` part.
+ * An unknown `nodeType` degrades to the placeholder rather than throwing
+ * (CANVAS-03 posture), and a NaN/non-finite model position is dropped so
+ * auto-placement takes over. */
+function buildExpectedAgentNodeSpecs(
+  historyRows: readonly ChatHistoryRow[],
+): ExpectedAgentNodeSpec[] {
+  const specs: ExpectedAgentNodeSpec[] = [];
+  for (const row of historyRows) {
+    if (!row.isActive) continue;
+    const parts = (row.parts as MessagePart[] | null) ?? [];
+    for (const part of parts) {
+      if (part.type !== "canvas_add_node") continue;
+      if (typeof part.handle !== "string" || part.handle.length === 0) continue;
+      if (typeof part.nodeType !== "string" || part.nodeType.length === 0) continue;
+      const resolved = resolveNodeType(part.nodeType);
+      const degraded = resolved.kind === "unknown";
+      const data = (part.data ?? {}) as Record<string, unknown>;
+      const explicitPosition =
+        part.position &&
+        Number.isFinite(part.position.x) &&
+        Number.isFinite(part.position.y)
+          ? { x: part.position.x, y: part.position.y }
+          : undefined;
+      specs.push({
+        id: agentNodeId(part.handle),
+        type: degraded ? "unknown-node-type" : part.nodeType,
+        data: degraded ? { ...data, nodeType: part.nodeType } : data,
+        explicitPosition,
+      });
+    }
+  }
+  return specs;
+}
+
+/**
+ * collectAgentEdges — every ACTIVE turn's `canvas_connect` part resolved to a
+ * persisted-edge shape (Phase 73 / LCAN-01). Only emitted when BOTH endpoint
+ * nodes are present (`presentNodeIds`) — mirrors the server verb's
+ * "both endpoints must exist" check (`canvas-mutations.ts:184`) so React Flow
+ * never gets a dangling edge. The `{sourcePath, targetKey}` payload is gated
+ * through `EdgePayloadSchema` (the same prototype-pollution / forbidden-segment
+ * guard the connect-time and persist-time gates use — no drift, LCAN-06's
+ * neutrality is a render concern handled by `toFlowEdge`). The id is the
+ * deterministic dedup-tuple id so the caller can merge additively and a
+ * refetch is a no-op. Pure.
+ */
+export function collectAgentEdges(
+  historyRows: readonly ChatHistoryRow[],
+  presentNodeIds: ReadonlySet<string>,
+): PersistedCanvasEdge[] {
+  const byId = new Map<string, PersistedCanvasEdge>();
+  for (const row of historyRows) {
+    if (!row.isActive) continue;
+    const parts = (row.parts as MessagePart[] | null) ?? [];
+    for (const part of parts) {
+      if (part.type !== "canvas_connect") continue;
+      if (typeof part.sourceHandle !== "string" || typeof part.targetHandle !== "string") continue;
+      const source = agentNodeId(part.sourceHandle);
+      const target = agentNodeId(part.targetHandle);
+      if (source === target) continue; // self-loop rejected (canvas.ts:288 parity)
+      if (!presentNodeIds.has(source) || !presentNodeIds.has(target)) continue;
+      const parsed = EdgePayloadSchema.safeParse({
+        sourcePath: part.sourcePath,
+        targetKey: part.targetKey,
+      });
+      if (!parsed.success) continue;
+      const id = agentEdgeId(source, target, parsed.data.sourcePath, parsed.data.targetKey);
+      if (byId.has(id)) continue;
+      byId.set(id, {
+        id,
+        source,
+        target,
+        data: { sourcePath: parsed.data.sourcePath, targetKey: parsed.data.targetKey },
+      });
+    }
+  }
+  return [...byId.values()];
 }
 
 /**
@@ -201,6 +326,31 @@ export function reconcileNodesFromHistory(
       });
       placedRects.push({ ...finalPosition, ...dims });
     }
+  }
+
+  // Pass 2b — every `canvas_add_node` part the agent authored (Phase 73 /
+  // LCAN-01) with no saved/existing node yet. Honors an explicit model
+  // position when finite; otherwise cascades clear of every already-placed
+  // rect (same offsetCascadePosition engine as Pass 2). Idempotent: the
+  // `agent:{handle}` id already in `savedIds` (materialized + saved last turn)
+  // is skipped, so the post-turn refetch never double-places.
+  const agentSpecs = buildExpectedAgentNodeSpecs(historyRows).filter(
+    (spec) => !savedIds.has(spec.id),
+  );
+  for (const spec of agentSpecs) {
+    const dims = dimensionsForType(spec.type);
+    const desired: CanvasRect = spec.explicitPosition
+      ? { ...spec.explicitPosition, ...dims }
+      : { x: 0, y: 0, ...dims };
+    const finalPosition = offsetCascadePosition(desired, placedRects);
+    reconciled.push({
+      id: spec.id,
+      type: spec.type,
+      position: finalPosition,
+      data: spec.data,
+      isNew: true,
+    });
+    placedRects.push({ ...finalPosition, ...dims });
   }
 
   return reconciled;

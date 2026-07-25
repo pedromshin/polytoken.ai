@@ -117,6 +117,7 @@ import {
   type CanvasPersistenceContextValue,
 } from "./panel-overlay-context";
 import {
+  collectAgentEdges,
   DRAG_HANDLE_SELECTOR,
   reconcileNodesFromHistory,
   toFlowNode,
@@ -550,6 +551,40 @@ export function ChatCanvas({
     }
     prevNodeIdsRef.current = currentIds;
   }, [nodes]);
+
+  // Phase 73 / LCAN-01 — materialize agent-authored data edges. When the model
+  // calls the (flag-gated) `emit_canvas_connect` tool, the listener persists a
+  // `canvas_connect` part; `collectAgentEdges` resolves it to a data-edge ONLY
+  // when both `agent:{handle}` endpoints are already on the canvas (the node
+  // reconcile effect above materialized them from `canvas_add_node` parts). The
+  // merge is ADDITIVE and idempotent on the deterministic dedup-tuple id, so a
+  // post-turn history refetch never double-draws and a user-deleted edge is not
+  // resurrected within the same render pass. Keyed on `nodes` too, so an edge
+  // whose endpoint node only appears a tick later still lands on the next pass.
+  const materializedAgentRef = useRef<string>("");
+  useEffect(() => {
+    if (persistence.isRestoring || !seededRef.current) return;
+    const presentNodeIds = new Set(nodes.map((node) => node.id));
+    const agentEdges = collectAgentEdges(historyRows, presentNodeIds);
+    setEdges((prev) => {
+      const existing = new Set(prev.map((edge) => edge.id));
+      const additions = agentEdges
+        .filter((edge) => !existing.has(edge.id))
+        .map(toFlowEdge);
+      return additions.length === 0 ? prev : [...prev, ...additions];
+    });
+    // Persist newly-materialized agent content once so positions stabilize
+    // across reload (the wiring itself already round-trips via history
+    // reconstruction — LCAN-05). Keyed on the agent node/edge id-set so this
+    // fires only when the set GROWS, never on every drag/selection tick.
+    const agentNodeIds = [...presentNodeIds].filter((id) => id.startsWith("agent:"));
+    const key = [...agentNodeIds, ...agentEdges.map((edge) => edge.id)].sort().join("|");
+    if (key.length > 0 && key !== materializedAgentRef.current) {
+      materializedAgentRef.current = key;
+      persistence.scheduleSave(canvasStore);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `setEdges` is stable (useEdgesState); `prev` is read via the functional updater, not a dependency.
+  }, [persistence, historyRows, nodes, canvasStore]);
 
   const specsByProvenance = useMemo(
     () => buildSpecsByProvenance(historyRows),
