@@ -66,6 +66,12 @@ export const CANVAS_NODE_TYPE_IDS = Object.freeze([
   "circle-pack",
   "spreadsheet",
   "file",
+  "entity",
+  "knowledge-search",
+  "review-queue",
+  "rule-suggestions",
+  "pipeline-health",
+  "brief",
 ] as const);
 
 export type CanvasNodeTypeId = (typeof CANVAS_NODE_TYPE_IDS)[number];

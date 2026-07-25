@@ -50,6 +50,8 @@ interface Handlers {
   onAddKnowledge: ReturnType<typeof vi.fn>;
   onAddSpreadsheet: ReturnType<typeof vi.fn>;
   onAddDocument: ReturnType<typeof vi.fn>;
+  onAddSimpleNode: ReturnType<typeof vi.fn>;
+  onAddEntity: ReturnType<typeof vi.fn>;
 }
 
 async function mountMenu(): Promise<Handlers> {
@@ -59,6 +61,8 @@ async function mountMenu(): Promise<Handlers> {
     onAddKnowledge: vi.fn(),
     onAddSpreadsheet: vi.fn(),
     onAddDocument: vi.fn(),
+    onAddSimpleNode: vi.fn(),
+    onAddEntity: vi.fn(),
   };
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -180,5 +184,26 @@ describe("AddNodeMenu", () => {
     await openMenu();
     await clickItem("Knowledge node");
     expect(h.onAddKnowledge).toHaveBeenCalledTimes(1);
+  });
+
+  it("Entity opens the entity picker", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    await clickItem("Entity…");
+    expect(h.onAddEntity).toHaveBeenCalledTimes(1);
+  });
+
+  it("Daily brief places a direct simple node", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    await clickItem("Daily brief");
+    expect(h.onAddSimpleNode).toHaveBeenCalledWith("brief");
+  });
+
+  it("Merge review places a direct simple node", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    await clickItem("Merge review");
+    expect(h.onAddSimpleNode).toHaveBeenCalledWith("review-queue");
   });
 });

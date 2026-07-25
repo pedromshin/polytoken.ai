@@ -66,6 +66,7 @@ import type {
 } from "../_hooks/use-conversation-controller";
 import { AddEmailThreadPopover } from "./add-email-thread-popover";
 import { AddKnowledgePreviewPopover } from "./add-knowledge-preview-popover";
+import { EntityPickerPopover } from "./entity-picker-popover";
 import { isSourceNode, toggleCanonSelection } from "./canon-selection";
 import { SelectionToolbar } from "./selection-toolbar";
 import { matchCommand, type CanvasCommandContext } from "./canvas-commands";
@@ -84,7 +85,7 @@ import {
 } from "./canvas-selection";
 import { useCanvasHistory } from "./use-canvas-history";
 import { CanvasEmptyState } from "./canvas-empty-state";
-import { AddNodeMenu } from "./add-node-menu";
+import { AddNodeMenu, type SimpleNodeKind } from "./add-node-menu";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   CanvasKeyboardHint,
@@ -456,6 +457,7 @@ export function ChatCanvas({
   // Nonces the pane menu bumps to open the per-type add popovers (CI-01).
   const [emailThreadOpenNonce, setEmailThreadOpenNonce] = useState(0);
   const [knowledgeOpenNonce, setKnowledgeOpenNonce] = useState(0);
+  const [entityOpenNonce, setEntityOpenNonce] = useState(0);
 
   // AI-04 "Send to chat" rails (reused, not reinvented) for the node menu.
   const { sendToChat, defaultConversationId } = useSendTo();
@@ -858,6 +860,83 @@ export function ChatCanvas({
       persistence.scheduleSave(canvasStore);
     },
     [setNodes, persistence, canvasStore, history],
+  );
+
+  // Six new agent-addable surface nodes. The five label-only kinds place
+  // directly with data `{}` (an optional label is all node.data carries; the
+  // card rehydrates its content live). Byte-identical placement mechanics to
+  // handleAddCirclePack, with each kind's own fixed shell from
+  // CANVAS_NODE_DIMENSIONS so dagre/cascade see the true rect.
+  const handleAddSimpleNode = useCallback(
+    (kind: SimpleNodeKind) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodes.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const dims = CANVAS_NODE_DIMENSIONS[kind] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, ...dims },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `${kind}:${crypto.randomUUID()}`,
+        type: kind,
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: {},
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [nodes, setNodes, persistence, canvasStore, history],
+  );
+
+  // EntityPickerPopover's onAdd — materializes an entity node for the selected
+  // entity id near the viewport center, selected, cascading off any overlap.
+  // node.data carries only the entityId ref; the card rehydrates name/type/
+  // aliases via api.entities.byId. Same mechanics as handleAddEmailThread.
+  const handleAddEntity = useCallback(
+    (entityId: string) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodes.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const dims = CANVAS_NODE_DIMENSIONS["entity"] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, ...dims },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `entity:${crypto.randomUUID()}`,
+        type: "entity",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { entityId },
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [nodes, setNodes, persistence, canvasStore, history],
   );
 
   const handleMoveEnd = useCallback(
@@ -1421,6 +1500,8 @@ export function ChatCanvas({
                           }
                           onAddSpreadsheet={handleAddSpreadsheet}
                           onAddDocument={handleAddDocument}
+                          onAddSimpleNode={handleAddSimpleNode}
+                          onAddEntity={() => setEntityOpenNonce((n) => n + 1)}
                         />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}
@@ -1429,6 +1510,10 @@ export function ChatCanvas({
                         <AddKnowledgePreviewPopover
                           onAdd={handleAddKnowledgePreview}
                           requestOpenNonce={knowledgeOpenNonce}
+                        />
+                        <EntityPickerPopover
+                          onAdd={handleAddEntity}
+                          requestOpenNonce={entityOpenNonce}
                         />
                         <Button
                           type="button"

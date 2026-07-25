@@ -196,6 +196,12 @@ export type CanvasNodeKind =
   | "circle-pack"
   | "spreadsheet"
   | "file"
+  | "entity"
+  | "knowledge-search"
+  | "review-queue"
+  | "rule-suggestions"
+  | "pipeline-health"
+  | "brief"
   | "unknown";
 
 /**
@@ -220,6 +226,12 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     "circle-pack": "circle-pack",
     spreadsheet: "spreadsheet",
     file: "file",
+    entity: "entity",
+    "knowledge-search": "knowledge-search",
+    "review-queue": "review-queue",
+    "rule-suggestions": "rule-suggestions",
+    "pipeline-health": "pipeline-health",
+    brief: "brief",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -348,6 +360,15 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   // NOT a live daemon surface (no right seam) and NOT a bound synthesis (no
   // double) — without spending a hue (law 3).
   file: "border-l-2 border-l-ink border-b-2 border-b-ink",
+  // Six agent-addable surface nodes (batch wiring). Each carries STRUCTURE only
+  // — ink rules and dotted/weight, never a hue (law 3) — and each is pairwise-
+  // distinct from every other kind and from each other.
+  entity: "border-l-2 border-l-ink border-t-2 border-t-ink",
+  "knowledge-search": "border-l border-l-ink border-t-2 border-t-ink border-dotted",
+  "review-queue": "border-l-2 border-l-ink border-b-2 border-b-ink border-dotted",
+  "rule-suggestions": "border-l border-l-ink border-b-2 border-b-ink border-dotted",
+  "pipeline-health": "border-l border-l-ink border-r-2 border-r-ink",
+  brief: "border-l border-l-ink border-t-2 border-t-ink",
   unknown: "border-dotted",
 };
 
@@ -382,6 +403,12 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   "circle-pack": "Landscape",
   spreadsheet: "Table",
   file: "File",
+  entity: "Entity",
+  "knowledge-search": "Knowledge search",
+  "review-queue": "Merge review",
+  "rule-suggestions": "Rule suggestions",
+  "pipeline-health": "Pipeline",
+  brief: "Brief",
   unknown: "Unrecognized",
 };
 

@@ -303,6 +303,94 @@ export const CirclePackNodeDataSchema = z
 export type CirclePackNodeData = z.infer<typeof CirclePackNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// EntityNodeDataSchema — entity node.data (entity ref + optional label only).
+// Mirrors EmailThreadNodeDataSchema's exact provenance-ref-only discipline:
+// node.data carries ONLY an entityId ref, never fetched content (name / type /
+// aliases / identifiers / counts rehydrate via entities.byId). `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const EntityNodeDataSchema = z
+  .object({
+    entityId: z.string().uuid(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type EntityNodeData = z.infer<typeof EntityNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// KnowledgeSearchNodeDataSchema — knowledge-search node.data (search SEED +
+// optional label only). Ref-only: node.data carries ONLY the tiny display seed
+// (a starting query and a label), NEVER fetched rows — results rehydrate via
+// api.knowledge.search / api.knowledge.list at render time. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const KnowledgeSearchNodeDataSchema = z
+  .object({
+    query: z.string().max(200).optional(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type KnowledgeSearchNodeData = z.infer<typeof KnowledgeSearchNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// ReviewQueueNodeDataSchema — review-queue node.data (ref-only, label only).
+// The merge-review queue rehydrates via entities.reviewQueue at render time;
+// node.data carries no fetched pairs/counts, only an optional label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const ReviewQueueNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type ReviewQueueNodeData = z.infer<typeof ReviewQueueNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// RuleSuggestionsNodeDataSchema — rule-suggestions node.data (ref-only). The
+// inferred rules rehydrate via api.emails.list + api.emails.ruleSuggestions at
+// render time; the only persisted field is an optional display label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const RuleSuggestionsNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type RuleSuggestionsNodeData = z.infer<typeof RuleSuggestionsNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// PipelineHealthNodeDataSchema — pipeline-health node.data (ref-only). The
+// per-importer counts rehydrate via usePipelineHealth() (the /api/pipeline/health
+// proxy) at render time; node.data carries only an optional label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const PipelineHealthNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type PipelineHealthNodeData = z.infer<typeof PipelineHealthNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
+// BriefNodeDataSchema — brief node.data (ref-only). The daily brief is DERIVED
+// live from emails.listThreads + entities.reviewQueue + documents.list at render
+// time; node.data carries only an optional display label. `.strict()`.
+// ---------------------------------------------------------------------------
+
+export const BriefNodeDataSchema = z
+  .object({
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type BriefNodeData = z.infer<typeof BriefNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // Panel node.data schemas (directory / browser / editor) — authored in
 // `panel-node-schemas.ts` while this module was fenced (v2.0 canvas-panels
 // slice; see that file's header for the per-type ref-only/threat reasoning).

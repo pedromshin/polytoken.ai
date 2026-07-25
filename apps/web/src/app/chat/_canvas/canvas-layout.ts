@@ -41,6 +41,13 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
   spreadsheet: { width: 420, height: 320 },
   // document node — mirrors document-node.tsx's fixed h-[140px] w-[300px] shell.
   document: { width: 300, height: 140 },
+  // Six agent-addable surface nodes — each mirrors its component's fixed shell.
+  entity: { width: 320, height: 300 },
+  "knowledge-search": { width: 360, height: 440 },
+  "review-queue": { width: 340, height: 380 },
+  "rule-suggestions": { width: 340, height: 300 },
+  "pipeline-health": { width: 360, height: 340 },
+  brief: { width: 320, height: 340 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

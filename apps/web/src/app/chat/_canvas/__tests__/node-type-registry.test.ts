@@ -45,6 +45,12 @@ describe("computeNodeRegistryHash", () => {
       chat: NODE_TYPE_REGISTRY.chat!,
       spreadsheet: NODE_TYPE_REGISTRY.spreadsheet!,
       file: NODE_TYPE_REGISTRY.file!,
+      entity: NODE_TYPE_REGISTRY.entity!,
+      "knowledge-search": NODE_TYPE_REGISTRY["knowledge-search"]!,
+      "review-queue": NODE_TYPE_REGISTRY["review-queue"]!,
+      "rule-suggestions": NODE_TYPE_REGISTRY["rule-suggestions"]!,
+      "pipeline-health": NODE_TYPE_REGISTRY["pipeline-health"]!,
+      brief: NODE_TYPE_REGISTRY.brief!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(
       computeNodeRegistryHash(NODE_TYPE_REGISTRY),

@@ -58,6 +58,12 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   "circle-pack": { scope: "mailbox", label: "Mailbox landscape" },
   spreadsheet: { spreadsheetId: SOME_UUID, label: "Invoices" },
   file: { path: ["invoices", "2026"], name: "q3.pdf", label: "Q3 invoice" },
+  entity: { entityId: SOME_UUID, label: "Acme" },
+  "knowledge-search": { query: "renewal", label: "Knowledge" },
+  "review-queue": { label: "Merge review" },
+  "rule-suggestions": { label: "Rule suggestions" },
+  "pipeline-health": { label: "Pipeline" },
+  brief: { label: "Daily brief" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

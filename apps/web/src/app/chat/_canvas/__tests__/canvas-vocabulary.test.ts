@@ -41,6 +41,12 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "circle-pack",
   "spreadsheet",
   "file",
+  "entity",
+  "knowledge-search",
+  "review-queue",
+  "rule-suggestions",
+  "pipeline-health",
+  "brief",
   "unknown",
 ];
 

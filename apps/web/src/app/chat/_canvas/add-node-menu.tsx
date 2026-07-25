@@ -21,12 +21,18 @@
 import * as React from "react";
 import { toast } from "sonner";
 import {
+  Activity,
+  Box,
   CircleDashed,
   FileText,
+  GitMerge,
   HardDrive,
+  ListChecks,
   Mail,
   Network,
+  Newspaper,
   Plus,
+  Search,
   Table as TableIcon,
 } from "lucide-react";
 
@@ -44,6 +50,16 @@ import { api } from "~/trpc/react";
 
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 
+/** The five direct-place surface kinds — their data is a bare `{}` (an optional
+ * label only), so they place with no picker. Typed as a closed union so a caller
+ * cannot pass an unregistered kind. */
+export type SimpleNodeKind =
+  | "knowledge-search"
+  | "review-queue"
+  | "rule-suggestions"
+  | "pipeline-health"
+  | "brief";
+
 export interface AddNodeMenuProps {
   /** Place a circle-pack landscape of the given scope (no picker needed). */
   readonly onAddCirclePack: (scope: "mailbox" | "drive") => void;
@@ -55,6 +71,10 @@ export interface AddNodeMenuProps {
   readonly onAddSpreadsheet: (spreadsheetId: string) => void;
   /** Place a document node for a freshly-created blank document. */
   readonly onAddDocument: (documentId: string) => void;
+  /** Place one of the five direct-place surface nodes (data `{}`). */
+  readonly onAddSimpleNode: (kind: SimpleNodeKind) => void;
+  /** Open the entity search picker (places an entity node on select). */
+  readonly onAddEntity: () => void;
 }
 
 /** A blank 3-column sheet — the starting point the agent (or the user) fills. */
@@ -76,6 +96,8 @@ export function AddNodeMenu({
   onAddKnowledge,
   onAddSpreadsheet,
   onAddDocument,
+  onAddSimpleNode,
+  onAddEntity,
 }: AddNodeMenuProps): React.ReactElement {
   // The blank-sheet/blank-document creates live here (this component can reach
   // api) so the canvas host's add handlers stay sync — they just place the node
@@ -153,6 +175,31 @@ export function AddNodeMenu({
         <DropdownMenuItem onSelect={onAddKnowledge}>
           <Network className="size-4 shrink-0 text-faded" aria-hidden />
           Knowledge node…
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAddEntity}>
+          <Box className="size-4 shrink-0 text-faded" aria-hidden />
+          Entity…
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("knowledge-search")}>
+          <Search className="size-4 shrink-0 text-faded" aria-hidden />
+          Knowledge search
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("review-queue")}>
+          <GitMerge className="size-4 shrink-0 text-faded" aria-hidden />
+          Merge review
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("rule-suggestions")}>
+          <ListChecks className="size-4 shrink-0 text-faded" aria-hidden />
+          Rule suggestions
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("pipeline-health")}>
+          <Activity className="size-4 shrink-0 text-faded" aria-hidden />
+          Pipeline health
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onAddSimpleNode("brief")}>
+          <Newspaper className="size-4 shrink-0 text-faded" aria-hidden />
+          Daily brief
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

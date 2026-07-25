@@ -15,6 +15,7 @@
 import type { NodeTypes } from "@xyflow/react";
 
 import { resolveNodeType } from "./node-type-registry";
+import { BriefNode } from "./brief-node";
 import { BrowserNode } from "./browser-node";
 import { ChatNode } from "./chat-node";
 import { CirclePackNode } from "./circle-pack-node";
@@ -23,9 +24,14 @@ import { DirectoryNode } from "./directory-node";
 import { DocumentNode } from "./document-node";
 import { EditorNode } from "./editor-node";
 import { EmailThreadNode } from "./email-thread-node";
+import { EntityNode } from "./entity-node";
 import { FileNode } from "./file-node";
 import { GenuiPanelNode } from "./genui-panel-node";
 import { KnowledgePreviewNode } from "./knowledge-preview-node";
+import { KnowledgeSearchNode } from "./knowledge-search-node";
+import { PipelineHealthNode } from "./pipeline-health-node";
+import { ReviewQueueNode } from "./review-queue-node";
+import { RuleSuggestionsNode } from "./rule-suggestions-node";
 import { SourceNode } from "./source-node";
 import { SpreadsheetNode } from "./spreadsheet-node";
 import { UnknownNodeTypePlaceholder } from "./unknown-node-type-placeholder";
@@ -44,6 +50,12 @@ export const nodeTypes: NodeTypes = {
   "circle-pack": CirclePackNode,
   spreadsheet: SpreadsheetNode,
   file: FileNode,
+  entity: EntityNode,
+  "knowledge-search": KnowledgeSearchNode,
+  "review-queue": ReviewQueueNode,
+  "rule-suggestions": RuleSuggestionsNode,
+  "pipeline-health": PipelineHealthNode,
+  brief: BriefNode,
   // Plan 23-04 (restore + degrade, T-23-09/CANVAS-03): a node reconciled from
   // a persisted layout whose type this session's registry doesn't recognize
   // is rewritten to this fixed key (original type preserved in

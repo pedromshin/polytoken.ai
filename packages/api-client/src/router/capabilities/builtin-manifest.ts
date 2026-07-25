@@ -264,7 +264,8 @@ export const BUILTIN_CAPABILITY_MANIFEST: readonly BuiltinManifestEntry[] = Obje
     describe:
       "Add a node to this conversation's canvas so what you talk about becomes visible material: " +
       "an email-thread, document, source, knowledge-preview, chat, genui-panel, directory, " +
-      "browser, editor, or desktop node. Additive — never moves or removes anything the user " +
+      "browser, editor, desktop, entity, knowledge-search, review-queue, rule-suggestions, " +
+      "pipeline-health, or brief node. Additive — never moves or removes anything the user " +
       "placed. Idempotent per referenced object: adding the same thread/document/source twice " +
       "returns the existing node.",
     risk: "write",

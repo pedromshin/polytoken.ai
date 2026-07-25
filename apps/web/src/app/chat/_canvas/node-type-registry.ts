@@ -13,6 +13,7 @@
 import type { z } from "zod";
 
 import {
+  BriefNodeDataSchema,
   BrowserNodeDataSchema,
   ChatNodeDataSchema,
   CirclePackNodeDataSchema,
@@ -21,9 +22,14 @@ import {
   DocumentNodeDataSchema,
   EditorNodeDataSchema,
   EmailThreadNodeDataSchema,
+  EntityNodeDataSchema,
   FileNodeDataSchema,
   GenuiPanelNodeDataSchema,
   KnowledgePreviewNodeDataSchema,
+  KnowledgeSearchNodeDataSchema,
+  PipelineHealthNodeDataSchema,
+  ReviewQueueNodeDataSchema,
+  RuleSuggestionsNodeDataSchema,
   SourceNodeDataSchema,
   SpreadsheetNodeDataSchema,
 } from "./node-data-schemas";
@@ -118,6 +124,42 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: FileNodeDataSchema,
     description:
       "File node — a vault file placed on the canvas, anchored on a tenant-relative vault ref (folder path segments + basename, never the blob); the file rehydrates (name/size/download) via the ownership-gated files router, resolved against the acting user at read time (FEATURE-CATALOG DR-03).",
+  },
+  entity: {
+    id: "entity",
+    dataSchema: EntityNodeDataSchema,
+    description:
+      "Entity node — a resolved person/organization/etc. card anchored on an entityId ref (never fetched content); name/type/aliases/identifiers/occurrence-and-pending counts rehydrate via entities.byId (owner-scoped), with an Open-entity link into /entities/[id].",
+  },
+  "knowledge-search": {
+    id: "knowledge-search",
+    dataSchema: KnowledgeSearchNodeDataSchema,
+    description:
+      "Knowledge-search node — a searchable card over the learned-knowledge graph anchored on an optional query seed (never fetched rows); results rehydrate via knowledge.search (typed query) / knowledge.list (recent facts), each row deep-linking into /knowledge.",
+  },
+  "review-queue": {
+    id: "review-queue",
+    dataSchema: ReviewQueueNodeDataSchema,
+    description:
+      "Merge-review node — the top slice of the entity merge-review queue as a board card (ref-only); pending pairs rehydrate via entities.reviewQueue, with Merge/Reject acting through entities.confirmMerge/rejectMerge (EN-02).",
+  },
+  "rule-suggestions": {
+    id: "rule-suggestions",
+    dataSchema: RuleSuggestionsNodeDataSchema,
+    description:
+      "Rule-suggestions node — inferred sender/categorization rules aggregated from the user's recent mail (ref-only, read-only); rehydrates via emails.list + emails.ruleSuggestions, each row marked suggested until a human blesses it (MAIL-01).",
+  },
+  "pipeline-health": {
+    id: "pipeline-health",
+    dataSchema: PipelineHealthNodeDataSchema,
+    description:
+      "Pipeline-health node — the inbox pipeline-health panel as a board card (ref-only); per-importer received/analyzed/failed counts rehydrate via the /api/pipeline/health proxy (usePipelineHealth), owner-scoped server-side.",
+  },
+  brief: {
+    id: "brief",
+    dataSchema: BriefNodeDataSchema,
+    description:
+      "Brief node — the daily morning brief as a board card (ref-only, DERIVED live); folds emails.listThreads + entities.reviewQueue + documents.list through shapeMorningBrief into new mail / merges to review / recent documents (HM-02).",
   },
 };
 

@@ -234,6 +234,20 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
       label: z.string().max(120).optional(),
     })
     .strict(),
+  // Six agent-addable surface nodes — MIRRORED field-for-field from
+  // node-data-schemas.ts. Each is ref-only: node.data carries at most an
+  // id/query seed + optional label; the rendered content rehydrates on the node
+  // via owner-scoped tRPC reads, never persisted here.
+  entity: z
+    .object({ entityId: z.string().uuid(), label: z.string().max(120).optional() })
+    .strict(),
+  "knowledge-search": z
+    .object({ query: z.string().max(200).optional(), label: z.string().max(120).optional() })
+    .strict(),
+  "review-queue": z.object({ label: z.string().max(120).optional() }).strict(),
+  "rule-suggestions": z.object({ label: z.string().max(120).optional() }).strict(),
+  "pipeline-health": z.object({ label: z.string().max(120).optional() }).strict(),
+  brief: z.object({ label: z.string().max(120).optional() }).strict(),
 });
 
 /** The allowlisted node type ids — MUST stay id-set-equal with apps/web's NODE_TYPE_REGISTRY
@@ -450,7 +464,8 @@ export const canvasAddNodeCapability = defineCapability<
   describe:
     "Add a node to this conversation's canvas so what you talk about becomes visible material: " +
     "an email-thread, document, source, knowledge-preview, chat, genui-panel, directory, " +
-    "browser, editor, or desktop node. Additive — never moves or removes anything the user " +
+    "browser, editor, desktop, entity, knowledge-search, review-queue, rule-suggestions, " +
+    "pipeline-health, or brief node. Additive — never moves or removes anything the user " +
     "placed. Idempotent per referenced object: adding the same thread/document/source twice " +
     "returns the existing node.",
   source: "builtin",
