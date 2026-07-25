@@ -29,6 +29,20 @@
   ran all gates, squashed WIP → `fcb68c5`. **Click-path: sidebar → Chat → Add node (top-right +).**
   NEXT canvas fronts (works-when-clicked, no blockers): add the `usage` cost-read proc + node; more
   node types. Boards/workspaces = migration-0052-gated (needs a prod token or a migrate-deploy).
+- **5 MORE CANVAS NODE TYPES (wave 2) → main `f555b6b`** (2026-07-25, Vercel-only). `usage` (live spend
+  meter — added owner-scoped read proc `chat.summary` over ChatCostLedger in chat/cost.ts), `documents`
+  (recent-docs browser, documents.list), `references` (references.list), `search-all` (omnibox,
+  search.omnibox across entities/mail/chats/knowledge/files), `conversations` (chat.listConversations).
+  Same central-wiring discipline; 5 distinct ink geometries; describe strings untouched (no manifest
+  drift). Gates green: tsc ×3, vitest web 1998 / cap 65 / api-client 746, placeholder next build.
+  **11 NEW CANVAS NODE TYPES total shipped this session** (canvas is now ~24 node types). Click-path:
+  sidebar → Chat → Add node (+). All user-placeable AND agent-droppable via canvas.addNode.
+  BANGER DIRECTION (Pedro's vision Q, 2026-07-25): the emergent superpower is agent-authored LIVE
+  DATAFLOW on the canvas — canvas.connect (sourcePath→targetKey data edges) + live ref-only nodes +
+  genui + the capability registry = the AI assembling running machines over the user's compounding
+  personal graph. The wedge to prove it: teach the chat agent to emit canvas.addNode + canvas.connect
+  as CLIENT-APPLIED tool calls so "make me a board that tracks X" draws + wires itself live (the
+  deferred marquee). That's the next high-leverage build.
 - **Visible batch #1–#6** — all on main (the dead `wf_6f85ee71` workflow was recovered by hand). DONE.
 - **Track 2 — `container.py` split: COMPLETE (9/9 groups).** First 5 (genui, repositories, llm_adapter,
   cost, anticipatory) + the final 4 this session (chat_turn `2e8aac6` → document_region `5bfc8e7` →
