@@ -21,7 +21,9 @@ def client() -> TestClient:
 SNS_SUBSCRIPTION_CONFIRMATION = {
     "Type": "SubscriptionConfirmation",
     "Token": "token123",
-    "SubscribeURL": "https://sns.amazonaws.com/confirm?token=token123",
+    # Must be a real regional SNS host — the handler now host-pins the SubscribeURL
+    # (sns.<region>.amazonaws.com) before GETting it, closing the SSRF vector.
+    "SubscribeURL": "https://sns.us-east-1.amazonaws.com/?Action=ConfirmSubscription&Token=token123",
     "TopicArn": "arn:aws:sns:us-east-1:123456789:nauta-services-ses-inbound",
 }
 

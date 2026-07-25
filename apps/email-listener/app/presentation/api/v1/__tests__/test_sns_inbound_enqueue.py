@@ -84,8 +84,16 @@ def _post_notification(client: TestClient) -> Any:
 
 
 def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool) -> None:
+    # Signature verification is orthogonal to the enqueue cutover under test, so it
+    # is disabled here; test_sns_inbound_signature.py covers the verification gate.
     monkeypatch.setattr(
-        sns_inbound, "get_settings", lambda: SimpleNamespace(INGEST_ENQUEUE_ENABLED=enabled)
+        sns_inbound,
+        "get_settings",
+        lambda: SimpleNamespace(
+            INGEST_ENQUEUE_ENABLED=enabled,
+            SNS_VERIFY_SIGNATURE=False,
+            SNS_SIGNATURE_ENFORCED=False,
+        ),
     )
 
 

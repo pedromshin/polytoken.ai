@@ -20,6 +20,7 @@ from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUse
 from app.domain.ports.job_enqueuer import JobEnqueuer
 from app.infrastructure.sns.confirmation import confirm_subscription
 from app.infrastructure.sns.ses_parser import EmailMeta, parse_ses_notification
+from app.infrastructure.sns.verification import SIGNED_SNS_TYPES, is_sns_host, verify_sns_signature
 from app.settings import get_settings
 
 logger = structlog.get_logger(__name__)
@@ -39,10 +40,14 @@ async def receive_inbound_sns(request: Request) -> Response:
 
     msg_type: str = str(payload.get("Type", ""))
 
+    # Security gate (Track 4 S1): reject a message whose SNS signature fails to
+    # verify (only when enforcing). Returns None to let the message proceed.
+    rejection = await _reject_if_bad_signature(payload, msg_type)
+    if rejection is not None:
+        return rejection
+
     if msg_type == "SubscriptionConfirmation":
-        subscribe_url = str(payload["SubscribeURL"])
-        await confirm_subscription(subscribe_url)
-        return Response(status_code=status.HTTP_200_OK)
+        return await _handle_subscription_confirmation(payload)
 
     if msg_type == "Notification":
         try:
@@ -61,6 +66,44 @@ async def receive_inbound_sns(request: Request) -> Response:
         return await _process_notification(request, meta)
 
     logger.warning("sns_unknown_type", type=msg_type)
+    return Response(status_code=status.HTTP_200_OK)
+
+
+async def _reject_if_bad_signature(payload: dict[str, object], msg_type: str) -> Response | None:
+    """Verify the AWS SNS signature; return a 403 Response only when enforcing a failure.
+
+    Default is observe-only (verify + log, never reject) so a verifier bug can't drop
+    live mail; flip SNS_SIGNATURE_ENFORCED once the logs confirm genuine traffic
+    verifies. Returns None to let the message proceed.
+    """
+    settings = get_settings()
+    if not (settings.SNS_VERIFY_SIGNATURE and msg_type in SIGNED_SNS_TYPES):
+        return None
+    try:
+        await verify_sns_signature(payload)
+    except Exception as exc:  # any verify failure is a loggable/rejectable event
+        logger.warning(
+            "sns_signature_invalid",
+            type=msg_type,
+            error=str(exc),
+            enforced=settings.SNS_SIGNATURE_ENFORCED,
+        )
+        if settings.SNS_SIGNATURE_ENFORCED:
+            return Response(status_code=status.HTTP_403_FORBIDDEN)
+    return None
+
+
+async def _handle_subscription_confirmation(payload: dict[str, object]) -> Response:
+    """Confirm an SNS subscription — but only after host-pinning the SubscribeURL.
+
+    The host pin is UNCONDITIONAL (independent of the signature flags): the server
+    must never GET a non-SNS host, closing the SSRF vector.
+    """
+    subscribe_url = str(payload.get("SubscribeURL", ""))
+    if not is_sns_host(subscribe_url):
+        logger.warning("sns_subscribe_url_rejected", url=subscribe_url)
+        return Response(status_code=status.HTTP_403_FORBIDDEN)
+    await confirm_subscription(subscribe_url)
     return Response(status_code=status.HTTP_200_OK)
 
 
@@ -88,9 +131,7 @@ async def _process_notification(request: Request, meta: EmailMeta) -> Response:
     # guard: any failure (DI misconfiguration, S3 fetch, DB write) still returns 200 to
     # stop SNS retry storms (the pre-3a behavior, silent loss and all).
     try:
-        use_case: IngestInboundEmailUseCase = await request.app.state.dishka_container.get(
-            IngestInboundEmailUseCase
-        )
+        use_case: IngestInboundEmailUseCase = await request.app.state.dishka_container.get(IngestInboundEmailUseCase)
         await use_case.execute(meta["message_id"], recipients=meta["recipients"])
     except Exception:
         logger.exception("email_ingest_error", message_id=meta["message_id"])

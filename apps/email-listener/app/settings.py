@@ -231,6 +231,24 @@ class BaseAppSettings(BaseSettings):
     # not an always-on feature).
     INGEST_ENQUEUE_ENABLED: bool = False
 
+    # --- SNS inbound authenticity (Track 4 S1 — SSRF + forgery hardening) ---
+    # The /v1/emails/inbound-sns endpoint is unauthenticated (SNS cannot send an
+    # X-API-Key). Two independent controls guard it:
+    #   1. SubscribeURL / SigningCertURL host-pinning to sns.<region>.amazonaws.com
+    #      (infrastructure/sns/verification.is_sns_host) is applied UNCONDITIONALLY
+    #      by the handler — it closes the SSRF with zero false-positive risk (a real
+    #      AWS URL always matches) and is deliberately NOT gated by a flag.
+    #   2. Full AWS SNS message-signature verification, gated by the two flags below.
+    # SNS_VERIFY_SIGNATURE (default True): verify every SubscriptionConfirmation /
+    # Notification signature and LOG the outcome (`sns_signature_invalid` on failure).
+    # On its own it NEVER rejects a message — so a verifier bug cannot drop live mail;
+    # it only produces the telemetry that proves genuine AWS traffic verifies cleanly.
+    SNS_VERIFY_SIGNATURE: bool = True
+    # SNS_SIGNATURE_ENFORCED (default False): once the logs above are confirmed clean,
+    # flip this True to actually REJECT (HTTP 403) any message whose signature fails —
+    # the reversible cutover from observe to enforce. No effect while VERIFY is False.
+    SNS_SIGNATURE_ENFORCED: bool = False
+
     # --- Anticipatory prompting SPIKE (Phase 25, ANTIC-01/02) ---
     # D-12: single global off switch. When False, run_triggers short-circuits to []
     # before any trigger evaluates — zero candidates produced, pipeline fully dark.
