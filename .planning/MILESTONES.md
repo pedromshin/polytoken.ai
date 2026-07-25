@@ -300,3 +300,71 @@ verifications (human-UAT + eval-lift-vs-baseline measurements needing live Bedro
 `tech_debt`, 0 gaps (see milestones/v1.2-MILESTONE-AUDIT.md).
 
 ---
+
+
+---
+
+## vNEXT The Living Canvas (Proposed: 2026-07-25)
+
+**Status:** 📋 PROPOSED — not yet opened
+**Phases planned:** 5 (73–77), the "bangers"
+**Requirements:** 41 (LCAN 9 + MORN 7 + CPF 6 + BTAP 10 + MCPX 9)
+**Depends on:** Phase 66 (durable graphile-worker + Workspace→Canvas→Node/Edge rows, shipped
+2026-07-17) + the just-shipped 11 canvas node types and the in-flight `canvas.addNode`
+agent-draws-node wedge.
+**Roadmap:** [vNEXT-living-canvas-ROADMAP.md](vNEXT-living-canvas-ROADMAP.md)
+
+**The arc:** the canvas stops being a whiteboard the agent draws *on* and becomes a living substrate
+the agent *builds* — the payoff of the v1.11 capability spine ("one declaration, four consumers,
+pointed OUTWARD"). Five bangers, one move: the same agent that draws a node live in `/chat` also
+wires it, recomputes it, runs headless on a cron, grounds a sandboxed app in it, and projects it as a
+tool to Pedro's own Claude Code — each riding a piece of substrate that already exists in-tree and
+just isn't joined up. Almost entirely connective tissue over already-built spines.
+
+**Planned phases:**
+
+### Phase 73 — Living-canvas agent dataflow (XL, depends on 66) — THE FOUNDATION
+One sentence ("watch my landlord thread and keep a live rent board") builds a **wired, self-updating
+instrument**: the agent drops source + derived nodes, wires them with `sourcePath→targetKey`
+data-edges (`emit_canvas_connect`), the derived nodes recompute when upstream changes through the
+already-reactive `usePanelData` overlay, and the graph persists as a **named `canvas_recipes` row**
+that survives reload and keeps recomputing after the turn ends. Coins the two pieces every downstream
+banger consumes: the `shared.published.{nodeKey}` publish port and the recipe row. LCAN-01..09
+(LCAN-09 = durable after-close recompute, live-verified).
+
+### Phase 74 — Self-assembling morning board (L, depends on 73)
+A scheduled headless agent run (graphile-worker `crontab` → per-user fan-out → `/v1/home/assemble-job`
+→ a service-role home-scope writer) composes the `home` board — pending merges, brief, "3 need a
+reply", spend meter, inbox treemap — as real canvas nodes **before the user opens `/home`**. The
+value is delivered in your absence. Ships dark behind `MORNING_BOARD_ENABLED`. MORN-01..07
+(MORN-07 = real overnight run + `screenshot:review`, live).
+
+### Phase 75 — Correction-propagation flywheel (L, depends on 73)
+Confirm a merge once on a canvas node and the correction **cascades live**: a new
+`CascadeCorrectionUseCase` promotes the ingest pass's `AMBIGUOUS` sender→entity suggestion edges to
+`EXTRACTED` canon (reusing `PromoteEdgeUseCase`), enqueues a durable re-label fan-out over the
+absorbed identity's past emails, writes a `correction_propagations` ledger, and a web propagation
+reconcile invalidates `entities.byId` for both ids so every placed `EntityNode` re-renders — one
+click, propagated everywhere, made visible. CPF-01..06 (+ the re-label fan-out live leg, inheriting
+Phase 57's still-deferred migrations 0038/0039).
+
+### Phase 76 — Bespoke disposable apps / code-islands over your data (L, depends on 73)
+Welds the shipped Phase-20 jailed code-island generator (opaque-origin, `connect-src 'none'`,
+AST-allowlist, multi-candidate+judge) to 73's reactive dataflow spine: a new `code-island` canvas node
+injects its incoming data-edges' bounded, owner-scoped projections into the jail as a frozen
+`window.__ISLAND_DATA__` global — the generated app computes over real rows the network can't leak and
+recomputes for free. Persisted as a `code_islands` row (the first bespoke-app object in the graph),
+disposable by design. BTAP-01..10 (BTAP-07 = agent-authored end-to-end, live).
+
+### Phase 77 — Your life as an MCP tool surface (L, depends on 73 for the write tool only)
+A self-hosted, **expose-only** MCP stdio server projects the registry's read side —
+`knowledge.search`/`entities.list`/`search.omnibox` — as `polytoken.searchMyKnowledge` /
+`.listEntities` / `.searchEverything`, calling the SAME owner-scoped `appRouter` procedures through
+`createCaller` with a fixed server-verified principal (never tool input). Reuses the `apps/worker`
+package shape and the vendored `zod-to-json-schema`. Never consumes external MCP (machine-checked).
+The read slice has no hard 73 dependency; only `polytoken.addCanvasNode` (write) gates on 73.
+MCPX-01..09 (MCPX-09 = Pedro's real Claude Code, live).
+
+**Sequencing:** 73 Wave A (the connect wedge) is the highest-leverage first slice — smallest shippable
+increment that changes the product's category and unblocks all four branches. Then 73 Waves B/C, then
+74/75/76/77 in parallel (77's read slice + 75's backend cascade can even precede 73).

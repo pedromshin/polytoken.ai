@@ -1,5 +1,12 @@
 # Roadmap: nauta.services.email-listener
 
+> **⚠️ LEDGER-vs-REALITY (2026-07-25):** the code is ~82% complete on `main` and ahead of these
+> checkboxes — v1.10/v1.11's unticked boxes are mostly night-run bookkeeping (code shipped without
+> GSD paperwork), not missing software. The truthful, evidence-grounded status (SHIPPED/PARTIAL/OPEN
+> per requirement, the 5-seam code punch-list, and the human-gated live/pixel legs) is in
+> [assessment/V1X-RECONCILIATION.md](assessment/V1X-RECONCILIATION.md). Reconcile the individual
+> checkboxes when the punch-list lands.
+
 ## Milestones
 
 - ✅ **v1.0 — MVP** (Phases 1–11) — inbound email → parse → extract → entities/knowledge (shipped; phase dirs retained under `.planning/phases/`, lifecycle not formally run).
@@ -15,6 +22,7 @@
 - 🚧 **v1.10 — Product Design & Research Canvas** (Phases 55–63) — MOSTLY SHIPPED; Phases 62/63 carried (pixel-gated on the user). A user-picked visual identity (not autonomous), per-surface UX redesign on that identity, a frictionless research canvas (auto-collected sources, user canon, edges-as-context), and an email learning loop — sequenced around a BLOCKING HUMAN GATE at the visual-identity pick (Phase 58). See detail below.
 - 🚧 **v1.11 — Research Core & the Capability Spine** (Phases 64, 68–72) — IN PROGRESS (roadmap opened 2026-07-20 from the user's D1–D4 directives via `/gsd:new-milestone`). In-chat deep research that cites, exports, and composes — with every capability declared once in a registry the LLM, genui, the canvas, and the daemon all read (D2 "self-building product"). Opened in parallel with v1.10's carried pixel-gated phases, per the user's "up to 2.2" authorization. See detail below. Requirements: [REQUIREMENTS.md](REQUIREMENTS.md).
 - 📋 **Next epoch** — **v2.0 Local Agent Platform** (E4+E5+E6 merged) follows v1.11. Phase 65 (daemon) and 66 (files vault) already landed as advance slices (2026-07-17); v2.0 formalizes and completes them. ENDGAME-PLAN.md §5 originally sequenced v2.0 right after v1.9; two post-lock findings (999.18, 999.19) inserted v1.10, and D2 (999.37, the self-building directive) inserted v1.11 ahead of v2.0.
+- 📋 **vNEXT — The Living Canvas** (Phases 73–77) — PROPOSED. The five "bangers": the canvas stops being a whiteboard the agent draws *on* and becomes a living substrate the agent *builds* — agent-authored live dataflow recipes that recompute and survive reload (73, the trunk), a morning board that assembles itself headless overnight (74), a correct-once/propagate-everywhere flywheel over the human-gated trust ladder (75), bespoke disposable code-island apps wired to your real rows inside the opaque-origin jail (76), and your compounding personal graph projected as expose-only MCP tools your own Claude Code can call (77). The capability spine (v1.11) cashing in: canvas verbs, read procedures, and the jailed generator all become things the agent *drives* and external agents *call*, because each was declared once, ownership-gated once, tested once. Phase 73 is XL and the foundation (coins the `shared.published.*` publish port + the `canvas_recipes` row); 74–77 are four independent L branches off it. Depends on Phase 66 (durable graphile-worker + Canvas/Node/Edge rows) and the just-shipped 11 canvas node types + `canvas.addNode` agent-draws-node wedge (already one third of 73's loop). 41 requirements (LCAN 9 + MORN 7 + CPF 6 + BTAP 10 + MCPX 9). Roadmap: [milestones/vNEXT-living-canvas-ROADMAP.md](milestones/vNEXT-living-canvas-ROADMAP.md).
 
 ## Phases
 
@@ -217,7 +225,8 @@ WCAG-AA contrast + token-registration gates, and the 32/32 E2E suite.
  (completed 2026-07-15)
 - [x] Phase 60: Surface Redesign — Inbox & Email Detail
  (completed 2026-07-15)
-- [x] Phase 61: Surface Redesign — Chat, Canvas & Mobile Panel Chrome (completed 2026-07-16)
+- [x] Phase 61: Surface Redesign — Chat, Canvas & Mobile Panel Chrome
+ (completed 2026-07-16)
 - [ ] Phase 62: Surface Redesign — Knowledge, Studio & Production States
 - [ ] Phase 63: Research Canvas — Visual Surfaces
 

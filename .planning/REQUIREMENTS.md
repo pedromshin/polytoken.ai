@@ -178,3 +178,75 @@ promotion-gate-reuse groundwork it depends on, but does not claim the requiremen
 ---
 *Requirements defined: 2026-07-14 (from the v1.10 opening Q&A; yolo mode, user asleep — scoping taken from the recorded decisions rather than an interactive pass)*
 *Last updated: 2026-07-15 — ROADMAP.md created (Phases 55–63); traceability filled, 22/22 requirements mapped, coverage complete*
+
+
+---
+
+## vNEXT — The Living Canvas Requirements
+
+**Defined:** 2026-07-25
+**Core Value:** The canvas becomes a living, agent-authored substrate over the compounding personal
+graph — the agent draws, wires, recomputes, schedules, grounds, and exposes running instruments; the
+payoff of the v1.11 capability spine pointed OUTWARD.
+
+**Union of the 41 REQ ids the five specs coined (LCAN 9 + MORN 7 + CPF 6 + BTAP 10 + MCPX 9):**
+
+### Living-Canvas Agent Dataflow (LCAN — Phase 73, the foundation)
+
+- [ ] **LCAN-01**: A `canvas_connect` message part materializes exactly one `data-edge` between the two named node keys; re-materializing the same part (post-turn refetch) is an idempotent no-op
+- [ ] **LCAN-02**: `emit_canvas_connect` is registered in the listener capability registry ONLY when `CANVAS_EMIT_TOOL_ENABLED` is set; fails closed / absent otherwise
+- [ ] **LCAN-03**: A source-capable node publishes a bounded projection (size-capped, no spec content, prototype-pollution-guarded) to `shared.published.{nodeKey}` through the bounded 5-mutation enum
+- [ ] **LCAN-04**: With a wired edge `published.{src}.total → input`, changing the source's published value re-renders the target's overlaid value within one store tick (no manual refresh)
+- [ ] **LCAN-05**: A wired recipe round-trips reload — edge + `sharedState` published value restore exactly, asserted against the DB row
+- [ ] **LCAN-06**: The data edge stays neutral — no tier hue is introduced by wiring (Law 1)
+- [ ] **LCAN-07**: A `canvas_recipes` row persists name + node/edge key-set; a recipe badge/name renders on the canvas grouping its member nodes
+- [ ] **LCAN-08**: Tenancy — every new procedure is `protectedProcedure` with ownership asserted FIRST; a non-owned conversation surfaces NOT_FOUND before any read/write
+- [ ] **LCAN-09 (LIVE)**: Durable after-close recompute — the Task-7 graphile-worker re-polls the recipe's `sourceRef`, recomputes, and bumps the published value server-side while the tab is closed
+
+### Self-Assembling Morning Board (MORN — Phase 74)
+
+- [ ] **MORN-01**: A new `assemble_morning_board` identifier is accepted by the `enqueue_job` allowlist (new forward migration) and present in the worker `taskList`; an unknown-identifier enqueue still raises
+- [ ] **MORN-02**: The worker `crontab` enqueues `assemble_morning_board` on schedule AND fans out one job per active user with an idempotent `job_key` (N users → N jobs, re-run replaces)
+- [ ] **MORN-03**: `/v1/home/assemble-job` raises (→ 5xx) on any failure (never swallow-to-200) and is api-key-guarded
+- [ ] **MORN-04**: The service-role home writer persists a snapshot keyed on the job's `user_id` (NOT a session), stamps `scope='home'`, and is tenancy-safe — a write for user A can never land on user B's home row
+- [ ] **MORN-05**: The composed snapshot validates against `CanvasSnapshotSchema` and every node type resolves in `node-types.ts` (or degrades to the placeholder — no blank canvas)
+- [ ] **MORN-06**: `MORNING_BOARD_ENABLED=False` fully darkens the path (no cron enqueue, no assembly)
+- [ ] **MORN-07 (LIVE)**: After a real scheduled run against the seed user's real inbox, loading `/home` in a fresh browser shows the pre-assembled board with correct counts + a generation timestamp — a `screenshot:review` capture
+
+### Correction-Propagation Flywheel (CPF — Phase 75)
+
+- [ ] **CPF-01**: A `CascadeCorrectionUseCase` promotes exactly the active `AMBIGUOUS`/`INFERRED` sender→entity suggestion edges touching the merge's survivor/absorbed (reusing existing promote guards); importer_id derived from the loaded survivor row (D-21), never a caller arg
+- [ ] **CPF-02**: The cascade is idempotent — re-running for the same (S,T)/`job_key` promotes nothing already promoted and writes no duplicate `correction_propagations` row
+- [ ] **CPF-03**: A `correction_propagations` migration + repository test — one importer-scoped ledger row records survivor, absorbed id, promoted edge ids, enqueued affected `email_ids`; a cross-importer read returns nothing (TENA-03 / D-21)
+- [ ] **CPF-04**: `entities.confirmMerge` (tRPC) returns a cascade summary `{ promotedEdgeIds, affectedEmailIds, survivorId, absorbedId }`; both-side ownership still asserted before any listener call
+- [ ] **CPF-05**: On a merge success the propagation reconcile invalidates `api.entities.byId` for BOTH survivor and absorbed ids (in addition to `reviewQueue` + `list`), marking placed `EntityNode`s stale
+- [ ] **CPF-06 (LIVE-ish, real browser)**: After a merge on a `ReviewQueueNode`, a co-placed survivor `EntityNode` visibly gains the absorbed alias + updated counts and the absorbed node shows its "merged into another" state — captured via `screenshot:review`
+- [ ] **(named live leg)** The re-label fan-out actually re-points the absorbed target's past-email links onto the survivor in a real Postgres (needs migrations 0038/0039 + the new migration applied live + worker running)
+
+### Bespoke Task Apps / Code-Islands over Your Data (BTAP — Phase 76)
+
+- [ ] **BTAP-01**: `buildIslandSrcdoc({ code, data })` injects `data` as a frozen `window.__ISLAND_DATA__` via `JSON.stringify` (a string, never executed), BEFORE the user script; over-cap/pollution-keyed data rejected; `ISLAND_CSP_POLICY` + `ISLAND_SANDBOX` byte-for-byte unchanged (`connect-src 'none'` preserved)
+- [ ] **BTAP-02**: A `code-island` node type exists in `CANVAS_NODE_DATA_SCHEMAS` AND `NODE_TYPE_REGISTRY` with ref-only `node.data = { islandId, label? }`; the apps/web ⇄ capabilities node-id drift test stays green
+- [ ] **BTAP-03**: With two data-edges wired in, the node collects both overlaid inputs from `usePanelData` and passes `{ [targetKey]: projection }` into the sandbox; changing a source's published value re-renders the island within one store tick (code prop stable, injected data changes)
+- [ ] **BTAP-04**: `code_islands` round-trips — `create` then `byId` returns `{ intent, code, inputBindings }` for the owner; a non-owner `byId` surfaces NOT_FOUND before any read (asserted against the DB row)
+- [ ] **BTAP-05**: `codeIslandGenerate` accepts a bounded `inputs` manifest (columns ≤ 64, sample rows ≤ small N, no full dataset), forwards it to FastAPI; omitting `inputs` preserves today's intent-only behaviour exactly
+- [ ] **BTAP-06**: The "Build a tool from these" flow, given ≥2 selected data nodes, produces exactly ONE `code-island` node and one `data-edge` per source, idempotent on re-run of the same selection
+- [ ] **BTAP-07 (LIVE)**: Agent-authored — "build me a reconciler from these two nodes" in chat → the listener `emit_code_island` tool (behind `CANVAS_EMIT_TOOL_ENABLED`, fails closed) emits a part that runs the grounding flow and materializes the wired node live in one turn
+- [ ] **BTAP-08**: The generated island is still gated by the shipped safety stack — `validateIslandCode` runs before execution and a fetch/XHR/eval/parent-access attempt is BLOCKED even with data present; the frame remains opaque-origin with `connect-src 'none'`
+- [ ] **BTAP-09**: Tenancy — every new `codeIslands.*` procedure is `protectedProcedure` with ownership asserted FIRST; the generation cache posture unchanged (auth-gate only)
+- [ ] **BTAP-10**: Disposability — deleting the `code-island` node removes only the placement; the `code_islands` row survives unless explicitly removed via `codeIslands.remove`
+
+### Life-as-MCP-Tool-Surface (MCPX — Phase 77, expose-only)
+
+- [ ] **MCPX-01**: `tools/list` returns exactly the expose-allowlisted tools; every listed id exists in `BUILTIN_CAPABILITY_MANIFEST` with `risk:"read"`, and each tool's `description` equals the manifest `describe` verbatim (drift test)
+- [ ] **MCPX-02**: Each tool's `inputSchema` is the JSON-Schema conversion of the procedure's exported Zod input schema; a tool with no valid Zod source is refused at registration
+- [ ] **MCPX-03**: `tools/call polytoken.searchMyKnowledge` dispatches to `caller.knowledge.search` and returns the SAME items an equivalent direct `appRouter.createCaller(ctx)` call returns
+- [ ] **MCPX-04**: Tenancy — a principal owning NO importers gets an empty result and zero unscoped queries; tool input can NEVER name the acting identity (`user.id` comes only from the server principal)
+- [ ] **MCPX-05**: Principal resolution fails closed — missing `POLYTOKEN_MCP_USER_ID` or `POLYTOKEN_MCP_TOKEN` makes the server refuse to start, never boot with a null user
+- [ ] **MCPX-06**: A thrown `TRPCError` (e.g. `UNAUTHORIZED`, or a bad-arg Zod failure) maps to a structured MCP tool error — the server process never crashes on a bad call
+- [ ] **MCPX-07**: Args are re-parsed against the procedure's Zod schema at the dispatch boundary before the caller runs (defense in depth)
+- [ ] **MCPX-08**: Expose-only guardrail — a test asserts the package imports NO MCP *client*/external-server transport and declares no `mcpServers` (the "never consume external MCP" mandate is machine-checked)
+- [ ] **MCPX-09 (LIVE)**: End-to-end from Pedro's real Claude Code — the `mcpServers` entry connects, `tools/list` shows the polytoken tools, and `polytoken.searchMyKnowledge` returns grounded cited results from his live graph
+
+**Coverage:** 41 requirements across 5 phases (73→LCAN, 74→MORN, 75→CPF, 76→BTAP, 77→MCPX);
+each phase's `depends_on` and requirement set are declared in its `SPEC.md` frontmatter.
