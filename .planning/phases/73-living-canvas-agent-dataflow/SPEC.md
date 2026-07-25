@@ -1,7 +1,13 @@
 ---
 phase: 73-living-canvas-agent-dataflow
 milestone: vNEXT-living-canvas
-status: proposed
+status: in-progress
+build_log:
+  - "Wave A SHIPPED 2026-07-25 (web a2393f2 + listener 203a8b5): the agent can now
+     DRAW nodes and WIRE data-edges on the canvas. LCAN-01/02/06 green. Listener
+     tools emit_canvas_node/emit_canvas_connect behind CANVAS_EMIT_TOOL_ENABLED
+     (default OFF, fail-closed); web reconcile materializes the parts. Waves B
+     (publish port) + C (named recipes / durable recompute) remain."
 size: XL
 depends_on: [66]
 requirements: [LCAN-01, LCAN-02, LCAN-03, LCAN-04, LCAN-05, LCAN-06, LCAN-07, LCAN-08, LCAN-09]
@@ -166,11 +172,13 @@ The "holy shit": one sentence produced a **wired, self-updating instrument**, no
 
 ## Success criteria (testable / UAT)
 Gate-able here (unit / geometry / real-browser):
-- [ ] **LCAN-01** A `canvas_connect` message part materializes exactly one `data-edge` between the two
+- [x] **LCAN-01** A `canvas_connect` message part materializes exactly one `data-edge` between the two
       named node keys; re-materializing the same part (post-turn refetch) is an idempotent no-op (no
-      duplicate edge). (vitest on the reconcile pass; parity with `connect` dedup key.)
-- [ ] **LCAN-02** `emit_canvas_connect` is registered in the listener capability registry ONLY when
-      `CANVAS_EMIT_TOOL_ENABLED` is set; fails closed / absent otherwise. (`uv run pytest`.)
+      duplicate edge). (vitest on the reconcile pass; parity with `connect` dedup key.) — SHIPPED a2393f2
+      (`collectAgentEdges` + `agent-canvas-reconcile.test.ts`).
+- [x] **LCAN-02** `emit_canvas_connect` is registered in the listener capability registry ONLY when
+      `CANVAS_EMIT_TOOL_ENABLED` is set; fails closed / absent otherwise. (`uv run pytest`.) — SHIPPED
+      203a8b5 (structural-omission wiring + `TestCanvasEmitExposureGate`).
 - [ ] **LCAN-03** A source-capable node publishes a **bounded** projection (size-capped, no spec content,
       prototype-pollution-guarded) to `shared.published.{nodeKey}` through the bounded 5-mutation enum —
       never an arbitrary reducer, never over the `sharedState` size bound. (vitest + the existing
@@ -181,8 +189,9 @@ Gate-able here (unit / geometry / real-browser):
 - [ ] **LCAN-05** A wired recipe round-trips reload: edge + `sharedState` published value restore exactly
       (D-06/D-10) — asserted against the DB row, not terminal output. (geometry/real-browser gate on an
       already-running :3000 server.)
-- [ ] **LCAN-06** The data edge stays **neutral** — no tier hue is introduced by wiring (Law 1;
-      `data-edge.tsx:17` invariant preserved). (canvas-node-law test.)
+- [x] **LCAN-06** The data edge stays **neutral** — no tier hue is introduced by wiring (Law 1;
+      `data-edge.tsx:17` invariant preserved). (canvas-node-law test.) — SHIPPED a2393f2 (agent edges
+      reuse `toFlowEdge` verbatim; no styling added at the wiring seam).
 - [ ] **LCAN-07** A `canvas_recipes` row persists name + node/edge key-set; a recipe badge/name renders
       on the canvas grouping its member nodes. (db round-trip test + geometry gate.)
 - [ ] **LCAN-08** Tenancy: every new procedure is `protectedProcedure` with ownership asserted FIRST;

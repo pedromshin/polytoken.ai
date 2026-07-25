@@ -30,13 +30,20 @@ Pedro's directive this session: **STOP building invisible backend — build NEW 
   CanonToolbar · DOCS-01 export affordance · REG-04 mount CapabilityConfirmCard · RSRCH-04 mid-stream
   refine] + defer RCNV-05 + **~1h human-gated legs** (LIVE-03 OAuth, LIVE-04 forward mail, CLUS-07,
   pixel 62/63). STATE.md progress corrected 1→3 / 16→50%.
-- ⚠️ **The "agent draws a node live" WEDGE workflow DIED** at 19:45 (0 results, tree clean — no output).
-  NOT lost: its full design == **Phase 73 Wave A** (listener `emit_canvas_connect`/`emit_canvas_node`
-  behind `CANVAS_EMIT_TOOL_ENABLED` + web `canvas_add_node`/`canvas_connect` reconcile reusing the
-  genui-panel live-materialization path in `use-canvas-persistence.ts`). RE-RUN as Phase 73 Wave A.
-- **RESUME NEXT:** (1) build Phase 73 Wave A (the wedge, flag-off) → ship; (2) then the 5-seam punch-list
-  (RCNV-02 shares `use-canvas-persistence.ts` with the wedge → sequence AFTER it); (3) reconcile the
-  individual v1.x checkboxes once the punch-list lands. Tree CLEAN + pushed at `2c09695`.
+- ✅ **Phase 73 Wave A SHIPPED (the wedge)** — the agent can now DRAW nodes + WIRE data-edges on the
+  canvas. Web `a2393f2` (MessagePart `canvas_add_node`/`canvas_connect` + `reconcileNodesFromHistory`
+  Pass 2b + `collectAgentEdges` + chat-canvas additive edge merge + transcript/stream-reducer skip;
+  13 tests) and listener `203a8b5` (`emit_canvas_node`/`emit_canvas_connect` behind
+  `CANVAS_EMIT_TOOL_ENABLED` default-OFF, structural-omission wiring; mirrors the `emit_ui_spec`
+  emit-a-part path — no executor, no SES/mail touch). LCAN-01/02/06 green. Gates: web tsc + 1008 vitest
+  + placeholder build; listener ruff + lint-imports + mypy(288) + full pytest. On feature branch
+  `claude/polytoken-email-infra-cont-qi9q5g` (NOT yet on main — needs squash-merge; listener redeploy is
+  a no-op while the flag is OFF). The dead workflow (wf_397f3345, died 19:45) is fully superseded.
+- **RESUME NEXT:** (1) squash-merge Wave A to main + flip `CANVAS_EMIT_TOOL_ENABLED=ON` to live-verify
+  the agent draws (Pedro's prompt-verify seam); (2) **Phase 73 Wave B** — the publish port (source nodes
+  write a bounded projection to `shared.published.{nodeKey}` on query-settle so a wired edge carries live
+  data; LCAN-03/04/05) — shares `use-canvas-persistence.ts` + `usePanelData`; (3) then Wave C (named
+  recipes + durable recompute) and the 5-seam v1.x punch-list. Tree CLEAN + pushed.
 
 **Shipped to main since the last chronological block:**
 - **6 NEW CANVAS NODE TYPES → main `fcb68c5`** (2026-07-25, Vercel-only; NO listener/migration/infra
