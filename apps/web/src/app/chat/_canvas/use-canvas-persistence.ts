@@ -54,6 +54,7 @@ import {
   offsetCascadePosition,
   type CanvasRect,
 } from "./canvas-layout";
+import { publishedNodePath } from "./canvas-publish";
 import type { CanvasStore } from "./canvas-store";
 import { EdgePayloadSchema } from "./edge-payload-schema";
 import { NODE_REGISTRY_VERSION } from "./node-registry-version";
@@ -228,6 +229,20 @@ function buildExpectedAgentNodeSpecs(
 }
 
 /**
+ * toPhysicalSourcePath — maps the model's friendly connect `sourcePath` to the
+ * physical store path the resolution engine walks (Phase 73 Wave B). A path the
+ * model already rooted at `shared.`/`panels.` is an absolute reference and is
+ * returned verbatim; otherwise it is treated as a FIELD of the source node's
+ * published projection and prefixed with `shared.published.{sourceNodeId}.`.
+ */
+function toPhysicalSourcePath(sourceNodeId: string, modelSourcePath: string): string {
+  if (modelSourcePath.startsWith("shared.") || modelSourcePath.startsWith("panels.")) {
+    return modelSourcePath;
+  }
+  return `${publishedNodePath(sourceNodeId)}.${modelSourcePath}`;
+}
+
+/**
  * collectAgentEdges — every ACTIVE turn's `canvas_connect` part resolved to a
  * persisted-edge shape (Phase 73 / LCAN-01). Only emitted when BOTH endpoint
  * nodes are present (`presentNodeIds`) — mirrors the server verb's
@@ -259,13 +274,27 @@ export function collectAgentEdges(
         targetKey: part.targetKey,
       });
       if (!parsed.success) continue;
-      const id = agentEdgeId(source, target, parsed.data.sourcePath, parsed.data.targetKey);
+      // Rewrite the model's friendly sourcePath to the PHYSICAL store path so
+      // the UNCHANGED usePanelData/resolveCanvasPath engine carries the source
+      // node's published value (Phase 73 Wave B / LCAN-04). The model names a
+      // field of the source node ("total"); the source publishes it under
+      // `shared.published.{nodeId}` (canvas-publish.ts). A model path already
+      // rooted at `shared.`/`panels.` is a deliberate absolute reference and is
+      // left as-is. Re-validated so the rewritten path still crosses the
+      // forbidden-segment guard.
+      const physicalSourcePath = toPhysicalSourcePath(source, parsed.data.sourcePath);
+      const revalidated = EdgePayloadSchema.safeParse({
+        sourcePath: physicalSourcePath,
+        targetKey: parsed.data.targetKey,
+      });
+      if (!revalidated.success) continue;
+      const id = agentEdgeId(source, target, revalidated.data.sourcePath, revalidated.data.targetKey);
       if (byId.has(id)) continue;
       byId.set(id, {
         id,
         source,
         target,
-        data: { sourcePath: parsed.data.sourcePath, targetKey: parsed.data.targetKey },
+        data: { sourcePath: revalidated.data.sourcePath, targetKey: revalidated.data.targetKey },
       });
     }
   }

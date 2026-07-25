@@ -36,7 +36,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AlertCircle, Gauge, X } from "lucide-react";
@@ -46,6 +46,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type UsageNodeData } from "./node-data-schemas";
 
@@ -87,6 +88,23 @@ export const UsageNode = memo(function UsageNode({
   const cap = summary.data?.caps.perDayUsd ?? 0;
   const fraction = fractionOfCap(spent, cap);
   const atCap = cap > 0 && spent >= cap;
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the spend query
+  // settles, publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge (e.g. `spendTodayUsd ->
+  // input`) carries this live number through the unchanged usePanelData engine.
+  // A DERIVED read, never written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (summary.data === undefined) return;
+    publish({
+      label,
+      spendTodayUsd: spent,
+      capPerDayUsd: cap,
+      fractionUsed: Number(fraction.toFixed(4)),
+      atCap,
+    });
+  }, [publish, summary.data, label, spent, cap, fraction, atCap]);
 
   return (
     <div

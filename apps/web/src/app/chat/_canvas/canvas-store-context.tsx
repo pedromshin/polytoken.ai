@@ -42,6 +42,7 @@ import {
   type CanvasStore,
   type CanvasStoreSeed,
 } from "./canvas-store";
+import { projectForPublish, publishedNodePath } from "./canvas-publish";
 
 // ---------------------------------------------------------------------------
 // toCanvasStoreSeed — narrows an arbitrary persisted JSON record (the
@@ -286,3 +287,48 @@ export function usePanelData(
 
   return { data, dispatch };
 }
+
+// ---------------------------------------------------------------------------
+// useCanvasPublish — the source-node PUBLISH PORT (Phase 73 Wave B / LCAN-03)
+// ---------------------------------------------------------------------------
+
+/**
+ * useCanvasPublish(nodeId) — returns a stable `publish(value)` a source-capable
+ * node calls when its tRPC query settles. It writes a BOUNDED projection
+ * (`projectForPublish`) of `value` to `shared.published.{nodeId}` through the
+ * store's own `mutate("set", …)` enum (the SAME bounded, FORBIDDEN_KEYS-guarded
+ * write path every other store mutation uses — never a raw object assign, never
+ * an arbitrary reducer). An agent-wired edge whose sourcePath resolves under
+ * that namespace then carries the value live through the UNCHANGED
+ * `usePanelData` overlay — no new reactivity.
+ *
+ * A value that can't be bounded (oversize even after clamping, unserializable)
+ * is skipped rather than written, so a source node can never blow the
+ * `sharedState` size cap and get the whole layout save refused.
+ */
+export function useCanvasPublish(nodeId: string): (value: unknown) => void {
+  // Non-throwing: a source-capable node is a SHARED component that can mount
+  // off-canvas (previews, unit tests) where no store provider wraps it — there,
+  // publishing is simply a no-op, never a wiring-bug throw (mirrors
+  // useOptionalCanvasStore's rationale).
+  const store = useOptionalCanvasStore();
+  const mutate = useStore(
+    store ?? FALLBACK_STORE,
+    (state) => state.mutate,
+  );
+
+  return useCallback(
+    (value: unknown) => {
+      if (!nodeId || store === null) return;
+      const projection = projectForPublish(value);
+      if (projection === undefined) return;
+      mutate("set", publishedNodePath(nodeId), projection);
+    },
+    [mutate, nodeId, store],
+  );
+}
+
+/** A stable throwaway store so `useStore` (a hook, must run unconditionally)
+ * has something to read from when no provider wraps the tree — its `mutate` is
+ * never invoked (the returned callback bails on `store === null`). */
+const FALLBACK_STORE: CanvasStore = createCanvasStore();

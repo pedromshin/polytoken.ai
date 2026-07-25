@@ -205,10 +205,30 @@ describe("collectAgentEdges — canvas_connect parts (LCAN-01/06)", () => {
     const edge = edges[0]!;
     expect(edge.source).toBe(agentNodeId("sheet"));
     expect(edge.target).toBe(agentNodeId("tile"));
-    expect(edge.data).toEqual({ sourcePath: "total", targetKey: "input" });
+    // the model's friendly "total" is rewritten to the physical published path
+    // so the resolution engine carries the source node's published value (LCAN-04)
+    const physical = `shared.published.${agentNodeId("sheet")}.total`;
+    expect(edge.data).toEqual({ sourcePath: physical, targetKey: "input" });
     expect(edge.id).toBe(
-      agentEdgeId(agentNodeId("sheet"), agentNodeId("tile"), "total", "input"),
+      agentEdgeId(agentNodeId("sheet"), agentNodeId("tile"), physical, "input"),
     );
+  });
+
+  it("leaves an already-rooted shared./panels. sourcePath as an absolute reference", () => {
+    const edges = collectAgentEdges(
+      [
+        connectRow({
+          type: "canvas_connect",
+          sourceHandle: "sheet",
+          targetHandle: "tile",
+          sourcePath: "shared.someGlobal",
+          targetKey: "input",
+        }),
+      ],
+      present,
+    );
+    expect(edges).toHaveLength(1);
+    expect(edges[0]!.data.sourcePath).toBe("shared.someGlobal");
   });
 
   it("does NOT emit an edge when an endpoint node is absent (server-verb parity)", () => {
