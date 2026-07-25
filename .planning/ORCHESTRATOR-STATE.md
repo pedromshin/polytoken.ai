@@ -79,6 +79,22 @@ is quarantined under a SUPERSEDED header.
    commented backend block completed (dynamodb_table + encrypt). Commit `3c6b9b4`.
 4. **The "lives in it" proof (Pedro-only, gates everything)** — sign in on the deployed app + forward
    real mail (LIVE-03/04, CLUS-07). Nothing built counts as "usable" until this runs once.
+5. **Track 4 S1 — SNS inbound authenticity (SSRF + forgery). SHIPPED to main `8f95163` (2026-07-25),
+   deploy run #28.** The unauthenticated `/v1/emails/inbound-sns` trusted any POST body — a
+   live-exploitable SSRF (`confirm_subscription` GET any attacker `SubscribeURL`) + zero SNS signature
+   verification (forge Notifications/SubscriptionConfirmations). Two controls, tuned for NO mail-outage:
+   (a) **UNCONDITIONAL host-pin** — `is_sns_host()` requires `https://sns.<region>.amazonaws.com[.cn]`;
+   handler 403s a non-SNS SubscribeURL before any GET (`confirmation.py` re-checks as defense-in-depth).
+   A real AWS URL always matches → zero false-positive risk → SSRF closed on deploy.
+   (b) **Full AWS SNS signature verify** (`infrastructure/sns/verification.py`): canonical string per AWS
+   spec (SignatureVersion 1/SHA1 legacy + 2/SHA256), RSA verify vs the signing cert fetched ONLY from a
+   host-pinned URL + cached. Gated by `SNS_VERIFY_SIGNATURE` (default True = verify+LOG, NEVER rejects on
+   its own — a verifier bug can't drop live mail) and `SNS_SIGNATURE_ENFORCED` (default False = the
+   reversible flip to 403 forgeries once logs confirm clean traffic). **Pedro's activation: watch logs
+   for `sns_signature_invalid` on real mail; when clean, set `SNS_SIGNATURE_ENFORCED=true`.** Canonical
+   builder covered by a real-key round-trip test (guards against rejecting valid mail). All deploy gates
+   green (ruff check + mypy + full `uv run pytest` 2027 passed) + CI extras (format-check changed files,
+   lint-imports 3/3, bandit 0).
 
 **Fixed this block:** the pre-existing mypy-RED (task-6 linked-context test stubs) — now `mypy app` = 0
 issues. Also fixed a Track-2 fallout: 2 tests under `tests/` imported promote factories from `app.container`
