@@ -13,6 +13,31 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ⏸️ PRE-COMPACT CHECKPOINT — 2026-07-25 (resume here)
+Pedro's directive this session: **STOP building invisible backend — build NEW interfaces on the CANVAS
+(the primary surface) over already-wired backend.** State:
+- ✅ **11 new canvas node types LIVE on main** (`fcb68c5` +6, `f555b6b` +5): entity · knowledge-search ·
+  review-queue · rule-suggestions · pipeline-health · brief · usage(+`chat.summary` cost-read proc) ·
+  documents · references · search-all · conversations. All user-placeable (Add-node menu) AND
+  agent-droppable (`canvas.addNode` mirror). Canvas now ~24 node types. Click-path: Chat → `+`.
+- ✅ **Bangers filed through GSD** (`2c09695`): proposed milestone **vNEXT — The Living Canvas**, phases
+  **73-77** (SPEC.md each, grounded): 73 living-canvas-agent-dataflow (XL, foundation) · 74
+  self-assembling-morning-board · 75 correction-propagation-flywheel · 76 bespoke-task-apps-codeisland ·
+  77 capability-registry-mcp-server. 41 reqs. Roadmap: `milestones/vNEXT-living-canvas-ROADMAP.md`.
+- ✅ **v1.10/v1.11 reconciled to truth** (`2c09695`): `assessment/V1X-RECONCILIATION.md` — product ~82%
+  code-complete, AHEAD of the ledger; the unticked boxes are night-run bookkeeping, not missing code.
+  Real remaining = **5-seam code punch-list** [RCNV-02 ledger→canvas reconcile · RCNV-03 mount
+  CanonToolbar · DOCS-01 export affordance · REG-04 mount CapabilityConfirmCard · RSRCH-04 mid-stream
+  refine] + defer RCNV-05 + **~1h human-gated legs** (LIVE-03 OAuth, LIVE-04 forward mail, CLUS-07,
+  pixel 62/63). STATE.md progress corrected 1→3 / 16→50%.
+- ⚠️ **The "agent draws a node live" WEDGE workflow DIED** at 19:45 (0 results, tree clean — no output).
+  NOT lost: its full design == **Phase 73 Wave A** (listener `emit_canvas_connect`/`emit_canvas_node`
+  behind `CANVAS_EMIT_TOOL_ENABLED` + web `canvas_add_node`/`canvas_connect` reconcile reusing the
+  genui-panel live-materialization path in `use-canvas-persistence.ts`). RE-RUN as Phase 73 Wave A.
+- **RESUME NEXT:** (1) build Phase 73 Wave A (the wedge, flag-off) → ship; (2) then the 5-seam punch-list
+  (RCNV-02 shares `use-canvas-persistence.ts` with the wedge → sequence AFTER it); (3) reconcile the
+  individual v1.x checkboxes once the punch-list lands. Tree CLEAN + pushed at `2c09695`.
+
 **Shipped to main since the last chronological block:**
 - **6 NEW CANVAS NODE TYPES → main `fcb68c5`** (2026-07-25, Vercel-only; NO listener/migration/infra
   so the live mail receiver is untouched). Pedro's directive: stop building invisible backend — build
