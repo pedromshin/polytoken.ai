@@ -6,8 +6,15 @@ build_log:
   - "Wave A SHIPPED 2026-07-25 (web a2393f2 + listener 203a8b5): the agent can now
      DRAW nodes and WIRE data-edges on the canvas. LCAN-01/02/06 green. Listener
      tools emit_canvas_node/emit_canvas_connect behind CANVAS_EMIT_TOOL_ENABLED
-     (default OFF, fail-closed); web reconcile materializes the parts. Waves B
-     (publish port) + C (named recipes / durable recompute) remain."
+     (default OFF, fail-closed); web reconcile materializes the parts."
+  - "Wave B SHIPPED 2026-07-25 (core c2139f7 + fan-out 00f19db): the wire now
+     CARRIES DATA. projectForPublish (bounded JSON projection) + useCanvasPublish
+     write to shared.published.{nodeId}; agent edges rewrite the model's friendly
+     sourcePath to the physical published path so the unchanged usePanelData
+     engine resolves it live. Publish port wired into 11 source nodes (usage
+     reference + 10 fan-out). LCAN-03/04 green; LCAN-05 client-live proven (test),
+     DB-row/real-browser assertion still owed. Wave C (named recipes + durable
+     after-close recompute, LCAN-07/09) remains."
 size: XL
 depends_on: [66]
 requirements: [LCAN-01, LCAN-02, LCAN-03, LCAN-04, LCAN-05, LCAN-06, LCAN-07, LCAN-08, LCAN-09]
@@ -179,16 +186,19 @@ Gate-able here (unit / geometry / real-browser):
 - [x] **LCAN-02** `emit_canvas_connect` is registered in the listener capability registry ONLY when
       `CANVAS_EMIT_TOOL_ENABLED` is set; fails closed / absent otherwise. (`uv run pytest`.) — SHIPPED
       203a8b5 (structural-omission wiring + `TestCanvasEmitExposureGate`).
-- [ ] **LCAN-03** A source-capable node publishes a **bounded** projection (size-capped, no spec content,
+- [x] **LCAN-03** A source-capable node publishes a **bounded** projection (size-capped, no spec content,
       prototype-pollution-guarded) to `shared.published.{nodeKey}` through the bounded 5-mutation enum —
       never an arbitrary reducer, never over the `sharedState` size bound. (vitest + the existing
-      `sharedState` size gate.)
-- [ ] **LCAN-04** With a wired edge `published.{src}.total → input`, changing the source's published
+      `sharedState` size gate.) — SHIPPED c2139f7 (`projectForPublish` + `useCanvasPublish` +
+      `canvas-publish.test.ts`; wired into 11 source nodes).
+- [x] **LCAN-04** With a wired edge `published.{src}.total → input`, changing the source's published
       value re-renders the target's overlaid value within one store tick (no manual refresh). (vitest on
-      `usePanelData`, extending `panel-data-flow.test.tsx`.)
-- [ ] **LCAN-05** A wired recipe round-trips reload: edge + `sharedState` published value restore exactly
+      `usePanelData`, extending `panel-data-flow.test.tsx`.) — SHIPPED c2139f7 (`canvas-publish-flow.test.tsx`,
+      zero-mock publish→edge→live-target re-resolution) + the friendly→physical sourcePath rewrite.
+- [~] **LCAN-05** A wired recipe round-trips reload: edge + `sharedState` published value restore exactly
       (D-06/D-10) — asserted against the DB row, not terminal output. (geometry/real-browser gate on an
-      already-running :3000 server.)
+      already-running :3000 server.) — PARTIAL: client-live round-trip proven in vitest + edges/wiring
+      reconstruct from history; the DB-row/real-browser assertion is still owed (needs a running :3000).
 - [x] **LCAN-06** The data edge stays **neutral** — no tier hue is introduced by wiring (Law 1;
       `data-edge.tsx:17` invariant preserved). (canvas-node-law test.) — SHIPPED a2393f2 (agent edges
       reuse `toFlowEdge` verbatim; no styling added at the wiring seam).

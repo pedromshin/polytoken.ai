@@ -39,11 +39,20 @@ Pedro's directive this session: **STOP building invisible backend — build NEW 
   + placeholder build; listener ruff + lint-imports + mypy(288) + full pytest. On feature branch
   `claude/polytoken-email-infra-cont-qi9q5g` (NOT yet on main — needs squash-merge; listener redeploy is
   a no-op while the flag is OFF). The dead workflow (wf_397f3345, died 19:45) is fully superseded.
-- **RESUME NEXT:** (1) squash-merge Wave A to main + flip `CANVAS_EMIT_TOOL_ENABLED=ON` to live-verify
-  the agent draws (Pedro's prompt-verify seam); (2) **Phase 73 Wave B** — the publish port (source nodes
-  write a bounded projection to `shared.published.{nodeKey}` on query-settle so a wired edge carries live
-  data; LCAN-03/04/05) — shares `use-canvas-persistence.ts` + `usePanelData`; (3) then Wave C (named
-  recipes + durable recompute) and the 5-seam v1.x punch-list. Tree CLEAN + pushed.
+- ✅ **Phase 73 Wave B SHIPPED (the publish port)** — the wire now CARRIES DATA. Core `c2139f7`
+  (`projectForPublish` bounded JSON projection + `useCanvasPublish` → `shared.published.{nodeId}` +
+  agent-edge friendly→physical sourcePath rewrite + usage reference; `canvas-publish.test.ts` LCAN-03,
+  `canvas-publish-flow.test.tsx` LCAN-04 zero-mock publish→edge→live-target) and fan-out `00f19db`
+  (publish port wired into 10 more source nodes: pipeline-health/brief/entity/references/conversations/
+  documents/search-all/knowledge-search/review-queue/rule-suggestions, via 3 parallel agents). Gates:
+  tsc + canvas/hooks vitest (1023) + placeholder build. LCAN-05 client-live proven; DB-row/real-browser
+  gate owed. On feature branch (pending squash-merge to main).
+- **RESUME NEXT:** (1) squash-merge Wave B to main (Wave A already on main c6d24ee); flip
+  `CANVAS_EMIT_TOOL_ENABLED=ON` to live-verify the agent draws + the wire carries data end-to-end
+  (Pedro's prompt-verify seam); (2) **Phase 73 Wave C** — named recipes (`canvas_recipes` row +
+  ownership-gated CRUD + on-canvas badge, LCAN-07) then durable after-close recompute via the Task-7
+  graphile-worker (LCAN-09, live-verified); (3) then Phases 74-77 + the 5-seam v1.x punch-list. Tree
+  CLEAN + pushed.
 
 **Shipped to main since the last chronological block:**
 - **6 NEW CANVAS NODE TYPES → main `fcb68c5`** (2026-07-25, Vercel-only; NO listener/migration/infra
