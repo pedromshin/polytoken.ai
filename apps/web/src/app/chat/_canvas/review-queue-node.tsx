@@ -34,7 +34,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AlertCircle, Check, GitMerge, Loader2, X } from "lucide-react";
@@ -47,6 +47,7 @@ import { useMergeReview } from "~/app/entities/review/_components/use-merge-revi
 import type { ReviewPair } from "~/app/entities/review/_components/review-pair-card";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type ReviewQueueNodeData } from "./node-data-schemas";
 
@@ -78,6 +79,17 @@ export const ReviewQueueNode = memo(function ReviewQueueNode({
 
   const items = (query.data?.items ?? []) as ReadonlyArray<ReviewPair>;
   const totalPending = query.data?.totalPending ?? 0;
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the review-queue
+  // query settles, publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge carries the live pending
+  // count through the unchanged usePanelData engine. A DERIVED read, never
+  // written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (query.data === undefined) return;
+    publish({ pendingCount: totalPending });
+  }, [publish, query.data, totalPending]);
 
   return (
     <div

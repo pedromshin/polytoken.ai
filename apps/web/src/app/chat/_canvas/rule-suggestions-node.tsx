@@ -43,7 +43,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AlertCircle, Forward, ListFilter, Sparkles, Table2, Tag, X } from "lucide-react";
@@ -53,6 +53,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type RuleSuggestionsNodeData } from "./node-data-schemas";
 
@@ -162,6 +163,20 @@ export const RuleSuggestionsNode = memo(function RuleSuggestionsNode({
     () => (suggestionsQuery.data ? aggregateSuggestions(suggestionsQuery.data) : []),
     [suggestionsQuery.data],
   );
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the read-only matcher
+  // pass settles, publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge carries the live inferred-rule
+  // summary through the unchanged usePanelData engine. A DERIVED read, never
+  // written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (suggestionsQuery.data === undefined) return;
+    publish({
+      suggestionCount: rules.length,
+      topRules: rules.slice(0, 5).map((rule) => rule.describe),
+    });
+  }, [publish, suggestionsQuery.data, rules]);
 
   return (
     <div

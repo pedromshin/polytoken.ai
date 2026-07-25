@@ -39,7 +39,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import Link from "next/link";
@@ -51,6 +51,7 @@ import { api } from "~/trpc/react";
 import { shapeMorningBrief } from "~/app/home/_lib/morning-brief";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type BriefNodeData } from "./node-data-schemas";
 
@@ -91,6 +92,26 @@ export const BriefNode = memo(function BriefNode({
   const isPending =
     threads.isPending || reviews.isPending || documents.isPending;
   const isError = threads.isError || reviews.isError || documents.isError;
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once all three queries
+  // settle (not pending, not errored), publish a bounded, glanceable projection
+  // of the folded brief to `shared.published.{id}` so an agent-wired edge (e.g.
+  // `itemCount -> input`) carries the digest live through the unchanged
+  // usePanelData engine. A DERIVED read, never written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (isPending || isError) return;
+    publish({
+      itemCount:
+        brief.counts.newEmails +
+        brief.counts.pendingMerges +
+        brief.counts.recentDocuments,
+      newEmails: brief.counts.newEmails,
+      pendingMerges: brief.counts.pendingMerges,
+      recentDocuments: brief.counts.recentDocuments,
+      topItems: brief.newEmails.slice(0, 5).map((e) => e.subject),
+    });
+  }, [publish, brief, isPending, isError]);
 
   function retry(): void {
     void threads.refetch();

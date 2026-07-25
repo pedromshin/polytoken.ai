@@ -57,7 +57,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AlertCircle, MessagesSquare, X } from "lucide-react";
@@ -67,6 +67,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { useCanvasPersistenceContext } from "./panel-overlay-context";
 import { type ConversationsNodeData } from "./node-data-schemas";
@@ -115,6 +116,18 @@ export const ConversationsNode = memo(function ConversationsNode({
   const query = api.chat.listConversations.useQuery(LIST_INPUT);
   const items = (query.data ?? []).slice(0, RECENT_LIMIT);
   const totalCount = query.data?.length ?? 0;
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Publish a bounded,
+  // glanceable projection once the query settles so an agent-wired edge carries
+  // it live through the unchanged usePanelData engine. DERIVED, never node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (query.data === undefined) return;
+    publish({
+      count: query.data.length,
+      topTitles: query.data.slice(0, 5).map((conversation) => conversation.title),
+    });
+  }, [publish, query.data]);
 
   return (
     <div

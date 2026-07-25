@@ -40,7 +40,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { Activity, TriangleAlert, X } from "lucide-react";
@@ -51,6 +51,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { usePipelineHealth } from "~/app/_components/pipeline-health-panel";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type PipelineHealthNodeData } from "./node-data-schemas";
 
@@ -68,6 +69,28 @@ export const PipelineHealthNode = memo(function PipelineHealthNode({
   const { deleteElements } = useReactFlow();
   const { state, reload } = usePipelineHealth();
   const label = resolveLabel(data);
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the pipeline query
+  // settles ("ready"), publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge (e.g. `totalFailed -> input`)
+  // carries these counts live through the unchanged usePanelData engine. A
+  // DERIVED read, never written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (state.status !== "ready") return;
+    const rows = state.rows;
+    const totalReceived = rows.reduce((sum, r) => sum + r.received, 0);
+    const totalAnalyzed = rows.reduce((sum, r) => sum + r.fullyAnalyzed, 0);
+    const totalFailed = rows.reduce((sum, r) => sum + r.failedTotal, 0);
+    publish({
+      status: totalFailed > 0 ? "degraded" : "healthy",
+      importerCount: rows.length,
+      totalReceived,
+      totalAnalyzed,
+      totalFailed,
+      topImporters: rows.slice(0, 5).map((r) => r.displayName),
+    });
+  }, [publish, state]);
 
   return (
     <div

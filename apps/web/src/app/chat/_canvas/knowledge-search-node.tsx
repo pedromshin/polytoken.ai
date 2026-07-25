@@ -55,6 +55,7 @@ import { api } from "~/trpc/react";
 import { hrefFor } from "~/components/provenance-link";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type KnowledgeSearchNodeData } from "./node-data-schemas";
 
@@ -149,6 +150,22 @@ export const KnowledgeSearchNode = memo(function KnowledgeSearchNode({
         chip: firstNonEmpty(item.source, item.scope),
         confidence: item.confidence,
       }));
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the active arm
+  // (search above the floor, otherwise recent-facts list) settles, publish a
+  // bounded, glanceable projection to `shared.published.{id}` so an agent-wired
+  // edge carries this live knowledge summary through the unchanged usePanelData
+  // engine. A DERIVED read, never written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (activeQuery.data === undefined) return;
+    const items = activeQuery.data.items;
+    publish({
+      query: trimmed,
+      count: items.length,
+      topLabels: items.slice(0, 5).map((item) => item.title ?? "(untitled)"),
+    });
+  }, [publish, activeQuery.data, trimmed]);
 
   return (
     <div

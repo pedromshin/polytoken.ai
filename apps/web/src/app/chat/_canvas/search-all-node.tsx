@@ -67,6 +67,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type SearchAllNodeData } from "./node-data-schemas";
 
@@ -185,6 +186,23 @@ export const SearchAllNode = memo(function SearchAllNode({
   const rows = (query.data?.results ?? []) as ReadonlyArray<SearchAllRow>;
   const groups = React.useMemo(() => groupByKind(rows), [rows]);
   const totalResults = rows.length;
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the omnibox query
+  // settles, publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge carries this live result
+  // summary through the unchanged usePanelData engine. A DERIVED read, never
+  // written into node.data. The box only queries above the 2-char floor, so a
+  // publish only happens once the user has entered a real search.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (query.data === undefined) return;
+    const results = query.data.results as ReadonlyArray<SearchAllRow>;
+    publish({
+      query: trimmed,
+      count: results.length,
+      topLabels: results.slice(0, 5).map((row) => row.title),
+    });
+  }, [publish, query.data, trimmed]);
 
   return (
     <div

@@ -48,7 +48,7 @@
  * `CANVAS_NODE_KIND_GEOMETRY["entity"]` to inherit the canonical geometry.
  */
 
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import Link from "next/link";
@@ -61,6 +61,7 @@ import { api } from "~/trpc/react";
 import { hrefFor } from "~/components/provenance-link";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type EntityNodeData } from "./node-data-schemas";
 
@@ -110,6 +111,23 @@ export const EntityNode = memo(function EntityNode({
   const pendingCount = query.data?.pendingSuggestions.length ?? 0;
   const aliases = entity?.aliases ?? [];
   const identifiers = entity ? identifierRows(entity.identifiers) : [];
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Once the entity query
+  // settles on a resolved row, publish a bounded, glanceable projection to
+  // `shared.published.{id}` so an agent-wired edge (e.g. `name -> input`)
+  // carries the focused entity live through the unchanged usePanelData engine.
+  // A DERIVED read, never written into node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (query.data === undefined || entity === undefined) return;
+    publish({
+      name: entity.displayName,
+      type: entity.entityTypeLabel ?? entity.entityTypeId,
+      emailCount: occurrenceCount,
+      pendingMergeCount: pendingCount,
+      aliasCount: aliases.length,
+    });
+  }, [publish, query.data, entity, occurrenceCount, pendingCount, aliases.length]);
 
   return (
     <div

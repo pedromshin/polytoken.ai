@@ -39,7 +39,7 @@
  */
 
 import * as React from "react";
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import Link from "next/link";
@@ -50,6 +50,7 @@ import { Skeleton } from "@polytoken/ui/skeleton";
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type DocumentsNodeData } from "./node-data-schemas";
 
@@ -92,6 +93,19 @@ export const DocumentsNode = memo(function DocumentsNode({
 
   const query = api.documents.list.useQuery(LIST_INPUT);
   const items = query.data?.items ?? [];
+
+  // Phase 73 Wave B (LCAN-03/04) — the publish port. Publish a bounded,
+  // glanceable projection once the query settles so an agent-wired edge carries
+  // it live through the unchanged usePanelData engine. DERIVED, never node.data.
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    if (query.data === undefined) return;
+    const rows = query.data.items;
+    publish({
+      count: rows.length,
+      topTitles: rows.slice(0, 5).map((doc) => doc.title),
+    });
+  }, [publish, query.data]);
 
   return (
     <div
