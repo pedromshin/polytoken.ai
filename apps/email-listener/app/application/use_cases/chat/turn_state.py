@@ -15,8 +15,10 @@ from typing import TYPE_CHECKING, Any
 import structlog
 
 from app.application.use_cases.run_chat_turn_tool_loop import (
+    CANVAS_EMIT_TOOL_NAMES,
     PARSE_FAILURE_TEXT,
     SERVER_CALL_NOT_EXECUTED_TEXT,
+    build_canvas_part,
 )
 from app.application.use_cases.run_chat_turn_widgets import (
     INTERACTIVE_WIDGET_TOOL_NAMES,
@@ -128,6 +130,29 @@ def _flush_text_buffer(state: _TurnState) -> _TurnState:
     return replace(state, parts=(*state.parts, {"type": "text", "text": state.text_buffer}), text_buffer="")
 
 
+def _finalize_emitted_part(
+    cleared: _TurnState,
+    *,
+    tool_name: str,
+    tool_id: str,
+    part: dict[str, Any] | None,
+    result_extra: dict[str, Any],
+    log_event: str,
+) -> tuple[_TurnState, tuple[ChatRunEventType, dict[str, Any]] | None]:
+    """Shared fail-closed finalize for an emit-a-part tool (widget + Phase 73 canvas).
+
+    `part` is None exactly when the tool call's JSON was unparseable/unusable —
+    append the visible PARSE_FAILURE_TEXT (never a silent drop, never a
+    non-conforming part). Otherwise append the part and emit its paired
+    tool_result event carrying `result_extra` (interactionId / part).
+    """
+    if part is None:
+        logger.warning(log_event, tool_id=tool_id, tool_name=tool_name)
+        return replace(cleared, parts=(*cleared.parts, {"type": "text", "text": PARSE_FAILURE_TEXT})), None
+    finalized = replace(cleared, parts=(*cleared.parts, part))
+    return finalized, ("tool_result", {"tool_name": tool_name, "id": tool_id, **result_extra})
+
+
 def _finalize_pending_tool(
     state: _TurnState,
     *,
@@ -166,13 +191,32 @@ def _finalize_pending_tool(
 
     if tool_name in INTERACTIVE_WIDGET_TOOL_NAMES:
         widget_part = build_interactive_widget_part(tool_name, raw_json)
-        if widget_part is None:
-            logger.warning("interactive_widget_tool_call_parse_failed", tool_id=tool_id, tool_name=tool_name)
-            return replace(cleared, parts=(*cleared.parts, {"type": "text", "text": PARSE_FAILURE_TEXT})), None
-        finalized = replace(cleared, parts=(*cleared.parts, widget_part))
-        return finalized, (
-            "tool_result",
-            {"tool_name": tool_name, "id": tool_id, "interactionId": widget_part["interactionId"]},
+        result_extra = {"interactionId": widget_part["interactionId"]} if widget_part is not None else {}
+        return _finalize_emitted_part(
+            cleared,
+            tool_name=tool_name,
+            tool_id=tool_id,
+            part=widget_part,
+            result_extra=result_extra,
+            log_event="interactive_widget_tool_call_parse_failed",
+        )
+
+    # Phase 73 Wave A (canvas emit): emit_canvas_node/emit_canvas_connect
+    # finalize into a `canvas_add_node`/`canvas_connect` part (the frozen wire
+    # contract the web half materializes onto the canvas), stored verbatim like
+    # emit_ui_spec's genui_spec part. A malformed/cut-off call keeps the exact
+    # fail-closed parse-failure posture -- visible PARSE_FAILURE_TEXT, never a
+    # silent drop, never a non-conforming part.
+    if tool_name in CANVAS_EMIT_TOOL_NAMES:
+        canvas_part = build_canvas_part(tool_name, raw_json)
+        result_extra = {"part": canvas_part} if canvas_part is not None else {}
+        return _finalize_emitted_part(
+            cleared,
+            tool_name=tool_name,
+            tool_id=tool_id,
+            part=canvas_part,
+            result_extra=result_extra,
+            log_event="canvas_emit_tool_call_parse_failed",
         )
 
     try:

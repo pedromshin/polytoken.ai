@@ -10,7 +10,11 @@ from __future__ import annotations
 import json
 
 from app.infrastructure.llm.chat_tools import (
+    EMIT_CANVAS_CONNECT_TOOL_NAME,
+    EMIT_CANVAS_NODE_TOOL_NAME,
     EMIT_PROPOSAL_CARDS_TOOL_NAME,
+    build_emit_canvas_connect_tool,
+    build_emit_canvas_node_tool,
     build_emit_clarify_widget_tool,
     build_emit_confirm_action_tool,
     build_emit_proposal_cards_tool,
@@ -41,6 +45,32 @@ def test_proposal_cards_options_schema_bounds_are_present() -> None:
     assert item_schema["additionalProperties"] is False
 
 
+def test_build_emit_canvas_node_tool_root_is_bedrock_valid_object_schema() -> None:
+    tool = build_emit_canvas_node_tool()
+
+    assert tool["name"] == EMIT_CANVAS_NODE_TOOL_NAME
+    schema = tool["input_schema"]
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["handle", "nodeType", "data"]
+    assert "$ref" not in schema
+    # position is OPTIONAL — declared but NOT required (omitting it = auto-place).
+    assert "position" in schema["properties"]
+    assert "position" not in schema["required"]
+    assert schema["properties"]["data"]["type"] == "object"
+
+
+def test_build_emit_canvas_connect_tool_root_is_bedrock_valid_object_schema() -> None:
+    tool = build_emit_canvas_connect_tool()
+
+    assert tool["name"] == EMIT_CANVAS_CONNECT_TOOL_NAME
+    schema = tool["input_schema"]
+    assert schema["type"] == "object"
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == ["sourceHandle", "targetHandle", "sourcePath", "targetKey"]
+    assert "$ref" not in schema
+
+
 def test_all_tool_builders_are_deterministic_for_prompt_caching() -> None:
     """Every builder must return byte-identical output across calls (COST-01/D-21).
 
@@ -53,6 +83,8 @@ def test_all_tool_builders_are_deterministic_for_prompt_caching() -> None:
         build_emit_proposal_cards_tool,
         build_emit_clarify_widget_tool,
         build_emit_confirm_action_tool,
+        build_emit_canvas_node_tool,
+        build_emit_canvas_connect_tool,
     ]
     for build in builders:
         first = json.dumps(build(), sort_keys=False)
@@ -71,5 +103,7 @@ def test_no_tool_builder_bakes_in_cache_control() -> None:
         build_emit_proposal_cards_tool,
         build_emit_clarify_widget_tool,
         build_emit_confirm_action_tool,
+        build_emit_canvas_node_tool,
+        build_emit_canvas_connect_tool,
     ):
         assert "cache_control" not in build(), f"{build.__name__} must not bake in cache_control"

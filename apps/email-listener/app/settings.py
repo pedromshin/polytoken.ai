@@ -188,6 +188,19 @@ class BaseAppSettings(BaseSettings):
     # wrapper) -- mirrors WEB_SEARCH_TOOL_ENABLED's own convention.
     RESEARCH_TOOL_ENABLED: bool = True
 
+    # --- Canvas emit chat-tool exposure gate (Phase 73 Wave A, default OFF) ---
+    # Two NEW model-callable chat tools (emit_canvas_node / emit_canvas_connect)
+    # let the chat agent DRAW on the canvas by appending canvas_add_node /
+    # canvas_connect message parts -- mirroring the emit_ui_spec emit-a-part
+    # path EXACTLY (no server executor, no registry, no SES/mail/S3/Lambda
+    # touch). Defaults OFF (fail-closed) so merging this into the LIVE mail
+    # receiver is safe: the tools are structurally ABSENT from the model's tool
+    # offer until this flag is explicitly set. Only chat_turn_providers.py's
+    # wiring reads it (structural omission of the emit_canvas_tools tuple when
+    # off -- never mutation). Mirrors INGEST_ENQUEUE_ENABLED's default-OFF
+    # cutover convention (plain bool, no @property wrapper).
+    CANVAS_EMIT_TOOL_ENABLED: bool = False
+
     # --- Chat turn agent (Phase 22-06, SEAM-04) ---
     # Hard cap on generated tokens for a single chat turn (always set, no implicit
     # default — required by the ChatProvider.stream contract).

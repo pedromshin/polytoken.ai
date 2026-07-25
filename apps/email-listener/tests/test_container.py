@@ -23,6 +23,11 @@ from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStore
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
+from app.domain.services.chat_model_registry import get_model
+from app.infrastructure.llm.chat_tools import (
+    EMIT_CANVAS_CONNECT_TOOL_NAME,
+    EMIT_CANVAS_NODE_TOOL_NAME,
+)
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.pdf.pdf_parser import PdfParser
 from app.infrastructure.raw_email_store_routing import RoutingRawEmailStore
@@ -366,6 +371,77 @@ class TestDeepResearchExposureGate:
             assert "question" in tool_def["input_schema"]["properties"]
             assert "lookup_entity" in executors
             assert "search_emails" in executors
+        finally:
+            get_settings.cache_clear()
+
+
+class TestCanvasEmitExposureGate:
+    """Phase 73 Wave A CI guard: the canvas emit tools' exposure is settings-driven, default OFF.
+
+    Unlike the server-executor exposure gates above, emit_canvas_node/
+    emit_canvas_connect are emit-a-part tools (like emit_ui_spec) wired into
+    RunChatTurn's `emit_canvas_tools` tuple, NOT `_tool_executors`. The
+    builders + their test suite exist regardless of the flag; only
+    chat_turn_providers.py's wiring reads CANVAS_EMIT_TOOL_ENABLED. It
+    defaults OFF (fail-closed) — merging into the LIVE mail receiver must not
+    expose the tools until the flag is explicitly set. A genui-capable model's
+    tool offer is inspected to prove the tools are (or are not) actually
+    reachable end-to-end.
+    """
+
+    # A real genui-capable Bedrock registry entry (genui=True) so _build_tool_offer
+    # actually surfaces the emit-a-part tools.
+    _GENUI_MODEL_ID = "us.anthropic.claude-sonnet-4-6"
+
+    def _offered_canvas_names(self, run_chat_turn: RunChatTurn) -> set[str]:
+        model = get_model(self._GENUI_MODEL_ID)
+        assert model is not None
+        assert model.capabilities.genui
+        return {t["name"] for t in run_chat_turn._build_tool_offer(model)} & {
+            EMIT_CANVAS_NODE_TOOL_NAME,
+            EMIT_CANVAS_CONNECT_TOOL_NAME,
+        }
+
+    def test_container_canvas_emit_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("CANVAS_EMIT_TOOL_ENABLED", raising=False)
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            assert run_chat_turn._emit_canvas_tools == ()
+            assert self._offered_canvas_names(run_chat_turn) == set()
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_canvas_emit_enabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CANVAS_EMIT_TOOL_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            offered_names = {t["name"] for t in run_chat_turn._emit_canvas_tools}
+            assert offered_names == {EMIT_CANVAS_NODE_TOOL_NAME, EMIT_CANVAS_CONNECT_TOOL_NAME}
+            assert self._offered_canvas_names(run_chat_turn) == {
+                EMIT_CANVAS_NODE_TOOL_NAME,
+                EMIT_CANVAS_CONNECT_TOOL_NAME,
+            }
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_canvas_emit_disabled_via_flag(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CANVAS_EMIT_TOOL_ENABLED", "false")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            assert run_chat_turn._emit_canvas_tools == ()
+            assert self._offered_canvas_names(run_chat_turn) == set()
         finally:
             get_settings.cache_clear()
 

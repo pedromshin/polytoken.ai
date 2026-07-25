@@ -349,6 +349,7 @@ class RunChatTurn:
         max_output_tokens: int = 4096,
         widget_interactions: ChatWidgetInteractionRepository | None = None,
         interactive_widget_tools: tuple[dict[str, Any], ...] = (),
+        emit_canvas_tools: tuple[dict[str, Any], ...] = (),
         knowledge_graph: KnowledgeGraphRepository | None = None,
         tool_executors: Mapping[str, ToolExecutor] = MappingProxyType({}),
         server_tool_defs: Mapping[str, dict[str, Any]] = MappingProxyType({}),
@@ -367,6 +368,13 @@ class RunChatTurn:
         self._max_output_tokens = max_output_tokens
         self._widget_interactions = widget_interactions
         self._interactive_widget_tools = interactive_widget_tools
+        # Phase 73 Wave A (canvas emit): the emit_canvas_node/emit_canvas_connect
+        # tool dicts, offered alongside emit_ui_spec to genui-capable models
+        # (see _build_tool_offer). Additive default () -- structurally OFF in
+        # any caller that doesn't pass it (the composition root passes them only
+        # behind the CANVAS_EMIT_TOOL_ENABLED flag), so the un-wired path is a
+        # byte-identical no-op.
+        self._emit_canvas_tools = emit_canvas_tools
         # Phase 40-01 (CONF-01): the live-edge-read collaborator
         # `_finalize_confirm_action` uses to re-fetch the suggestion at
         # emission time. Additive default (mirrors widget_interactions
@@ -634,7 +642,9 @@ class RunChatTurn:
         the original generic stub dict, unchanged.
         """
         tools: tuple[dict[str, Any], ...] = (
-            (self._emit_ui_spec_tool, *self._interactive_widget_tools) if model.capabilities.genui else ()
+            (self._emit_ui_spec_tool, *self._interactive_widget_tools, *self._emit_canvas_tools)
+            if model.capabilities.genui
+            else ()
         )
         if not (model.capabilities.max_tool_rounds > 0 and self._tool_executors):
             return tools

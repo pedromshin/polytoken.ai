@@ -7,6 +7,7 @@ import pytest
 from app.application.use_cases.run_chat_turn_tool_loop import (
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
+    build_canvas_part,
     build_synthetic_tool_result_message,
     build_tool_invocation_part,
     build_tool_invocation_result_part,
@@ -109,10 +110,79 @@ def test_classify_dispatch_unknown() -> None:
 
 
 @pytest.mark.unit
+def test_classify_dispatch_canvas() -> None:
+    """Phase 73: canvas emit tools route to the emit-a-part 'canvas' branch, never 'server'."""
+    assert classify_tool_dispatch("emit_canvas_node", set()) == "canvas"
+    assert classify_tool_dispatch("emit_canvas_connect", set()) == "canvas"
+
+
+@pytest.mark.unit
 def test_classify_dispatch_server_takes_precedence_over_widget() -> None:
     """A server_tool_names entry must win even if it collides with a widget/emit_ui_spec name."""
     assert classify_tool_dispatch("emit_proposal_cards", {"emit_proposal_cards"}) == "server"
     assert classify_tool_dispatch("emit_ui_spec", {"emit_ui_spec"}) == "server"
+
+
+# ---------------------------------------------------------------------------
+# build_canvas_part (Phase 73 Wave A — frozen wire contract)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_with_position() -> None:
+    raw = '{"handle": "sheet", "nodeType": "spreadsheet", "data": {"rows": 3}, "position": {"x": 10, "y": 20}}'
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part == {
+        "type": "canvas_add_node",
+        "handle": "sheet",
+        "nodeType": "spreadsheet",
+        "data": {"rows": 3},
+        "position": {"x": 10, "y": 20},
+    }
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_omits_absent_position() -> None:
+    """position is OPTIONAL — the key must be absent entirely when the model gives none."""
+    part = build_canvas_part("emit_canvas_node", '{"handle": "tile", "nodeType": "document", "data": {}}')
+    assert part == {"type": "canvas_add_node", "handle": "tile", "nodeType": "document", "data": {}}
+    assert "position" not in part
+
+
+@pytest.mark.unit
+def test_build_canvas_connect_part_shape() -> None:
+    raw = '{"sourceHandle": "sheet", "targetHandle": "tile", "sourcePath": "data", "targetKey": "input"}'
+    part = build_canvas_part("emit_canvas_connect", raw)
+    assert part == {
+        "type": "canvas_connect",
+        "sourceHandle": "sheet",
+        "targetHandle": "tile",
+        "sourcePath": "data",
+        "targetKey": "input",
+    }
+
+
+@pytest.mark.unit
+def test_build_canvas_part_fail_closed_on_bad_json() -> None:
+    assert build_canvas_part("emit_canvas_node", "{not json") is None
+
+
+@pytest.mark.unit
+def test_build_canvas_part_fail_closed_on_missing_required_fields() -> None:
+    # missing nodeType
+    assert build_canvas_part("emit_canvas_node", '{"handle": "x", "data": {}}') is None
+    # data not an object
+    assert build_canvas_part("emit_canvas_node", '{"handle": "x", "nodeType": "chat", "data": "nope"}') is None
+    # missing targetKey
+    assert (
+        build_canvas_part("emit_canvas_connect", '{"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data"}')
+        is None
+    )
+
+
+@pytest.mark.unit
+def test_build_canvas_part_unknown_tool_name_returns_none() -> None:
+    assert build_canvas_part("emit_ui_spec", '{"handle": "x", "nodeType": "chat", "data": {}}') is None
 
 
 # ---------------------------------------------------------------------------

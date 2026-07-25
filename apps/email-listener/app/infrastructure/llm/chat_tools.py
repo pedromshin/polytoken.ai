@@ -80,6 +80,8 @@ EMIT_UI_SPEC_TOOL_NAME = "emit_ui_spec"
 EMIT_PROPOSAL_CARDS_TOOL_NAME = "emit_proposal_cards"
 EMIT_CLARIFY_WIDGET_TOOL_NAME = "emit_clarify_widget"
 EMIT_CONFIRM_ACTION_TOOL_NAME = "emit_confirm_action"
+EMIT_CANVAS_NODE_TOOL_NAME = "emit_canvas_node"
+EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
 
 _DESCRIPTION = (
     "Emit a declarative UI spec (a SpecRoot JSON document) for the trusted genui renderer "
@@ -322,4 +324,131 @@ def build_emit_confirm_action_tool() -> dict[str, Any]:
         "name": EMIT_CONFIRM_ACTION_TOOL_NAME,
         "description": _CONFIRM_ACTION_DESCRIPTION,
         "input_schema": _CONFIRM_ACTION_INPUT_SCHEMA,
+    }
+
+
+# Phase 73 Wave A (canvas emit): emit_canvas_node / emit_canvas_connect are two
+# NEW model-callable tools that let the chat agent DRAW on the canvas. They
+# MIRROR the emit_ui_spec emit-a-part path EXACTLY — they are NOT registry/
+# executor tools, run NO server executor, and touch NO mail/SES/S3/Lambda path.
+# Their only effect: a completed call appends a `canvas_add_node` /
+# `canvas_connect` message PART (persisted verbatim as JSONB) that the web
+# client materializes onto the canvas on the post-turn history refetch. Offered
+# (never forced) ONLY to genui-capable models, and ONLY when the
+# CANVAS_EMIT_TOOL_ENABLED flag is set (default OFF, structural omission in
+# composition/chat_turn_providers.py). Both schemas are Bedrock-valid (root is
+# an object, additionalProperties false, no root $ref) with load-time
+# assertions mirroring the emit_proposal_cards/emit_confirm_action guards above.
+#
+# `nodeType` is a plain string, NOT a hard enum: the web validates it against
+# its live node registry and degrades an unknown type to a placeholder, so
+# maintaining a 24-type enum here would only invite drift (a known landmine).
+# The common types are LISTED in the description so the model picks well.
+_CANVAS_NODE_TYPE_HINT = (
+    "chat, genui-panel, email-thread, document, spreadsheet, entity, knowledge-search, "
+    "review-queue, rule-suggestions, pipeline-health, brief, usage, documents, references, "
+    "search-all, conversations, source, knowledge-preview"
+)
+
+_CANVAS_NODE_DESCRIPTION = (
+    "Draw a NEW node on the user's canvas when a persistent, spatially-arranged surface would "
+    "serve the request better than an inline reply (e.g. laying out a document, spreadsheet, "
+    "entity, or panel the user can keep and connect to others). Provide a short `handle` — a "
+    "turn-local label you choose (e.g. 'sheet', 'tile') that later emit_canvas_connect calls "
+    "reference to wire this node up. `nodeType` is the kind of node to render; common types are: "
+    f"{_CANVAS_NODE_TYPE_HINT}. `data` is the node's free-form data payload. `position` is "
+    "OPTIONAL — omit it entirely to let the canvas auto-place the node. Only call this when a "
+    "canvas node genuinely helps; a normal conversational reply does not need it."
+)
+
+# Hand-authored, Bedrock-valid input_schema. `data` is intentionally schema-free
+# ({"type": "object"}) — it is the node's free-form payload, not a shape this
+# tool constrains (mirrors emit_proposal_cards' schema-free `value`). `position`
+# is optional (not in `required`): omitting it signals "auto-place" to the web.
+_CANVAS_NODE_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["handle", "nodeType", "data"],
+    "additionalProperties": False,
+    "properties": {
+        "handle": {"type": "string", "minLength": 1},
+        "nodeType": {"type": "string", "minLength": 1},
+        "data": {"type": "object"},
+        "position": {
+            "type": "object",
+            "required": ["x", "y"],
+            "additionalProperties": False,
+            "properties": {"x": {"type": "number"}, "y": {"type": "number"}},
+        },
+    },
+}
+
+# Load-time assertions mirroring emit_proposal_cards'/_CONFIRM_ACTION's guards.
+assert _CANVAS_NODE_INPUT_SCHEMA["type"] == "object", (
+    "emit_canvas_node input_schema root must be type:object (Bedrock tool-input contract)"
+)
+assert _CANVAS_NODE_INPUT_SCHEMA["additionalProperties"] is False, (
+    "emit_canvas_node input_schema root must forbid additionalProperties"
+)
+
+
+def build_emit_canvas_node_tool() -> dict[str, Any]:
+    """Build the emit_canvas_node tool dict (Phase 73 Wave A, canvas emit).
+
+    Offered (never forced) alongside emit_ui_spec to genui-capable models, and
+    only behind the CANVAS_EMIT_TOOL_ENABLED flag. A completed call finalizes
+    into a `canvas_add_node` message part (turn_state.py's `_finalize_pending_
+    tool`), stored verbatim — no server-side validation here (the web registry
+    is the gate; unknown nodeTypes degrade to a placeholder).
+    """
+    return {
+        "name": EMIT_CANVAS_NODE_TOOL_NAME,
+        "description": _CANVAS_NODE_DESCRIPTION,
+        "input_schema": _CANVAS_NODE_INPUT_SCHEMA,
+    }
+
+
+_CANVAS_CONNECT_DESCRIPTION = (
+    "Wire one canvas node's output into another node's input, AFTER you have created BOTH nodes "
+    "with emit_canvas_node this turn. `sourceHandle`/`targetHandle` are the exact `handle` labels "
+    "you gave those two nodes. `sourcePath` is the dotted path into the source node's data to read "
+    "from (conceptually 'data'); `targetKey` is the key on the target node to feed it into "
+    "(conceptually 'input'). Supply all four explicitly. Only call this to connect nodes that "
+    "already exist by handle in this same turn."
+)
+
+# Hand-authored, Bedrock-valid input_schema. All four fields are required
+# strings (the frozen wire contract the web half is already written against).
+_CANVAS_CONNECT_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["sourceHandle", "targetHandle", "sourcePath", "targetKey"],
+    "additionalProperties": False,
+    "properties": {
+        "sourceHandle": {"type": "string", "minLength": 1},
+        "targetHandle": {"type": "string", "minLength": 1},
+        "sourcePath": {"type": "string", "minLength": 1},
+        "targetKey": {"type": "string", "minLength": 1},
+    },
+}
+
+# Load-time assertions mirroring emit_proposal_cards'/_CONFIRM_ACTION's guards.
+assert _CANVAS_CONNECT_INPUT_SCHEMA["type"] == "object", (
+    "emit_canvas_connect input_schema root must be type:object (Bedrock tool-input contract)"
+)
+assert _CANVAS_CONNECT_INPUT_SCHEMA["additionalProperties"] is False, (
+    "emit_canvas_connect input_schema root must forbid additionalProperties"
+)
+
+
+def build_emit_canvas_connect_tool() -> dict[str, Any]:
+    """Build the emit_canvas_connect tool dict (Phase 73 Wave A, canvas emit).
+
+    Offered (never forced) alongside emit_canvas_node to genui-capable models,
+    behind the same CANVAS_EMIT_TOOL_ENABLED flag. A completed call finalizes
+    into a `canvas_connect` message part (turn_state.py's `_finalize_pending_
+    tool`), stored verbatim.
+    """
+    return {
+        "name": EMIT_CANVAS_CONNECT_TOOL_NAME,
+        "description": _CANVAS_CONNECT_DESCRIPTION,
+        "input_schema": _CANVAS_CONNECT_INPUT_SCHEMA,
     }

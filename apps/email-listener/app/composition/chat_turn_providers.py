@@ -57,6 +57,8 @@ from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
 from app.infrastructure.llm.chat_tools import (
+    build_emit_canvas_connect_tool,
+    build_emit_canvas_node_tool,
     build_emit_clarify_widget_tool,
     build_emit_confirm_action_tool,
     build_emit_proposal_cards_tool,
@@ -303,6 +305,17 @@ def _provide_run_chat_turn(
             build_emit_proposal_cards_tool(),
             build_emit_clarify_widget_tool(),
             build_emit_confirm_action_tool(),
+        ),
+        # Phase 73 Wave A (canvas emit): the two emit-a-part canvas tools follow
+        # the SAME exposure-gate discipline as web_search/search_knowledge, but
+        # default OFF -- structural omission (the empty tuple, never mutation)
+        # unless CANVAS_EMIT_TOOL_ENABLED is explicitly set. Merging this into
+        # the LIVE mail receiver is therefore safe: the tools are absent from
+        # the model's tool offer until the flag is flipped.
+        emit_canvas_tools=(
+            (build_emit_canvas_node_tool(), build_emit_canvas_connect_tool())
+            if settings.CANVAS_EMIT_TOOL_ENABLED
+            else ()
         ),
         knowledge_graph=knowledge_repo,
         # Phase 68 (REG-02): both mappings are DERIVED from the single registry

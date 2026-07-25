@@ -20,6 +20,7 @@ constants the loop surfaces instead of a bare silent drop/stop.
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 from app.application.use_cases.run_chat_turn_widgets import INTERACTIVE_WIDGET_TOOL_NAMES
@@ -34,6 +35,17 @@ if TYPE_CHECKING:
 # locally (not imported) because the import-linter forbids
 # app.application -> app.infrastructure.
 EMIT_UI_SPEC_TOOL_NAME = "emit_ui_spec"
+
+# Phase 73 Wave A (canvas emit): mirror the emit-a-part tool names locally
+# (same import-linter rationale as EMIT_UI_SPEC_TOOL_NAME above -- the builders
+# live in app.infrastructure.llm.chat_tools, which this layer may not import).
+# These two tools finalize into `canvas_add_node` / `canvas_connect` message
+# parts (build_canvas_part below); like emit_ui_spec they are emit-a-part tools,
+# NOT server-executor tools, so classify_tool_dispatch routes them to "canvas"
+# (never "server") and their part is built at finalize time.
+EMIT_CANVAS_NODE_TOOL_NAME = "emit_canvas_node"
+EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
+CANVAS_EMIT_TOOL_NAMES: tuple[str, ...] = (EMIT_CANVAS_NODE_TOOL_NAME, EMIT_CANVAS_CONNECT_TOOL_NAME)
 
 # Visible-surface text (LOOP-02/LOOP-03, "never silent" motto). Exact strings
 # -- consumed verbatim by Plans 34-02/34-03.
@@ -119,11 +131,17 @@ def build_synthetic_tool_results_message(results: Sequence[ToolExecutionResult])
 
 
 def classify_tool_dispatch(tool_name: str, server_tool_names: Collection[str]) -> str:
-    """Classify a completed tool call into one of four dispatch branches.
+    """Classify a completed tool call into one of five dispatch branches.
 
     Precedence: server tools first (an executor mapping entry always wins
-    even if a name were to collide with a widget/emit_ui_spec name), then
-    the existing terminal widget tools, then emit_ui_spec, else "unknown".
+    even if a name were to collide with a widget/emit_ui_spec/canvas name),
+    then the existing terminal widget tools, then emit_ui_spec, then the
+    Phase 73 canvas emit-a-part tools, else "unknown".
+
+    "canvas" (like "emit_ui_spec") is an emit-a-part branch, NOT a server
+    branch — the round loop leaves the pending call to be finalized into its
+    `canvas_add_node`/`canvas_connect` part after the stream ends; only
+    "server" ever routes into the executor round.
     """
     if tool_name in server_tool_names:
         return "server"
@@ -131,7 +149,66 @@ def classify_tool_dispatch(tool_name: str, server_tool_names: Collection[str]) -
         return "widget"
     if tool_name == EMIT_UI_SPEC_TOOL_NAME:
         return "emit_ui_spec"
+    if tool_name in CANVAS_EMIT_TOOL_NAMES:
+        return "canvas"
     return "unknown"
+
+
+def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
+    """Parse a finalized canvas emit tool call's accumulated JSON into a message part.
+
+    Returns None (dropped -> caller appends the visible PARSE_FAILURE_TEXT) when
+    tool_name is not a canvas emit tool, the JSON never parses, or the parsed
+    shape is unusable (missing/empty required fields) -- fail-closed, mirroring
+    run_chat_turn_widgets.build_interactive_widget_part. The returned part shapes
+    are FROZEN (the web half is written against them verbatim):
+
+        canvas_add_node: {"type","handle","nodeType","data"[, "position"]}
+        canvas_connect:  {"type","sourceHandle","targetHandle","sourcePath","targetKey"}
+    """
+    try:
+        raw: Any = json.loads(raw_json) if raw_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(raw, dict):
+        return None
+    if tool_name == EMIT_CANVAS_NODE_TOOL_NAME:
+        return _build_canvas_add_node_part(raw)
+    if tool_name == EMIT_CANVAS_CONNECT_TOOL_NAME:
+        return _build_canvas_connect_part(raw)
+    return None
+
+
+def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the frozen `canvas_add_node` part; None (dropped) when malformed."""
+    handle = raw.get("handle")
+    node_type = raw.get("nodeType")
+    data = raw.get("data")
+    if not isinstance(handle, str) or not handle:
+        return None
+    if not isinstance(node_type, str) or not node_type:
+        return None
+    if not isinstance(data, dict):
+        return None
+    part: dict[str, Any] = {"type": "canvas_add_node", "handle": handle, "nodeType": node_type, "data": data}
+    # position is OPTIONAL -- the key is included ONLY when the model supplied a
+    # position object (omitting it signals "auto-place" to the web, per the
+    # frozen wire contract).
+    position = raw.get("position")
+    if isinstance(position, dict):
+        part["position"] = position
+    return part
+
+
+def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the frozen `canvas_connect` part; None (dropped) when any field is missing/empty."""
+    part: dict[str, Any] = {"type": "canvas_connect"}
+    for key in ("sourceHandle", "targetHandle", "sourcePath", "targetKey"):
+        value = raw.get(key)
+        if not isinstance(value, str) or not value:
+            return None
+        part[key] = value
+    return part
 
 
 def cap_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
@@ -142,6 +219,9 @@ def cap_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
 
 
 __all__ = [
+    "CANVAS_EMIT_TOOL_NAMES",
+    "EMIT_CANVAS_CONNECT_TOOL_NAME",
+    "EMIT_CANVAS_NODE_TOOL_NAME",
     "EMIT_UI_SPEC_TOOL_NAME",
     "FINAL_ROUND_NUDGE_TEXT",
     "MAX_SERVER_CALLS_PER_ROUND",
@@ -149,6 +229,7 @@ __all__ = [
     "PARSE_FAILURE_TEXT",
     "ROUND_CAP_EXHAUSTED_TEXT",
     "SERVER_CALL_NOT_EXECUTED_TEXT",
+    "build_canvas_part",
     "build_synthetic_tool_result_message",
     "build_synthetic_tool_results_message",
     "build_tool_invocation_part",
