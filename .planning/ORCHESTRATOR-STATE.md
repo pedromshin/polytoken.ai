@@ -14,6 +14,21 @@
 > **no autonomous backstop is active.**
 
 **Shipped to main since the last chronological block:**
+- **6 NEW CANVAS NODE TYPES → main `fcb68c5`** (2026-07-25, Vercel-only; NO listener/migration/infra
+  so the live mail receiver is untouched). Pedro's directive: stop building invisible backend — build
+  NEW interfaces on the canvas (the primary surface) over already-wired backend. Added `entity`
+  (entities.byId + an entity-picker over entities.list), `knowledge-search` (knowledge.search/list),
+  `review-queue` (entities.reviewQueue + confirm/rejectMerge inline), `rule-suggestions`
+  (emails.list + ruleSuggestions), `pipeline-health` (usePipelineHealth), `brief` (shapeMorningBrief).
+  Each user-placeable (Add-node menu) AND agent-droppable (canvas.addNode mirror). Central wiring in
+  one hand (node-data-schemas/registry/node-types/dims/canvas-vocabulary geometry+labels/capabilities
+  mirror/api-client builtin-manifest+projection-map hand-mirrors); drift+fixture tests extended
+  additively. Gates green: tsc ×3, vitest web 1873 / cap 65 / api-client 746, placeholder next build.
+  Built via a parallel component workflow (7 agents; `usage` dropped — no user-scoped cost-read proc)
+  + one integration agent; I verified diffs additive, fixed a builtin-manifest describe-mirror drift,
+  ran all gates, squashed WIP → `fcb68c5`. **Click-path: sidebar → Chat → Add node (top-right +).**
+  NEXT canvas fronts (works-when-clicked, no blockers): add the `usage` cost-read proc + node; more
+  node types. Boards/workspaces = migration-0052-gated (needs a prod token or a migrate-deploy).
 - **Visible batch #1–#6** — all on main (the dead `wf_6f85ee71` workflow was recovered by hand). DONE.
 - **Track 2 — `container.py` split: COMPLETE (9/9 groups).** First 5 (genui, repositories, llm_adapter,
   cost, anticipatory) + the final 4 this session (chat_turn `2e8aac6` → document_region `5bfc8e7` →
