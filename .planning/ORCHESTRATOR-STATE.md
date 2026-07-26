@@ -13,6 +13,25 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### 🔥 LIVE-INGEST INCIDENT + CI-UNBLOCK — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
+Pedro (live-loop testing, finally!) reported forwarded emails "should have worked already." Diagnosed
+against prod DB (Management API read via apply.py):
+- **NOT broken — SLOW.** All 5 emails he forwarded (Vivo/Vercel/AWS invoices w/ PDFs) reached the DB
+  and, checked again ~6 min later, ALL `parsed`. PDF-heavy emails generate 178–210 components →
+  hundreds of Bedrock enrichment calls → several minutes wall-time. He looked mid-enrichment (status
+  `received`) and thought it stalled. No data lost; pipeline healthy.
+- **REAL BUG FOUND + FIXED (`d65417b`, on main):** every listener deploy since the A1 push was
+  SILENTLY FAILING on CI ruff (stricter than the local per-file check) — A1's `execute()` tripped
+  PLR0912/PLR0915 (branch/statement limits) + I001 + PT018. So A1/A2 never actually deployed (old
+  image still serving — which is why ingest still worked). Fixed: extracted `_over_daily_cost_cap`
+  helper (fewer branches), split the assert, sorted imports. ruff+format+mypy(304)+pytest(54) green.
+  **Listener deploys are unblocked now.**
+- **REAL WEAKNESS (not yet fixed):** SNS HTTP delivery times out at 15s while enrichment runs for
+  minutes → SNS RETRIES → the heavy email is re-enriched 2–3× (wasted Bedrock $) and the UI shows
+  `received` for minutes. Proper fix = the durable worker (Track 3a: fast 200 → background enrichment
+  w/ retries, no dup processing) — Pedro-gated infra. Bridge option (fast-200 + background task) NOT
+  shipped (live-receiver change, deferred/offered). This is a latency+cost issue, not data loss.
+
 ### ✅ SESSION UPDATE — 2026-07-26 (B1 legal pages + /billing UI SHIPPED) · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **C1 /billing PAGE DEPLOYED** (`b836836`): plan readout + Pro/Power cards (one-click Subscribe →
   Checkout, Manage → portal), `/billing/success`, "Billing" in the nav registry. Design-law green
