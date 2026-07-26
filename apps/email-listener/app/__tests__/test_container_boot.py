@@ -49,7 +49,6 @@ from app.application.use_cases.evaluate_anticipatory_candidates import EvaluateA
 from app.application.use_cases.generate_code_island import GenerateCodeIslandUseCase
 from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
-from app.domain.services.ingest_budget_guard import IngestBudgetGuard
 from app.application.use_cases.manage_entity_types import (
     CreateEntityTypeUseCase,
     CreateFieldUseCase,
@@ -78,6 +77,7 @@ from app.container import create_container
 from app.domain.ports.home_canvas_writer import HomeCanvasWriter
 from app.domain.ports.job_enqueuer import JobEnqueuer
 from app.domain.ports.parser_registry_port import ParserRegistryPort
+from app.domain.services.ingest_budget_guard import IngestBudgetGuard
 
 # Deep-fan-in top-level providers. Resolving each pulls in its transitive deps (66/88 of the
 # graph between them).

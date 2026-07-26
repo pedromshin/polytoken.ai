@@ -1017,9 +1017,7 @@ def test_body_component_persisted_before_propose_regions() -> None:
 
     propose.execute = AsyncMock(side_effect=_propose)
 
-    use_case, _mocks = _make_use_case(
-        _raw_email(with_attachment=False), components=components, propose_regions=propose
-    )
+    use_case, _mocks = _make_use_case(_raw_email(with_attachment=False), components=components, propose_regions=propose)
     asyncio.run(use_case.execute(SES_MESSAGE_ID))
 
     assert order == ["save_body", "propose_regions"]
@@ -1069,7 +1067,8 @@ def test_cost_cap_over_limit_persists_email_but_skips_enrichment() -> None:
     # Finalized 'degraded' with the machine-decodable cap reason; parsed_at cleared.
     assert email.parse_status == "degraded"
     assert email.parsed_at is None
-    assert email.parse_error is not None and email.parse_error.startswith("ingest_cost_capped: ")
+    assert email.parse_error is not None
+    assert email.parse_error.startswith("ingest_cost_capped: ")
     status_call = mocks["email_repo"].update_parse_status.await_args
     assert status_call.args[1] == "degraded"
     assert status_call.kwargs["parsed_at"] is None

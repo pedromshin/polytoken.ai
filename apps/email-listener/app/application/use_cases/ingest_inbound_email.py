@@ -236,20 +236,10 @@ class IngestInboundEmailUseCase:
 
         # A1: per-importer daily ingest cost cap (mail-bomb blast-radius limiter).
         # The raw email is ALREADY persisted above (nothing is lost); past the cap
-        # we skip ONLY the expensive enrichment block below and finalize the email
-        # 'degraded' with an ingest_cost_capped reason, so it stays visible and
-        # reprocessable. Guard is None unless INGEST_DAILY_COST_CAP_ENABLED is set
-        # (structural omission). Best-effort/fail-open: the guard never caps on a
-        # count error (see IngestBudgetGuard), and even a guard raise here must not
-        # lose the already-saved email — so it degrades to running enrichment.
-        if self._budget_guard is not None:
-            try:
-                over_cap = await self._budget_guard.is_over_daily_cap(importer_id)
-            except Exception:
-                logger.exception("ingest_budget_guard_failed", email_id=saved.id, importer_id=importer_id)
-                over_cap = False
-            if over_cap:
-                return await self._finalize_cost_capped(saved)
+        # we skip ONLY the expensive enrichment below and finalize 'degraded' with
+        # an ingest_cost_capped reason, so it stays visible + reprocessable.
+        if await self._over_daily_cost_cap(importer_id, saved.id):
+            return await self._finalize_cost_capped(saved)
 
         # Each post-persist stage is isolated so one failure can neither abort the
         # rest of the pipeline nor propagate to the SNS-facing caller (ING-5), and
@@ -351,6 +341,22 @@ class IngestInboundEmailUseCase:
             parse_failures=len(failures),
         )
         return saved
+
+    async def _over_daily_cost_cap(self, importer_id: str, email_id: str) -> bool:
+        """A1 cost-cap guard check, isolated (fail-open) from execute().
+
+        The guard is None unless INGEST_DAILY_COST_CAP_ENABLED is set (structural
+        omission). Best-effort: a guard raise here must never lose the
+        already-saved email, so any error degrades to 'not over cap' (enrichment
+        runs) — mirroring IngestBudgetGuard's own fail-open contract.
+        """
+        if self._budget_guard is None:
+            return False
+        try:
+            return await self._budget_guard.is_over_daily_cap(importer_id)
+        except Exception:
+            logger.exception("ingest_budget_guard_failed", email_id=email_id, importer_id=importer_id)
+            return False
 
     async def _finalize_cost_capped(self, email: Email) -> Email:
         """Finalize an email whose enrichment was skipped by the daily ingest cap (A1).
