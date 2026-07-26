@@ -53,6 +53,7 @@ from app.infrastructure.supabase.importer_repository import SupabaseImporterRepo
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
 from app.infrastructure.supabase.thread_repository import SupabaseThreadRepository
+from app.infrastructure.supabase.tier_resolver import SupabaseTierResolver
 from app.settings import get_settings
 
 
@@ -133,10 +134,18 @@ def _provide_ingest_budget_guard(client: Client) -> IngestBudgetGuard:
     instantiation of concrete repos. ALWAYS constructible (its tests exist
     regardless of the flag); _provide_ingest_use_case decides whether to wire it in
     based on INGEST_DAILY_COST_CAP_ENABLED.
+
+    Slice B: when INGEST_TIER_CAPS_ENABLED is set, a SupabaseTierResolver is
+    instantiated directly from the Client (same direct-from-Client pattern as the
+    counter) and injected so the cap is derived from the importer's subscription
+    tier; flag-off passes None, keeping the flat-cap path byte-for-byte identical.
     """
+    settings = get_settings()
+    tier_resolver = SupabaseTierResolver(client=client) if settings.INGEST_TIER_CAPS_ENABLED else None
     return IngestBudgetGuard(
         counter=SupabaseEmailRepository(client=client),
-        daily_email_cap=get_settings().INGEST_DAILY_EMAIL_CAP,
+        daily_email_cap=settings.INGEST_DAILY_EMAIL_CAP,
+        tier_resolver=tier_resolver,
     )
 
 

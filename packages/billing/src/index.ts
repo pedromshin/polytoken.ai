@@ -12,6 +12,10 @@
 export type { Tier, TierPriceIds } from "./tiers";
 export { PAID_TIERS, asPaidTier, tierFromPriceId, priceIdForTier } from "./tiers";
 
+// Entitlements (per-tier allowances)
+export type { TierEntitlements } from "./entitlements";
+export { ENTITLEMENTS, entitlementsFor } from "./entitlements";
+
 // Errors
 export {
   BillingError,

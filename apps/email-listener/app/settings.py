@@ -251,6 +251,13 @@ class BaseAppSettings(BaseSettings):
     # Emails per importer per UTC day past which enrichment is skipped. A generous
     # ceiling: a real prosumer rarely forwards this many/day, but it bounds a flood.
     INGEST_DAILY_EMAIL_CAP: int = 500
+    # When True, the budget guard derives its daily cap from the importer's
+    # subscription TIER (free/pro/power) instead of the flat INGEST_DAILY_EMAIL_CAP.
+    # Additive and default OFF: flag-off injects no tier resolver, so the guard uses
+    # INGEST_DAILY_EMAIL_CAP exactly as before (byte-for-byte). The tier is always
+    # self-derived from the importer (never caller-supplied), and a resolver error
+    # falls back to INGEST_DAILY_EMAIL_CAP (fail-open).
+    INGEST_TIER_CAPS_ENABLED: bool = False
 
     # --- Durable ingestion cutover (Track 3a) ---
     # When True, the SNS receiver ENQUEUES a durable `ingest_inbound_email` job

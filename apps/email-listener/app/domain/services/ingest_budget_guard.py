@@ -32,8 +32,11 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from app.domain.services.tier_entitlements import daily_ingest_cap_for_tier
+
 if TYPE_CHECKING:
     from app.domain.ports.daily_ingest_counter import DailyIngestCounter
+    from app.domain.ports.tier_resolver import TierResolver
 
 logger = structlog.get_logger(__name__)
 
@@ -41,9 +44,20 @@ logger = structlog.get_logger(__name__)
 class IngestBudgetGuard:
     """Reports whether an importer has crossed its per-UTC-day ingest cap."""
 
-    def __init__(self, *, counter: DailyIngestCounter, daily_email_cap: int) -> None:
+    def __init__(
+        self,
+        *,
+        counter: DailyIngestCounter,
+        daily_email_cap: int,
+        tier_resolver: TierResolver | None = None,
+    ) -> None:
         self._counter = counter
         self._daily_email_cap = daily_email_cap
+        # OPTIONAL (default None) — tier-awareness is additive. When None the cap
+        # is the constructed ``daily_email_cap`` EXACTLY as before (byte-identical);
+        # when present the cap is derived from the importer's self-resolved tier,
+        # falling back to ``daily_email_cap`` on any resolver error (fail-open).
+        self._tier_resolver = tier_resolver
 
     async def is_over_daily_cap(self, importer_id: str) -> bool:
         """True once the importer's emails created today (UTC) reach the cap.
@@ -52,7 +66,8 @@ class IngestBudgetGuard:
         ``received_at``). Fail-open (see module docstring): a non-positive cap or
         any counter error reports False rather than capping legitimate mail.
         """
-        if self._daily_email_cap <= 0:
+        cap = await self._effective_cap(importer_id)
+        if cap <= 0:
             return False
         since = datetime.combine(datetime.now(UTC).date(), time.min, tzinfo=UTC)
         try:
@@ -60,4 +75,22 @@ class IngestBudgetGuard:
         except Exception:
             logger.warning("ingest_budget_count_failed", importer_id=importer_id, exc_info=True)
             return False
-        return count >= self._daily_email_cap
+        return count >= cap
+
+    async def _effective_cap(self, importer_id: str) -> int:
+        """The cap to enforce: the constructed default, or the importer's tier cap.
+
+        No resolver (the default) returns the constructed ``daily_email_cap``
+        unchanged. With a resolver, the tier is self-derived from the importer id
+        (never trusted from a caller) and mapped to a cap; ANY resolver error
+        falls back to the constructed default — fail-open, so a lookup failure
+        never caps legitimate mail.
+        """
+        if self._tier_resolver is None:
+            return self._daily_email_cap
+        try:
+            tier = await self._tier_resolver.tier_for_importer(importer_id)
+        except Exception:
+            logger.warning("ingest_budget_tier_resolve_failed", importer_id=importer_id, exc_info=True)
+            return self._daily_email_cap
+        return daily_ingest_cap_for_tier(tier)
