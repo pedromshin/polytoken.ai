@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import * as React from "react";
 
+import { SignOutButton } from "~/components/sign-out-button";
+
 import { DeleteAccount } from "./_components/delete-account";
 
 export const metadata: Metadata = {
@@ -18,8 +20,10 @@ export const metadata: Metadata = {
  * HERO: settings is a registry of controls, not a landing surface, so a banner
  * would be noise (same precedent as the vault/registry pages).
  *
- * The only interactive thing here is the danger-zone delete control, isolated
- * in its own client surface so the shell stays a static server component.
+ * The interactive controls (the Session sign-out and the danger-zone delete)
+ * are isolated in their own client surfaces so the shell stays a static server
+ * component. Sign-out sits above the danger zone: signing out is the common,
+ * safe account action; deleting is the rare, irreversible one.
  */
 export default function AccountSettingsPage(): React.ReactElement {
   return (
@@ -28,7 +32,23 @@ export default function AccountSettingsPage(): React.ReactElement {
         <h1 className="text-sm font-semibold text-ink">Settings</h1>
       </div>
 
-      <div className="min-h-0 flex-1 p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        <section className="flex flex-col gap-3 rounded-md border border-rule bg-bright p-panel">
+          <div className="flex flex-col gap-1">
+            <span className="text-2xs uppercase tracking-wide text-muted-foreground">
+              Session
+            </span>
+            <h2 className="text-base font-semibold text-ink">Sign out</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            End this session on this device. Your data is untouched — you can
+            sign back in any time.
+          </p>
+          <div className="max-w-xs">
+            <SignOutButton />
+          </div>
+        </section>
+
         <DeleteAccount />
       </div>
     </main>
