@@ -28,6 +28,7 @@ import {
   createPortalSession,
   createStripeClient,
   DuplicateSubscriptionError,
+  verifySession,
   type TierPriceIds,
 } from "@polytoken/billing";
 import { createDrizzleBillingStore } from "@polytoken/billing/store-drizzle";
@@ -122,6 +123,36 @@ export const billingRouter = createTRPCRouter({
         }
         // Never leak Stripe internals to the client; the real error is logged upstream.
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not start checkout." });
+      }
+    }),
+
+  /**
+   * verifyCheckout — verify-session fallback for /billing/success (webhook-lag
+   * recovery). Retrieves the Checkout Session from Stripe and, if complete,
+   * fulfils the subscription through the SAME idempotent sync path the webhook
+   * uses (deduped under a `verify:{sessionId}` key). Attribution comes from the
+   * subscription's own Stripe-held metadata — the session's client fields are
+   * never trusted for identity — so it's safe as a plain protectedProcedure.
+   */
+  verifyCheckout: protectedProcedure
+    .input(z.object({ sessionId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const cfg = getBillingConfig();
+      const stripe = createStripeClient(cfg.secretKey);
+      const store = createDrizzleBillingStore(ctx.db);
+      try {
+        const { fulfilled } = await verifySession(
+          { stripe, store, prices: cfg.prices },
+          input.sessionId,
+        );
+        return { fulfilled };
+      } catch {
+        // Never leak Stripe internals; the webhook remains the backstop, so a
+        // failed verify is a soft miss (the client just keeps its `free` view).
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not verify checkout.",
+        });
       }
     }),
 

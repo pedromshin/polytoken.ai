@@ -264,6 +264,23 @@ class BaseAppSettings(BaseSettings):
     # not an always-on feature).
     INGEST_ENQUEUE_ENABLED: bool = False
 
+    # --- Ingest fast-200 background bridge (no-infra stopgap vs. the durable worker) ---
+    # CLAUDE.md landmine: the SNS handler runs ingest INLINE (await execute) then returns
+    # 200. Heavy PDF emails enrich for minutes (hundreds of Bedrock calls), so SNS's ~15s
+    # HTTP-delivery timeout fires and SNS RETRIES — re-running the full enrichment 2-3x per
+    # email (wasted Bedrock spend) and leaving the UI at 'received' for minutes. The proper
+    # fix is the durable worker (INGEST_ENQUEUE_ENABLED above), but that needs the
+    # graphile-worker runtime provisioned. This is the NO-INFRA bridge: when this flag is ON
+    # AND enqueue is OFF, the inline path SCHEDULES ingest as a FastAPI BackgroundTask and
+    # returns 200 immediately so SNS gets its ack in <1s — no retry storm, no duplicate
+    # enrichment. Default OFF = the exact current inline behavior byte-for-byte (await
+    # execute, then INGEST_INLINE_RETRY_ON_FAILURE's 500-on-failure semantics). The accepted
+    # tradeoff vs. the durable worker: a container restart mid-task loses the enrichment (the
+    # email stays 'received' → reprocess / A2 recover). No effect while INGEST_ENQUEUE_ENABLED
+    # is ON (the enqueue path already returns fast). Plain bool field (no @property wrapper) —
+    # mirrors INGEST_ENQUEUE_ENABLED's default-OFF cutover convention.
+    INGEST_BACKGROUND_ENABLED: bool = False
+
     # --- Inline ingest fail-loud (A2 — the no-worker silent-loss stopgap) ---
     # CLAUDE.md landmine: the SNS handler returns 200 on ANY inline ingest failure,
     # so a failure on the pre-persist critical path (S3 fetch / MIME parse / importer

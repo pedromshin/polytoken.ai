@@ -29,6 +29,7 @@ import {
   FolderOpen,
   House,
   Inbox,
+  MailPlus,
   MessageSquare,
   Settings,
   Share2,
@@ -65,6 +66,10 @@ export const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
   // Appended LAST for the same reason — Settings lands in the mobile "More"
   // sheet automatically without disturbing the tab-bar indices.
   { href: "/settings/account", label: "Settings", icon: Settings },
+  // Appended AFTER Settings so MOBILE_TAB_ITEMS' hardcoded indices (0/6/4/7)
+  // stay valid; the forwarding-onboarding "Get started" destination lands in
+  // the mobile "More" sheet automatically.
+  { href: "/onboarding", label: "Get started", icon: MailPlus },
 ];
 
 /** The four thumb-reach destinations on the mobile bottom tab bar. */

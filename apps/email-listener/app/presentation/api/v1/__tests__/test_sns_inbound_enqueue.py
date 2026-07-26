@@ -86,7 +86,13 @@ def _post_notification(client: TestClient) -> Any:
     return client.post("/v1/emails/inbound-sns", content=body)
 
 
-def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool, inline_retry: bool = False) -> None:
+def _set_flag(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    enabled: bool,
+    inline_retry: bool = False,
+    background: bool = False,
+) -> None:
     # Signature verification is orthogonal to the enqueue cutover under test, so it
     # is disabled here; test_sns_inbound_signature.py covers the verification gate.
     monkeypatch.setattr(
@@ -95,6 +101,7 @@ def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool, inline_retry: b
         lambda: SimpleNamespace(
             INGEST_ENQUEUE_ENABLED=enabled,
             INGEST_INLINE_RETRY_ON_FAILURE=inline_retry,
+            INGEST_BACKGROUND_ENABLED=background,
             SNS_VERIFY_SIGNATURE=False,
             SNS_SIGNATURE_ENFORCED=False,
         ),
@@ -204,3 +211,80 @@ def test_inline_retry_flag_success_still_returns_200(monkeypatch: pytest.MonkeyP
 
     assert resp.status_code == 200
     assert len(ingest.calls) == 1
+
+
+# --- Fast-200 background bridge (no-infra stopgap vs. the durable worker) -----
+
+
+class _FakeLogger:
+    """Records structlog calls so a background failure's loud log can be asserted."""
+
+    def __init__(self) -> None:
+        self.exceptions: list[dict[str, Any]] = []
+
+    def info(self, *_args: Any, **_kwargs: Any) -> None:
+        pass
+
+    def warning(self, *_args: Any, **_kwargs: Any) -> None:
+        pass
+
+    def exception(self, event: str, **kwargs: Any) -> None:
+        self.exceptions.append({"event": event, **kwargs})
+
+
+def test_background_flag_off_awaits_inline_unchanged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """INGEST_BACKGROUND_ENABLED OFF (default): the inline path awaits execute exactly as
+    before — byte-identical to today's behavior."""
+    _set_flag(monkeypatch, enabled=False, background=False)
+    _stub_parse_ok(monkeypatch)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest()
+
+    resp = _post_notification(_make_client(enqueuer, ingest))
+
+    assert resp.status_code == 200
+    assert enqueuer.calls == []
+    assert len(ingest.calls) == 1
+    assert ingest.calls[0]["message_id"] == "ses-msg-1"
+    assert ingest.calls[0]["recipients"] == ["u-tok@in.example.com"]
+
+
+def test_background_flag_on_returns_200_and_schedules_ingest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """INGEST_BACKGROUND_ENABLED ON: returns 200 immediately AND schedules ingest as a
+    background task. TestClient drains background tasks after the response, so the fake
+    ingest WAS called by the time the context-manager client exits."""
+    _set_flag(monkeypatch, enabled=False, background=True)
+    _stub_parse_ok(monkeypatch)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest()
+
+    with _make_client(enqueuer, ingest) as client:
+        resp = _post_notification(client)
+        assert resp.status_code == 200
+
+    # Enqueue path untouched; the ingest ran off the request path (post-response).
+    assert enqueuer.calls == []
+    assert len(ingest.calls) == 1
+    assert ingest.calls[0]["message_id"] == "ses-msg-1"
+    assert ingest.calls[0]["recipients"] == ["u-tok@in.example.com"]
+
+
+def test_background_flag_on_failure_still_200_and_logged_not_propagated(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """INGEST_BACKGROUND_ENABLED ON + execute raises: still 200, the failure is logged
+    loudly (never silent), and the exception does NOT propagate out of the request."""
+    _set_flag(monkeypatch, enabled=False, background=True)
+    _stub_parse_ok(monkeypatch)
+    fake_logger = _FakeLogger()
+    monkeypatch.setattr(sns_inbound, "logger", fake_logger)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest(raises=True)
+
+    with _make_client(enqueuer, ingest) as client:
+        resp = _post_notification(client)
+        assert resp.status_code == 200  # ack sent before the background task ran
+
+    assert len(ingest.calls) == 1  # it DID attempt (and raised)
+    # The background failure was logged loudly with the message_id — never silent.
+    assert any(
+        e["event"] == "email_ingest_background_error" and e.get("message_id") == "ses-msg-1"
+        for e in fake_logger.exceptions
+    )

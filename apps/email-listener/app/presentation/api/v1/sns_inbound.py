@@ -7,6 +7,12 @@ Durable-ingestion cutover (Track 3a): when ``INGEST_ENQUEUE_ENABLED`` is set, a
 Notification enqueues a durable ``ingest_inbound_email`` pointer job and a FAILED
 enqueue returns 500 so SNS retries — strictly safer than the flag-OFF inline path's
 silent-200 loss. Flag OFF (default) preserves the exact current inline behavior.
+
+Fast-200 bridge (no-infra stopgap): when ``INGEST_BACKGROUND_ENABLED`` is set AND
+enqueue is OFF, the inline path SCHEDULES ingest as a FastAPI BackgroundTask and returns
+200 immediately (SNS ack in <1s) so a minutes-long heavy enrichment can't trip SNS's
+~15s delivery timeout and cause a retry storm + duplicate Bedrock spend. Both flags OFF
+(default) preserves the exact current inline-await behavior byte-for-byte.
 """
 
 from __future__ import annotations
@@ -14,7 +20,7 @@ from __future__ import annotations
 import json
 
 import structlog
-from fastapi import APIRouter, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Request, Response, status
 
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
 from app.domain.ports.job_enqueuer import JobEnqueuer
@@ -29,7 +35,7 @@ router = APIRouter(prefix="/v1/emails", tags=["emails-sns"])
 
 
 @router.post("/inbound-sns", status_code=status.HTTP_200_OK)
-async def receive_inbound_sns(request: Request) -> Response:
+async def receive_inbound_sns(request: Request, background_tasks: BackgroundTasks) -> Response:
     """Handle SNS notifications from SES. No auth — SNS cannot send X-API-Key."""
     raw = await request.body()
     try:
@@ -63,7 +69,7 @@ async def receive_inbound_sns(request: Request) -> Response:
             recipients=meta["recipients"],
             subject=meta["subject"],
         )
-        return await _process_notification(request, meta)
+        return await _process_notification(request, background_tasks, meta)
 
     logger.warning("sns_unknown_type", type=msg_type)
     return Response(status_code=status.HTTP_200_OK)
@@ -107,7 +113,7 @@ async def _handle_subscription_confirmation(payload: dict[str, object]) -> Respo
     return Response(status_code=status.HTTP_200_OK)
 
 
-async def _process_notification(request: Request, meta: EmailMeta) -> Response:
+async def _process_notification(request: Request, background_tasks: BackgroundTasks, meta: EmailMeta) -> Response:
     """Enqueue a durable job (flag ON) or run the inline pipeline (flag OFF, today's path)."""
     settings = get_settings()
     if settings.INGEST_ENQUEUE_ENABLED:
@@ -128,16 +134,33 @@ async def _process_notification(request: Request, meta: EmailMeta) -> Response:
             return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(status_code=status.HTTP_200_OK)
 
-    # Inline path (INGEST_ENQUEUE_ENABLED OFF). Resolve + ingest inside the guard.
-    # A2 (fail-loud stopgap): a critical-path failure (DI misconfig, S3 fetch, MIME
-    # parse, importer resolve, DB save — the "received but never even stored" cases)
-    # returns 500 so SNS RETRIES instead of silently losing the mail, but ONLY when
-    # INGEST_INLINE_RETRY_ON_FAILURE is set. Default OFF preserves the exact pre-3a
-    # silent-200 behavior byte-for-byte. Ingestion is idempotent, so a retry is safe;
-    # enrichment-stage failures never reach here (execute() isolates them and returns
-    # the email), so only genuine pre-persist infra failures trigger the retry.
+    # Inline path (INGEST_ENQUEUE_ENABLED OFF).
+    if settings.INGEST_BACKGROUND_ENABLED:
+        # Fast-200 bridge (no-infra stopgap): heavy PDF emails enrich for minutes, blowing
+        # past SNS's ~15s HTTP-delivery timeout and triggering retry storms + duplicate
+        # enrichment. Resolve the use case, SCHEDULE ingest after the response, and return
+        # 200 in <1s so SNS won't retry. A use case that can't even be RESOLVED returns 500
+        # so SNS retries (no silent loss). ⚠️ ACCEPTED GAP vs. the durable worker: once the
+        # 200 is sent SNS never retries, so a BACKGROUND failure is not re-driven — an
+        # enrichment-stage failure leaves the email at 'received' (reprocess recovers it),
+        # but a rare PRE-PERSIST failure (S3 fetch / MIME parse / save) leaves NO row and is
+        # only LOGGED loudly (email_ingest_background_error) for alerting/manual follow-up.
+        # That gap is exactly why this is a flag-gated bridge, not the default.
+        try:
+            use_case = await request.app.state.dishka_container.get(IngestInboundEmailUseCase)
+        except Exception:
+            logger.exception("email_ingest_error", message_id=meta["message_id"])
+            return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        background_tasks.add_task(_run_ingest_background, use_case, meta)
+        return Response(status_code=status.HTTP_200_OK)
+
+    # Flag-OFF inline path — BYTE-IDENTICAL to origin/main. The DI resolution stays INSIDE
+    # the try so a resolution failure is caught + logged + mapped by the A2 rule (default
+    # OFF = silent-200; INGEST_INLINE_RETRY_ON_FAILURE ON = 500 → SNS retries). Ingestion is
+    # idempotent; enrichment-stage failures never reach here (execute() isolates them), so
+    # only genuine pre-persist infra failures ("received but never even stored") trigger it.
     try:
-        use_case: IngestInboundEmailUseCase = await request.app.state.dishka_container.get(IngestInboundEmailUseCase)
+        use_case = await request.app.state.dishka_container.get(IngestInboundEmailUseCase)
         await use_case.execute(meta["message_id"], recipients=meta["recipients"])
     except Exception:
         logger.exception(
@@ -148,3 +171,16 @@ async def _process_notification(request: Request, meta: EmailMeta) -> Response:
         if settings.INGEST_INLINE_RETRY_ON_FAILURE:
             return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status_code=status.HTTP_200_OK)
+
+
+async def _run_ingest_background(use_case: IngestInboundEmailUseCase, meta: EmailMeta) -> None:
+    """Run the ingest pipeline off the request path (fast-200 bridge).
+
+    Runs AFTER the 200 response, so there is no HTTP status to signal failure — the
+    exception MUST be logged loudly here or it is lost silently. On failure the email
+    stays 'received' (reprocess / A2 recover); never re-raised.
+    """
+    try:
+        await use_case.execute(meta["message_id"], recipients=meta["recipients"])
+    except Exception:
+        logger.exception("email_ingest_background_error", message_id=meta["message_id"])

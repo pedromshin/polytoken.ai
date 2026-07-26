@@ -65,6 +65,8 @@ def _set_settings(monkeypatch: pytest.MonkeyPatch, *, verify: bool = True, enfor
         "get_settings",
         lambda: SimpleNamespace(
             INGEST_ENQUEUE_ENABLED=False,
+            INGEST_BACKGROUND_ENABLED=False,
+            INGEST_INLINE_RETRY_ON_FAILURE=False,
             SNS_VERIFY_SIGNATURE=verify,
             SNS_SIGNATURE_ENFORCED=enforce,
         ),

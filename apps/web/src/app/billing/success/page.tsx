@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import * as React from "react";
 
-import { Button } from "@polytoken/ui/button";
+import { SuccessConfirm } from "./_components/success-confirm";
 
 export const metadata: Metadata = {
   title: "Subscription confirmed — Polytoken",
@@ -11,26 +10,20 @@ export const metadata: Metadata = {
 /**
  * /billing/success — where Stripe redirects after a completed checkout.
  *
- * Fulfillment is done by the webhook (the source of truth), so this page is just
- * a confirmation + a way back to /billing (which re-reads the now-updated plan).
- * Chrome/monochrome, sans (law 1 + 2). Static server component — no secrets, no
- * session id trust (the plan comes from the webhook, never this URL param).
+ * The webhook is the source of truth for fulfilment, but it can lag; the client
+ * surface below closes that race with a verify-session fallback (retrieve the
+ * session, fulfil if complete, refresh the plan) so the buyer's tier reflects
+ * immediately. Chrome/monochrome, sans (laws 1 + 2). No session-id trust for
+ * attribution — the identity is resolved server-side from the subscription's
+ * own Stripe-held metadata inside `verifyCheckout`.
+ *
+ * `SuccessConfirm` reads `?session_id` via `useSearchParams`, which requires a
+ * Suspense boundary during SSG/prerender in the Next 15 app router.
  */
 export default function BillingSuccessPage(): React.ReactElement {
   return (
-    <main className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col items-center justify-center bg-shelf p-4">
-      <div className="flex w-full max-w-md flex-col gap-3 rounded-md border border-rule bg-bright p-panel">
-        <h1 className="text-base font-semibold text-ink">You&rsquo;re subscribed</h1>
-        <p className="text-sm text-muted-foreground">
-          Thanks — your subscription is being activated. It may take a moment to reflect on your
-          account.
-        </p>
-        <div className="pt-1">
-          <Button asChild size="sm">
-            <Link href="/billing">Back to billing</Link>
-          </Button>
-        </div>
-      </div>
-    </main>
+    <React.Suspense fallback={null}>
+      <SuccessConfirm />
+    </React.Suspense>
   );
 }

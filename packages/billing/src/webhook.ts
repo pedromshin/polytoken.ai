@@ -42,7 +42,21 @@ function customerIdOf(customer: Stripe.Subscription["customer"]): string {
   return typeof customer === "string" ? customer : customer.id;
 }
 
-async function syncSubscription(
+/**
+ * Sync the `subscriptions` row from Stripe's subscription object (the source of
+ * truth). Shared by the webhook's checkout.session.completed / subscription.*
+ * handlers AND the verify-session fallback (`verify.ts`) so both fulfil through
+ * ONE code path — the upsert is keyed by `userId`, so running it from the
+ * webhook and the verify fallback for the same purchase converges on the same
+ * row (no double-fulfill).
+ *
+ * Pass `userIdHint` only when the caller has a TRUSTED server-side identity
+ * (the webhook carries the checkout's `client_reference_id`). Omit it to force
+ * resolution from the subscription's OWN `metadata.userId` (stamped at checkout
+ * creation, held by Stripe) — this is what the verify fallback does so it never
+ * trusts a client-supplied session field for attribution.
+ */
+export async function syncSubscription(
   deps: WebhookDeps,
   args: { subscription?: Stripe.Subscription; subscriptionId?: string; userIdHint?: string | null },
 ): Promise<void> {

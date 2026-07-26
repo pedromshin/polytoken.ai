@@ -37,8 +37,12 @@ export { createCheckoutSession } from "./checkout";
 export type { CheckoutDeps, CheckoutParams, CheckoutSession } from "./checkout";
 
 // Webhook
-export { handleStripeEvent } from "./webhook";
+export { handleStripeEvent, syncSubscription } from "./webhook";
 export type { WebhookDeps } from "./webhook";
+
+// Verify-session fallback (webhook-lag recovery on /billing/success)
+export { verifySession } from "./verify";
+export type { VerifyDeps, VerifyResult } from "./verify";
 
 // Portal
 export { createPortalSession } from "./portal";
