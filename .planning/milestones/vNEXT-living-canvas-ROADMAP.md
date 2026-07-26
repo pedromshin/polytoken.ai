@@ -1,6 +1,8 @@
 # Milestone vNEXT — The Living Canvas
 
-**Status:** 📋 PROPOSED (not yet opened)
+**Status:** 🚧 IN PROGRESS (opened via orchestrator run 2026-07-25; 73–76 substantially shipped to
+`main`). Live per-slice detail: **`ORCHESTRATOR-STATE.md`** ⭐ CURRENT block (this ROADMAP is the
+structural tracker; the ledger is the source of truth for what shipped when).
 **Phases:** 73–77 (the five "bangers")
 **Requirements:** 41 (LCAN 9 + MORN 7 + CPF 6 + BTAP 10 + MCPX 9)
 **Depends on:** Phase 66 (durable graphile-worker + Workspace→Canvas→Node/Edge row substrate,
@@ -9,6 +11,39 @@ agent-draws-node wedge.
 **Source of the arc:** ORCHESTRATOR-STATE.md "BANGER DIRECTION (Pedro's vision Q, 2026-07-25)" +
 the five `SPEC.md` files under `.planning/phases/73..77-*/`; master-plan Track 3a (durable runtime)
 and Track 7 (expose-first MCP).
+
+---
+
+## ✅ SHIPPED STATUS — reconciled 2026-07-26 (orchestrator run)
+
+> Shipped = code on `main`, all build gates green (web tsc+vitest+build, packages tsc+vitest,
+> listener ruff+lint-imports+mypy+pytest, db drizzle-kit check). These were built as an
+> orchestrator run, NOT the full GSD discuss→plan→execute→verify ceremony — there are no per-plan
+> PLAN.md/VERIFICATION.md trails; the honest trail is the `ORCHESTRATOR-STATE.md` ledger + the git
+> history. Checkboxes elsewhere in this file stay conservative accordingly.
+
+- **Phase 73 — Living-canvas agent dataflow · Waves A + B SHIPPED.** Wave A (`a2393f2` web +
+  `203a8b5` listener): the agent draws nodes + wires data-edges (`canvas_add_node`/`canvas_connect`
+  parts behind `CANVAS_EMIT_TOOL_ENABLED`, default-OFF). Wave B (`c2139f7` + `00f19db`): the publish
+  port — `projectForPublish` + `useCanvasPublish` → `shared.published.{nodeId}`, wired into 11 source
+  nodes (+ spreadsheet, added Phase 76). Wave C (named `canvas_recipes` + durable after-close
+  recompute, LCAN-07/09) = **remaining**.
+- **Phase 74 — Self-assembling morning board · SHIPPED (MVP + overnight backend, dark).** `/chat`
+  "Assemble board" (`f573c3d`) + `/home` HomeCanvas paint (`f5eef75`); overnight composer + worker
+  cron gated on `MORNING_BOARD_ENABLED` (`1fe5b80` + listener). Remaining: the live overnight-run
+  screenshot gate (needs the flag flipped + worker provisioned).
+- **Phase 75 — Correction-propagation flywheel · VISIBLE half SHIPPED** (`32b21c6`, CPF-05/06): a
+  merge repaints every placed EntityNode live + cascade-highlight ring. **Remaining: the SERVER
+  cascade** (75-01 ledger migration · 75-02 promote suggestion→canon edges · 75-03 wire into
+  ConfirmMerge · 75-04 worker re-label) — touches the LIVE listener merge path, LIVE-loop-gated.
+- **Phase 76 — Bespoke code-islands · the SUMMON LOOP SHIPPED + LIVE IN PROD** (`7866c10` data
+  channel · `b64c56c` node+table · `a24febb` the "Build a tool from these" flow + spreadsheet publish
+  + api-client typed-inputs). **`0055 code_islands` migration APPLIED to prod (2026-07-26)** via the
+  Supabase Management API — verified against the DB (table + RLS live), so `codeIslands.create`
+  persists and the flow works end-to-end. Remaining: **76-02b** (listener consumes the `inputs`
+  manifest in the generator prompt — additive, ECS redeploy) and **76-05** (agent-authored
+  `emit_code_island`, flag-gated).
+- **Phase 77 — MCP tool surface · NOT STARTED** (specced only).
 
 ---
 

@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.11
-milestone_name: Research Core & the Capability Spine
+milestone: vNEXT-living-canvas
+milestone_name: The Living Canvas
 status: in-progress
-last_updated: "2026-07-24T00:00:00.000Z"
+last_updated: "2026-07-26T16:00:00.000Z"
 progress:
-  total_phases: 6
-  completed_phases: 3
+  total_phases: 5
+  completed_phases: 2
   total_plans: 0
   completed_plans: 0
-  percent: 50
+  percent: 45
 ---
 
 # State
@@ -37,7 +37,30 @@ Read it before re-deriving anything historical.
 
 ## Current Position
 
-**Milestone: v1.11 — Research Core & the Capability Spine (Phases 64, 68–72). IN PROGRESS.**
+**Milestone: vNEXT — The Living Canvas (Phases 73–77). IN PROGRESS** (opened as an orchestrator run
+2026-07-25; roadmap `milestones/vNEXT-living-canvas-ROADMAP.md` ✅ SHIPPED-STATUS block).
+Reconciled 2026-07-26:
+
+- **Phase 73 (living-canvas agent dataflow) — Waves A + B SHIPPED** (agent draws+wires nodes behind
+  `CANVAS_EMIT_TOOL_ENABLED`; the `shared.published.{nodeId}` publish port in 12 source nodes). Wave C
+  (named `canvas_recipes` + durable after-close recompute) remaining.
+- **Phase 74 (self-assembling morning board) — SHIPPED** (`/chat` Assemble-board + `/home` HomeCanvas
+  paint; overnight composer + worker cron ship DARK behind `MORNING_BOARD_ENABLED`). Live
+  overnight-run screenshot gate remaining.
+- **Phase 75 (correction-propagation flywheel) — VISIBLE half SHIPPED** (a merge repaints every placed
+  entity card live + cascade ring). SERVER cascade (ledger migration → promote edges → wire into
+  ConfirmMerge → worker re-label) remaining; it touches the LIVE listener merge path, LIVE-loop-gated.
+- **Phase 76 (bespoke code-islands) — SUMMON LOOP SHIPPED + LIVE IN PROD.** The full data-channel →
+  node → "Build a tool from these" flow; **`0055 code_islands` applied to prod 2026-07-26** (Supabase
+  Management API, verified against the DB), so it works end-to-end. Remaining: 76-02b (listener
+  consumes the typed-inputs manifest, ECS redeploy) + 76-05 (agent `emit_code_island`, flag-gated).
+- **Phase 77 (life-as-MCP-tool-surface) — NOT STARTED** (specced only).
+
+> These shipped as an orchestrator run, gates green, but WITHOUT per-plan PLAN.md/VERIFICATION.md
+> GSD trails. The honest record is the `ORCHESTRATOR-STATE.md` ledger + git history. GSD phase
+> verification (formal VERIFICATION.md per phase) is owed if the milestone is closed through GSD.
+
+### Carried debt from v1.11 (Research Core & the Capability Spine — Phases 64, 68–72)
 
 - **Phase 64** (Research, Documents & Mail Rules vertical slice) — built 2026-07-17 as night-run
   Lane B; ABSORBED as v1.11's first phase, not re-planned. Complete.
@@ -67,11 +90,27 @@ SES receipt rule drift is in flight on a sibling branch
 
 ## Next Actions
 
-1. Wire + verify Phases 68–72 (v1.11 closeout): deep_research ChatProvider DI, mail-rule actions
-   into the email path, then per-phase GSD verification; tick ROADMAP checkboxes as each verifies.
-2. Pedro's pixel gates on Phases 62/63 (v1.10 remainder) — screenshots exist; a human must look.
-3. Run the owed v1.9 live legs (LIVE-03 / LIVE-04 / CLUS-07) per the MORNING-CHECKLIST runsheet.
-4. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
+**vNEXT (active) — remaining legs of the shipped phases:**
+1. **Phase 76 close:** 76-02b (listener consumes the `inputs` typed-shape manifest in the code-island
+   generator prompt — additive, back-compat, FULL pytest + ECS redeploy of the live mail receiver) +
+   76-05 (agent-authored `emit_code_island` behind `CANVAS_EMIT_TOOL_ENABLED`).
+2. **Phase 75 SERVER cascade** (75-01 `correction_propagations` ledger migration → 75-02
+   `CascadeCorrectionUseCase` → 75-03 wire into `ConfirmMergeUseCase` best-effort → 75-04 worker
+   re-label). Touches the LIVE merge path; ship flag-gated, FULL pytest.
+3. **Phase 73 Wave C** (named `canvas_recipes` migration + CRUD + badge, LCAN-07; durable recompute
+   LCAN-09) and **Phase 77** (capability-registry MCP server, specced not started).
+4. **Live gates to flip when ready:** `CANVAS_EMIT_TOOL_ENABLED` (agent draws nodes/edges),
+   `MORNING_BOARD_ENABLED` (overnight board — needs the worker provisioned: install the
+   `graphile_worker` schema + apply 0053/0054 via the Management API).
+
+**Infra / carried (unchanged):**
+5. **Create the 3 missing GitHub prod secrets** (`PROD_POSTGRES_URL_NON_POOLING` / `PROD_POSTGRES_URL`
+   / `PROD_SUPABASE_URL`) so `deploy-migrate-prod.yml` works again (I added the `environment:
+   production` binding; the secrets themselves are absent). Until then prod DB changes go via the
+   Supabase Management API.
+6. Wire + verify Phases 68–72 (v1.11 closeout); pixel gates on 62/63; the owed v1.9 live legs
+   (LIVE-03 / LIVE-04 / CLUS-07) per the MORNING-CHECKLIST runsheet.
+7. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
    version-scoped `research/` dirs into milestone archives.
 
 ## Open Debug
