@@ -32,6 +32,8 @@
   - Gates: listener ruff+format+mypy(310)+lint-imports+full pytest(0 fail); billing tsc+vitest(19);
     api-client tsc; web tsc+tests(8)+design-law(189)+placeholder build. Adversarial verdicts: web SOUND,
     ingest PROBLEMS(2 HIGH) → both fixed.
+  - ✅ **Listener deploy VERIFIED SUCCESS** — `deploy-email-listener.yml` run 30223784262 (SHA `5cebe7e`):
+    completed/success (test job + build&deploy green). Scheduled check-in confirmed; listener image on main is current.
 
 ### ✅ B2 ACCOUNT DELETION SHIPPED (ultracode + adversarial-hardened) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **B2 self-serve account/data deletion DEPLOYED TO MAIN** (`786edc4`; web + listener). Makes the
