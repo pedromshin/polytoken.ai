@@ -51,16 +51,25 @@ These are the code halves of the existential fixes and the paid/legal/instrument
 additive, all flag-gated or unreachable-until-linked, so each ships green without changing live
 behavior. **This is the immediate work queue.**
 
-- **A1 `[CLAUDE]` — Cap the ingest path.** Extend the cost circuit breaker to the ingest pipeline: a
-  per-user *daily ingest* cost cap (mirror the chat `$0.50/turn … $5/day` shape), config-driven so
-  tiers map onto it later (C2). Flag `INGEST_COST_CAP_ENABLED` default OFF. Full pytest + mypy +
-  lint-imports; listener redeploy is a no-op while OFF. *This is the single most important pre-launch
-  engineering task (track 09 §5.1, = VC-roadmap M1).*
-- **A2 `[CLAUDE]` — Make ingest fail loudly.** Replace the silent `except Exception` swallows with a
-  dead-letter row + a structured `ingest_failed` signal + a reprocess path; emit an alert event
-  Pedro can route to his phone. The durable graphile-worker runtime (Track 3a, already built on the
-  feature branch) is the proper home for the retry/DLQ — wire A2 to it. Flag-gated so the live
-  receiver's behavior is unchanged until turned on.
+- **A1 `[CLAUDE]` — Cap the ingest path. ✅ BUILT (flag OFF), on branch `claude/phase-76-summon-loop-al5emg`
+  (`e211f56`).** `IngestBudgetGuard` — a per-importer *daily* ingest volume cap that bounds a
+  mail-bomb's blast radius. Counts on the server-stamped `created_at` (not the sender-controlled
+  `received_at`), **fail-open** (never caps legit mail on a count error — the deliberate opposite of
+  the chat breaker), and past the cap the raw email STILL persists (only enrichment is skipped;
+  finalizes `degraded` with an `ingest_cost_capped` reason — visible + reprocessable, never silently
+  dropped). Flag `INGEST_DAILY_COST_CAP_ENABLED` (default OFF, `INGEST_DAILY_EMAIL_CAP=500`). Gates
+  green: ruff + mypy(304) + lint-imports(3) + full pytest. **Remaining `[PEDRO]`:** flip the flag +
+  the AWS account budget belt (only-you #4). *The single most important pre-launch engineering task
+  (track 09 §5.1, = VC-roadmap M1).*
+- **A2 `[CLAUDE]` — Make ingest fail loudly. ✅ no-worker STOPGAP BUILT (flag OFF)** on the same branch
+  (`d169969`). `INGEST_INLINE_RETRY_ON_FAILURE`: the SNS handler returns 200 on any inline ingest
+  failure today, so a pre-persist critical-path failure (S3 fetch / MIME parse / importer resolve /
+  save) silently, permanently loses the mail. With the flag on, the inline path returns **500 so SNS
+  retries** (ingest is idempotent → safe); parse failures still 200. Closes the CLAUDE.md silent-loss
+  landmine without waiting on the worker. **The durable form** (dead-letter + reprocess + retries) is
+  the already-built `INGEST_ENQUEUE_ENABLED` path — it needs the graphile-worker runtime provisioned
+  (`[PEDRO]`, only-you list). **Phone alerting** = a loud structured `email_ingest_error`/`ingest_cost_capped`
+  event is now emitted; wiring a CloudWatch metric-filter alarm → SMS/phone is `[PEDRO]` infra.
 - **B1 `[CLAUDE]` — Privacy policy + ToS pages.** Static `/legal/privacy` and `/legal/terms` routes
   in `apps/web`: honest disclosure of email + LLM processing, a fees-paid liability cap, a named
   data-subject contact, "no EU go-to-market yet." Draft is Claude's; **legal review is Pedro's**
@@ -176,6 +185,12 @@ Ordered by leverage. Items 1–3 unblock everything; 4–6 are launch-gating; 7�
 10. **Visual sign-off pass** on the deployed canvas (summon loop → Add-node → Build-a-tool → intent
     dialog → tools picker; and the Landscape treemap) — jsdom does no layout, so these have never had
     a human's eyes. Needs a running :3000 + seeded auth, i.e. your machine. *(G)*
+11. **After the live loop proves ingestion works (#1):** flip the two ingest-safety flags that are
+    built + shipped dark — `INGEST_DAILY_COST_CAP_ENABLED` (A1, the mail-bomb cap) and
+    `INGEST_INLINE_RETRY_ON_FAILURE` (A2, no more silent mail loss) — and wire a CloudWatch
+    metric-filter alarm on the `email_ingest_error` / `ingest_cost_capped` log events to SMS/your
+    phone. (The durable dead-letter form of A2 waits on provisioning the graphile-worker runtime —
+    same gate as applying migrations 0053/0054, only-you item E5.)
 
 Everything not on this list, Claude builds and ships from mobile — starting with A1 (cap ingest),
 A2 (loud failure), B1 (legal pages), then C1/B2/F1.
