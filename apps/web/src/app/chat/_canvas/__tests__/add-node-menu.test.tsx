@@ -52,6 +52,7 @@ interface Handlers {
   onAddDocument: ReturnType<typeof vi.fn>;
   onAddSimpleNode: ReturnType<typeof vi.fn>;
   onAddEntity: ReturnType<typeof vi.fn>;
+  onAssembleBoard: ReturnType<typeof vi.fn>;
 }
 
 async function mountMenu(): Promise<Handlers> {
@@ -63,6 +64,7 @@ async function mountMenu(): Promise<Handlers> {
     onAddDocument: vi.fn(),
     onAddSimpleNode: vi.fn(),
     onAddEntity: vi.fn(),
+    onAssembleBoard: vi.fn(),
   };
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -198,6 +200,13 @@ describe("AddNodeMenu", () => {
     await openMenu();
     await clickItem("Daily brief");
     expect(h.onAddSimpleNode).toHaveBeenCalledWith("brief");
+  });
+
+  it("Assemble board fires onAssembleBoard (Phase 74 MVP)", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    await clickItem("Assemble board");
+    expect(h.onAssembleBoard).toHaveBeenCalledTimes(1);
   });
 
   it("Merge review places a direct simple node", async () => {

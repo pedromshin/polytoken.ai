@@ -30,6 +30,7 @@ import {
   Gauge,
   GitMerge,
   HardDrive,
+  LayoutDashboard,
   ListChecks,
   Mail,
   MessagesSquare,
@@ -84,6 +85,9 @@ export interface AddNodeMenuProps {
   readonly onAddSimpleNode: (kind: SimpleNodeKind) => void;
   /** Open the entity search picker (places an entity node on select). */
   readonly onAddEntity: () => void;
+  /** Phase 74 MVP — drops a pre-arranged starter board (brief + merge review +
+   * spend meter) in one action; the user-triggered self-assembling board. */
+  readonly onAssembleBoard: () => void;
 }
 
 /** A blank 3-column sheet — the starting point the agent (or the user) fills. */
@@ -107,6 +111,7 @@ export function AddNodeMenu({
   onAddDocument,
   onAddSimpleNode,
   onAddEntity,
+  onAssembleBoard,
 }: AddNodeMenuProps): React.ReactElement {
   // The blank-sheet/blank-document creates live here (this component can reach
   // api) so the canvas host's add handlers stay sync — they just place the node
@@ -148,6 +153,11 @@ export function AddNodeMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel>Add node</DropdownMenuLabel>
+        <DropdownMenuItem onSelect={onAssembleBoard}>
+          <LayoutDashboard className="size-4 shrink-0 text-faded" aria-hidden />
+          Assemble board
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onAddCirclePack("mailbox")}>
           <CircleDashed className="size-4 shrink-0 text-faded" aria-hidden />
           Email treemap

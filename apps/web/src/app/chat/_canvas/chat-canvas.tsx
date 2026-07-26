@@ -936,6 +936,48 @@ export function ChatCanvas({
     [nodes, setNodes, persistence, canvasStore, history],
   );
 
+  // Phase 74 MVP (client-triggered self-assembling board) — drops a pre-arranged
+  // STARTER BOARD in one action: a daily brief, a merge-review queue, and a spend
+  // meter, cascaded clear of each other and of everything already on the canvas.
+  // One history entry + one save for the whole board (undo removes it as a unit).
+  // This is the user-triggered counterpart of Phase 74's overnight assembly — the
+  // same node set the scheduled composer will draw, available now with no wait.
+  const handleAssembleBoard = useCallback(() => {
+    const BOARD: readonly SimpleNodeKind[] = ["brief", "review-queue", "usage"];
+    const center = rfInstanceRef.current?.screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    }) ?? { x: 0, y: 0 };
+    const existingRects: CanvasRect[] = nodes.map((node) => ({
+      x: node.position.x,
+      y: node.position.y,
+      ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+    }));
+    const placed: FlowNode[] = [];
+    for (const kind of BOARD) {
+      const dims = CANVAS_NODE_DIMENSIONS[kind] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, ...dims },
+        existingRects,
+      );
+      existingRects.push({ ...position, ...dims });
+      placed.push({
+        id: `${kind}:${crypto.randomUUID()}`,
+        type: kind,
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: {},
+      });
+    }
+    history.record("Assemble board");
+    setNodes((prev) => [
+      ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+      ...placed,
+    ]);
+    persistence.scheduleSave(canvasStore);
+  }, [nodes, setNodes, persistence, canvasStore, history]);
+
   // EntityPickerPopover's onAdd — materializes an entity node for the selected
   // entity id near the viewport center, selected, cascading off any overlap.
   // node.data carries only the entityId ref; the card rehydrates name/type/
@@ -1537,6 +1579,7 @@ export function ChatCanvas({
                           onAddDocument={handleAddDocument}
                           onAddSimpleNode={handleAddSimpleNode}
                           onAddEntity={() => setEntityOpenNonce((n) => n + 1)}
+                          onAssembleBoard={handleAssembleBoard}
                         />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}
