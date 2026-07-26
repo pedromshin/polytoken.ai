@@ -13,6 +13,25 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ SESSION UPDATE — 2026-07-26 (C1 billing SHIPPED + deployed) · session_01NhVUcfpAuwy4YBkvme7dUp
+- ✅ **C1 Stripe subscription billing DEPLOYED TO MAIN** (`8935506..8fecd23`, 8 commits: distribution
+  plan · CNPJ entity · A1 · A2 · billing). Vercel (billing code, inert) + listener (A1/A2, flag-off)
+  redeployed — all safe. Adapted Pedro's `algomaxxing/packages/billing` reference (added to session via
+  add_repo after he transferred it to his account) into `@polytoken/billing` for subscriptions.
+- ✅ **Migration 0056_billing APPLIED TO PROD** via the sanctioned apply.py path (Management API, sbp_
+  read from settings.local.json — never written to a new file). Verified AGAINST DB: `subscriptions`
+  (rls on, 2 policies) + `stripe_webhook_events` (deny-all, 2 policies), drizzle bookkept (hash
+  92eb69ec…, when 1785095269965). The billing DB is ready.
+- ⛔ **REMAINING = LIVE STRIPE/VERCEL CONFIG (Pedro-gated, classifier-blocked).** The auto-mode
+  classifier blocks outbound curls carrying Pedro's live `rk_live_`/`vcp_` keys to api.stripe.com /
+  api.vercel.com (no pre-approval rule for those hosts, unlike the Supabase migration path). I did NOT
+  route around it. To finish: (a) Pedro adds a `Bash(curl:*)` allow rule → I create Stripe
+  products/prices/webhook + set Vercel env (`BILLING_ENABLED=true`, keys, price ids, whsec,
+  BILLING_APP_URL) in ~2 min; OR (b) Pedro does the ~5-min dashboard steps (only-you #5). Recommended
+  prices: $29 Pro / $49 Power. **Then billing is live.** Also owed: rotate the pasted rk_live_/vcp_
+  tokens; the `/billing` UI page (frontend, not blocked — not yet built); privacy/ToS (B1) before any
+  real external charge.
+
 ### ✅ SESSION UPDATE — 2026-07-26 (later) · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
 **DISTRIBUTION-READINESS turn.** Pedro: "make this project distribution ready + a list of stuff only I
 can do when I get back to my computer tomorrow" (we've built all week on Claude Code **mobile**), then
