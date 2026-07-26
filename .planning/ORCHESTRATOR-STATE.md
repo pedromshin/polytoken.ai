@@ -13,6 +13,24 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ SESSION UPDATE — 2026-07-26 (B1 legal pages + /billing UI SHIPPED) · session_01NhVUcfpAuwy4YBkvme7dUp
+- ✅ **C1 /billing PAGE DEPLOYED** (`b836836`): plan readout + Pro/Power cards (one-click Subscribe →
+  Checkout, Manage → portal), `/billing/success`, "Billing" in the nav registry. Design-law green
+  (palette/colour-law/role-hue), surface test 4/4. Graceful when billing off (reads `free`).
+- ✅ **B1 LEGAL PAGES DEPLOYED TO MAIN** (`3748fba`, web-only): `/legal/privacy` + `/legal/terms`,
+  grounded in track 06 (SES→S3→Textract/Bedrock→graph; subprocessors AWS/Supabase/Vercel/Stripe; US
+  transfer; LGPD/CCPA rights + contact; legitimate-interest for correspondents; fees-paid liability
+  cap; AS-IS/not-a-backup; no-EU; loud-not-silent; Brazil law). Shared `LegalDoc` renderer
+  (chrome/sans). Linked from the billing checkout footer. **Marked review-pending draft** — legal
+  sign-off + a ROUTABLE privacy contact (currently `privacy@polytoken.ai` placeholder in
+  `legal-entity.ts`) + ANPD SCCs owed (Pedro/lawyer). Gates: web tsc + palette/colour-law (189).
+- ⏭️ **NEXT = B2 deletion path** (self-serve delete-my-data across Postgres + S3 raw mail + storage +
+  embeddings) — now a PROMISE in the shipped privacy policy ("delete your data from account
+  settings"), so it must be made real. Scoping the deletion landscape first. Then: forwarding-setup
+  onboarding (the #1 funnel cliff), billing verifySession fallback + tier→listener cost-cap wiring, F1
+  funnel instrumentation. Pedro-gated remainder unchanged (live loop + SES · Stripe/Vercel config ·
+  legal review · budget cap + flip A1/A2 flags + alarm · rotate tokens · visual pass).
+
 ### ✅ SESSION UPDATE — 2026-07-26 (C1 billing SHIPPED + deployed) · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **C1 /billing PAGE SHIPPED** (`b836836`, Vercel-only). The visible half: `/billing` (current-plan
   readout + Pro $29 / Power $49 flat cards, 1-click Subscribe → Stripe Checkout, Manage → portal) +
