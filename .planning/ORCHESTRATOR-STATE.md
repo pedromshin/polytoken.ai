@@ -13,6 +13,40 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ ULTRACODE ALL THREE (A+B+C) SHIPPED — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
+Built via a 6-agent Workflow (2 parallel builds → adversarial verify + 3 review agents), then I
+gated + fixed every CONFIRMED finding before shipping. All to `main`:
+- ✅ **A — durable-worker runbook** (`f388051`, `docs/DURABLE-WORKER-RUNBOOK.md`). apps/worker + the
+  listener enqueue path were ALREADY on main (verified byte-identical to the feature branch) — so A
+  collapsed to the provisioning/cutover runbook: install graphile_worker schema → migrations
+  0053/0054 → deploy worker container → flip `INGEST_ENQUEUE_ENABLED`. Every step marked [safe]/[PEDRO];
+  honors the no-remote-state TF landmine; flags that the worker ECS container is **not yet wired in
+  `ecs.tf`** (needs a Node runtime image — Pedro).
+- ✅ **B — tier-aware ingest caps** (`2728632`). `ENTITLEMENTS` map in `@polytoken/billing` is the SoT
+  (free 100 / pro 500 / power 2000 emails/day). Listener mirrors the ingest caps + a `TierResolver`
+  port self-derives importer→user→`subscriptions.tier`, behind **`INGEST_TIER_CAPS_ENABLED` (default
+  OFF = byte-identical)**; fail-open to the flat cap on any resolver error; only active/trialing grants
+  a paid cap. Gates: listener ruff/format/lint-imports/mypy(313)/pytest(91.95%); billing tsc+vitest(23,
+  +4 new); api-client tsc. (The build agent errored on its final StructuredOutput emit but wrote all
+  code; the independent verifyB pass + my full self-review/gate confirmed it sound.)
+- ✅ **C — hardening (confirmed findings fixed):**
+  - **HIGH/CONFIRMED ingest compute-idempotency** (`36280bc`): passive SNS redelivery of a 'parsed'
+    email re-ran the full Bedrock/Textract pipeline (data upserted, but compute/cost did NOT dedup).
+    `execute()` now short-circuits a passive redelivery of a 'parsed' row; deliberate reprocess passes
+    the new `reprocess=True` and re-runs. Also fixes the LOW/CONFIRMED cap-downgrade-on-redelivery.
+    (Does NOT fix the concurrent-retry case — first still in-flight — whose root cause is the SNS 15s
+    timeout; mitigation = fast-200 bridge / durable worker.)
+  - **HIGH/CONFIRMED deletion IAM** (`2847c46`): the ECS task role lacked `s3:DeleteObject` on the SES
+    inbound bucket, so B2 account-deletion could NEVER erase SES raw MIME → 502 for any user with SES
+    mail (right-to-erasure gap; fails closed, no data loss). Added the action to `iam.tf`. **Apply is
+    Pedro-gated** (no TF remote state yet).
+  - **DEFERRED (billing, all PLAUSIBLE, billing not yet live) — pre-launch hardening TODO:**
+    (1) webhook has no event-ordering guard → an out-of-order `subscription.updated` after `deleted`
+    could resurrect a canceled paid tier; (2) idempotency is check-then-act (non-atomic) → concurrent
+    duplicate deliveries both run (bounded today: all side effects are idempotent upserts);
+    (3) TOCTOU on the duplicate-active guard → concurrent checkouts could create two Stripe subs.
+    Fix these in the billing-hardening pass before flipping Stripe live.
+
 ### ✅ THREE MORE SLICES SHIPPED (ultracode) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **DEPLOYED TO MAIN `5cebe7e`** (web + listener) — built via a Workflow (3 parallel builds + adversarial
   verify), fixed against the verdicts, all gates green:
