@@ -232,6 +232,26 @@ class BaseAppSettings(BaseSettings):
     # SEARCH_KNOWLEDGE_TOOL_ENABLED's convention.
     INGEST_ENTITY_RESOLUTION_ENABLED: bool = True
 
+    # --- Ingest cost cap (A1 — mail-bomb blast-radius limiter) ---
+    # The cost circuit breaker gates only the CHAT path; the ingest pipeline
+    # (segmentation / entity-type suggestion / entity resolution / embeddings) is
+    # unmetered, so a flood of mail at a forwarding address is unbounded LLM spend
+    # — a company-ending risk for a solo operator. When enabled, IngestBudgetGuard
+    # caps how many emails PER IMPORTER PER UTC DAY receive the expensive
+    # enrichment (counted on the server-stamped created_at, not sender-controlled
+    # received_at). Past the cap the raw email STILL persists — only enrichment is
+    # skipped, and the email finalizes 'degraded' with an ingest_cost_capped reason
+    # (nothing is silently lost; reprocess re-enriches later). Fail-OPEN by design
+    # (the guard never caps legitimate mail on a count error — see the service
+    # docstring). Default OFF: flag-off is a byte-for-byte no-op (the container
+    # injects None and the pipeline structurally omits the guard, mirroring
+    # INGEST_ENTITY_RESOLUTION_ENABLED). The guard + its tests exist regardless of
+    # the flag; only container wiring reads it.
+    INGEST_DAILY_COST_CAP_ENABLED: bool = False
+    # Emails per importer per UTC day past which enrichment is skipped. A generous
+    # ceiling: a real prosumer rarely forwards this many/day, but it bounds a flood.
+    INGEST_DAILY_EMAIL_CAP: int = 500
+
     # --- Durable ingestion cutover (Track 3a) ---
     # When True, the SNS receiver ENQUEUES a durable `ingest_inbound_email` job
     # (a {ses_message_id, recipients} pointer) via the JobEnqueuer instead of

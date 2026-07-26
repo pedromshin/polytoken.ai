@@ -49,6 +49,7 @@ from app.application.use_cases.evaluate_anticipatory_candidates import EvaluateA
 from app.application.use_cases.generate_code_island import GenerateCodeIslandUseCase
 from app.application.use_cases.generate_ui_spec import GenerateUiSpecUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
+from app.domain.services.ingest_budget_guard import IngestBudgetGuard
 from app.application.use_cases.manage_entity_types import (
     CreateEntityTypeUseCase,
     CreateFieldUseCase,
@@ -83,6 +84,10 @@ from app.domain.ports.parser_registry_port import ParserRegistryPort
 _TOP_LEVEL_PROVIDERS = (
     ReceiveInboundEmailUseCase,
     IngestInboundEmailUseCase,
+    # A1: the ingest cost-cap guard (a factory param of the ingest use case, so
+    # dishka resolves it even when the flag is off) — pinned so the safety net
+    # survives a future refactor that stops fanning into it.
+    IngestBudgetGuard,
     ReprocessEmailUseCase,
     BackfillInboundEmailUseCase,
     GetPipelineHealthUseCase,

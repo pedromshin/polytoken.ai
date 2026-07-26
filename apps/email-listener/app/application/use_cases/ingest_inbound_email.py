@@ -47,6 +47,7 @@ import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import structlog
 
@@ -69,11 +70,16 @@ from app.domain.services.email_body_identity import email_body_component_id
 from app.domain.services.html_to_text import html_to_text
 from app.domain.services.mime_parser import ParsedAttachment, ParsedEmail, parse_mime
 from app.domain.services.pipeline_health import (
+    INGEST_COST_CAPPED_STAGE,
+    PARSE_STATUS_DEGRADED,
     AdapterDegradation,
     collect_adapter_degradations,
     degradation_entries,
     failure_entry,
 )
+
+if TYPE_CHECKING:
+    from app.domain.services.ingest_budget_guard import IngestBudgetGuard
 
 logger = structlog.get_logger(__name__)
 
@@ -148,6 +154,7 @@ class IngestInboundEmailUseCase:
         forwarding_resolver: ForwardingAddressResolver,
         suggest_entity_types: SuggestEntityTypesUseCase | None = None,
         resolve_ingest_entities: ResolveIngestEntitiesUseCase | None = None,
+        budget_guard: IngestBudgetGuard | None = None,
     ) -> None:
         self._raw_store = raw_store
         self._email_repo = email_repo
@@ -165,6 +172,10 @@ class IngestInboundEmailUseCase:
         # and so the ingest-time resolution stage can be turned OFF without code
         # change (the container injects None when the flag is disabled).
         self._resolve_ingest_entities = resolve_ingest_entities
+        # A1: per-importer daily ingest cost cap. Optional/None-by-default so all
+        # existing construction is unchanged; the container injects a guard only
+        # when INGEST_DAILY_COST_CAP_ENABLED is set (structural omission when off).
+        self._budget_guard = budget_guard
 
     async def execute(self, ses_message_id: str, recipients: Sequence[str] = ()) -> Email:
         """Ingest the email identified by the SES message id; returns the persisted Email."""
@@ -222,6 +233,23 @@ class IngestInboundEmailUseCase:
             created_at=existing.created_at if existing else now,
         )
         saved = await self._email_repo.save(email)
+
+        # A1: per-importer daily ingest cost cap (mail-bomb blast-radius limiter).
+        # The raw email is ALREADY persisted above (nothing is lost); past the cap
+        # we skip ONLY the expensive enrichment block below and finalize the email
+        # 'degraded' with an ingest_cost_capped reason, so it stays visible and
+        # reprocessable. Guard is None unless INGEST_DAILY_COST_CAP_ENABLED is set
+        # (structural omission). Best-effort/fail-open: the guard never caps on a
+        # count error (see IngestBudgetGuard), and even a guard raise here must not
+        # lose the already-saved email — so it degrades to running enrichment.
+        if self._budget_guard is not None:
+            try:
+                over_cap = await self._budget_guard.is_over_daily_cap(importer_id)
+            except Exception:
+                logger.exception("ingest_budget_guard_failed", email_id=saved.id, importer_id=importer_id)
+                over_cap = False
+            if over_cap:
+                return await self._finalize_cost_capped(saved)
 
         # Each post-persist stage is isolated so one failure can neither abort the
         # rest of the pipeline nor propagate to the SNS-facing caller (ING-5), and
@@ -323,6 +351,35 @@ class IngestInboundEmailUseCase:
             parse_failures=len(failures),
         )
         return saved
+
+    async def _finalize_cost_capped(self, email: Email) -> Email:
+        """Finalize an email whose enrichment was skipped by the daily ingest cap (A1).
+
+        The email row itself is already persisted; here we only stamp a terminal
+        'degraded' status with an ``ingest_cost_capped`` parse_error so it is
+        VISIBLE (not silently dropped), buckets distinctly on the health
+        dashboard, and can be reprocessed once the day rolls over. parsed_at is
+        None — nothing was parsed. A loud structured warning fires so the
+        loud-failure/alerting path (A2) and log-based monitoring can see a cap
+        being hit. The status write is best-effort exactly like
+        _finalize_parse_status: a repo failure returns the email with its
+        previously persisted status rather than claiming a transition.
+        """
+        logger.warning(
+            "ingest_cost_capped",
+            email_id=email.id,
+            importer_id=email.importer_id,
+            message_id=email.message_id,
+            sender=email.sender_address,
+        )
+        reason = failure_entry(INGEST_COST_CAPPED_STAGE, "daily ingest cap reached; enrichment skipped")
+        error = reason[:_PARSE_ERROR_MAX_LEN]
+        try:
+            await self._email_repo.update_parse_status(email.id, PARSE_STATUS_DEGRADED, error, parsed_at=None)
+        except Exception:
+            logger.exception("parse_status_finalize_failed", email_id=email.id, parse_status=PARSE_STATUS_DEGRADED)
+            return email
+        return replace(email, parse_status=PARSE_STATUS_DEGRADED, parse_error=error, parsed_at=None)
 
     async def _finalize_parse_status(
         self,

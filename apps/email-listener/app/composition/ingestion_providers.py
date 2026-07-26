@@ -42,7 +42,9 @@ from app.domain.ports.parser_registry_port import ParserRegistryPort
 from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStore
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.thread_resolver import ThreadResolver
+from app.domain.services.ingest_budget_guard import IngestBudgetGuard
 from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentStorage
+from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
 from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
 from app.infrastructure.supabase.forwarding_address_repository import SupabaseForwardingAddressRepository
 from app.infrastructure.supabase.importer_repository import SupabaseImporterRepository
@@ -120,6 +122,22 @@ def _provide_resolve_ingest_entities_use_case(
     )
 
 
+def _provide_ingest_budget_guard(client: Client) -> IngestBudgetGuard:
+    """Factory for IngestBudgetGuard (A1) — the per-importer daily ingest cost cap.
+
+    Instantiates its OWN SupabaseEmailRepository as the DailyIngestCounter (a
+    narrow port satisfied structurally by the concrete repo's count_received_since
+    method), mirroring _provide_resolve_ingest_entities_use_case's direct-from-Client
+    instantiation of concrete repos. ALWAYS constructible (its tests exist
+    regardless of the flag); _provide_ingest_use_case decides whether to wire it in
+    based on INGEST_DAILY_COST_CAP_ENABLED.
+    """
+    return IngestBudgetGuard(
+        counter=SupabaseEmailRepository(client=client),
+        daily_email_cap=get_settings().INGEST_DAILY_EMAIL_CAP,
+    )
+
+
 def _provide_ingest_use_case(
     raw_store: RawEmailStore,
     email_repo: EmailRepository,
@@ -134,6 +152,7 @@ def _provide_ingest_use_case(
     forwarding_resolver: ForwardingAddressResolver,
     suggest_entity_types: SuggestEntityTypesUseCase,
     resolve_ingest_entities: ResolveIngestEntitiesUseCase,
+    budget_guard: IngestBudgetGuard,
 ) -> IngestInboundEmailUseCase:
     """Factory for IngestInboundEmailUseCase.
 
@@ -177,7 +196,12 @@ def _provide_ingest_use_case(
     # _provide_parser_registry returns ``object`` to satisfy dishka; cast back
     # to the correct callable type for IngestInboundEmailUseCase.
     parser_registry: ParserRegistryPort = raw_registry  # type: ignore[assignment]
-    resolution_enabled = get_settings().INGEST_ENTITY_RESOLUTION_ENABLED
+    settings = get_settings()
+    resolution_enabled = settings.INGEST_ENTITY_RESOLUTION_ENABLED
+    # A1: inject the guard only when the cap is enabled — a False flag passes None
+    # so the pipeline STRUCTURALLY omits the cap (a real kill-switch, byte-for-byte
+    # no-op when off), matching the resolve_ingest_entities gating just above.
+    cost_cap_enabled = settings.INGEST_DAILY_COST_CAP_ENABLED
     return IngestInboundEmailUseCase(
         raw_store=raw_store,
         email_repo=email_repo,
@@ -192,6 +216,7 @@ def _provide_ingest_use_case(
         forwarding_resolver=forwarding_resolver,
         suggest_entity_types=suggest_entity_types,
         resolve_ingest_entities=resolve_ingest_entities if resolution_enabled else None,
+        budget_guard=budget_guard if cost_cap_enabled else None,
     )
 
 
@@ -220,6 +245,9 @@ def register(provider: Provider) -> None:
     # instantiated inside its factory; injected into the ingest factory, which gates it on
     # INGEST_ENTITY_RESOLUTION_ENABLED.
     provider.provide(_provide_resolve_ingest_entities_use_case, provides=ResolveIngestEntitiesUseCase)
+    # A1: the per-importer daily ingest cost cap guard. Always constructible;
+    # _provide_ingest_use_case wires it in only when INGEST_DAILY_COST_CAP_ENABLED.
+    provider.provide(_provide_ingest_budget_guard, provides=IngestBudgetGuard)
     # IngestInboundEmailUseCase takes parser_registry: ParserRegistryPort (a Callable alias
     # with forward-ref annotations dishka cannot analyse) — a factory sidesteps that, calling
     # the staying _provide_parser_registry via a deferred import (see the factory docstring).

@@ -833,6 +833,7 @@ def _make_health_chain() -> MagicMock:
     chain = MagicMock()
     chain.select.return_value = chain
     chain.eq.return_value = chain
+    chain.gte.return_value = chain
     chain.not_.is_.return_value = chain
     chain.order.return_value = chain
     chain.range.return_value = chain
@@ -871,6 +872,48 @@ def test_email_repo_count_emails_none_count_is_zero() -> None:
 
     repo = SupabaseEmailRepository(client)
     assert asyncio.run(repo.count_emails("imp-abc")) == 0
+
+
+def test_email_repo_count_received_since_uses_exact_count_on_created_at() -> None:
+    """count_received_since (A1) must be an exact head count filtered on created_at
+    (server-stamped), never received_at (a sender-controlled header)."""
+    from datetime import UTC, datetime
+
+    from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
+
+    chain = _make_health_chain()
+    chain.execute.return_value = MagicMock(count=17, data=None)
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseEmailRepository(client)
+    since = datetime(2026, 7, 26, tzinfo=UTC)
+    count = asyncio.run(repo.count_received_since("imp-abc", since))
+
+    assert count == 17
+    select_kwargs = chain.select.call_args.kwargs
+    assert select_kwargs.get("count") == "exact"
+    assert select_kwargs.get("head") is True
+    eq_calls = " ".join(str(c) for c in chain.eq.call_args_list)
+    assert "importer_id" in eq_calls
+    gte_calls = " ".join(str(c) for c in chain.gte.call_args_list)
+    assert "created_at" in gte_calls
+    assert "received_at" not in gte_calls
+    assert since.isoformat() in gte_calls
+
+
+def test_email_repo_count_received_since_none_count_is_zero() -> None:
+    from datetime import UTC, datetime
+
+    from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
+
+    chain = _make_health_chain()
+    chain.execute.return_value = MagicMock(count=None, data=None)
+    client = MagicMock()
+    client.table.return_value = chain
+
+    repo = SupabaseEmailRepository(client)
+    assert asyncio.run(repo.count_received_since("imp-abc", datetime(2026, 7, 26, tzinfo=UTC))) == 0
 
 
 def test_email_repo_list_parse_errors_paginates_until_exhausted() -> None:

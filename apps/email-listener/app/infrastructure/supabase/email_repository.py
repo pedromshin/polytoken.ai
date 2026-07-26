@@ -178,6 +178,22 @@ class SupabaseEmailRepository:
         result = await asyncio.to_thread(query.execute)
         return int(result.count or 0)
 
+    async def count_received_since(self, importer_id: str, since: datetime) -> int:
+        """Exact server-side count of the importer's emails created at/after *since* (A1).
+
+        Filters on ``created_at`` — the row-creation instant WE stamp at ingest —
+        NOT ``received_at`` (a sender-controlled header a flood could backdate to
+        slip under the daily cap). Satisfies the DailyIngestCounter port.
+        """
+        query = (
+            self._client.table("emails")
+            .select("id", count=CountMethod.exact, head=True)
+            .eq("importer_id", importer_id)
+            .gte("created_at", since.isoformat())
+        )
+        result = await asyncio.to_thread(query.execute)
+        return int(result.count or 0)
+
     async def list_parse_errors(self, importer_id: str, *, parse_status: str) -> list[str]:
         """All non-null parse_error values for the importer's emails in *parse_status* (ST-04).
 

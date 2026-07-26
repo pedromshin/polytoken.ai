@@ -61,6 +61,7 @@ def _make_use_case(
     thread_resolver: MagicMock | None = None,
     forwarding_resolver: MagicMock | None = None,
     resolve_ingest_entities: MagicMock | None = None,
+    budget_guard: MagicMock | None = None,
 ) -> tuple[IngestInboundEmailUseCase, dict[str, MagicMock]]:
     """Factory that constructs IngestInboundEmailUseCase with all collaborators.
 
@@ -121,6 +122,7 @@ def _make_use_case(
         thread_resolver=thread_resolver,
         forwarding_resolver=forwarding_resolver,
         resolve_ingest_entities=resolve_ingest_entities,
+        budget_guard=budget_guard,
     )
     mocks: dict[str, MagicMock] = {
         "raw_store": raw_store,
@@ -136,7 +138,19 @@ def _make_use_case(
     }
     if resolve_ingest_entities is not None:
         mocks["resolve_ingest_entities"] = resolve_ingest_entities
+    if budget_guard is not None:
+        mocks["budget_guard"] = budget_guard
     return use_case, mocks
+
+
+def _guard(*, over_cap: bool | Exception) -> MagicMock:
+    """A stand-in IngestBudgetGuard whose is_over_daily_cap returns/raises as given."""
+    guard = MagicMock()
+    if isinstance(over_cap, Exception):
+        guard.is_over_daily_cap = AsyncMock(side_effect=over_cap)
+    else:
+        guard.is_over_daily_cap = AsyncMock(return_value=over_cap)
+    return guard
 
 
 # ---------------------------------------------------------------------------
@@ -1026,4 +1040,76 @@ def test_empty_body_email_persists_no_body_component() -> None:
 
     assert not [c for c in _saved_components(mocks) if c.source_type == "email_body"]
     # A missing body is not an error — the email still finalizes cleanly.
+    assert email.parse_status == "parsed"
+
+
+# ---------------------------------------------------------------------------
+# A1 — per-importer daily ingest cost cap (mail-bomb blast-radius limiter)
+# ---------------------------------------------------------------------------
+
+
+def test_cost_cap_over_limit_persists_email_but_skips_enrichment() -> None:
+    """Over the daily cap: the email persists, but the expensive enrichment is skipped.
+
+    The email is finalized 'degraded' with a decodable ingest_cost_capped
+    reason (visible, reprocessable — never silently dropped), and no costly
+    stage (attachment storage, propose_regions) runs.
+    """
+    guard = _guard(over_cap=True)
+    use_case, mocks = _make_use_case(_raw_email(), budget_guard=guard)
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    # The raw email row IS persisted (nothing lost).
+    mocks["email_repo"].save.assert_awaited_once()
+    guard.is_over_daily_cap.assert_awaited_once_with(IMPORTER_ID)
+    # The expensive enrichment did NOT run.
+    mocks["attachment_storage"].store.assert_not_awaited()
+    mocks["propose_regions"].execute.assert_not_awaited()
+    # Finalized 'degraded' with the machine-decodable cap reason; parsed_at cleared.
+    assert email.parse_status == "degraded"
+    assert email.parsed_at is None
+    assert email.parse_error is not None and email.parse_error.startswith("ingest_cost_capped: ")
+    status_call = mocks["email_repo"].update_parse_status.await_args
+    assert status_call.args[1] == "degraded"
+    assert status_call.kwargs["parsed_at"] is None
+
+
+def test_cost_cap_under_limit_runs_enrichment_normally() -> None:
+    """Under the daily cap: enrichment runs and the email finalizes 'parsed' as usual."""
+    guard = _guard(over_cap=False)
+    use_case, mocks = _make_use_case(_raw_email(), budget_guard=guard)
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    guard.is_over_daily_cap.assert_awaited_once_with(IMPORTER_ID)
+    mocks["attachment_storage"].store.assert_awaited_once()
+    mocks["propose_regions"].execute.assert_awaited_once()
+    assert email.parse_status == "parsed"
+
+
+def test_no_guard_runs_enrichment_unchanged() -> None:
+    """No guard injected (flag off / default) is a byte-for-byte no-op: enrichment runs."""
+    use_case, mocks = _make_use_case(_raw_email())
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    mocks["propose_regions"].execute.assert_awaited_once()
+    assert email.parse_status == "parsed"
+
+
+def test_cost_cap_guard_raise_is_isolated_email_not_lost() -> None:
+    """A guard that raises must not lose the already-saved email — it degrades to enrichment.
+
+    Fail-open at the use-case boundary too: a guard exception cannot abort
+    ingestion of an email that is already persisted.
+    """
+    guard = _guard(over_cap=RuntimeError("counter exploded"))
+    use_case, mocks = _make_use_case(_raw_email(), budget_guard=guard)
+
+    email = asyncio.run(use_case.execute(SES_MESSAGE_ID))
+
+    mocks["email_repo"].save.assert_awaited_once()
+    # Enrichment still ran; the email finalized normally rather than being lost.
+    mocks["propose_regions"].execute.assert_awaited_once()
     assert email.parse_status == "parsed"

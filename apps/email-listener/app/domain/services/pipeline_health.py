@@ -70,12 +70,27 @@ _STAGE_PREFIX_RE = re.compile(r"^([a-z_]+)(\[([^\]\s]*)\])?: ")
 # Degradation entries use this stage name; the qualifier names the adapter.
 DEGRADED_STAGE = "adapter_degraded"
 
+# A1: stage prefix stamped when the per-importer daily ingest cap skips the
+# expensive enrichment for an email (the email itself still persists). A
+# first-class stage so the health dashboard buckets capped emails distinctly
+# rather than folding them into 'unknown'.
+INGEST_COST_CAPPED_STAGE = "ingest_cost_capped"
+
 # Closed stage vocabulary (forgery guard, 2026-07-23 skeptic finding): the
 # decode side only ever buckets into stages WE emit. Without this, hostile
 # text that happens to match the prefix grammar (a sender-controlled filename
 # like "x; propose_regions: y.pdf" flowing into a failure detail) would forge
 # failed_by_stage buckets on the health dashboard.
-KNOWN_STAGES = frozenset({"attachment", "propose_regions", "suggest_entity_types", "entity_resolution", DEGRADED_STAGE})
+KNOWN_STAGES = frozenset(
+    {
+        "attachment",
+        "propose_regions",
+        "suggest_entity_types",
+        "entity_resolution",
+        DEGRADED_STAGE,
+        INGEST_COST_CAPPED_STAGE,
+    }
+)
 
 
 def failure_entry(stage: str, detail: str, *, qualifier: str | None = None) -> str:
