@@ -16,11 +16,15 @@ build_log:
      flag-gated) → deterministic composer → tenancy-safe service-role home writer.
      MORN-01..06 green; migration 0054 additive (allowlist). Ships DARK: worker cron
      omitted + listener route no-ops until MORNING_BOARD_ENABLED flips at both ends."
-  - "GAP for the full banger (MORN-07): /home is a fixed 4-panel grid, NOT a canvas —
-     it does NOT render node-types today, so a server-composed node set is written but
-     not painted. Making the overnight board VISIBLE needs /home to mount canvas-node
-     rendering (home-scoped persistence + reconcile). Tracked as the remaining Phase 74
-     web slice; the /chat MVP (f573c3d) delivers the visible capability meanwhile."
+  - "MORN-07 PAINT SLICE SHIPPED 2026-07-25 (<pending web commit>): /home now RENDERS
+     the composed board as a real canvas. New HomeCanvas (ReactFlow + CanvasStoreProvider
+     + the shared /chat nodeTypes, dynamic ssr:false island) paints the home layout's
+     nodes; home-board.tsx shows the canvas when the layout has nodes (else the fixed
+     panels) + an 'Assemble board' button that writes the brief+review-queue+usage set to
+     the home layout client-side (visible NOW, no flag). This closes the 'written but not
+     painted' gap: the overnight composer writes into the SAME home layout HomeCanvas
+     reads, so once MORNING_BOARD_ENABLED flips, the pre-assembled board simply appears.
+     Remaining for MORN-07: the LIVE overnight-run screenshot gate (real cron + browser)."
 # Phase 74 — The morning board that builds itself   ·   BANGER: you open your laptop and a board about *your day* is already there — the agent drew it at 5am off last night's email.
 
 ## Goal
@@ -86,7 +90,7 @@ Gate-able here (no live loop needed):
 - [x] **MORN-06** `MORNING_BOARD_ENABLED=False` fully darkens the path (no cron enqueue, no assembly) — the ship-dark switch (settings test).
 
 Needs a live loop (name it — real overnight run against real email + a real browser):
-- [ ] **MORN-07 (LIVE)** After an actual scheduled run against the seed user's real inbox, loading `/home` in a fresh browser shows the pre-assembled board with correct counts and a generation timestamp — a `screenshot:review` capture (jsdom does no layout; per CLAUDE.md this MUST be a real-browser gate, not a vitest assertion).
+- [~] **MORN-07 (LIVE)** After an actual scheduled run against the seed user's real inbox, loading `/home` in a fresh browser shows the pre-assembled board with correct counts and a generation timestamp — a `screenshot:review` capture (jsdom does no layout; per CLAUDE.md this MUST be a real-browser gate, not a vitest assertion). — PAINT SLICE SHIPPED (HomeCanvas renders the home layout's nodes; client 'Assemble board' proves it now). REMAINING: the live overnight-run + screenshot gate (needs the flag flipped + a running :3000).
 
 ## Build sketch (waves → plans)
 

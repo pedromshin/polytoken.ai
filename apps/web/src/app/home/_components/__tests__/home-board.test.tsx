@@ -195,6 +195,26 @@ describe("HomeBoard (HM-01 / HM-02)", () => {
     expect(text).toContain("Acme Incorporated");
   });
 
+  it("Assemble board writes the composed node set to the home layout (Phase 74/MORN-07)", async () => {
+    await mount();
+    const btn = Array.from(container.querySelectorAll("button")).find((b) =>
+      /assemble board/i.test(b.textContent ?? ""),
+    );
+    expect(btn).toBeDefined();
+    await act(async () => {
+      btn!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(saveMutate).toHaveBeenCalledTimes(1);
+    const arg = saveMutate.mock.calls[0][0];
+    // The composed board is the SAME node set the overnight composer draws.
+    expect(arg.snapshot.nodes.map((n: { type: string }) => n.type)).toEqual([
+      "brief",
+      "review-queue",
+      "usage",
+    ]);
+    expect(arg.snapshot.nodes).toHaveLength(3);
+  });
+
   it("exposes a Pin board action wired to the reused home persistence", async () => {
     await mount();
     const pinBtn = Array.from(container.querySelectorAll("button")).find((b) =>

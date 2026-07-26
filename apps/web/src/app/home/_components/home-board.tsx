@@ -8,15 +8,28 @@ import {
   ArrowRight,
   Pin,
   Check,
+  LayoutDashboard,
 } from "lucide-react";
 import * as React from "react";
 
 import { Skeleton } from "@polytoken/ui/skeleton";
 
+import type { CanvasSnapshot } from "@polytoken/api-client/chat-canvas";
+
 import { api } from "~/trpc/react";
 
+import type { PersistedCanvasNode } from "~/app/chat/_canvas/use-canvas-persistence";
+
 import { shapeMorningBrief } from "../_lib/morning-brief";
+import { HomeCanvasIsland } from "./home-canvas-island";
 import { MorningBriefPanel } from "./morning-brief-panel";
+
+/** The starter board the client "Assemble board" action places — the SAME node
+ * set the overnight composer draws (Phase 74). Ref-only data; each node fetches
+ * its own live data on render. Laid out in one non-overlapping row. */
+const STARTER_BOARD = ["brief", "review-queue", "usage"] as const;
+const BOARD_NODE_W = 360;
+const BOARD_NODE_GAP = 48;
 
 const PANEL_LIMIT = 6;
 
@@ -95,11 +108,61 @@ export function HomeBoard(): React.ReactElement {
     });
   }, [saveLayout]);
 
+  // Phase 74 (MORN-07) — the composed morning board, client-triggered. Writes the
+  // SAME node set the overnight composer draws into the home layout, then refetches
+  // so HomeCanvas paints it. Ref-only node data; each node fetches its own live
+  // data on render. The user-triggered counterpart of the scheduled assembly.
+  const onAssembleBoard = React.useCallback(() => {
+    const nodes = STARTER_BOARD.map((type, i) => ({
+      id: `${type}:${crypto.randomUUID()}`,
+      type,
+      position: { x: i * (BOARD_NODE_W + BOARD_NODE_GAP), y: 0 },
+      data: {},
+    }));
+    saveLayout.mutate(
+      {
+        snapshot: {
+          nodes,
+          edges: [],
+          sharedState: {},
+          nodeRegistryVersion: HOME_REGISTRY_VERSION,
+        },
+      },
+      { onSuccess: () => void homeLayout.refetch() },
+    );
+  }, [saveLayout, homeLayout]);
+
+  // Persist a dragged/edited board back (last-write-wins, one home row per user).
+  const onPersistBoard = React.useCallback(
+    (snapshot: CanvasSnapshot) => {
+      saveLayout.mutate({ snapshot });
+    },
+    [saveLayout],
+  );
+
+  // The home layout's nodes are a jsonb column (loosely typed on read); the
+  // writers (client assemble + overnight composer) produce CanvasSnapshotSchema-
+  // valid nodes, and HomeCanvas degrades any unknown type to the inert
+  // placeholder, so a cast here is safe.
+  const boardNodes = (homeLayout.data?.nodes ?? []) as readonly PersistedCanvasNode[];
+  const hasBoard = boardNodes.length > 0;
+
   return (
     <main className="flex min-h-[calc(100vh-3.5rem)] w-full flex-col bg-shelf">
       <div className="flex h-12 shrink-0 items-center gap-3 border-b border-rule px-4">
         <h1 className="text-sm font-semibold text-ink">Home</h1>
         {homeLayout.isFetched ? (
+          <button
+            type="button"
+            onClick={onAssembleBoard}
+            disabled={saveLayout.isPending}
+            className="flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-faded transition-colors hover:bg-shade hover:text-ink disabled:opacity-50"
+          >
+            <LayoutDashboard className="size-3.5" aria-hidden />
+            {hasBoard ? "Rebuild board" : "Assemble board"}
+          </button>
+        ) : null}
+        {homeLayout.isFetched && !hasBoard ? (
           <button
             type="button"
             onClick={onPinBoard}
@@ -124,6 +187,12 @@ export function HomeBoard(): React.ReactElement {
         </Link>
       </div>
 
+      {hasBoard ? (
+        // The composed board — painted as a real canvas (Phase 74 / MORN-07).
+        <div className="min-h-0 flex-1">
+          <HomeCanvasIsland initialNodes={boardNodes} onPersist={onPersistBoard} />
+        </div>
+      ) : (
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <BoardPanel
@@ -189,6 +258,7 @@ export function HomeBoard(): React.ReactElement {
           <MorningBriefPanel brief={brief} isPending={briefPending} />
         </div>
       </div>
+      )}
     </main>
   );
 }
