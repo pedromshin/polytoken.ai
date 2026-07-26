@@ -41,14 +41,33 @@ vitest (756 pass).
   summon is mid-flight. Added the missing `code-island` (560×520) entry to `CANVAS_NODE_DIMENSIONS` so
   cascade/dagre see the true rect. Tests: `build-tool-flow` (11), `spreadsheet-publish` (3),
   `add-node-menu` (+4 summon cases), `code-island` api-client (+3 inputs cases).
-- ⏭️ **Phase 76 REMAINING** (the LIVE-listener legs, next pass): **76-02b** consume `inputs` in the
-  FastAPI generator prompt (`genui_code.py` + `generate_code_island.py`) so emitted code reads
-  `window.__ISLAND_DATA__.{targetKey}` against the known shape — additive, back-compat, FULL pytest +
-  ECS redeploy. **76-05** agent-authored `emit_code_island` behind `CANVAS_EMIT_TOOL_ENABLED`
-  (default OFF). Also: **0055 code_islands migration not yet applied to prod** — apply via
-  `npm run db:migrate` (until then `codeIslands.byId` errors are caught by the node's error branch, no
-  crash), and the summon flow's `codeIslands.create` needs the table live to persist. The web slice is
-  safe to ship ahead: create just errors → the flow toasts "Couldn't build a tool" until the table exists.
+- 🚧 **BLOCKER (needs Pedro) — 0055 `code_islands` migration CANNOT be applied to prod from a session.**
+  Investigated this pass: the ONLY sanctioned prod-DB path is the `deploy-migrate-prod.yml` workflow
+  (manual-dispatch, typed `MIGRATE-PROD` guard) — no DB creds exist in the ephemeral container, and no
+  `.env.production`. That workflow has run exactly ONCE (2026-07-23, run 30052709284) and **FAILED at
+  the env-check before touching the DB**: its `PROD_POSTGRES_URL_NON_POOLING` / `PROD_POSTGRES_URL` /
+  `PROD_SUPABASE_URL` resolved **EMPTY** (`throw "POSTGRES_URL_NON_POOLING is not defined"`, migrate.ts:11).
+  Evidence they're mis-scoped, not merely typo'd: the sibling `deploy-email-listener.yml` reads
+  `secrets.AWS_DEPLOY_ROLE_ARN` at REPO level with NO `environment:` block and deploys prod fine — so
+  repo-level secrets work; the three `PROD_*` came through blank because they are **not set at repo
+  level** (likely scoped to a `production` GitHub Environment the migrate job never declares, or absent).
+  Re-firing would fail identically, so it was NOT re-triggered. **Two ways to unblock (Pedro's call, I
+  did neither — both are speculative live-prod actions):** (a) set `PROD_POSTGRES_URL_NON_POOLING`,
+  `PROD_POSTGRES_URL`, `PROD_SUPABASE_URL` as REPO secrets, then dispatch the workflow with
+  `confirm=MIGRATE-PROD`; or (b) if they already live in a `production` Environment, add
+  `environment: production` to the `migrate` job in `deploy-migrate-prod.yml` and dispatch. Until then
+  the summon flow's `codeIslands.create` errors in prod → the flow toasts "Couldn't build a tool"; the
+  shipped UI degrades gracefully and is otherwise correct. (0054 `enqueue_allowlist_morning_board` is
+  in the same boat — also never applied via this never-succeeding workflow.)
+- ⏭️ **Phase 76 REMAINING** (the LIVE-listener legs — deferred, deliberately NOT shipped this pass):
+  **76-02b** consume `inputs` in the FastAPI generator prompt (`genui_code.py` +
+  `generate_code_island.py`) so emitted code reads `window.__ISLAND_DATA__.{targetKey}` against the
+  known shape — additive, back-compat, FULL pytest + ECS redeploy of the LIVE mail receiver. Held
+  because its user-visible payoff is gated on the migration blocker above, and redeploying the live mail
+  receiver for a not-yet-end-to-end feature isn't worth the operational risk — batch it with the
+  migration unblock. **76-05** agent-authored `emit_code_island` behind `CANVAS_EMIT_TOOL_ENABLED`
+  (default OFF). The 76-02a api-client passthrough already SHIPPED (`inputs` forwarded, listener ignores
+  it until 76-02b — safe).
 
 ### ✅ SESSION UPDATE — 2026-07-26 · session_016dmeeGLzwLPZfRwGpByHmn
 Continued the "build VISIBLE canvas surfaces" run. All shipped to main via clean fast-forward; every
