@@ -13,7 +13,49 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
-### ✅ SESSION UPDATE — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp (newest) · branch `claude/phase-76-summon-loop-al5emg`
+### ✅ SESSION UPDATE — 2026-07-26 (later) · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+**DISTRIBUTION-READINESS turn.** Pedro: "make this project distribution ready + a list of stuff only I
+can do when I get back to my computer tomorrow" (we've built all week on Claude Code **mobile**), then
+handed the **CNPJ card** and said "go".
+- ✅ **`.planning/DISTRIBUTION-READINESS.md`** — the sequenced plan to go from "works for Pedro" to "a
+  stranger can sign up, pay, and safely use it". Verified 4 gaps against the live tree (uncapped ingest
+  cost, silent ingest failure, no legal surface, no billing). Split by who-can-do-it (`[CLAUDE]`
+  mobile-buildable vs `[PEDRO]` at-a-computer), with an ordered **only-you checklist** (live loop · SES
+  prod access · rotate tokens · AWS budget cap · MoR account · **accountant Qs** · legal review · LGPD/SCCs
+  · 3 PROD_* secrets · visual sign-off · flip the two ingest-safety flags + failure alarm).
+- ✅ **ENTITY CONFIRMED from the CNPJ** (`8935506`-line follow-up commits): `PEDRO KYUN MASCHIO SHIN
+  CONSULTORIA EM TECNOLOGIA LTDA` — **LTDA, porte ME, ATIVA**, CNPJ 65.152.447/0001-21, nome fantasia
+  **MAGNITUDE TECNOLOGIA** (= the live magnitudetech.com.br entity), CNAEs already cover SaaS
+  (62.02-3-00 + 63.11-9-00 + 63.19-4-00), accountant **Contabilizei**. Resolves track 09 §8's flagged
+  entity assumption + the no-C-corp call. Narrowed the only-you entity item to two accountant Qs
+  (Simples Anexo III vs V / Fator R; international billing into the LTDA). Folded into track 09 + the plan.
+- ✅ **A1 — CAP THE INGEST COST PATH** (`e211f56`, flag OFF). `IngestBudgetGuard` (new domain service) +
+  narrow `DailyIngestCounter` port (NOT widening the broad EmailRepository Protocol) + concrete
+  `count_received_since` on the Supabase repo (counts server-stamped `created_at`, NOT sender-controlled
+  `received_at`). Per-importer daily volume cap bounds a mail-bomb; **fail-OPEN** (deliberate opposite of
+  the chat breaker — never caps legit mail on a count error); past the cap the raw email STILL persists,
+  only enrichment is skipped, finalizes `degraded` with an `ingest_cost_capped` reason (new KNOWN_STAGES
+  entry; visible + reprocessable, never silently dropped). Flags `INGEST_DAILY_COST_CAP_ENABLED` (OFF) +
+  `INGEST_DAILY_EMAIL_CAP=500`. Wired via structural-omission (inject None when off) exactly like
+  INGEST_ENTITY_RESOLUTION_ENABLED; boot-test pinned. **The single most important pre-launch eng task
+  (track 09 §5.1 / VC-roadmap M1).**
+- ✅ **A2 — MAKE INLINE INGEST FAIL LOUDLY** (`d169969`, flag OFF). `INGEST_INLINE_RETRY_ON_FAILURE`: the
+  SNS handler returns 200 on ANY inline ingest failure today → a pre-persist critical-path failure (S3
+  fetch / MIME parse / importer resolve / save) silently, PERMANENTLY loses the mail. Flag ON → the inline
+  path returns **500 so SNS retries** (ingest is idempotent → safe; enrichment failures never reach the
+  branch). Closes the CLAUDE.md silent-loss landmine **without the worker**. The durable dead-letter form
+  is the already-built `INGEST_ENQUEUE_ENABLED` path (worker-gated, Pedro). Loud structured events emitted
+  (`email_ingest_error` w/ `will_retry`, `ingest_cost_capped`) for a CloudWatch→phone alarm (Pedro infra).
+- 🧪 **ALL LISTENER GATES GREEN** on both: ruff + mypy(304) + lint-imports(3) + full `uv run pytest`
+  (exit 0, 92.26% cov, only env-gated skips). Tests added: `IngestBudgetGuard` unit (8),
+  ingest-use-case cost-cap (4), supabase count_received_since (2), sns_inbound A2 (3).
+- ⚠️ **NOT fast-forwarded to main — deliberately.** Both are flag-OFF byte-for-byte no-ops that CANNOT be
+  turned on until Pedro runs the live loop (only-you #1) + sets the AWS budget belt (only-you #4), so
+  shipping the live-mail-receiver redeploy now buys nothing. Held on the feature branch pending Pedro's
+  "ship it" (trivial) or batching with more Phase-0 work. **Next Phase-0 (pure web/Vercel, no listener):
+  B1 legal pages, B2 deletion path, C1 MoR checkout scaffolding, F1 funnel instrumentation.**
+
+### ✅ SESSION UPDATE — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
 Built the **Phase 76 SUMMON LOOP** — the gesture that finally makes the code-island node
 USER-REACHABLE (the visible payoff of the whole phase). Shipped as one green slice; all Vercel-only
 (NO listener/migration/infra change, so the live mail receiver is untouched). Gates green: web
