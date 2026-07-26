@@ -62,6 +62,7 @@ import { hrefFor } from "~/components/provenance-link";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
 import { useCanvasPublish } from "./canvas-store-context";
+import { useCascadeHighlight } from "./cascade-highlight";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import { type EntityNodeData } from "./node-data-schemas";
 
@@ -101,6 +102,13 @@ export const EntityNode = memo(function EntityNode({
 }: NodeProps<EntityNodeType>) {
   const { deleteElements } = useReactFlow();
 
+  // Phase 75 (CPF-06) — the visible cascade. When a correction touches THIS
+  // entity (survivor or absorbed), it is marked in the ephemeral highlight store
+  // (cascade-highlight.ts) and this card lights up briefly, so the user watches
+  // the correction sweep across the board. Motion-safe: the ring transition is
+  // motion-reduce-gated below.
+  const corrected = useCascadeHighlight(data.entityId);
+
   const query = api.entities.byId.useQuery({ id: data.entityId });
 
   const entity = query.data?.entity;
@@ -131,7 +139,10 @@ export const EntityNode = memo(function EntityNode({
 
   return (
     <div
-      className={`flex h-[300px] w-[320px] flex-col animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] motion-reduce:animate-none ${canvasNodeShellClass(
+      data-corrected={corrected ? "" : undefined}
+      className={`flex h-[300px] w-[320px] flex-col animate-in fade-in-0 zoom-in-95 [animation-duration:250ms] transition-shadow duration-500 motion-reduce:animate-none motion-reduce:transition-none ${
+        corrected ? "ring-2 ring-ink-14 ring-offset-2 ring-offset-shelf" : ""
+      } ${canvasNodeShellClass(
         CANVAS_NODE_KIND_GEOMETRY["entity"],
         selected === true,
       )}`}

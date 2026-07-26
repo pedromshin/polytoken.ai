@@ -21,6 +21,7 @@ import { useCallback, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "~/trpc/react";
+import { markCorrected } from "~/app/chat/_canvas/cascade-highlight";
 
 import type { ReviewPair } from "./review-pair-card";
 
@@ -95,14 +96,30 @@ export function useMergeReview(queueInput: ReviewQueueInput): MergeReviewState {
     [utils, queueInput],
   );
 
-  const settle = useCallback(async () => {
-    // Queue + gallery both reflect pending counts (gallery's
-    // pendingDuplicatesCount + "Needs review" filter).
-    await Promise.all([
-      utils.entities.reviewQueue.invalidate(),
-      utils.entities.list.invalidate(),
-    ]);
-  }, [utils]);
+  const settle = useCallback(
+    async (affectedEntityIds: readonly string[] = []) => {
+      // Queue + gallery both reflect pending counts (gallery's
+      // pendingDuplicatesCount + "Needs review" filter).
+      //
+      // Phase 75 (CPF-05) — the visible half of correct-once/propagate-
+      // everywhere: a merge (or reject) changes BOTH referenced entities'
+      // detail read — the survivor gains the absorbed alias/emails and sheds a
+      // pending suggestion; the absorbed flips to its "merged into another"
+      // null branch; a reject drops the pending pair from both. `entities.byId`
+      // is what every PLACED `EntityNode` rehydrates from (entity-node.tsx:104),
+      // so invalidating it for both ids is what makes those canvas cards repaint
+      // live, no reload. Without this the queue/gallery refreshed but placed
+      // cards stayed stale — the correction was invisible where it mattered most.
+      await Promise.all([
+        utils.entities.reviewQueue.invalidate(),
+        utils.entities.list.invalidate(),
+        ...affectedEntityIds.map((id) =>
+          utils.entities.byId.invalidate({ id }),
+        ),
+      ]);
+    },
+    [utils],
+  );
 
   // ---- merge — the EXISTING entities.confirmMerge write path ----
   const confirmMergeMutation = api.entities.confirmMerge.useMutation({
@@ -119,9 +136,11 @@ export function useMergeReview(queueInput: ReviewQueueInput): MergeReviewState {
       toast.error("Merge failed — changes were not saved.");
       if (context?.pairKey !== undefined) setBusy(context.pairKey, null);
     },
-    onSuccess: async (_data, _vars, context) => {
+    onSuccess: async (_data, vars, context) => {
       if (context?.pairKey !== undefined) setBusy(context.pairKey, null);
-      await settle();
+      // Repaint both cards live (survivor + absorbed) — CPF-05.
+      markCorrected([vars.entityInstanceId, vars.targetId]);
+      await settle([vars.entityInstanceId, vars.targetId]);
     },
   });
 
@@ -140,9 +159,11 @@ export function useMergeReview(queueInput: ReviewQueueInput): MergeReviewState {
       toast.error("Reject failed — changes were not saved.");
       if (context?.pairKey !== undefined) setBusy(context.pairKey, null);
     },
-    onSuccess: async (_data, _vars, context) => {
+    onSuccess: async (_data, vars, context) => {
       if (context?.pairKey !== undefined) setBusy(context.pairKey, null);
-      await settle();
+      // A reject changes the pending count on both entities too — repaint them.
+      markCorrected([vars.entityInstanceId, vars.targetId]);
+      await settle([vars.entityInstanceId, vars.targetId]);
     },
   });
 
