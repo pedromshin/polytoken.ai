@@ -59,11 +59,14 @@ class _FakeEnqueuer:
 
 
 class _FakeIngest:
-    def __init__(self) -> None:
+    def __init__(self, *, raises: bool = False) -> None:
         self.calls: list[dict[str, Any]] = []
+        self._raises = raises
 
     async def execute(self, message_id: str, recipients: Any = ()) -> Any:
         self.calls.append({"message_id": message_id, "recipients": recipients})
+        if self._raises:
+            raise RuntimeError("s3 fetch boom")  # a pre-persist critical-path failure
         return SimpleNamespace(id="e1", parse_status="parsed")
 
 
@@ -83,7 +86,7 @@ def _post_notification(client: TestClient) -> Any:
     return client.post("/v1/emails/inbound-sns", content=body)
 
 
-def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool) -> None:
+def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool, inline_retry: bool = False) -> None:
     # Signature verification is orthogonal to the enqueue cutover under test, so it
     # is disabled here; test_sns_inbound_signature.py covers the verification gate.
     monkeypatch.setattr(
@@ -91,6 +94,7 @@ def _set_flag(monkeypatch: pytest.MonkeyPatch, *, enabled: bool) -> None:
         "get_settings",
         lambda: SimpleNamespace(
             INGEST_ENQUEUE_ENABLED=enabled,
+            INGEST_INLINE_RETRY_ON_FAILURE=inline_retry,
             SNS_VERIFY_SIGNATURE=False,
             SNS_SIGNATURE_ENFORCED=False,
         ),
@@ -158,3 +162,45 @@ def test_flag_off_preserves_inline_path(monkeypatch: pytest.MonkeyPatch) -> None
     assert len(ingest.calls) == 1
     assert ingest.calls[0]["message_id"] == "ses-msg-1"
     assert ingest.calls[0]["recipients"] == ["u-tok@in.example.com"]
+
+
+# --- A2: inline fail-loud stopgap (no-worker silent-loss fix) ----------------
+
+
+def test_inline_failure_default_still_returns_200_silent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Both flags OFF (default): an inline ingest failure STILL returns 200 —
+    the exact pre-existing silent-loss behavior, preserved byte-for-byte."""
+    _set_flag(monkeypatch, enabled=False, inline_retry=False)
+    _stub_parse_ok(monkeypatch)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest(raises=True)
+
+    resp = _post_notification(_make_client(enqueuer, ingest))
+
+    assert resp.status_code == 200  # unchanged default: SNS won't retry (silent loss)
+    assert len(ingest.calls) == 1  # it DID attempt (and raised)
+
+
+def test_inline_retry_flag_returns_500_on_failure_so_sns_retries(monkeypatch: pytest.MonkeyPatch) -> None:
+    """INGEST_INLINE_RETRY_ON_FAILURE ON: an inline critical-path failure returns
+    500 so SNS retries instead of silently losing the mail (the A2 fix)."""
+    _set_flag(monkeypatch, enabled=False, inline_retry=True)
+    _stub_parse_ok(monkeypatch)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest(raises=True)
+
+    resp = _post_notification(_make_client(enqueuer, ingest))
+
+    assert resp.status_code == 500  # SNS will retry — no silent loss
+    assert enqueuer.calls == []  # enqueue path not involved
+    assert len(ingest.calls) == 1
+
+
+def test_inline_retry_flag_success_still_returns_200(monkeypatch: pytest.MonkeyPatch) -> None:
+    """INGEST_INLINE_RETRY_ON_FAILURE ON but ingest SUCCEEDS → 200 (no spurious retry)."""
+    _set_flag(monkeypatch, enabled=False, inline_retry=True)
+    _stub_parse_ok(monkeypatch)
+    enqueuer, ingest = _FakeEnqueuer(), _FakeIngest()
+
+    resp = _post_notification(_make_client(enqueuer, ingest))
+
+    assert resp.status_code == 200
+    assert len(ingest.calls) == 1

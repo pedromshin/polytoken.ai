@@ -264,6 +264,19 @@ class BaseAppSettings(BaseSettings):
     # not an always-on feature).
     INGEST_ENQUEUE_ENABLED: bool = False
 
+    # --- Inline ingest fail-loud (A2 — the no-worker silent-loss stopgap) ---
+    # CLAUDE.md landmine: the SNS handler returns 200 on ANY inline ingest failure,
+    # so a failure on the pre-persist critical path (S3 fetch / MIME parse / importer
+    # resolve / email save — the "received but never even stored" cases) silently and
+    # PERMANENTLY loses the mail (SNS never retries a 200). The durable fix is the
+    # INGEST_ENQUEUE_ENABLED path above, but that needs the graphile-worker runtime
+    # provisioned. Until then, this flag makes the INLINE path return 500 on such a
+    # failure so SNS RETRIES — ingestion is idempotent (keyed on importer+message_id,
+    # deterministic attachment ids, upserts), so a retry re-runs safely. Parse
+    # failures still return 200 (a malformed envelope is permanent — no retry storm).
+    # Default OFF preserves the exact pre-existing silent-200 behavior byte-for-byte.
+    INGEST_INLINE_RETRY_ON_FAILURE: bool = False
+
     # --- SNS inbound authenticity (Track 4 S1 — SSRF + forgery hardening) ---
     # The /v1/emails/inbound-sns endpoint is unauthenticated (SNS cannot send an
     # X-API-Key). Two independent controls guard it:

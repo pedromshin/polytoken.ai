@@ -109,7 +109,8 @@ async def _handle_subscription_confirmation(payload: dict[str, object]) -> Respo
 
 async def _process_notification(request: Request, meta: EmailMeta) -> Response:
     """Enqueue a durable job (flag ON) or run the inline pipeline (flag OFF, today's path)."""
-    if get_settings().INGEST_ENQUEUE_ENABLED:
+    settings = get_settings()
+    if settings.INGEST_ENQUEUE_ENABLED:
         # Durable path (Track 3a): enqueue a {ses_message_id, recipients} POINTER job —
         # the MIME is already durably in S3 — and let the co-located worker own the heavy
         # pipeline with retries + permanent dead-letter. job_key makes the enqueue
@@ -127,12 +128,23 @@ async def _process_notification(request: Request, meta: EmailMeta) -> Response:
             return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(status_code=status.HTTP_200_OK)
 
-    # Flag OFF (default) — today's inline path, UNCHANGED. Resolve + ingest inside the
-    # guard: any failure (DI misconfiguration, S3 fetch, DB write) still returns 200 to
-    # stop SNS retry storms (the pre-3a behavior, silent loss and all).
+    # Inline path (INGEST_ENQUEUE_ENABLED OFF). Resolve + ingest inside the guard.
+    # A2 (fail-loud stopgap): a critical-path failure (DI misconfig, S3 fetch, MIME
+    # parse, importer resolve, DB save — the "received but never even stored" cases)
+    # returns 500 so SNS RETRIES instead of silently losing the mail, but ONLY when
+    # INGEST_INLINE_RETRY_ON_FAILURE is set. Default OFF preserves the exact pre-3a
+    # silent-200 behavior byte-for-byte. Ingestion is idempotent, so a retry is safe;
+    # enrichment-stage failures never reach here (execute() isolates them and returns
+    # the email), so only genuine pre-persist infra failures trigger the retry.
     try:
         use_case: IngestInboundEmailUseCase = await request.app.state.dishka_container.get(IngestInboundEmailUseCase)
         await use_case.execute(meta["message_id"], recipients=meta["recipients"])
     except Exception:
-        logger.exception("email_ingest_error", message_id=meta["message_id"])
+        logger.exception(
+            "email_ingest_error",
+            message_id=meta["message_id"],
+            will_retry=settings.INGEST_INLINE_RETRY_ON_FAILURE,
+        )
+        if settings.INGEST_INLINE_RETRY_ON_FAILURE:
+            return Response(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
     return Response(status_code=status.HTTP_200_OK)
