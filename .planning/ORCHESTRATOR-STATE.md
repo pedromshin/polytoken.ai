@@ -49,7 +49,26 @@ handed the **CNPJ card** and said "go".
 - 🧪 **ALL LISTENER GATES GREEN** on both: ruff + mypy(304) + lint-imports(3) + full `uv run pytest`
   (exit 0, 92.26% cov, only env-gated skips). Tests added: `IngestBudgetGuard` unit (8),
   ingest-use-case cost-cap (4), supabase count_received_since (2), sns_inbound A2 (3).
-- ⚠️ **NOT fast-forwarded to main — deliberately.** Both are flag-OFF byte-for-byte no-ops that CANNOT be
+- ✅ **C1 — STRIPE SUBSCRIPTION BILLING** (`8ca217c`, flag OFF). Pedro chose **Stripe** (not a MoR) and
+  transferred his `algomaxxing` repo to his account so I could read its `packages/billing` reference
+  (added via add_repo + cloned to /workspace/algomaxxing). Built greenfield as **`@polytoken/billing`**
+  — a DI, unit-tested Stripe wrapper mirroring his structure but modeled for **subscriptions** (Pro/Power
+  tiers, no credit packs): client factory, tier↔price mapping, errors, checkout (customer reuse +
+  duplicate-active guard), **idempotent webhook** (stripe_webhook_events dedupe; checkout + subscription
+  created/updated/deleted → sync tier), portal. A `BillingStore` port keeps it testable with no DB; the
+  drizzle adapter is a separate entrypoint. **DB:** `subscriptions` (one row/user, entitlement `tier`) +
+  `stripe_webhook_events`, migration **`0056_billing.sql`** (owner RLS; generated via drizzle-kit +
+  hand-appended RLS; check green). **api-client:** `billing` router (currentSubscription /
+  createCheckoutSession / createPortalSession), owner-scoped, request-time secrets, no open redirect.
+  **web:** `/api/stripe/webhook` (raw-body signature verify, idempotent, 500→retry) + optional Stripe env
+  vars (never NEXT_PUBLIC_). Inert unless `BILLING_ENABLED=true` + keys set. USD + adaptive_pricing.
+  **Stripe ≠ MoR** → LTDA owes cross-border tax (accountant Q #6b). Follow-ups: `/billing` UI,
+  verifySession fallback, tier→listener-cost-cap wiring. **Secrets:** the pasted `rk_live_`/`vcp_` are
+  NOT in any tracked file (read from env at request time); `.claude/settings.local.json` (gitignored)
+  still holds the earlier `sbp_` token locally — rotate all three.
+- 🧪 **WEB/DB/API-CLIENT GATES GREEN (C1):** drizzle-kit check; tsc ×4 (billing/db/api-client/web); vitest
+  (billing 15, api-client 756); web placeholder build (compiled + 30/30 static pages, exit 0).
+- ⚠️ **NOT fast-forwarded to main — deliberately.** A1/A2/C1 are all flag-OFF byte-for-byte no-ops that CANNOT be
   turned on until Pedro runs the live loop (only-you #1) + sets the AWS budget belt (only-you #4), so
   shipping the live-mail-receiver redeploy now buys nothing. Held on the feature branch pending Pedro's
   "ship it" (trivial) or batching with more Phase-0 work. **Next Phase-0 (pure web/Vercel, no listener):
