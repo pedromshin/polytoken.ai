@@ -56,10 +56,13 @@ Pedro's directive this session: **STOP building invisible backend — build NEW 
   route). MORN-01..06 green; ships DARK (worker cron omitted + listener no-ops until the ONE env var
   `MORNING_BOARD_ENABLED` flips). Gates: worker tsc+vitest, packages/db tsc, listener
   ruff+lint-imports+mypy(302)+full pytest(2061).
-- ⚠️ **Phase 74 MORN-07 GAP (known):** `/home` is a fixed 4-panel grid, NOT a canvas — it does NOT
-  render node-types, so the overnight composer's node set is WRITTEN but not PAINTED. Making the
-  overnight board visible needs a `/home` canvas-render slice (home-scoped persistence + reconcile).
-  The `/chat` "Assemble board" MVP is the visible stand-in meanwhile.
+- ✅ **Phase 74 MORN-07 PAINT SLICE SHIPPED** (`f5eef75`): `/home` now RENDERS the composed board as a
+  real canvas. New `HomeCanvas` (ReactFlow + CanvasStoreProvider + shared /chat nodeTypes, dynamic
+  ssr:false island) paints the home layout's nodes; `home-board.tsx` shows the canvas when the layout
+  has nodes (else the fixed panels) + an "Assemble board" button that writes the node set client-side
+  (visible NOW, no flag). The overnight composer writes into the SAME home layout HomeCanvas reads, so
+  flipping `MORNING_BOARD_ENABLED` makes the pre-assembled board appear. REMAINING for MORN-07: only the
+  LIVE overnight-run screenshot gate.
 - **RESUME NEXT:** (1) squash-merge Phase 74 backend to main (MVP f573c3d + worker 1fe5b80 already on
   feature branch; listener needs main); the listener merge redeploys the mail receiver — SAFE (flag
   OFF). (2) The `/home` canvas-render slice (MORN-07 visible) — bring node-type rendering to /home.
