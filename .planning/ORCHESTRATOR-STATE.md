@@ -48,6 +48,18 @@ vitest (756 pass).
   the 76-04 auto-intent), and `handleBuildTool(intentOverride)` threads it into `codeIslandGenerate` +
   `codeIslands.create`. So the product promise — *describe the tool you want* — is now real. Gates:
   web tsc + full vitest (2083 / 149 files) + placeholder build. Test: `build-tool-dialog` (5).
+- ✅ **76-04c — "Your tools" picker SHIPPED** (`9e30932`, Vercel-only). Closes the build→reuse loop:
+  Add-node menu → "Your tools…" opens `CodeIslandPickerDialog` over the already-wired
+  `codeIslands.list` (owner-scoped); selecting a saved tool places a `code-island` node by `islandId`
+  ref (rehydrates via `codeIslands.byId`) — same mechanics as the entity/spreadsheet add-flows,
+  `handleAddCodeIsland`. A Dialog opened via nonce (no extra toolbar button); empty state guides to
+  Build-a-tool. Gates: web tsc + full vitest (2088 / 150 files) + placeholder build. Tests:
+  `code-island-picker-dialog` (4), `add-node-menu` (+1).
+- ⚠️ **VISUAL-VERIFICATION DEBT (owed, Pedro-gated):** the summon-loop UI, the intent dialog, and the
+  tools picker all pass jsdom + build, but jsdom does NO layout — none have been through the real
+  `test:geometry` / `screenshot:review` gates (they need an already-running :3000 + seeded auth + the
+  live DB, unavailable in this sandbox). A human look at `/chat` → Add-node menu is owed before
+  calling the visuals verified.
 - ✅ **0055 `code_islands` APPLIED TO PROD (2026-07-26) — the summon loop is now fully live.** Applied
   over the Supabase Management API (`sbp_` PAT Pedro provided; the sandbox has only HTTPS egress, no PG
   socket — the §8 transport). Verified AGAINST THE DB: `code_islands` exists, `rls_enabled=true`, 2
