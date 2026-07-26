@@ -18,3 +18,11 @@ class AttachmentStorage(Protocol):
     async def fetch(self, storage_key: str) -> bytes:
         """Return the attachment bytes stored under the given key."""
         ...
+
+    async def delete_prefix(self, importer_id: str) -> None:
+        """Remove every object under the ``{importer_id}/`` prefix (idempotent).
+
+        Used by account-deletion to erase an importer's attachment blobs, which
+        do NOT cascade with the Postgres delete. A missing prefix is a no-op.
+        """
+        ...

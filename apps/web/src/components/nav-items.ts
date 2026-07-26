@@ -30,6 +30,7 @@ import {
   House,
   Inbox,
   MessageSquare,
+  Settings,
   Share2,
   Shapes,
   ShieldCheck,
@@ -61,6 +62,9 @@ export const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
   // Appended AFTER Capabilities so MOBILE_TAB_ITEMS' hardcoded indices (0/6/4/7)
   // stay valid; Billing lands in the mobile "More" sheet automatically.
   { href: "/billing", label: "Billing", icon: CreditCard },
+  // Appended LAST for the same reason — Settings lands in the mobile "More"
+  // sheet automatically without disturbing the tab-bar indices.
+  { href: "/settings/account", label: "Settings", icon: Settings },
 ];
 
 /** The four thumb-reach destinations on the mobile bottom tab bar. */

@@ -19,6 +19,16 @@ class RawEmailStore(Protocol):
         """Return the raw MIME bytes for the given SES message id."""
         ...
 
+    async def delete_by_key(self, storage_key: str) -> None:
+        """Delete the raw MIME object stored at ``storage_key`` (idempotent).
+
+        Takes the persisted ``emails.raw_storage_key`` (a full key, not a bare
+        message id) so account-deletion can erase raw MIME — which does NOT
+        cascade with the Postgres delete. Routes the same way ``fetch`` does
+        (by the key's last path segment) and tolerates a missing object.
+        """
+        ...
+
 
 # Message-id namespace for backfilled (non-SES) emails. Ids carrying this
 # prefix are stored/fetched via the writable BackfillRawEmailStore; everything

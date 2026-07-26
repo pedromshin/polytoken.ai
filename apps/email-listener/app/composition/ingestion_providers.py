@@ -24,6 +24,7 @@ from dishka import Provider
 from supabase import Client
 
 from app.application.use_cases.backfill_inbound_email import BackfillInboundEmailUseCase
+from app.application.use_cases.delete_importer_data import DeleteImporterDataUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase, IngestionConfig
 from app.application.use_cases.pipeline_health import GetPipelineHealthUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
@@ -43,6 +44,7 @@ from app.domain.ports.raw_email_store import BackfillRawEmailStore, RawEmailStor
 from app.domain.ports.segmenter_protocol import SegmenterProtocol
 from app.domain.ports.thread_resolver import ThreadResolver
 from app.domain.services.ingest_budget_guard import IngestBudgetGuard
+from app.infrastructure.supabase.account_deletion_reader import SupabaseAccountDeletionReader
 from app.infrastructure.supabase.attachment_storage import SupabaseAttachmentStorage
 from app.infrastructure.supabase.email_repository import SupabaseEmailRepository
 from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
@@ -135,6 +137,28 @@ def _provide_ingest_budget_guard(client: Client) -> IngestBudgetGuard:
     return IngestBudgetGuard(
         counter=SupabaseEmailRepository(client=client),
         daily_email_cap=get_settings().INGEST_DAILY_EMAIL_CAP,
+    )
+
+
+def _provide_delete_importer_data_use_case(
+    raw_store: RawEmailStore,
+    attachment_storage: AttachmentStorage,
+    client: Client,
+) -> DeleteImporterDataUseCase:
+    """Factory for DeleteImporterDataUseCase (account-deletion blob erasure).
+
+    Injects the SAME ports the ingest pipeline uses: the ROUTED RawEmailStore
+    (SES S3 + backfill Supabase) so delete-by-key re-routes to whichever store
+    originally persisted the raw MIME — mirroring fetch() — and the attachment
+    storage for the ``{importer_id}/`` prefix sweep. The AccountDeletionReader is
+    instantiated directly from the Client (mirroring
+    _provide_resolve_ingest_entities_use_case) — it self-derives the deletion
+    scope from X-User-Id so the endpoint trusts no caller-supplied ids.
+    """
+    return DeleteImporterDataUseCase(
+        reader=SupabaseAccountDeletionReader(client=client),
+        raw_store=raw_store,
+        attachment_storage=attachment_storage,
     )
 
 
@@ -254,5 +278,8 @@ def register(provider: Provider) -> None:
     provider.provide(_provide_ingest_use_case, provides=IngestInboundEmailUseCase)
     provider.provide(ReprocessEmailUseCase)
     provider.provide(BackfillInboundEmailUseCase)
+    # Account-deletion blob erasure (POST /v1/importers/delete-data): reuses the
+    # routed RawEmailStore + AttachmentStorage ports already bound above.
+    provider.provide(_provide_delete_importer_data_use_case, provides=DeleteImporterDataUseCase)
     # ST-04: pipeline-health read model (GET /v1/pipeline/health).
     provider.provide(GetPipelineHealthUseCase)

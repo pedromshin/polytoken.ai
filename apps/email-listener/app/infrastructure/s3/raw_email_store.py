@@ -37,3 +37,18 @@ class S3RawEmailStore:
             return body
 
         return await asyncio.to_thread(_download)
+
+    async def delete_by_key(self, storage_key: str) -> None:
+        """Delete the raw MIME object at the given full S3 key (idempotent).
+
+        ``storage_key`` is the persisted ``emails.raw_storage_key`` (already the
+        full ``{prefix}{message_id}`` key), so it is used verbatim — no key_for.
+        S3's ``delete_object`` is idempotent (a missing key still returns 2xx),
+        satisfying the deletion contract's retry-safety requirement. The blocking
+        boto3 call is offloaded to a worker thread like ``fetch``.
+        """
+
+        def _delete() -> None:
+            self._client.delete_object(Bucket=self._bucket, Key=storage_key)
+
+        await asyncio.to_thread(_delete)

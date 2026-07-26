@@ -54,3 +54,13 @@ class SupabaseRawEmailBackfillStore:
     async def fetch(self, message_id: str) -> bytes:
         """Download raw MIME bytes by backfill message id."""
         return self._client.storage.from_(self._bucket).download(self.key_for(message_id))
+
+    async def delete_by_key(self, storage_key: str) -> None:
+        """Delete the raw MIME object at the given full storage key (idempotent).
+
+        ``storage_key`` is the persisted ``emails.raw_storage_key`` — already the
+        full ``backfill/{message_id}`` key — so it is removed verbatim, not via
+        key_for. Supabase ``remove`` of an absent path returns without error,
+        satisfying the deletion contract's retry-safety requirement.
+        """
+        self._client.storage.from_(self._bucket).remove([storage_key])

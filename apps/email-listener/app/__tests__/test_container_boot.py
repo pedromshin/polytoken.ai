@@ -35,6 +35,7 @@ from app.application.use_cases.curate_entity_merge import (
     RejectMergeUseCase,
     UnmergeEntityUseCase,
 )
+from app.application.use_cases.delete_importer_data import DeleteImporterDataUseCase
 from app.application.use_cases.deny_field import DenyFieldUseCase
 from app.application.use_cases.edit_region import (
     AcceptRegionUseCase,
@@ -139,6 +140,8 @@ _STANDALONE_PROVIDERS = (
     ConfirmMergeUseCase,
     RejectMergeUseCase,
     UnmergeEntityUseCase,
+    # Account-deletion blob erasure (self-instantiates its reader from the Client).
+    DeleteImporterDataUseCase,
 )
 
 

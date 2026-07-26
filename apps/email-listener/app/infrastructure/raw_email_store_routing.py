@@ -36,3 +36,15 @@ class RoutingRawEmailStore:
 
     async def fetch(self, message_id: str) -> bytes:
         return await self._route(message_id).fetch(message_id)
+
+    async def delete_by_key(self, storage_key: str) -> None:
+        """Delete a raw MIME object by its persisted full key, routed like fetch.
+
+        The stored ``raw_storage_key`` carries the bare message id as its LAST
+        path segment (SES: ``{prefix}{id}``; backfill: ``backfill/{id}``), the
+        same round-trip ReprocessEmailUseCase relies on. Deriving the id via
+        ``rsplit("/", 1)[-1]`` re-selects the store that originally persisted the
+        bytes, then the full key is deleted verbatim there.
+        """
+        message_id = storage_key.rsplit("/", 1)[-1]
+        await self._route(message_id).delete_by_key(storage_key)
