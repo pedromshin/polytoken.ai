@@ -27,8 +27,13 @@
   erases what doesn't cascade (S3 raw MIME + backfill, email-attachments bucket, user-files vault incl
   .versions/.trash, 3 orphan telemetry tables). No migration needed. UI: `/settings/account` danger
   zone, confirm-gated destructive control. Gates: listener ruff+format+mypy(310)+lint-imports+full
-  pytest; web tsc+tests(6+2)+design-law(195)+placeholder build. **Live once deployed — the button
-  really deletes an account.** The adversarial-verify pass is the reason this is safe to ship.
+  pytest; web tsc+tests(6+2)+design-law(195)+placeholder build. The adversarial-verify pass is the
+  reason this is safe to ship.
+  - ✅ **DEPLOY VERIFIED (2026-07-26 22:15Z):** listener deploy run 30222583533 (sha 786edc4)
+    `conclusion=success`; the CI-unblock run 30221452382 (d65417b) also succeeded — the listener
+    pipeline is healthy again and A1/A2 are now actually live (flag-off). **B2 is FULLY LIVE end-to-end**
+    (listener endpoint + web route + Vercel UI). The `/settings/account` delete button really erases an
+    account now.
 
 ### 🔥 LIVE-INGEST INCIDENT + CI-UNBLOCK — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 Pedro (live-loop testing, finally!) reported forwarded emails "should have worked already." Diagnosed
