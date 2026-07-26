@@ -13,6 +13,44 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ SESSION UPDATE — 2026-07-26 · session_016dmeeGLzwLPZfRwGpByHmn (newest)
+Continued the "build VISIBLE canvas surfaces" run. All shipped to main via clean fast-forward; every
+gate green (web tsc+vitest+build, genui/capabilities/api-client vitest, db drizzle-kit check). Order:
+- ✅ **Phase 75 VISIBLE half SHIPPED** (`32b21c6`, CPF-05/06). A merge (or reject) now repaints EVERY
+  placed `EntityNode` live — `useMergeReview.settle` invalidates `entities.byId` for BOTH survivor +
+  absorbed (was only reviewQueue+list, so placed cards stayed stale). Plus an ephemeral, non-persisted
+  cascade-highlight (`cascade-highlight.ts`, `useSyncExternalStore`, NOT the LWW store) → a motion-safe
+  ring sweeps the touched cards. Tests: `merge-cascade-invalidate` + `cascade-highlight`. The banger's
+  user-facing payoff. **Remaining 75 = the SERVER cascade** (75-01 ledger migration · 75-02
+  CascadeCorrectionUseCase promote-suggestion-edges · 75-03 wire into ConfirmMerge best-effort + summary
+  passthrough · 75-04 worker re-label) — its user-visible effect (edge promotion, past-mail re-label) is
+  LIVE-loop-gated per the spec, and 75-03 touches the LIVE listener merge path. Deferred, flagged.
+- ✅ **Phase 76 Wave A (76-01) SHIPPED** (`7866c10`, BTAP-01). The island **data channel**:
+  `buildIslandSrcdoc({data})` installs a deep-frozen `window.__ISLAND_DATA__` via `JSON.parse` (inert
+  string, never eval) BEFORE user code; `serializeIslandData` rejects pollution/oversize/unserializable;
+  CSP + sandbox tokens **byte-for-byte pinned** (`connect-src 'none'`, no allow-same-origin) by a
+  drift-guard snapshot; a data-reading island still passes `validateIslandCode`. 645 genui tests.
+- ✅ **Phase 76 Wave B (76-03) SHIPPED** (`b64c56c`, BTAP-02/03/04/09/10). The **code-island canvas
+  node** — a real, placeable, rehydrating node. `code_islands` table (0055 migration + owner RLS,
+  drizzle-kit check green) + `assertCodeIslandOwnership` + ownership-gated `codeIslands.*` router
+  (byId/create/remove/list, ownership-first NOT_FOUND, owner stamped server-side, bindings capped +
+  pollution-guarded). `code-island` ref-only node type in BOTH allowlists + registry + node-types +
+  canvas-vocabulary (L4·right-seam·double geometry, pairwise-distinct). `code-island-node.tsx` fetches
+  via byId, collects incoming data-edges through the UNCHANGED `usePanelData` overlay, feeds
+  `{targetKey: projection}` into `<CodeIslandFrame data>` (recomputes on input change without restarting
+  the repair pipeline). Migration applies via `npm run db:migrate` (until then byId errors are caught by
+  the node's error branch). No listener/worker change.
+- ⏭️ **Phase 76 REMAINING = the summon loop** (makes the node user-reachable): **76-02b** typed-inputs
+  manifest CONSUMED in the listener generator prompt (76-02a api-client passthrough not yet written; the
+  Pydantic model already ignores extra fields so it's safe/additive — LIVE listener redeploy); **76-04**
+  the "Build a tool from these" flow (select ≥2 data nodes → read `shared.published.{id}` projections →
+  manifest+bindings → `codeIslandGenerate` → `codeIslands.create` → materialize ONE node + one data-edge
+  per source, idempotent). **NOTE for 76-04:** `spreadsheet-node` does NOT yet publish a projection (only
+  the 10 board nodes got the publish port) — the reconciler demo needs a bounded spreadsheet-publish
+  added first. **76-05** agent-authored `emit_code_island` (flag-gated, live). This is the largest,
+  highest-risk wave (async generate + stateful LWW-canvas mutation + new multi-select gesture) — left for
+  a fresh focused pass rather than rushed at session tail.
+
 ### ⏸️ PRE-COMPACT CHECKPOINT — 2026-07-25 (resume here)
 Pedro's directive this session: **STOP building invisible backend — build NEW interfaces on the CANVAS
 (the primary surface) over already-wired backend.** State:
