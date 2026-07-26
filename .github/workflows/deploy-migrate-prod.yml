@@ -12,7 +12,11 @@ name: Migrate prod DB
 # ROLLBACK: migrations are additive + forward-only. If a run goes wrong, restore
 # the Supabase backup / PITR point you took immediately before dispatching.
 #
-# Required repo secrets (Settings → Secrets and variables → Actions):
+# Required secrets — scoped to the `production` GitHub Environment (DEPLOY.md
+# §5/§6: prod DB URLs live under `production`, not at repo level). The job
+# declares `environment: production` below so these resolve; without it they
+# come through EMPTY and migrate.ts throws "POSTGRES_URL_NON_POOLING is not
+# defined" (the mode this workflow's first run failed in, 2026-07-23):
 #   PROD_POSTGRES_URL_NON_POOLING  — the session/direct (port 5432) connection string
 #   PROD_POSTGRES_URL              — same DB (pooled is fine; only NON_POOLING is used)
 #   PROD_SUPABASE_URL              — https://<project-ref>.supabase.co
@@ -31,6 +35,10 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    # Bind to the `production` Environment so the PROD_* secrets scoped there are
+    # readable (and any required-reviewer gate on it applies). Without this the
+    # secrets resolve empty and the run fails before touching the DB.
+    environment: production
     steps:
       - name: Guard — require typed confirmation
         if: ${{ github.event.inputs.confirm != 'MIGRATE-PROD' }}
