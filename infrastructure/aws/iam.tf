@@ -87,10 +87,15 @@ resource "aws_iam_role_policy" "ecs_task_bedrock" {
 
 # SES inbound raw MIME — app code fetches raw emails from the shared S3 bucket
 # at ingestion time (S3RawEmailStore), so read access lives on the TASK role.
+# DeleteObject is required by self-serve account deletion: DeleteImporterDataUseCase
+# erases each user's raw MIME via S3RawEmailStore.delete_by_key. Without it the
+# listener's delete_object returns AccessDenied, the deletion reports incomplete,
+# and the whole account-deletion request 502s for any user who has received SES
+# mail (the raw copies could never be erased — a right-to-erasure gap).
 data "aws_iam_policy_document" "ecs_task_ses_inbound" {
   statement {
-    sid       = "ReadSesInboundEmails"
-    actions   = ["s3:GetObject"]
+    sid       = "ReadWriteSesInboundEmails"
+    actions   = ["s3:GetObject", "s3:DeleteObject"]
     resources = ["${aws_s3_bucket.ses_inbound.arn}/inbound/*"]
   }
 }
