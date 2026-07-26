@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import * as React from "react";
 import { toast } from "sonner";
 
@@ -154,7 +155,15 @@ export function BillingSurface(): React.ReactElement {
 
       <p className="text-2xs text-muted-foreground">
         Billed monthly in USD; local currency is presented at checkout. Cancel anytime from Manage
-        billing.
+        billing. By subscribing you agree to our{" "}
+        <Link className="underline" href="/legal/terms">
+          Terms
+        </Link>{" "}
+        and{" "}
+        <Link className="underline" href="/legal/privacy">
+          Privacy Policy
+        </Link>
+        .
       </p>
     </div>
   );
