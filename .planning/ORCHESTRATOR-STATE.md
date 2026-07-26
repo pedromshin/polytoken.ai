@@ -41,6 +41,13 @@ vitest (756 pass).
   summon is mid-flight. Added the missing `code-island` (560×520) entry to `CANVAS_NODE_DIMENSIONS` so
   cascade/dagre see the true rect. Tests: `build-tool-flow` (11), `spreadsheet-publish` (3),
   `add-node-menu` (+4 summon cases), `code-island` api-client (+3 inputs cases).
+- ✅ **76-04b — the intent prompt SHIPPED** (Vercel-only, closes the headline UX gap). The menu now
+  opens `BuildToolDialog` (a radix Dialog, `build-tool-dialog.tsx`) instead of firing the canned
+  default: `openBuildTool` preflights the selection (≥2 published sources → captures their labels),
+  the dialog captures the user's words ("build me a rent reconciler"; ⌘/Ctrl+Enter submits; blank ⇒
+  the 76-04 auto-intent), and `handleBuildTool(intentOverride)` threads it into `codeIslandGenerate` +
+  `codeIslands.create`. So the product promise — *describe the tool you want* — is now real. Gates:
+  web tsc + full vitest (2083 / 149 files) + placeholder build. Test: `build-tool-dialog` (5).
 - ✅ **0055 `code_islands` APPLIED TO PROD (2026-07-26) — the summon loop is now fully live.** Applied
   over the Supabase Management API (`sbp_` PAT Pedro provided; the sandbox has only HTTPS egress, no PG
   socket — the §8 transport). Verified AGAINST THE DB: `code_islands` exists, `rls_enabled=true`, 2

@@ -90,6 +90,7 @@ import {
 import { useCanvasHistory } from "./use-canvas-history";
 import { CanvasEmptyState } from "./canvas-empty-state";
 import { AddNodeMenu, type SimpleNodeKind } from "./add-node-menu";
+import { BuildToolDialog } from "./build-tool-dialog";
 import { collectToolInputs } from "./build-tool-flow";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
@@ -1039,8 +1040,12 @@ export function ChatCanvas({
   const utils = api.useUtils();
   const createIsland = api.codeIslands.create.useMutation();
   const [isBuildingTool, setIsBuildingTool] = useState(false);
+  // Intent-prompt dialog (76-04b): the menu opens it once the selection is
+  // confirmed eligible; its submit calls handleBuildTool(intent).
+  const [buildToolOpenNonce, setBuildToolOpenNonce] = useState(0);
+  const [buildToolSourceLabels, setBuildToolSourceLabels] = useState<string[]>([]);
 
-  const handleBuildTool = useCallback(async () => {
+  const handleBuildTool = useCallback(async (intentOverride?: string) => {
     if (isBuildingTool) return; // one summon at a time (the generate is async)
 
     const storeValues = canvasStore?.getState().values ?? {};
@@ -1056,20 +1061,27 @@ export function ChatCanvas({
       return;
     }
 
+    // The user's own words win; an empty prompt falls back to the auto intent
+    // derived from the wired sources (76-04's default).
+    const intent =
+      intentOverride !== undefined && intentOverride.trim().length > 0
+        ? intentOverride.trim()
+        : collected.intent;
+
     setIsBuildingTool(true);
     const dismiss = toast.loading("Building a tool from your data…");
     try {
       // 1) Generate the island program against the SHAPE manifest (values are
       //    NOT sent — the generator sees structure only).
       const generated = await utils.genui.codeIslandGenerate.fetch({
-        intent: collected.intent,
+        intent,
         inputs: collected.inputs,
       });
 
       // 2) Persist the winning code + its bindings; the owner is stamped
       //    server-side. Returns the new island id.
       const { islandId } = await createIsland.mutateAsync({
-        intent: collected.intent,
+        intent,
         code: generated.code,
         inputBindings: collected.inputBindings,
       });
@@ -1146,6 +1158,31 @@ export function ChatCanvas({
     persistence,
     history,
   ]);
+
+  // Menu entry point for the summon loop (76-04b) — validate the selection has
+  // ≥2 PUBLISHED sources, capture their labels for the dialog's "wiring:" line,
+  // then open the intent prompt. The real per-source publish-check + the build
+  // both live in handleBuildTool (authoritative at submit time); this is the
+  // preflight so the dialog only opens when there's something to build.
+  const openBuildTool = useCallback(() => {
+    const storeValues = canvasStore?.getState().values ?? {};
+    const collected = collectToolInputs(
+      selectedNodes(nodesRef.current),
+      storeValues,
+    );
+    if (collected.sources.length < 2) {
+      toast.error(
+        "Select 2 or more data nodes that have finished loading, then build a tool.",
+      );
+      return;
+    }
+    setBuildToolSourceLabels(
+      collected.sources.map(
+        (s) => collected.inputs[s.targetKey]?.label ?? s.nodeType,
+      ),
+    );
+    setBuildToolOpenNonce((n) => n + 1);
+  }, [canvasStore]);
 
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
@@ -1727,7 +1764,7 @@ export function ChatCanvas({
                           onAddSimpleNode={handleAddSimpleNode}
                           onAddEntity={() => setEntityOpenNonce((n) => n + 1)}
                           onAssembleBoard={handleAssembleBoard}
-                          onBuildTool={() => void handleBuildTool()}
+                          onBuildTool={openBuildTool}
                           buildToolSourceCount={selectedToolSourceCount}
                           buildToolPending={isBuildingTool}
                         />
@@ -1742,6 +1779,12 @@ export function ChatCanvas({
                         <EntityPickerPopover
                           onAdd={handleAddEntity}
                           requestOpenNonce={entityOpenNonce}
+                        />
+                        <BuildToolDialog
+                          requestOpenNonce={buildToolOpenNonce}
+                          sourceLabels={buildToolSourceLabels}
+                          pending={isBuildingTool}
+                          onBuild={(intent) => void handleBuildTool(intent)}
                         />
                         <Button
                           type="button"
