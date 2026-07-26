@@ -13,7 +13,44 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
-### ✅ SESSION UPDATE — 2026-07-26 · session_016dmeeGLzwLPZfRwGpByHmn (newest)
+### ✅ SESSION UPDATE — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp (newest) · branch `claude/phase-76-summon-loop-al5emg`
+Built the **Phase 76 SUMMON LOOP** — the gesture that finally makes the code-island node
+USER-REACHABLE (the visible payoff of the whole phase). Shipped as one green slice; all Vercel-only
+(NO listener/migration/infra change, so the live mail receiver is untouched). Gates green: web
+tsc + full vitest (2078 pass across 148 files) + placeholder build (exit 0); api-client tsc + full
+vitest (756 pass).
+- ✅ **Spreadsheet publish-port prereq**. `spreadsheet-node` now publishes a bounded shape+sample
+  projection to `shared.published.{id}` once its query settles (`spreadsheet-publish.ts` pure module:
+  `{label, columns:[{name,type}], rowCount, sample≤8}` — NEVER all rows; `projectForPublish` is the
+  final size belt). Effect gated on the stable `query.data` (not the per-render derived arrays) so it
+  publishes on a genuine change, not every render. Mirrors the 10 board nodes' publish ports.
+- ✅ **76-02a — api-client `inputs` passthrough** (SAFE/additive). `codeIslandGenerate` accepts an
+  optional bounded typed-inputs **SHAPE** manifest (`{targetKey → {label?,nodeType?,fields?,rowCount?}}`,
+  ≤32 keys, pollution-guarded) and forwards it as `inputs` in the POST body. SHAPE ONLY — the row
+  VALUES never reach the model. The FastAPI model ignores the field until 76-02b, so no listener
+  redeploy needed. `inputs:null` when the caller wired nothing (back-compat).
+- ✅ **76-04 — the "Build a tool from these" flow** (the summon loop). Pure core in `build-tool-flow.ts`
+  (`collectToolInputs`): from the selected nodes + live store `values`, keeps only sources that HAVE
+  published a projection, assigns each a unique JS-ident targetKey, and emits the parallel `inputs`
+  (SHAPE → generator) + `inputBindings` (WIRING → persistence, `targetKey → {sourceNodeKey,
+  sourcePath}`) records + a default intent. `chat-canvas` `handleBuildTool`: reads projections →
+  `collectToolInputs` → `utils.genui.codeIslandGenerate.fetch({intent,inputs})` (imperative one-shot)
+  → `codeIslands.create` → materializes ONE `code-island` node + one data-edge per source in a single
+  history/save unit (idempotent per BTAP-06: fresh uuids, one scheduleSave). Selection-aware menu entry
+  in `add-node-menu.tsx` — disabled with an inline hint until ≥2 sources selected, "Building…" while a
+  summon is mid-flight. Added the missing `code-island` (560×520) entry to `CANVAS_NODE_DIMENSIONS` so
+  cascade/dagre see the true rect. Tests: `build-tool-flow` (11), `spreadsheet-publish` (3),
+  `add-node-menu` (+4 summon cases), `code-island` api-client (+3 inputs cases).
+- ⏭️ **Phase 76 REMAINING** (the LIVE-listener legs, next pass): **76-02b** consume `inputs` in the
+  FastAPI generator prompt (`genui_code.py` + `generate_code_island.py`) so emitted code reads
+  `window.__ISLAND_DATA__.{targetKey}` against the known shape — additive, back-compat, FULL pytest +
+  ECS redeploy. **76-05** agent-authored `emit_code_island` behind `CANVAS_EMIT_TOOL_ENABLED`
+  (default OFF). Also: **0055 code_islands migration not yet applied to prod** — apply via
+  `npm run db:migrate` (until then `codeIslands.byId` errors are caught by the node's error branch, no
+  crash), and the summon flow's `codeIslands.create` needs the table live to persist. The web slice is
+  safe to ship ahead: create just errors → the flow toasts "Couldn't build a tool" until the table exists.
+
+### ✅ SESSION UPDATE — 2026-07-26 · session_016dmeeGLzwLPZfRwGpByHmn
 Continued the "build VISIBLE canvas surfaces" run. All shipped to main via clean fast-forward; every
 gate green (web tsc+vitest+build, genui/capabilities/api-client vitest, db drizzle-kit check). Order:
 - ✅ **Phase 75 VISIBLE half SHIPPED** (`32b21c6`, CPF-05/06). A merge (or reject) now repaints EVERY

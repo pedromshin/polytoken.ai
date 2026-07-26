@@ -71,6 +71,50 @@ describe("genui.codeIslandGenerate", () => {
     expect(body).toMatchObject({ intent: "x", raw_content: "doc", importer_id: "imp-1" });
   });
 
+  it("76-02a: forwards the typed-inputs shape manifest as `inputs`", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse(OK_ENVELOPE));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await makeCaller().genui.codeIslandGenerate({
+      intent: "a dashboard",
+      inputs: {
+        usage: {
+          label: "Today's spend",
+          nodeType: "usage",
+          fields: [{ name: "spendTodayUsd", type: "number" }],
+        },
+        rent: { nodeType: "spreadsheet", rowCount: 12 },
+      },
+    });
+    const [, initArg] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(initArg.body));
+    expect(body.inputs).toMatchObject({
+      usage: { nodeType: "usage", fields: [{ name: "spendTodayUsd", type: "number" }] },
+      rent: { nodeType: "spreadsheet", rowCount: 12 },
+    });
+  });
+
+  it("76-02a: sends inputs:null when no manifest is provided (back-compat)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockResponse(OK_ENVELOPE));
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+    await makeCaller().genui.codeIslandGenerate({ intent: "x" });
+    const [, initArg] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(String(initArg.body));
+    expect(body.inputs).toBeNull();
+  });
+
+  it("76-02a: rejects a forbidden manifest key (pollution guard)", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue(mockResponse(OK_ENVELOPE)) as unknown as typeof fetch;
+    await expect(
+      makeCaller().genui.codeIslandGenerate({
+        intent: "x",
+        inputs: { constructor: { nodeType: "usage" } } as Record<
+          string,
+          { nodeType: string }
+        >,
+      }),
+    ).rejects.toBeTruthy();
+  });
+
   it("falls back with non-empty code on a non-2xx response (no leaked detail)", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(mockResponse({ error: "boom" }, 500)) as unknown as typeof fetch;
     const res = await makeCaller().genui.codeIslandGenerate({ intent: "x" });

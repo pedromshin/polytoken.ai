@@ -24,7 +24,7 @@
  * only the placement; the underlying spreadsheet row survives.
  */
 
-import { memo } from "react";
+import { memo, useEffect } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { AlertCircle, Table2, X } from "lucide-react";
@@ -39,8 +39,10 @@ import type {
 import { api } from "~/trpc/react";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
+import { useCanvasPublish } from "./canvas-store-context";
 import { CANVAS_NODE_KIND_GEOMETRY } from "./canvas-vocabulary";
 import type { SpreadsheetNodeData } from "./node-data-schemas";
+import { projectSheetForPublish } from "./spreadsheet-publish";
 
 export type SpreadsheetNodeType = Node<SpreadsheetNodeData, "spreadsheet">;
 
@@ -79,6 +81,29 @@ export const SpreadsheetNode = memo(function SpreadsheetNode({
   const headerLabel = resolveHeaderLabel(data.label, query.data?.title);
   const columns = asColumns(query.data?.columns);
   const rows = asRows(query.data?.rows);
+
+  // Phase 76 summon-loop prereq — the publish port. Once the table settles,
+  // publish a bounded shape+sample projection to `shared.published.{id}` so a
+  // "Build a tool from these" flow (76-04) can read this sheet's structure and
+  // wire it into a code-island as a typed input. A DERIVED read, never written
+  // into node.data (`.strict()` ref-only). Skipped while the row is
+  // null/unavailable (nothing meaningful to publish).
+  const publish = useCanvasPublish(id);
+  useEffect(() => {
+    const settled = query.data;
+    if (settled === undefined || settled === null) return;
+    // Derive from the STABLE query.data (react-query keeps a stable reference
+    // until the row actually changes) rather than the per-render `columns`/
+    // `rows` array identities — so this publishes on a genuine data change, not
+    // on every render.
+    publish(
+      projectSheetForPublish(
+        headerLabel,
+        asColumns(settled.columns),
+        asRows(settled.rows),
+      ),
+    );
+  }, [publish, query.data, headerLabel]);
 
   return (
     <div

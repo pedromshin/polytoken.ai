@@ -54,6 +54,10 @@ export const CANVAS_NODE_DIMENSIONS: Readonly<
   references: { width: 340, height: 380 },
   "search-all": { width: 360, height: 440 },
   conversations: { width: 300, height: 360 },
+  // code-island (Phase 76) — mirrors code-island-node.tsx's fixed
+  // h-[520px] w-[560px] shell so the summon flow's cascade + dagre rank see
+  // the true rect (it's the largest placeable node).
+  "code-island": { width: 560, height: 520 },
 };
 
 export const DEFAULT_CANVAS_NODE_DIMENSIONS = { width: 320, height: 240 };

@@ -44,6 +44,55 @@ const WEB_FALLBACK_CODE =
   "d.style.cssText='padding:12px;border-radius:8px;background:#fef2f2;color:#991b1b;font:14px system-ui';" +
   "r.appendChild(d);";
 
+// ---------------------------------------------------------------------------
+// Typed-inputs manifest (Phase 76 / 76-02a — the summon-loop passthrough).
+//
+// When the "Build a tool from these" flow wires ≥2 data nodes into a new
+// code-island, it describes each wired source's SHAPE — its targetKey (the
+// `window.__ISLAND_DATA__.{targetKey}` the island reads), a human label, the
+// source node type, and the top-level field names/types — so the generator can
+// write code against the known structure. This carries SHAPE ONLY, never the
+// user's row VALUES: the values flow to the running island at runtime through
+// the sandbox data channel (BTAP-01), NEVER into the model prompt. Bounded so a
+// caller can't smuggle an unbounded blob into the generator.
+//
+// Additive + back-compat: omitted today by every existing caller, and the
+// FastAPI generator ignores the field until 76-02b consumes it, so shipping
+// this half needs no listener redeploy.
+// ---------------------------------------------------------------------------
+
+const FORBIDDEN_MANIFEST_KEYS = new Set(["__proto__", "constructor", "prototype"]);
+
+/** One field of a wired source's published projection — a name + coarse type. */
+const CodeIslandInputField = z
+  .object({
+    name: z.string().min(1).max(120),
+    type: z.string().max(40).optional(),
+  })
+  .strict();
+
+/** One wired source's shape descriptor, keyed by its targetKey in the manifest. */
+const CodeIslandInputManifestEntry = z
+  .object({
+    label: z.string().max(200).optional(),
+    nodeType: z.string().max(80).optional(),
+    fields: z.array(CodeIslandInputField).max(50).optional(),
+    rowCount: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+/** targetKey → shape descriptor. Capped count + prototype-pollution-guarded
+ * keys (the targetKey is echoed back to the generator and becomes a property
+ * name in the injected data global downstream). */
+const CodeIslandInputsManifest = z
+  .record(z.string().min(1).max(120), CodeIslandInputManifestEntry)
+  .refine((obj) => Object.keys(obj).length <= 32, {
+    message: "at most 32 typed inputs",
+  })
+  .refine((obj) => Object.keys(obj).every((k) => !FORBIDDEN_MANIFEST_KEYS.has(k)), {
+    message: "input key must not be __proto__/constructor/prototype",
+  });
+
 const CodeIslandInput = z.object({
   /** Free-text prompt describing the widget the user wants. */
   intent: z.string().min(1).max(4096),
@@ -51,6 +100,10 @@ const CodeIslandInput = z.object({
   rawContent: z.string().default(""),
   /** Optional importer context forwarded to the audit row. */
   importerId: z.string().optional(),
+  /** Optional typed-inputs SHAPE manifest (76-02a) — describes the wired data
+   * sources so the generator writes against the known structure. Shape only,
+   * never values. Omitted for a plain single-widget generate. */
+  inputs: CodeIslandInputsManifest.optional(),
 });
 
 const CodeIslandOutputSchema = z.object({
@@ -84,6 +137,10 @@ export const codeIslandGenerateProcedure = protectedProcedure
           intent: input.intent,
           raw_content: input.rawContent,
           importer_id: input.importerId ?? null,
+          // 76-02a: forward the typed-inputs manifest (shape only). Additive —
+          // the FastAPI model ignores it until 76-02b, so this is safe to ship
+          // ahead of the listener. `null` when the caller wired no inputs.
+          inputs: input.inputs ?? null,
         }),
       });
     } catch (networkErr) {

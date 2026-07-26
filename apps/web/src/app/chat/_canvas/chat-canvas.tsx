@@ -56,7 +56,11 @@ import "@xyflow/react/dist/style.css";
 // /knowledge's knowledge-graph.tsx).
 const ReactFlowJSX = ReactFlow as React.ComponentType<ReactFlowProps<FlowNode, FlowEdge>>;
 
+import { toast } from "sonner";
+
 import { Button } from "@polytoken/ui/button";
+
+import { api } from "~/trpc/react";
 
 import { useSendTo, type SendableObject } from "../../_components/use-send-to";
 import type { MessagePart } from "../_hooks/use-chat-stream";
@@ -86,6 +90,7 @@ import {
 import { useCanvasHistory } from "./use-canvas-history";
 import { CanvasEmptyState } from "./canvas-empty-state";
 import { AddNodeMenu, type SimpleNodeKind } from "./add-node-menu";
+import { collectToolInputs } from "./build-tool-flow";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   CanvasKeyboardHint,
@@ -1016,6 +1021,132 @@ export function ChatCanvas({
     [nodes, setNodes, persistence, canvasStore, history],
   );
 
+  // Phase 76 / 76-04 — the SUMMON LOOP. This is the gesture the whole
+  // code-island phase exists for: select ≥2 data nodes that have published a
+  // projection, and mint ONE bespoke tool grounded in exactly those sources.
+  //
+  // Flow: read each selected source's `shared.published.{id}` from the live
+  // store → `collectToolInputs` assembles the SHAPE manifest (→ generator) and
+  // the WIRING bindings (→ persistence, mirrors the canvas data-edges) →
+  // `codeIslandGenerate` (imperative `.fetch`, one-shot; not a subscription) →
+  // `codeIslands.create` persists the winning code + bindings → materialize ONE
+  // code-island node + one data-edge PER source, in a single history/save unit.
+  //
+  // Idempotent at the persistence layer (BTAP-06): fresh uuids for the node and
+  // every edge, one `scheduleSave` — re-running mints a distinct tool, never a
+  // duplicate row. The VALUES never reach the model: they flow to the running
+  // island only through the data-edges + sandbox channel (BTAP-01).
+  const utils = api.useUtils();
+  const createIsland = api.codeIslands.create.useMutation();
+  const [isBuildingTool, setIsBuildingTool] = useState(false);
+
+  const handleBuildTool = useCallback(async () => {
+    if (isBuildingTool) return; // one summon at a time (the generate is async)
+
+    const storeValues = canvasStore?.getState().values ?? {};
+    const collected = collectToolInputs(
+      selectedNodes(nodesRef.current),
+      storeValues,
+    );
+
+    if (collected.sources.length < 2) {
+      toast.error(
+        "Select 2 or more data nodes that have finished loading, then build a tool.",
+      );
+      return;
+    }
+
+    setIsBuildingTool(true);
+    const dismiss = toast.loading("Building a tool from your data…");
+    try {
+      // 1) Generate the island program against the SHAPE manifest (values are
+      //    NOT sent — the generator sees structure only).
+      const generated = await utils.genui.codeIslandGenerate.fetch({
+        intent: collected.intent,
+        inputs: collected.inputs,
+      });
+
+      // 2) Persist the winning code + its bindings; the owner is stamped
+      //    server-side. Returns the new island id.
+      const { islandId } = await createIsland.mutateAsync({
+        intent: collected.intent,
+        code: generated.code,
+        inputBindings: collected.inputBindings,
+      });
+
+      // 3) Materialize ONE code-island node near the viewport center, cascaded
+      //    clear of everything already placed.
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodesRef.current.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const dims =
+        CANVAS_NODE_DIMENSIONS["code-island"] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, ...dims },
+        existingRects,
+      );
+      const islandNodeId = `code-island:${crypto.randomUUID()}`;
+      const islandNode: FlowNode = {
+        id: islandNodeId,
+        type: "code-island",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { islandId },
+      };
+
+      // 4) One data-edge per source (source → island) carrying the same
+      //    sourcePath/targetKey the bindings recorded — so the node's unchanged
+      //    usePanelData overlay feeds each projection into __ISLAND_DATA__.
+      const newEdges: FlowEdge[] = collected.sources.map((source) => ({
+        id: `data-edge:${source.nodeId}:${islandNodeId}:${source.targetKey}`,
+        source: source.nodeId,
+        target: islandNodeId,
+        type: "data-edge",
+        animated: false,
+        markerEnd: DATA_EDGE_MARKER_END,
+        data: {
+          sourcePath: collected.inputBindings[source.targetKey]?.sourcePath,
+          targetKey: source.targetKey,
+        },
+      }));
+
+      history.record("Build a tool");
+      setNodes((prev) => [
+        ...prev.map((node) =>
+          node.selected ? { ...node, selected: false } : node,
+        ),
+        islandNode,
+      ]);
+      setEdges((prev) => [...prev, ...newEdges]);
+      persistence.scheduleSave(canvasStore);
+      toast.success("Tool ready — wired to your data.");
+    } catch {
+      // Detail-free: the generate proxy already logs server-side; the create
+      // mutation's own error is a TRPCError with no secret. The canvas is
+      // untouched (node/edges only materialize on the success path).
+      toast.error("Couldn't build a tool from these. Try again.");
+    } finally {
+      toast.dismiss(dismiss);
+      setIsBuildingTool(false);
+    }
+  }, [
+    isBuildingTool,
+    canvasStore,
+    utils,
+    createIsland,
+    setNodes,
+    setEdges,
+    persistence,
+    history,
+  ]);
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -1430,6 +1561,22 @@ export function ChatCanvas({
     });
   }, [edges]);
 
+  // Selection-awareness for the "Build a tool from these" menu entry (76-04) —
+  // how many currently-selected nodes are eligible SOURCES (not the chat
+  // singleton, not another tool). This is the coarse count that gates the menu
+  // item's enabled state; the handler does the finer publish-check and toasts
+  // if fewer than two have actually published data.
+  const selectedToolSourceCount = useMemo(
+    () =>
+      nodes.filter(
+        (node) =>
+          node.selected === true &&
+          node.type !== "chat" &&
+          node.type !== "code-island",
+      ).length,
+    [nodes],
+  );
+
   if (persistence.isRestoring || canvasStore === null) {
     return <CanvasSkeleton />;
   }
@@ -1580,6 +1727,9 @@ export function ChatCanvas({
                           onAddSimpleNode={handleAddSimpleNode}
                           onAddEntity={() => setEntityOpenNonce((n) => n + 1)}
                           onAssembleBoard={handleAssembleBoard}
+                          onBuildTool={() => void handleBuildTool()}
+                          buildToolSourceCount={selectedToolSourceCount}
+                          buildToolPending={isBuildingTool}
                         />
                         <AddEmailThreadPopover
                           onAdd={handleAddEmailThread}

@@ -53,9 +53,15 @@ interface Handlers {
   onAddSimpleNode: ReturnType<typeof vi.fn>;
   onAddEntity: ReturnType<typeof vi.fn>;
   onAssembleBoard: ReturnType<typeof vi.fn>;
+  onBuildTool: ReturnType<typeof vi.fn>;
 }
 
-async function mountMenu(): Promise<Handlers> {
+interface MountOptions {
+  readonly buildToolSourceCount?: number;
+  readonly buildToolPending?: boolean;
+}
+
+async function mountMenu(options: MountOptions = {}): Promise<Handlers> {
   const handlers: Handlers = {
     onAddCirclePack: vi.fn(),
     onAddEmailThread: vi.fn(),
@@ -65,12 +71,19 @@ async function mountMenu(): Promise<Handlers> {
     onAddSimpleNode: vi.fn(),
     onAddEntity: vi.fn(),
     onAssembleBoard: vi.fn(),
+    onBuildTool: vi.fn(),
   };
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
   await act(async () => {
-    root.render(<AddNodeMenu {...handlers} />);
+    root.render(
+      <AddNodeMenu
+        {...handlers}
+        buildToolSourceCount={options.buildToolSourceCount ?? 0}
+        buildToolPending={options.buildToolPending ?? false}
+      />,
+    );
   });
   return handlers;
 }
@@ -214,5 +227,32 @@ describe("AddNodeMenu", () => {
     await openMenu();
     await clickItem("Merge review");
     expect(h.onAddSimpleNode).toHaveBeenCalledWith("review-queue");
+  });
+
+  it("Build a tool is disabled with a hint when < 2 sources are selected (76-04)", async () => {
+    const h = await mountMenu({ buildToolSourceCount: 1 });
+    await openMenu();
+    const item = itemByText("Build a tool from these");
+    expect(item.getAttribute("data-disabled")).not.toBeNull();
+    expect(item.textContent ?? "").toContain("Select 2+ data nodes first");
+    await clickItem("Build a tool from these");
+    expect(h.onBuildTool).not.toHaveBeenCalled();
+  });
+
+  it("Build a tool fires onBuildTool with ≥2 sources selected (76-04)", async () => {
+    const h = await mountMenu({ buildToolSourceCount: 2 });
+    await openMenu();
+    await clickItem("Build a tool from these");
+    expect(h.onBuildTool).toHaveBeenCalledTimes(1);
+  });
+
+  it("Build a tool is disabled while a summon is pending (76-04)", async () => {
+    const h = await mountMenu({ buildToolSourceCount: 3, buildToolPending: true });
+    await openMenu();
+    const item = itemByText("Build a tool from these");
+    expect(item.getAttribute("data-disabled")).not.toBeNull();
+    expect(item.textContent ?? "").toContain("Building…");
+    await clickItem("Build a tool from these");
+    expect(h.onBuildTool).not.toHaveBeenCalled();
   });
 });

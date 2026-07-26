@@ -24,6 +24,7 @@ import {
   Activity,
   Bookmark,
   Box,
+  Boxes,
   CircleDashed,
   FileText,
   Files,
@@ -88,6 +89,16 @@ export interface AddNodeMenuProps {
   /** Phase 74 MVP — drops a pre-arranged starter board (brief + merge review +
    * spend meter) in one action; the user-triggered self-assembling board. */
   readonly onAssembleBoard: () => void;
+  /** Phase 76 / 76-04 — the summon loop: mint one bespoke code-island tool from
+   * the currently-selected data nodes. Enabled only when ≥2 eligible sources
+   * are selected. */
+  readonly onBuildTool: () => void;
+  /** How many currently-selected nodes are eligible tool SOURCES (not the chat
+   * singleton, not another tool) — gates the "Build a tool from these" item. */
+  readonly buildToolSourceCount: number;
+  /** True while a summon is mid-flight (generate → create) — keeps the item
+   * from firing a second overlapping build. */
+  readonly buildToolPending: boolean;
 }
 
 /** A blank 3-column sheet — the starting point the agent (or the user) fills. */
@@ -112,7 +123,13 @@ export function AddNodeMenu({
   onAddSimpleNode,
   onAddEntity,
   onAssembleBoard,
+  onBuildTool,
+  buildToolSourceCount,
+  buildToolPending,
 }: AddNodeMenuProps): React.ReactElement {
+  // The summon loop needs ≥2 selected data sources; disable (with a hint) until
+  // then so the affordance is always discoverable but only fires when it can.
+  const canBuildTool = buildToolSourceCount >= 2 && !buildToolPending;
   // The blank-sheet/blank-document creates live here (this component can reach
   // api) so the canvas host's add handlers stay sync — they just place the node
   // once the id is back.
@@ -156,6 +173,25 @@ export function AddNodeMenu({
         <DropdownMenuItem onSelect={onAssembleBoard}>
           <LayoutDashboard className="size-4 shrink-0 text-faded" aria-hidden />
           Assemble board
+        </DropdownMenuItem>
+        {/* Phase 76 summon loop — mint a bespoke tool from the selected data
+            nodes. Disabled with an inline hint until ≥2 sources are selected, so
+            the affordance is always visible but only fires when it can. */}
+        <DropdownMenuItem
+          disabled={!canBuildTool}
+          onSelect={onBuildTool}
+        >
+          <Boxes className="size-4 shrink-0 text-faded" aria-hidden />
+          <span className="flex min-w-0 flex-col">
+            <span>Build a tool from these</span>
+            {!canBuildTool ? (
+              <span className="text-2xs text-faded">
+                {buildToolPending
+                  ? "Building…"
+                  : "Select 2+ data nodes first"}
+              </span>
+            ) : null}
+          </span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onAddCirclePack("mailbox")}>
