@@ -92,6 +92,7 @@ import { CanvasEmptyState } from "./canvas-empty-state";
 import { AddNodeMenu, type SimpleNodeKind } from "./add-node-menu";
 import { BuildToolDialog } from "./build-tool-dialog";
 import { collectToolInputs } from "./build-tool-flow";
+import { CodeIslandPickerDialog } from "./code-island-picker-dialog";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
   CanvasKeyboardHint,
@@ -465,6 +466,7 @@ export function ChatCanvas({
   const [emailThreadOpenNonce, setEmailThreadOpenNonce] = useState(0);
   const [knowledgeOpenNonce, setKnowledgeOpenNonce] = useState(0);
   const [entityOpenNonce, setEntityOpenNonce] = useState(0);
+  const [codeIslandPickerOpenNonce, setCodeIslandPickerOpenNonce] = useState(0);
 
   // AI-04 "Send to chat" rails (reused, not reinvented) for the node menu.
   const { sendToChat, defaultConversationId } = useSendTo();
@@ -1184,6 +1186,45 @@ export function ChatCanvas({
     setBuildToolOpenNonce((n) => n + 1);
   }, [canvasStore]);
 
+  // 76-04c — place a code-island node for an ALREADY-BUILT tool the user picks
+  // from "Your tools" (codeIslands.list). node.data carries only the islandId
+  // ref; the node rehydrates code + wired inputs via codeIslands.byId. Same
+  // mechanics as handleAddEntity, with the code-island's own 560×520 shell.
+  const handleAddCodeIsland = useCallback(
+    (islandId: string) => {
+      const center = rfInstanceRef.current?.screenToFlowPosition({
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      }) ?? { x: 0, y: 0 };
+      const existingRects: CanvasRect[] = nodesRef.current.map((node) => ({
+        x: node.position.x,
+        y: node.position.y,
+        ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+      }));
+      const dims =
+        CANVAS_NODE_DIMENSIONS["code-island"] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+      const position = offsetCascadePosition(
+        { x: center.x, y: center.y, ...dims },
+        existingRects,
+      );
+      const newNode: FlowNode = {
+        id: `code-island:${crypto.randomUUID()}`,
+        type: "code-island",
+        position,
+        dragHandle: DRAG_HANDLE_SELECTOR,
+        selected: true,
+        data: { islandId },
+      };
+      history.record("Add node");
+      setNodes((prev) => [
+        ...prev.map((node) => (node.selected ? { ...node, selected: false } : node)),
+        newNode,
+      ]);
+      persistence.scheduleSave(canvasStore);
+    },
+    [setNodes, persistence, canvasStore, history],
+  );
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -1763,6 +1804,9 @@ export function ChatCanvas({
                           onAddDocument={handleAddDocument}
                           onAddSimpleNode={handleAddSimpleNode}
                           onAddEntity={() => setEntityOpenNonce((n) => n + 1)}
+                          onAddCodeIsland={() =>
+                            setCodeIslandPickerOpenNonce((n) => n + 1)
+                          }
                           onAssembleBoard={handleAssembleBoard}
                           onBuildTool={openBuildTool}
                           buildToolSourceCount={selectedToolSourceCount}
@@ -1785,6 +1829,10 @@ export function ChatCanvas({
                           sourceLabels={buildToolSourceLabels}
                           pending={isBuildingTool}
                           onBuild={(intent) => void handleBuildTool(intent)}
+                        />
+                        <CodeIslandPickerDialog
+                          onAdd={handleAddCodeIsland}
+                          requestOpenNonce={codeIslandPickerOpenNonce}
                         />
                         <Button
                           type="button"

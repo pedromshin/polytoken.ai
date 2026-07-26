@@ -86,6 +86,8 @@ export interface AddNodeMenuProps {
   readonly onAddSimpleNode: (kind: SimpleNodeKind) => void;
   /** Open the entity search picker (places an entity node on select). */
   readonly onAddEntity: () => void;
+  /** Open the "Your tools" picker (places a code-island node for a saved tool). */
+  readonly onAddCodeIsland: () => void;
   /** Phase 74 MVP — drops a pre-arranged starter board (brief + merge review +
    * spend meter) in one action; the user-triggered self-assembling board. */
   readonly onAssembleBoard: () => void;
@@ -122,6 +124,7 @@ export function AddNodeMenu({
   onAddDocument,
   onAddSimpleNode,
   onAddEntity,
+  onAddCodeIsland,
   onAssembleBoard,
   onBuildTool,
   buildToolSourceCount,
@@ -192,6 +195,10 @@ export function AddNodeMenu({
               </span>
             ) : null}
           </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={onAddCodeIsland}>
+          <Boxes className="size-4 shrink-0 text-faded" aria-hidden />
+          Your tools…
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => onAddCirclePack("mailbox")}>

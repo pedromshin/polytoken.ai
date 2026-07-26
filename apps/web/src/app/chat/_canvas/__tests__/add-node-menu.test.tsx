@@ -52,6 +52,7 @@ interface Handlers {
   onAddDocument: ReturnType<typeof vi.fn>;
   onAddSimpleNode: ReturnType<typeof vi.fn>;
   onAddEntity: ReturnType<typeof vi.fn>;
+  onAddCodeIsland: ReturnType<typeof vi.fn>;
   onAssembleBoard: ReturnType<typeof vi.fn>;
   onBuildTool: ReturnType<typeof vi.fn>;
 }
@@ -70,6 +71,7 @@ async function mountMenu(options: MountOptions = {}): Promise<Handlers> {
     onAddDocument: vi.fn(),
     onAddSimpleNode: vi.fn(),
     onAddEntity: vi.fn(),
+    onAddCodeIsland: vi.fn(),
     onAssembleBoard: vi.fn(),
     onBuildTool: vi.fn(),
   };
@@ -244,6 +246,13 @@ describe("AddNodeMenu", () => {
     await openMenu();
     await clickItem("Build a tool from these");
     expect(h.onBuildTool).toHaveBeenCalledTimes(1);
+  });
+
+  it("Your tools… fires onAddCodeIsland (76-04c)", async () => {
+    const h = await mountMenu();
+    await openMenu();
+    await clickItem("Your tools…");
+    expect(h.onAddCodeIsland).toHaveBeenCalledTimes(1);
   });
 
   it("Build a tool is disabled while a summon is pending (76-04)", async () => {
