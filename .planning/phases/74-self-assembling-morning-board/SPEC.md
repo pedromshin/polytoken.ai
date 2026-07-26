@@ -1,11 +1,26 @@
 ---
 phase: 74-self-assembling-morning-board
 milestone: vNEXT-living-canvas
-status: proposed
+status: in-progress
 size: L
 depends_on: [73]
 requirements: [MORN-01, MORN-02, MORN-03, MORN-04, MORN-05, MORN-06, MORN-07]
----
+build_log:
+  - "MVP client-triggered board SHIPPED 2026-07-25 (f573c3d): a canvas Add-node
+     'Assemble board' action drops the same brief+review-queue+usage node set in one
+     click — the self-assembling board, user-triggered, visible NOW on /chat."
+  - "Overnight backend SHIPPED 2026-07-25 (worker 1fe5b80 + listener <pending>): the
+     durable substrate. Worker cron (0 5 UTC, gated on MORNING_BOARD_ENABLED) →
+     dispatch_morning_boards fan-out → one idempotent assemble_morning_board job per
+     home-board owner → listener POST /v1/home/assemble-job (api-key, raise-on-fail,
+     flag-gated) → deterministic composer → tenancy-safe service-role home writer.
+     MORN-01..06 green; migration 0054 additive (allowlist). Ships DARK: worker cron
+     omitted + listener route no-ops until MORNING_BOARD_ENABLED flips at both ends."
+  - "GAP for the full banger (MORN-07): /home is a fixed 4-panel grid, NOT a canvas —
+     it does NOT render node-types today, so a server-composed node set is written but
+     not painted. Making the overnight board VISIBLE needs /home to mount canvas-node
+     rendering (home-scoped persistence + reconcile). Tracked as the remaining Phase 74
+     web slice; the /chat MVP (f573c3d) delivers the visible capability meanwhile."
 # Phase 74 — The morning board that builds itself   ·   BANGER: you open your laptop and a board about *your day* is already there — the agent drew it at 5am off last night's email.
 
 ## Goal
@@ -63,12 +78,12 @@ Manually enqueue one `assemble_morning_board` job for the seed user (via `enqueu
 
 ## Success criteria (testable / UAT)
 Gate-able here (no live loop needed):
-- [ ] **MORN-01** A new `assemble_morning_board` identifier is accepted by the `enqueue_job` allowlist (a new forward migration) and present in `apps/worker/src/tasks.ts` `taskList`; an unknown-identifier enqueue still raises (existing allowlist test extended).
-- [ ] **MORN-02** The worker `crontab` config enqueues `assemble_morning_board` on schedule AND fans out one job per active user with an idempotent `job_key` (unit test on the fan-out enqueuer: N users → N jobs, re-run same day replaces, does not duplicate).
-- [ ] **MORN-03** `/v1/home/assemble-job` raises (→ 5xx) on any failure (mirrors `ingest_job.py`; a swallow-to-200 regression test) and is api-key-guarded.
-- [ ] **MORN-04** The service-role home writer persists a snapshot keyed on the job's `user_id` (NOT a session), stamps `scope='home'`, and is tenancy-safe: a write for user A can never land on user B's home row (unit test asserts the `user_id`/`scope` filter, mirroring the `home-canvas.ts:15-23` ownership invariant).
-- [ ] **MORN-05** The composed snapshot validates against `CanvasSnapshotSchema` and every node type it emits resolves in `node-types.ts` (or degrades to the placeholder — no blank canvas).
-- [ ] **MORN-06** `MORNING_BOARD_ENABLED=False` fully darkens the path (no cron enqueue, no assembly) — the ship-dark switch (settings test).
+- [x] **MORN-01** A new `assemble_morning_board` identifier is accepted by the `enqueue_job` allowlist (a new forward migration) and present in `apps/worker/src/tasks.ts` `taskList`; an unknown-identifier enqueue still raises (existing allowlist test extended).
+- [x] **MORN-02** The worker `crontab` config enqueues `assemble_morning_board` on schedule AND fans out one job per active user with an idempotent `job_key` (unit test on the fan-out enqueuer: N users → N jobs, re-run same day replaces, does not duplicate).
+- [x] **MORN-03** `/v1/home/assemble-job` raises (→ 5xx) on any failure (mirrors `ingest_job.py`; a swallow-to-200 regression test) and is api-key-guarded.
+- [x] **MORN-04** The service-role home writer persists a snapshot keyed on the job's `user_id` (NOT a session), stamps `scope='home'`, and is tenancy-safe: a write for user A can never land on user B's home row (unit test asserts the `user_id`/`scope` filter, mirroring the `home-canvas.ts:15-23` ownership invariant).
+- [x] **MORN-05** The composed snapshot validates against `CanvasSnapshotSchema` and every node type it emits resolves in `node-types.ts` (or degrades to the placeholder — no blank canvas).
+- [x] **MORN-06** `MORNING_BOARD_ENABLED=False` fully darkens the path (no cron enqueue, no assembly) — the ship-dark switch (settings test).
 
 Needs a live loop (name it — real overnight run against real email + a real browser):
 - [ ] **MORN-07 (LIVE)** After an actual scheduled run against the seed user's real inbox, loading `/home` in a fresh browser shows the pre-assembled board with correct counts and a generation timestamp — a `screenshot:review` capture (jsdom does no layout; per CLAUDE.md this MUST be a real-browser gate, not a vitest assertion).

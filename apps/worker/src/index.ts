@@ -40,11 +40,26 @@ function envPositiveInt(name: string, fallback: number): number {
  */
 const CRONTAB = "0 5 * * * dispatch_morning_boards";
 
+/**
+ * Ship-dark gate (Phase 74). The morning-board cron only fires when
+ * `MORNING_BOARD_ENABLED` is truthy — the SAME env var the listener's
+ * settings read (`MORNING_BOARD_ENABLED: bool = False`), so ONE flip activates
+ * both ends. Default OFF: a fresh deploy adds no crontab, so nothing is
+ * enqueued nightly until the feature is turned on (no no-op job churn against a
+ * darkened listener route). The `assemble_morning_board`/`dispatch_morning_boards`
+ * task handlers stay registered either way — a manually-enqueued job (dev/MVP
+ * verify) still runs; only the automatic schedule is gated.
+ */
+function morningBoardEnabled(): boolean {
+  const raw = process.env.MORNING_BOARD_ENABLED;
+  return raw === "true" || raw === "1";
+}
+
 async function main(): Promise<void> {
   const runner = await run({
     connectionString: connectionString(),
     taskList,
-    crontab: CRONTAB,
+    ...(morningBoardEnabled() ? { crontab: CRONTAB } : {}),
     concurrency: envPositiveInt("WORKER_CONCURRENCY", 3),
     noHandleSignals: false,
     pollInterval: envPositiveInt("WORKER_POLL_INTERVAL_MS", 2000),

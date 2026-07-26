@@ -23,6 +23,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.application.use_cases.assemble_morning_board import AssembleMorningBoardUseCase
 from app.application.use_cases.autofill import AutofillUseCase
 from app.application.use_cases.autofill_fields import AutofillFieldsUseCase
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
@@ -73,6 +74,7 @@ from app.application.use_cases.set_component_relationship import (
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
 from app.container import create_container
+from app.domain.ports.home_canvas_writer import HomeCanvasWriter
 from app.domain.ports.job_enqueuer import JobEnqueuer
 from app.domain.ports.parser_registry_port import ParserRegistryPort
 
@@ -99,6 +101,9 @@ _TOP_LEVEL_PROVIDERS = (
     RunChatTurn,
     SubmitWidgetInteraction,
     EvaluateAnticipatoryCandidates,
+    # Self-assembling morning board (Phase 74) — no fan-in from the roots (the
+    # /v1/home/assemble-job route resolves it at call time), so it is guarded here.
+    AssembleMorningBoardUseCase,
 )
 
 # The 21 no-fan-in bindings the transitive closure of the roots above never reaches (audit
@@ -163,6 +168,14 @@ def test_container_resolves_every_binding() -> None:
             # a prod mail-path 500 once INGEST_ENQUEUE_ENABLED is flipped on.
             enqueuer = await container.get(JobEnqueuer)
             assert hasattr(enqueuer, "enqueue"), "JobEnqueuer resolved without an enqueue method"
+
+            # HomeCanvasWriter (Phase 74) is a Protocol port whose only fan-in is the
+            # /v1/home/assemble-job route (resolved at call time via AssembleMorningBoardUseCase),
+            # so guard its DI registration explicitly here too.
+            home_writer = await container.get(HomeCanvasWriter)
+            assert hasattr(home_writer, "write_home_snapshot"), (
+                "HomeCanvasWriter resolved without a write_home_snapshot method"
+            )
 
             await container.close()
 

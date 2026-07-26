@@ -47,12 +47,26 @@ Pedro's directive this session: **STOP building invisible backend — build NEW 
   documents/search-all/knowledge-search/review-queue/rule-suggestions, via 3 parallel agents). Gates:
   tsc + canvas/hooks vitest (1023) + placeholder build. LCAN-05 client-live proven; DB-row/real-browser
   gate owed. On feature branch (pending squash-merge to main).
-- **RESUME NEXT:** (1) squash-merge Wave B to main (Wave A already on main c6d24ee); flip
-  `CANVAS_EMIT_TOOL_ENABLED=ON` to live-verify the agent draws + the wire carries data end-to-end
-  (Pedro's prompt-verify seam); (2) **Phase 73 Wave C** — named recipes (`canvas_recipes` row +
-  ownership-gated CRUD + on-canvas badge, LCAN-07) then durable after-close recompute via the Task-7
-  graphile-worker (LCAN-09, live-verified); (3) then Phases 74-77 + the 5-seam v1.x punch-list. Tree
-  CLEAN + pushed.
+- ✅ **Phase 74 SHIPPED (self-assembling morning board — MVP + overnight backend).** (a) VISIBLE MVP
+  `f573c3d`: `/chat` Add-node → **Assemble board** drops brief+review-queue+usage in one click (live
+  now, no gate). (b) Overnight backend: worker `1fe5b80` (cron `0 5 UTC` gated on
+  `MORNING_BOARD_ENABLED` → `dispatch_morning_boards` fan-out → idempotent per-user
+  `assemble_morning_board` → POST `/v1/home/assemble-job`; migration 0054 additive allowlist) +
+  listener `<this commit>` (flag + deterministic composer + tenancy-safe service-role home writer +
+  route). MORN-01..06 green; ships DARK (worker cron omitted + listener no-ops until the ONE env var
+  `MORNING_BOARD_ENABLED` flips). Gates: worker tsc+vitest, packages/db tsc, listener
+  ruff+lint-imports+mypy(302)+full pytest(2061).
+- ⚠️ **Phase 74 MORN-07 GAP (known):** `/home` is a fixed 4-panel grid, NOT a canvas — it does NOT
+  render node-types, so the overnight composer's node set is WRITTEN but not PAINTED. Making the
+  overnight board visible needs a `/home` canvas-render slice (home-scoped persistence + reconcile).
+  The `/chat` "Assemble board" MVP is the visible stand-in meanwhile.
+- **RESUME NEXT:** (1) squash-merge Phase 74 backend to main (MVP f573c3d + worker 1fe5b80 already on
+  feature branch; listener needs main); the listener merge redeploys the mail receiver — SAFE (flag
+  OFF). (2) The `/home` canvas-render slice (MORN-07 visible) — bring node-type rendering to /home.
+  (3) **Phase 73 Wave C** — named recipes (`canvas_recipes` migration + CRUD + badge, LCAN-07) +
+  durable recompute (LCAN-09); migration-gated. (4) Phases 75-77 + the 5-seam v1.x punch-list. To
+  live-verify the agent-draw + morning board end-to-end, flip `CANVAS_EMIT_TOOL_ENABLED` and
+  `MORNING_BOARD_ENABLED`. Tree CLEAN + pushed.
 
 **Shipped to main since the last chronological block:**
 - **6 NEW CANVAS NODE TYPES → main `fcb68c5`** (2026-07-25, Vercel-only; NO listener/migration/infra

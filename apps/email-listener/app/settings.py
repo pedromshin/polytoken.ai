@@ -288,6 +288,21 @@ class BaseAppSettings(BaseSettings):
     ANTICIPATORY_CAP_WINDOW_MINUTES: int = 10
     ANTICIPATORY_CAP_PER_DAY: int = 3
 
+    # --- Self-assembling morning board (Phase 74, MORN-02/06) ---
+    # The single global off switch for the overnight home-board assembly, sibling
+    # to ANTICIPATORY_PROMPTING_ENABLED above and mirroring its posture EXACTLY.
+    # When False (the default), the /v1/home/assemble-job route SHIPS DARK: the
+    # AssembleMorningBoardUseCase short-circuits before it composes a snapshot or
+    # touches the home canvas — it composes NOTHING and writes NOTHING (a genuine
+    # kill-switch, structural, never a mutation). The route still EXISTS (so the
+    # worker's re-entry contract is stable) and returns a 200 no-op. This lets the
+    # whole feature merge into the LIVE mail receiver with zero behavioral change
+    # until it is explicitly flipped True per-tester. The composer + writer + their
+    # test suites exist regardless of this flag; only the composition provider reads
+    # it (passed as the use case's `enabled` param). Plain bool field (no @property
+    # wrapper) -- mirrors ANTICIPATORY_PROMPTING_ENABLED's own convention.
+    MORNING_BOARD_ENABLED: bool = False
+
     @property
     def api_key(self) -> str:
         return parse_secret_value(self.API_KEY, "API_KEY", self.ENVIRONMENT.value)

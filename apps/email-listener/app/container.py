@@ -26,6 +26,7 @@ from app.composition import (
     ingestion_providers,
     job_providers,
     llm_adapter_providers,
+    morning_board_providers,
     repository_providers,
 )
 from app.domain.ports.embedding_protocol import EmbeddingProtocol
@@ -215,6 +216,14 @@ def _build_provider() -> Provider:
     # turn loop (ANTICIPATORY_PROMPTING_ENABLED defaults False). Bindings in
     # app.composition.anticipatory_providers.register.
     anticipatory_providers.register(provider)
+
+    # ── Self-assembling morning board (Phase 74) — extracted group ─────────────
+    # HomeCanvasWriter → SupabaseHomeCanvasLayoutWriter (the service-role home-scope
+    # snapshot writer) + AssembleMorningBoardUseCase (composer + writer orchestrator
+    # the /v1/home/assemble-job route drives, gated on MORNING_BOARD_ENABLED — default
+    # OFF, so the feature ships dark). Bindings in
+    # app.composition.morning_board_providers.register.
+    morning_board_providers.register(provider)
 
     return provider
 
