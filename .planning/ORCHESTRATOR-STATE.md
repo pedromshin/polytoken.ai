@@ -13,6 +13,23 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ B2 ACCOUNT DELETION SHIPPED (ultracode + adversarial-hardened) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
+- ✅ **B2 self-serve account/data deletion DEPLOYED TO MAIN** (`786edc4`; web + listener). Makes the
+  shipped privacy-policy/ToS deletion promise real. Built via an ultracode Workflow (listener + web +
+  settings UI in parallel → adversarial verify), then HARDENED against 3 bugs the verification caught:
+  (1) CRITICAL — `delete_prefix('')` would walk the attachments BUCKET ROOT and wipe every user's blobs
+  → guarded. (2) HIGH tenant-isolation — the listener trusted caller-supplied ids → redesigned to
+  SELF-DERIVE scope from `X-User-Id` (new `AccountDeletionReader` port + Supabase impl); no input can
+  reach another user's data. (3) HIGH stranding — blob-delete failures were swallowed then the cascade
+  ran anyway → the web route now BLOCKS the irreversible cascade until blob erasure is confirmed
+  (listener returns `complete`; vault sweep must succeed) → 502 + retry-safe, never orphans data.
+  Deletion architecture: auth-user delete cascades ~all Postgres + embeddings; the route explicitly
+  erases what doesn't cascade (S3 raw MIME + backfill, email-attachments bucket, user-files vault incl
+  .versions/.trash, 3 orphan telemetry tables). No migration needed. UI: `/settings/account` danger
+  zone, confirm-gated destructive control. Gates: listener ruff+format+mypy(310)+lint-imports+full
+  pytest; web tsc+tests(6+2)+design-law(195)+placeholder build. **Live once deployed — the button
+  really deletes an account.** The adversarial-verify pass is the reason this is safe to ship.
+
 ### 🔥 LIVE-INGEST INCIDENT + CI-UNBLOCK — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 Pedro (live-loop testing, finally!) reported forwarded emails "should have worked already." Diagnosed
 against prod DB (Management API read via apply.py):
