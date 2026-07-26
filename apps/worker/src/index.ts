@@ -30,10 +30,21 @@ function envPositiveInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+/**
+ * The in-process cron schedule (graphile-worker `crontab`, NOT cloud infra — no Terraform/
+ * EventBridge, per the CLAUDE.md live-infra landmines). It fires ONCE globally at 05:00 UTC and
+ * enqueues the `dispatch_morning_boards` fan-out task — which then enumerates active users and
+ * enqueues one per-user `assemble_morning_board` job. The cron points at the DISPATCHER, never at
+ * `assemble_morning_board` directly, because a global cron fires once and we need per-user jobs.
+ * graphile-worker dedupes cron firings across multiple workers via its `known_crontabs` table.
+ */
+const CRONTAB = "0 5 * * * dispatch_morning_boards";
+
 async function main(): Promise<void> {
   const runner = await run({
     connectionString: connectionString(),
     taskList,
+    crontab: CRONTAB,
     concurrency: envPositiveInt("WORKER_CONCURRENCY", 3),
     noHandleSignals: false,
     pollInterval: envPositiveInt("WORKER_POLL_INTERVAL_MS", 2000),

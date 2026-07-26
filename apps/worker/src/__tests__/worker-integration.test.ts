@@ -26,7 +26,9 @@ CREATE OR REPLACE FUNCTION public.enqueue_job(
 ) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, graphile_worker AS $$
 DECLARE v_id bigint;
 BEGIN
-  IF p_identifier NOT IN ('ingest_inbound_email', 'deep_research') THEN
+  IF p_identifier NOT IN (
+    'ingest_inbound_email', 'deep_research', 'assemble_morning_board', 'dispatch_morning_boards'
+  ) THEN
     RAISE EXCEPTION 'enqueue_job: unknown identifier %', p_identifier;
   END IF;
   SELECT (graphile_worker.add_job(p_identifier, p_payload::json, max_attempts := p_max_attempts, job_key := p_job_key)).id INTO v_id;
@@ -122,5 +124,52 @@ describe.skipIf(!CONNECTION)("graphile-worker → Python HTTP seam", () => {
     expect(rows).toHaveLength(1); // still queued (not dead-lettered — max_attempts=8)
     expect(rows[0].attempts).toBe(1); // one failed attempt recorded
     expect(rows[0].last_error).toContain("500");
+  });
+
+  // MORN-01 — the 0054 allowlist accepts the two new identifiers; anything else still raises.
+  it("accepts the morning-board identifiers and rejects an unknown one (MORN-01)", async () => {
+    await utils.withPgClient((pg) =>
+      pg.query("SELECT public.enqueue_job('assemble_morning_board', $1::jsonb, 8, 'morn:allow:1')", [
+        JSON.stringify({ user_id: "u1" }),
+      ]),
+    );
+    await utils.withPgClient((pg) =>
+      pg.query("SELECT public.enqueue_job('dispatch_morning_boards', '{}'::jsonb, 8, 'morn:dispatch:1')"),
+    );
+
+    const { rows } = await utils.withPgClient((pg) =>
+      pg.query<{ task_identifier: string }>(
+        "SELECT task_identifier FROM graphile_worker.jobs WHERE key IN ('morn:allow:1','morn:dispatch:1') ORDER BY task_identifier",
+      ),
+    );
+    expect(rows.map((r) => r.task_identifier)).toEqual(["assemble_morning_board", "dispatch_morning_boards"]);
+
+    await expect(
+      utils.withPgClient((pg) =>
+        pg.query("SELECT public.enqueue_job('not_a_task', '{}'::jsonb)"),
+      ),
+    ).rejects.toThrow(/unknown identifier/);
+  });
+
+  // MORN-02 — the idempotent job_key: a same-day re-enqueue REPLACES the pending job, never dupes.
+  it("re-enqueuing the same morning job_key replaces rather than duplicates (MORN-02)", async () => {
+    const key = "morning:user-x:2026-07-26";
+    await utils.withPgClient((pg) =>
+      pg.query("SELECT public.enqueue_job('assemble_morning_board', $1::jsonb, 8, $2)", [
+        JSON.stringify({ user_id: "user-x" }),
+        key,
+      ]),
+    );
+    await utils.withPgClient((pg) =>
+      pg.query("SELECT public.enqueue_job('assemble_morning_board', $1::jsonb, 8, $2)", [
+        JSON.stringify({ user_id: "user-x" }),
+        key,
+      ]),
+    );
+
+    const { rows } = await utils.withPgClient((pg) =>
+      pg.query<{ n: string }>("SELECT count(*)::text AS n FROM graphile_worker.jobs WHERE key = $1", [key]),
+    );
+    expect(rows[0].n).toBe("1"); // one pending job, not two
   });
 });
