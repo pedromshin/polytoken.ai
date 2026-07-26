@@ -236,15 +236,20 @@ preferred stock, option pools, and SAFEs (02 §1), and it costs ~$1.5–3.5k/yr 
 franchise-tax/Form-5472 clocks. The C-corp rule of thumb is literally "form it if >50% chance of
 raising VC in ~3 years" (02 §1) — for the owner-operator path that's a **No**, so **don't form one.**
 
-- **Simplest legal structure that's compliant.** For a Brazil-based solo operator earning
-  subscription revenue, the natural path is a **Brazilian entity** (you already run
-  magnitudetech.com.br — confirm whether it's an LTDA/MEI/PJ, the single highest-value question for
-  your accountant, 02 §"Open questions" 2) plus a clean way to bill international customers. A
-  **Brazilian LTDA is "fine for consulting/subscription revenue"** (02 §"alternatives") — it's only
-  "unfundable by VCs," which you don't care about. **Get the Brazilian tax-advisor call before
-  taking any real revenue**, not after — how you bill and where profit lands is expensive to
-  repaper. **[ASSUMPTION — confirm structure + international-billing mechanics with a BR accountant;
-  this doc is not legal/tax advice.]**
+- **Simplest legal structure that's compliant — CONFIRMED 2026-07-26 (CNPJ card).** The entity is a
+  **Sociedade Empresária Limitada (LTDA)**, porte **ME**, situação ATIVA (CNPJ 65.152.447/0001-21,
+  opened 2026-02-13), nome fantasia **MAGNITUDE TECNOLOGIA** — i.e. the same entity that runs
+  `magnitudetech.com.br`. Its CNAEs already permit SaaS (principal **62.02-3-00** software dev +
+  licensing; secondary **63.11-9-00** data processing/hosting/ASP; **63.19-4-00** internet
+  content/info). Accountant on file: **Contabilizei**. This is exactly the recommended shape — a
+  **Brazilian LTDA is "fine for consulting/subscription revenue"** (02 §"alternatives"), only
+  "unfundable by VCs," which is irrelevant here. **No Delaware C-corp; the entity question is
+  resolved.** The two *remaining* accountant questions are narrower: **(a)** tax regime — Simples
+  Nacional **Anexo III vs V** for CNAE 62.02 (the *Fator R* payroll-ratio test swings the rate); and
+  **(b)** mechanics of banking **international** subscription revenue into the LTDA (Merchant-of-Record
+  payout + FX contract / "exportação de serviços" ISS treatment). Settle both **before** taking real
+  revenue — how you bill and where profit lands is expensive to repaper. **[This doc is not legal/tax
+  advice; (a)/(b) are for Contabilizei.]**
 - **Billing mechanics.** A payment processor that handles global consumer subscriptions + tax as
   Merchant of Record (Paddle/Lemon Squeezy-class) removes most cross-border sales-tax/VAT headache for
   a solo operator. **[ASSUMPTION — standard indie-SaaS pattern; verify current MoR terms and BR

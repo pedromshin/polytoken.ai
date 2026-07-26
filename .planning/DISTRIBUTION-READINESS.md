@@ -101,9 +101,15 @@ nothing built counts as "usable."
   mail flows; track 09 §8.3).
 - **B4 `[PEDRO]`** Documented legitimate-interest assessment for third-party correspondents in
   ingested mail (one artifact serves LGPD + future GDPR).
-- **Entity `[PEDRO]`** The single highest-value question: confirm the Brazilian entity structure +
-  international-billing mechanics with a BR accountant **before** taking real revenue (track 09 §8).
-  No Delaware C-corp.
+- **Entity — CONFIRMED 2026-07-26 (CNPJ card).** The company exists and is the right shape:
+  **`PEDRO KYUN MASCHIO SHIN CONSULTORIA EM TECNOLOGIA LTDA`** — a **Sociedade Empresária Limitada
+  (LTDA)**, porte **ME**, CNPJ 65.152.447/0001-21, situação **ATIVA** (opened 2026-02-13), nome
+  fantasia **MAGNITUDE TECNOLOGIA** (= the live `magnitudetech.com.br` entity). Corporate object
+  already permits SaaS: principal CNAE **62.02-3-00** (dev + licensing of customizable software) +
+  **63.11-9-00** (data processing / hosting / ASP) + **63.19-4-00** (internet content/info services).
+  Accountant on file: **Contabilizei**. This resolves track 09 §8's flagged entity assumption and the
+  "no Delaware C-corp" call — **done, no action.** What remains is narrower (C1-P + the two accountant
+  questions below), not "figure out the entity."
 - **C1-P `[PEDRO]`** Create the Merchant-of-Record account (Paddle/Lemon Squeezy), connect bank +
   tax, set the tier prices, then flip `BILLING_ENABLED`.
 
@@ -157,9 +163,12 @@ Ordered by leverage. Items 1–3 unblock everything; 4–6 are launch-gating; 7�
 5. **Create the Merchant-of-Record account** (Paddle or Lemon Squeezy), connect bank + tax, set the
    $25–30 and $50 tier prices. Claude builds the integration; only you can open the billing account.
    *(C1-P)*
-6. **Book the Brazilian accountant call** — confirm entity (LTDA/MEI/existing magnitudetech PJ?) +
-   how to bill international customers, **before** any real revenue. Highest-value single question in
-   the whole plan. *(Entity)*
+6. **Ask Contabilizei two specific questions** (entity itself is now CONFIRMED — LTDA/ME, active,
+   SaaS-capable CNAEs). Not "figure out the entity" anymore, just: **(a)** which tax regime + will
+   software revenue land in Simples Nacional **Anexo III vs V** (the *Fator R* / payroll-ratio
+   question — it swings the effective rate materially for CNAE 62.02); and **(b)** the mechanics of
+   receiving **international subscription revenue** into the LTDA (Merchant-of-Record payout + FX
+   contract / "exportação de serviços" ISS treatment). Do this before flipping billing on. *(Entity)*
 7. **Legal review** of the privacy policy + ToS draft Claude will ship (you or a contractor). *(B1-P)*
 8. **LGPD: publish the data-subject contact channel + put ANPD SCCs in place** (already overdue the
    moment a Brazilian user's mail flows). *(B3)*
