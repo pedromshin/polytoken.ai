@@ -29,6 +29,7 @@ into any track it cites.
 | `06-compliance-and-privacy.md` | Handling other people's email + files: LGPD (Brazil), GDPR, CCPA; SOC 2 path; data-loss liability for a drive product with backups/versioning promises |
 | `07-solo-vs-team.md` | What can stay AI-driven-solo vs where hires are unavoidable; contractor vs employee; equity planning |
 | `08-milestones-to-fundability.md` | Concrete traction milestones that would make this fundable; demo narrative; metrics to instrument now |
+| `09-bootstrapped-owner-operator.md` | **The non-VC inversion (added 2026-07-26 at Pedro's request).** How to adapt polytoken into a business he builds/launches/runs solo and makes a living off — profitability from customer #1, the make-a-living math (~250–535 paying users for a $3–5k/mo draw), scope cuts (drop the drive/desktop/inference-marketplace expansions), hire-from-revenue, the simpler legal/entity path (no Delaware C-corp), and the two existential solo-operator risks (uncapped ingest spend + being the 24/7 pager). Reads as the counterpoint to `08`/the EXECUTION-ROADMAP: same product, same "become used" imperative, VC machinery removed. |
 
 ## Ground rules
 
