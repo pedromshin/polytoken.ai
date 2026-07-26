@@ -26,6 +26,18 @@ describe("validateIslandCode — accepts safe island code", () => {
     const code = `const el = document.createElement('div'); el.textContent = 'hi'; document.getElementById('island-root').appendChild(el);`;
     expect(validateIslandCode(code).ok).toBe(true);
   });
+
+  // Phase 76 (BTAP-01/BTAP-08): a data-reading island — the whole point of the
+  // data channel — must pass the allowlist unchanged. `__ISLAND_DATA__` is not
+  // a forbidden name, and reading it opens no network/eval/host-access sink.
+  it("accepts an island that reads the injected __ISLAND_DATA__ global", () => {
+    const code = `const invoices = window.__ISLAND_DATA__.invoices || [];
+const total = invoices.reduce(function(s, r){ return s + Number(r.amount || 0); }, 0);
+const el = document.createElement('div');
+el.textContent = 'Total: ' + total;
+document.getElementById('island-root').appendChild(el);`;
+    expect(validateIslandCode(code).ok).toBe(true);
+  });
 });
 
 describe("validateIslandCode — no false positives on benign name positions", () => {
