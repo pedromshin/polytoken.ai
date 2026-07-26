@@ -68,6 +68,11 @@ gated + fixed every CONFIRMED finding before shipping. All to `main`:
     ingest PROBLEMS(2 HIGH) → both fixed.
   - ✅ **Listener deploy VERIFIED SUCCESS** — `deploy-email-listener.yml` run 30223784262 (SHA `5cebe7e`):
     completed/success (test job + build&deploy green). Scheduled check-in confirmed; listener image on main is current.
+  - ✅ **ULTRACODE-ALL-THREE deploy VERIFIED SUCCESS** — `deploy-email-listener.yml` run 30225009732
+    (SHA `445cdfa`, the final ledger+B+C push): completed/success. Listener image on main now carries the
+    B tier-cap wiring (flag OFF, byte-identical) + C compute-idempotency + reprocess fixes. Scheduled
+    verification check-in (trig_01GzKkMtVoVV3LKqnhoxgvbu) proactively confirmed early and cancelled — no
+    fix needed, CI green on the SHA.
 
 ### ✅ B2 ACCOUNT DELETION SHIPPED (ultracode + adversarial-hardened) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **B2 self-serve account/data deletion DEPLOYED TO MAIN** (`786edc4`; web + listener). Makes the
