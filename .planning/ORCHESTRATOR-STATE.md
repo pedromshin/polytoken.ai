@@ -14,6 +14,12 @@
 > **no autonomous backstop is active.**
 
 ### ✅ SESSION UPDATE — 2026-07-26 (C1 billing SHIPPED + deployed) · session_01NhVUcfpAuwy4YBkvme7dUp
+- ✅ **C1 /billing PAGE SHIPPED** (`b836836`, Vercel-only). The visible half: `/billing` (current-plan
+  readout + Pro $29 / Power $49 flat cards, 1-click Subscribe → Stripe Checkout, Manage → portal) +
+  `/billing/success` + a "Billing" nav entry (rail + mobile More). Chrome-monochrome/ink/sans (laws
+  1+2); gates: web tsc, surface test 4/4, palette-ban+colour-law+role-hue (195), placeholder build.
+  Graceful when billing off (reads free; Subscribe toasts). ⚠️ visual sign-off owed (jsdom no layout).
+  Display prices ($29/$49) MUST match the Stripe prices Pedro creates.
 - ✅ **C1 Stripe subscription billing DEPLOYED TO MAIN** (`8935506..8fecd23`, 8 commits: distribution
   plan · CNPJ entity · A1 · A2 · billing). Vercel (billing code, inert) + listener (A1/A2, flag-off)
   redeployed — all safe. Adapted Pedro's `algomaxxing/packages/billing` reference (added to session via
