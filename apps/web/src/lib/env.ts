@@ -27,6 +27,18 @@ export const envSchema = z.object({
   EMAIL_LISTENER_URL: z.string().url(),
   EMAIL_LISTENER_API_KEY: z.string().min(1),
 
+  // Stripe billing (server-only) — ALL OPTIONAL so a billing-off deploy never
+  // fails startup. Billing is gated on BILLING_ENABLED === "true" AND the
+  // presence of these; the router/webhook read them at request time (never a
+  // NEXT_PUBLIC_ var — a live sk_/rk_ secret must never reach the client bundle).
+  BILLING_ENABLED: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_POWER: z.string().optional(),
+  // Server-known base URL for building Stripe redirect targets (no open redirect).
+  BILLING_APP_URL: z.string().url().optional(),
+
   // Public vars — inlined into the client bundle by design (anon key is
   // public by design; it is subject to RLS, not a secret).
   NEXT_PUBLIC_SUPABASE_URL: z.string().url(),

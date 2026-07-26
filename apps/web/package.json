@@ -25,6 +25,7 @@
     "@polytoken/capabilities": "*",
     "playwright-core": "1.61.1",
     "@polytoken/daemon-protocol": "*",
+    "@polytoken/billing": "*",
     "@polytoken/db": "*",
     "@polytoken/genui": "*",
     "@polytoken/ui": "*",

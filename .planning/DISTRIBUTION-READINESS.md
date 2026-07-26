@@ -77,11 +77,20 @@ behavior. **This is the immediate work queue.**
 - **B2 `[CLAUDE]` — Deletion path audit + endpoint.** Verify and, if missing, build account-deletion
   across S3 raw MIME + Postgres rows + derived embeddings (LGPD/GDPR/CCPA all require it; deletion
   semantics are currently unverified). Ship a self-serve "delete my data" action.
-- **C1 `[CLAUDE]` — Checkout scaffolding (Merchant-of-Record).** Integrate a MoR processor
-  (Paddle or Lemon Squeezy — MoR handles global sales-tax/VAT so a solo BR operator doesn't).
-  14-day trial → paid; `$25–30` main tier + `$50` power tier (track 09 §3). Build the webhook →
-  entitlement → tier-gating plumbing behind `BILLING_ENABLED` OFF. **Account creation + bank/tax
-  is Pedro's** (C1-P below).
+- **C1 `[CLAUDE]` — Checkout scaffolding. ✅ BUILT (flag OFF)** on branch
+  `claude/phase-76-summon-loop-al5emg`. Pedro chose **Stripe** (not a MoR) and handed a reference
+  billing package; built as `@polytoken/billing` (DI, unit-tested) modeled for **subscriptions**
+  (Pro/Power tiers): `subscriptions` + `stripe_webhook_events` tables + migration `0056_billing.sql`
+  (RLS); a `billing` tRPC router (`currentSubscription` / `createCheckoutSession` /
+  `createPortalSession`); and the signature-verified webhook route
+  (`apps/web/src/app/api/stripe/webhook`). Idempotent webhook, USD + `adaptive_pricing`, no open
+  redirect (server-controlled URLs), secrets read at request time (never `NEXT_PUBLIC_`). Gated on
+  `BILLING_ENABLED` (default OFF) + the keys present → fully inert until configured. Gates green:
+  drizzle-kit check; tsc ×4 (billing/db/api-client/web); vitest (billing 15, api-client 756); web
+  placeholder build. **⚠️ Stripe ≠ Merchant-of-Record** — the LTDA owes cross-border tax itself; see
+  only-you **#6b**. **Remaining `[PEDRO]`:** C1-P below. **Not built (follow-ups):** the `/billing`
+  UI page + success page, the delayed-webhook `verifySession` fallback, and wiring `tier` into the
+  listener per-user cost caps.
 - **C2 `[CLAUDE]` — Tier → circuit-breaker config.** Map each tier 1:1 onto the cost-cap config
   (chat + the new ingest cap), so worst-case COGS/user is a product-enforced ceiling per tier.
 - **F1 `[CLAUDE]` — Funnel instrumentation.** Time-to-first-value, the forwarding-setup conversion
@@ -169,9 +178,13 @@ Ordered by leverage. Items 1–3 unblock everything; 4–6 are launch-gating; 7�
    *(E3)*
 4. **Set an AWS budget hard-cap + Bedrock tripwire** in the console. This is your account-level
    backstop while Claude ships the per-user ingest cap. *(E1)*
-5. **Create the Merchant-of-Record account** (Paddle or Lemon Squeezy), connect bank + tax, set the
-   $25–30 and $50 tier prices. Claude builds the integration; only you can open the billing account.
-   *(C1-P)*
+5. **Finish Stripe setup** (integration is built + shipped dark). In the Stripe Dashboard: create the
+   Pro (~$25–30/mo) and Power (~$50/mo) recurring **Products/Prices**; add a **webhook endpoint** →
+   `https://polytoken.ai/api/stripe/webhook` (events: `checkout.session.completed`,
+   `customer.subscription.created/updated/deleted`) and copy its signing secret. Then set the Vercel
+   env vars (`BILLING_ENABLED=true`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PRO`,
+   `STRIPE_PRICE_POWER`, `BILLING_APP_URL=https://polytoken.ai`). Rotate the `rk_live_` key you pasted
+   in chat. *(C1-P)*
 6. **Ask Contabilizei two specific questions** (entity itself is now CONFIRMED — LTDA/ME, active,
    SaaS-capable CNAEs). Not "figure out the entity" anymore, just: **(a)** which tax regime + will
    software revenue land in Simples Nacional **Anexo III vs V** (the *Fator R* / payroll-ratio
