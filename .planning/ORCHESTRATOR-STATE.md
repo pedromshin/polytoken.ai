@@ -13,6 +13,26 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ THREE MORE SLICES SHIPPED (ultracode) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
+- ✅ **DEPLOYED TO MAIN `5cebe7e`** (web + listener) — built via a Workflow (3 parallel builds + adversarial
+  verify), fixed against the verdicts, all gates green:
+  - **Ingest fast-200 bridge** (listener, `INGEST_BACKGROUND_ENABLED` default OFF): fixes the
+    SNS-15s-timeout → retry → 2-3× duplicate-Bedrock waste + multi-minute `received`. When on, the inline
+    path schedules ingest as a FastAPI BackgroundTask and 200s in <1s. Verify caught + I fixed: flag-OFF
+    byte-identical drift (DI resolution hoisted out of the try → moved back in) + an honest comment on the
+    accepted pre-persist gap (logged loudly, never silent) vs the durable worker. Also fixed the
+    sns_inbound SIGNATURE test's settings stub (the full suite caught it — the targeted test hadn't).
+    **The proper fix is still the durable worker (Pedro infra); this is the no-infra bridge to flip.**
+  - **Forwarding onboarding** (web): `/onboarding` guided flow — shows the user's personal forwarding
+    address (`api.forwarding.getOrCreateMyAddress`) + copy + setup steps + a "test email arrived" readout.
+    The #1 funnel cliff. Nav "Get started" entry. Design-law clean.
+  - **Billing verifySession** (packages/billing + api-client + web): the delayed-webhook fallback —
+    `/billing/success` calls `billing.verifyCheckout` on mount so a lagging Stripe webhook never leaves a
+    paid user on `free`. Idempotent vs the webhook (shared `syncSubscription` + `verify:{sessionId}` key).
+  - Gates: listener ruff+format+mypy(310)+lint-imports+full pytest(0 fail); billing tsc+vitest(19);
+    api-client tsc; web tsc+tests(8)+design-law(189)+placeholder build. Adversarial verdicts: web SOUND,
+    ingest PROBLEMS(2 HIGH) → both fixed.
+
 ### ✅ B2 ACCOUNT DELETION SHIPPED (ultracode + adversarial-hardened) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **B2 self-serve account/data deletion DEPLOYED TO MAIN** (`786edc4`; web + listener). Makes the
   shipped privacy-policy/ToS deletion promise real. Built via an ultracode Workflow (listener + web +
