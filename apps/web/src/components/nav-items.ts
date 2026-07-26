@@ -23,6 +23,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   Bookmark,
   Boxes,
+  CreditCard,
   FileText,
   FlaskConical,
   FolderOpen,
@@ -57,6 +58,9 @@ export const LIVE_NAV_ITEMS: ReadonlyArray<LiveNavItem> = [
   { href: "/references", label: "References", icon: Bookmark },
   { href: "/sessions", label: "Sessions", icon: SquareTerminal },
   { href: "/capabilities", label: "Capabilities", icon: ShieldCheck },
+  // Appended AFTER Capabilities so MOBILE_TAB_ITEMS' hardcoded indices (0/6/4/7)
+  // stay valid; Billing lands in the mobile "More" sheet automatically.
+  { href: "/billing", label: "Billing", icon: CreditCard },
 ];
 
 /** The four thumb-reach destinations on the mobile bottom tab bar. */
