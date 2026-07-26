@@ -41,7 +41,26 @@ vitest (756 pass).
   summon is mid-flight. Added the missing `code-island` (560×520) entry to `CANVAS_NODE_DIMENSIONS` so
   cascade/dagre see the true rect. Tests: `build-tool-flow` (11), `spreadsheet-publish` (3),
   `add-node-menu` (+4 summon cases), `code-island` api-client (+3 inputs cases).
-- 🚧 **BLOCKER (needs Pedro) — 0055 `code_islands` migration CANNOT be applied to prod from a session.**
+- ✅ **0055 `code_islands` APPLIED TO PROD (2026-07-26) — the summon loop is now fully live.** Applied
+  over the Supabase Management API (`sbp_` PAT Pedro provided; the sandbox has only HTTPS egress, no PG
+  socket — the §8 transport). Verified AGAINST THE DB: `code_islands` exists, `rls_enabled=true`, 2
+  owner RLS policies; `__drizzle_migrations` bookkept (id 53, hash 66ec2a5a…). Also applied the other
+  overdue additive-pending migrations in the same pass: **0050** (maritime purge, idempotent) and
+  **0052** (`canvases`/`canvas_nodes`/`canvas_edges` + RLS — the deployed canvas-promotion code already
+  expected these). `codeIslands.create` now persists in prod; the "Build a tool from these" flow works
+  end-to-end. **DEFERRED (Pedro-gated, unchanged): 0053 + 0054** — the Track-3a durable-worker rollout.
+  0053 RAISEs unless the `graphile_worker` schema exists (its own header: *"applied to the live DB by
+  Pedro (P3), never by this workflow"*); that schema needs `apps/worker install-schema` against a real
+  PG connection — not provisionable from the sandbox. They must be applied via the Management API (NOT
+  `drizzle migrate`) WHEN the worker is provisioned: because 0055 is now bookkept ahead of them
+  (created_at 1785032909130 > their 1784929405945/1785016800000), a `drizzle migrate` run would SKIP
+  them — but that CI path is already dead (secrets missing, below) and 0053/0054 were always manual, so
+  no regression. **STILL NEEDS PEDRO (separate from code_islands): the CI migrate path is broken** —
+  `PROD_POSTGRES_URL_NON_POOLING`/`PROD_POSTGRES_URL`/`PROD_SUPABASE_URL` don't exist in GitHub (repo or
+  `production` env; I added `environment: production` to `deploy-migrate-prod.yml` on branch `bca7c60`,
+  re-ran, still empty). Create those 3 secrets to restore drizzle-CI migrations; until then prod DB
+  changes go via the Management API.
+- 🚧 **(historical) The blocker this note replaced — 0055 could not be applied from a session —**
   Investigated this pass: the ONLY sanctioned prod-DB path is the `deploy-migrate-prod.yml` workflow
   (manual-dispatch, typed `MIGRATE-PROD` guard) — no DB creds exist in the ephemeral container, and no
   `.env.production`. That workflow has run exactly ONCE (2026-07-23, run 30052709284) and **FAILED at
