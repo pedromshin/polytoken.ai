@@ -19,6 +19,7 @@ import { BriefNode } from "./brief-node";
 import { BrowserNode } from "./browser-node";
 import { ChatNode } from "./chat-node";
 import { CirclePackNode } from "./circle-pack-node";
+import { CodeIslandNode } from "./code-island-node";
 import { ConversationsNode } from "./conversations-node";
 import { DesktopNode } from "./desktop-node";
 import { DirectoryNode } from "./directory-node";
@@ -66,6 +67,7 @@ export const nodeTypes: NodeTypes = {
   references: ReferencesNode,
   "search-all": SearchAllNode,
   conversations: ConversationsNode,
+  "code-island": CodeIslandNode,
   // Plan 23-04 (restore + degrade, T-23-09/CANVAS-03): a node reconciled from
   // a persisted layout whose type this session's registry doesn't recognize
   // is rewritten to this fixed key (original type preserved in

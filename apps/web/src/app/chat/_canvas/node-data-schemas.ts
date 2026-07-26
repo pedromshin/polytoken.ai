@@ -133,6 +133,24 @@ export const SpreadsheetNodeDataSchema = z
 export type SpreadsheetNodeData = z.infer<typeof SpreadsheetNodeDataSchema>;
 
 // ---------------------------------------------------------------------------
+// CodeIslandNodeDataSchema — code-island node.data (Phase 76 / BTAP-02): a
+// bespoke disposable app as a canvas node. Ref-only, mirroring
+// SpreadsheetNodeDataSchema exactly: node.data carries ONLY an `islandId` ref
+// (+ optional label), NEVER the generated code or its input bindings — those
+// rehydrate via api.codeIslands.byId (ownership-gated). `.strict()` — no code /
+// bindings may ride along in the layout row.
+// ---------------------------------------------------------------------------
+
+export const CodeIslandNodeDataSchema = z
+  .object({
+    islandId: z.string().uuid(),
+    label: z.string().max(120).optional(),
+  })
+  .strict();
+
+export type CodeIslandNodeData = z.infer<typeof CodeIslandNodeDataSchema>;
+
+// ---------------------------------------------------------------------------
 // FileNodeDataSchema — file node.data (FEATURE-CATALOG DR-03: a vault file as a
 // first-class canvas node). Ref-only like every sibling: node.data carries ONLY
 // the vault object's tenant-RELATIVE location (folder path segments + basename)

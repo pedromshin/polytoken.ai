@@ -17,6 +17,7 @@ import {
   BrowserNodeDataSchema,
   ChatNodeDataSchema,
   CirclePackNodeDataSchema,
+  CodeIslandNodeDataSchema,
   ConversationsNodeDataSchema,
   DesktopNodeDataSchema,
   DirectoryNodeDataSchema,
@@ -195,6 +196,12 @@ export const NODE_TYPE_REGISTRY: Record<string, NodeTypeRegistryEntry> = {
     dataSchema: ConversationsNodeDataSchema,
     description:
       "Conversations node — the recent-chats list as a board card (ref-only, DERIVED live); rows rehydrate via chat.listConversations (owner-scoped), each opening its conversation.",
+  },
+  "code-island": {
+    id: "code-island",
+    dataSchema: CodeIslandNodeDataSchema,
+    description:
+      "Code-island node — a bespoke disposable mini-app as a canvas node (Phase 76), anchored on an islandId ref (never the generated code); the winning jailed JS + its input bindings rehydrate via codeIslands.byId (ownership-gated) and run inside the opaque-origin sandbox over the user's own data-edge inputs, recomputing live as those inputs change.",
   },
 };
 

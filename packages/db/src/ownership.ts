@@ -46,6 +46,7 @@ import { Importers } from "./schema/importers";
 import { KnowledgeNodes } from "./schema/knowledge-nodes";
 import { References } from "./schema/references";
 import { Spreadsheets } from "./schema/spreadsheets";
+import { CodeIslands } from "./schema/code-islands";
 import { Threads } from "./schema/threads";
 
 /** The Drizzle handle every ownership function accepts as its first parameter. */
@@ -317,6 +318,31 @@ export async function assertSpreadsheetOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("spreadsheet", spreadsheetId);
+  }
+}
+
+/**
+ * assertCodeIslandOwnership — resolves when code_islands.user_id = userId.
+ * Direct user_id, no join (mirrors assertSpreadsheetOwnership — code_islands is
+ * NOT an importer-descendant, Phase 76 BTAP-09). Throws OwnershipError
+ * otherwise/missing (fail-closed, no existence oracle). The ONLY path the
+ * `codeIslands.byId` read + `codeIslands.remove` mutation use to gate a single
+ * island — never an ad-hoc per-call-site user_id filter.
+ */
+export async function assertCodeIslandOwnership(
+  db: OwnershipDb,
+  islandId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: CodeIslands.userId })
+    .from(CodeIslands)
+    .where(eq(CodeIslands.id, islandId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("code_island", islandId);
   }
 }
 

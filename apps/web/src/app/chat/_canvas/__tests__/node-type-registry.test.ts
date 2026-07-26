@@ -56,6 +56,7 @@ describe("computeNodeRegistryHash", () => {
       references: NODE_TYPE_REGISTRY.references!,
       "search-all": NODE_TYPE_REGISTRY["search-all"]!,
       conversations: NODE_TYPE_REGISTRY.conversations!,
+      "code-island": NODE_TYPE_REGISTRY["code-island"]!,
     };
     expect(computeNodeRegistryHash(reordered)).toBe(
       computeNodeRegistryHash(NODE_TYPE_REGISTRY),

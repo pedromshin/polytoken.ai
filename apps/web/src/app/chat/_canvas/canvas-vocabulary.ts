@@ -207,6 +207,7 @@ export type CanvasNodeKind =
   | "references"
   | "search-all"
   | "conversations"
+  | "code-island"
   | "unknown";
 
 /**
@@ -242,6 +243,7 @@ const NODE_KIND_BY_TYPE: Readonly<Record<string, CanvasNodeKind>> = Object.freez
     references: "references",
     "search-all": "search-all",
     conversations: "conversations",
+    "code-island": "code-island",
   }) as Record<string, CanvasNodeKind>,
 );
 
@@ -387,6 +389,15 @@ export const CANVAS_NODE_KIND_GEOMETRY: Record<CanvasNodeKind, string> = {
   references: "border-l-4 border-l-ink border-t-2 border-t-ink",
   "search-all": "border-l-4 border-l-ink border-b-2 border-b-ink",
   conversations: "border-l-4 border-l-ink border-dotted",
+  // Phase 76 code-island: a bespoke bound artifact (the DOUBLE rule, like
+  // document/spreadsheet) that is ALSO a LIVE, recomputing surface (the right
+  // seam the daemon panels use for "contents can change under you") — here it
+  // changes because a wired source's data changed, not a daemon. It is the
+  // user's own whole composed instrument, so it takes the heavy rule-4 left
+  // weight. L4 + right seam + double is pairwise-distinct from editor
+  // (L2·R2·double) and spreadsheet (L4·double, no seam) without spending a hue
+  // (law 3).
+  "code-island": "border-l-4 border-l-ink border-r-2 border-r-ink border-double",
   unknown: "border-dotted",
 };
 
@@ -432,6 +443,7 @@ export const CANVAS_NODE_KIND_LABEL: Record<CanvasNodeKind, string> = {
   references: "References",
   "search-all": "Search",
   conversations: "Chats",
+  "code-island": "App",
   unknown: "Unrecognized",
 };
 

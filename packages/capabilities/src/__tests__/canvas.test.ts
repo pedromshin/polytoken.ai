@@ -69,6 +69,7 @@ export const VALID_NODE_DATA_FIXTURES: Record<string, Record<string, unknown>> =
   references: { label: "x" },
   "search-all": { query: "invoices" },
   conversations: { label: "x" },
+  "code-island": { islandId: "00000000-0000-0000-0000-000000000002", label: "Reconciler" },
 };
 
 describe("canvas capabilities — the AI-01 mutation triple", () => {

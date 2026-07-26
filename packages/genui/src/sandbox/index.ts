@@ -20,7 +20,10 @@ export {
   buildIslandSrcdoc,
   ISLAND_SANDBOX,
   ISLAND_CSP_POLICY,
+  MAX_ISLAND_DATA_BYTES,
+  serializeIslandData,
   type BuildIslandSrcdocOptions,
+  type IslandDataResult,
 } from "./build-island-srcdoc";
 
 export {

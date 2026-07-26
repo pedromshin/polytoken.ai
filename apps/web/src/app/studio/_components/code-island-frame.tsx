@@ -41,6 +41,16 @@ export interface CodeIslandFrameProps {
   readonly heal?: IslandHealer;
   readonly maxAttempts?: number;
   readonly runA11y?: boolean;
+  /**
+   * Phase 76 (BTAP-01/03) — the data channel. The owner-scoped, bounded
+   * projections (keyed by targetKey) the island computes over, forwarded into
+   * the jail as the frozen `window.__ISLAND_DATA__` global. Changing `data`
+   * re-renders the frame (fresh nonce) WITHOUT restarting the repair pipeline —
+   * the reactive-recompute seam: a wired source's published value changes →
+   * `data` changes → the island recomputes over the new numbers. Omit for the
+   * exact pre-Phase-76 behaviour (no global injected).
+   */
+  readonly data?: unknown;
 }
 
 function makeNonce(): string {
@@ -80,6 +90,7 @@ export function CodeIslandFrame({
   heal,
   maxAttempts = 2,
   runA11y = true,
+  data,
 }: CodeIslandFrameProps): React.ReactElement {
   const [state, setState] = useState<IslandState>(() => startIsland(code, { maxAttempts }));
   const [a11y, setA11y] = useState<readonly IslandA11yViolation[]>([]);
@@ -88,8 +99,25 @@ export function CodeIslandFrame({
 
   const axeSource = useMemo(() => (runA11y ? getAxeSource() : undefined), [runA11y]);
 
+  // Phase 76 (BTAP-03): a stable serialization of the injected data. It joins
+  // the nonce key so a data change forces a fresh frame + clean re-run over the
+  // new inputs — WITHOUT restarting the repair pipeline (the `code` prop is
+  // unchanged, so the reset-on-code effect never fires). JSON.stringify is a
+  // structural signature; undefined data yields a stable empty signature.
+  const dataSignature = useMemo(() => {
+    if (data === undefined) return "";
+    try {
+      return JSON.stringify(data) ?? "";
+    } catch {
+      return "";
+    }
+  }, [data]);
+
   // Fresh nonce per (re)render attempt — invalidates stale messages + forces a clean frame.
-  const nonce = useMemo(() => makeNonce(), [state.code, state.attempts, state.phase]);
+  const nonce = useMemo(
+    () => makeNonce(),
+    [state.code, state.attempts, state.phase, dataSignature],
+  );
 
   // Reset per-render error tracking + a11y when a new attempt begins.
   useEffect(() => {
@@ -149,8 +177,8 @@ export function CodeIslandFrame({
       return buildSafePlaceholderSrcdoc(state.lastError ?? "Could not repair the generated code.");
     }
     const hostOrigin = typeof window !== "undefined" ? window.location.origin : undefined;
-    return buildIslandSrcdoc({ code: state.code, nonce, axeSource, hostOrigin });
-  }, [state.phase, state.code, state.violations, state.lastError, nonce, axeSource]);
+    return buildIslandSrcdoc({ code: state.code, nonce, axeSource, hostOrigin, data });
+  }, [state.phase, state.code, state.violations, state.lastError, nonce, axeSource, data]);
 
   const renderKey = state.phase === "rejected" || state.phase === "fallback" ? "safe" : nonce;
 

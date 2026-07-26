@@ -77,6 +77,7 @@ export const CANVAS_NODE_TYPE_IDS = Object.freeze([
   "references",
   "search-all",
   "conversations",
+  "code-island",
 ] as const);
 
 export type CanvasNodeTypeId = (typeof CANVAS_NODE_TYPE_IDS)[number];

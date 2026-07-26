@@ -257,6 +257,13 @@ export const CANVAS_NODE_DATA_SCHEMAS: Readonly<Record<string, z.ZodTypeAny>> = 
     .object({ query: z.string().max(200).optional(), label: z.string().max(120).optional() })
     .strict(),
   conversations: z.object({ label: z.string().max(120).optional() }).strict(),
+  // Phase 76 (BTAP-02) — code-island node: a bespoke disposable app as a canvas
+  // node. Ref-only, like spreadsheet/document: node.data carries ONLY an
+  // `islandId` ref; the generated code + its input bindings rehydrate via
+  // `codeIslands.byId` (ownership-gated), NEVER duplicated into the layout row.
+  "code-island": z
+    .object({ islandId: z.string().uuid(), label: z.string().max(120).optional() })
+    .strict(),
 });
 
 /** The allowlisted node type ids — MUST stay id-set-equal with apps/web's NODE_TYPE_REGISTRY

@@ -68,6 +68,7 @@ const VALID_FIXTURES: Record<string, Record<string, unknown>> = {
   references: { label: "x" },
   "search-all": { query: "invoices" },
   conversations: { label: "x" },
+  "code-island": { islandId: SOME_UUID, label: "Reconciler" },
 };
 
 /** Canonical HOSTILE node.data per type — each violates the type's own boundary. */
@@ -96,6 +97,7 @@ const HOSTILE_FIXTURES: Record<string, Record<string, unknown>> = {
   references: { smuggled: true }, // strict(): extra key
   "search-all": { smuggled: true }, // strict(): extra key
   conversations: { smuggled: true }, // strict(): extra key
+  "code-island": { islandId: SOME_UUID, code: "alert(1)" }, // ref-only: code never rides in node.data
 };
 
 describe("canvas capability mirror (AI-01 drift alarm)", () => {

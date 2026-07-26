@@ -41,6 +41,7 @@ export * from "./documents";
 export * from "./references";
 export * from "./desktop-sessions";
 export * from "./spreadsheets";
+export * from "./code-islands";
 export * from "./file-versions";
 export * from "./workspaces";
 export * from "./workspace-members";

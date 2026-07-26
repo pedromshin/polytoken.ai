@@ -52,6 +52,7 @@ const NODE_KINDS: readonly CanvasNodeKind[] = [
   "references",
   "search-all",
   "conversations",
+  "code-island",
   "unknown",
 ];
 

@@ -1,5 +1,6 @@
 import { capabilitiesRouter } from "./router/capabilities";
 import { chatRouter } from "./router/chat";
+import { codeIslandsRouter } from "./router/code-islands";
 import { desktopRouter } from "./router/desktop";
 import { documentsRouter } from "./router/documents";
 import { emailsRouter } from "./router/emails";
@@ -30,6 +31,7 @@ export const appRouter = createTRPCRouter({
   desktop: desktopRouter,
   search: searchRouter,
   spreadsheets: spreadsheetsRouter,
+  codeIslands: codeIslandsRouter,
   workspaces: workspacesRouter,
 });
 
