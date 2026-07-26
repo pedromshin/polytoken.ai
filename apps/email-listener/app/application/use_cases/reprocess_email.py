@@ -107,7 +107,10 @@ class ReprocessEmailUseCase:
         # rsplit("/", 1)[-1] reliably extracts the ses-id regardless of depth.
         ses_id = email.raw_storage_key.rsplit("/", 1)[-1]  # type: ignore[union-attr]
         logger.info("reprocess_reingest", email_id=email_id, ses_id=ses_id)
-        await self._ingest.execute(ses_id)
+        # reprocess=True forces the full pipeline to re-run even though the email
+        # is already 'parsed' — the redelivery short-circuit must NOT swallow a
+        # deliberate reprocess (its whole purpose is to re-extract).
+        await self._ingest.execute(ses_id, reprocess=True)
 
         # Did re-ingest actually produce fresh proposals? A Bedrock outage makes
         # the segmenter return [] WITHOUT raising, so a completed ingest is not

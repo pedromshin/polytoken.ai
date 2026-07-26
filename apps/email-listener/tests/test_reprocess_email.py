@@ -83,7 +83,7 @@ def test_reprocess_reingests_then_supersedes_old_pending() -> None:
     # NEVER from datetime.now(UTC) on the app server (clock-skew mitigation).
     components.latest_component_created_at.assert_awaited_once_with(EMAIL_ID)
     components.supersede_pending_regions.assert_awaited_once_with(EMAIL_ID, created_before=db_cutoff)
-    ingest.execute.assert_awaited_once_with("ses-abc")
+    ingest.execute.assert_awaited_once_with("ses-abc", reprocess=True)
     # created_before cutoff keyword confines the supersede to the OLD pile.
     assert components.supersede_pending_regions.await_count == 1
     kwargs = components.supersede_pending_regions.await_args.kwargs
@@ -111,7 +111,7 @@ def test_reprocess_skips_supersede_when_reingest_produces_no_regions() -> None:
 
     result = asyncio.run(_use_case(emails=emails, components=components, ingest=ingest).execute(email_id=EMAIL_ID))
 
-    ingest.execute.assert_awaited_once_with("ses-abc")
+    ingest.execute.assert_awaited_once_with("ses-abc", reprocess=True)
     components.supersede_pending_regions.assert_not_called()  # prior proposals preserved
     assert result == {
         "email_id": EMAIL_ID,

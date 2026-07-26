@@ -177,8 +177,15 @@ class IngestInboundEmailUseCase:
         # when INGEST_DAILY_COST_CAP_ENABLED is set (structural omission when off).
         self._budget_guard = budget_guard
 
-    async def execute(self, ses_message_id: str, recipients: Sequence[str] = ()) -> Email:
-        """Ingest the email identified by the SES message id; returns the persisted Email."""
+    async def execute(self, ses_message_id: str, recipients: Sequence[str] = (), *, reprocess: bool = False) -> Email:
+        """Ingest the email identified by the SES message id; returns the persisted Email.
+
+        ``reprocess=True`` (from ReprocessEmailUseCase) forces the full pipeline to
+        re-run even on an already-'parsed' email. The default (False) is the
+        SNS/enqueue delivery path, which SHORT-CIRCUITS a passive redelivery of an
+        already-'parsed' email (see below) so at-least-once redelivery cannot
+        re-spend the Bedrock/Textract enrichment.
+        """
         raw = await self._raw_store.fetch(ses_message_id)
         # parse_mime is CPU-bound (full MIME tree walk + decode); offload it so a
         # large multipart email cannot block the shared uvicorn event loop (WR-06).
@@ -196,6 +203,25 @@ class IngestInboundEmailUseCase:
         importer_id = await self._importer_resolver.resolve(parsed.sender_address, user_id=forwarding_user_id)
         message_id = parsed.message_id or ses_message_id
         existing = await self._email_repo.find_by_message_id(importer_id, message_id)
+
+        # Compute-idempotency: a PASSIVE redelivery (SNS at-least-once, or a
+        # graphile job re-enqueued after its job_key freed on completion) of an
+        # already fully-'parsed' email must NOT re-run the expensive enrichment
+        # (hundreds of Bedrock/Textract calls) — the MIME is byte-identical (same
+        # SES id), so there is nothing new to extract — and must not let a later
+        # cost-cap crossing downgrade the 'parsed' row to 'degraded'. A DELIBERATE
+        # reprocess (reprocess=True) always re-runs. Only 'parsed' short-circuits;
+        # 'received'/'degraded'/'failed' rows stay eligible so a redelivery can
+        # still drive an incomplete email to a terminal state.
+        if not reprocess and existing is not None and existing.parse_status == "parsed":
+            logger.info(
+                "email_redelivery_skipped",
+                email_id=existing.id,
+                message_id=message_id,
+                importer_id=importer_id,
+            )
+            return existing
+
         now = datetime.now(UTC)
         received_at = parsed.received_at or now
 

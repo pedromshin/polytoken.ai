@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import replace
 from email.message import EmailMessage
 from unittest.mock import AsyncMock, MagicMock
 
@@ -212,30 +213,73 @@ def test_no_attachments_skips_storage() -> None:
     mocks["attachment_repo"].save.assert_not_awaited()
 
 
-def test_redelivery_reuses_existing_email_id() -> None:
-    """SNS redelivery must not change the email id (attachments stay linked)."""
+def test_reprocess_reuses_existing_email_id() -> None:
+    """A deliberate reprocess must reuse the email id (attachments stay linked).
+
+    (A PASSIVE redelivery of a 'parsed' email short-circuits — see
+    test_passive_redelivery_of_parsed_email_short_circuits — so the id-reuse-on-
+    resave path is exercised via reprocess=True, which forces the full re-run.)
+    """
     use_case_first, _ = _make_use_case(_raw_email())
     first = asyncio.run(use_case_first.execute(SES_MESSAGE_ID))
 
     use_case_again, mocks = _make_use_case(_raw_email(), existing_email=first)
-    second = asyncio.run(use_case_again.execute(SES_MESSAGE_ID))
+    second = asyncio.run(use_case_again.execute(SES_MESSAGE_ID, reprocess=True))
 
     mocks["email_repo"].find_by_message_id.assert_awaited_once_with(IMPORTER_ID, "<mime-001@exporter.com>")
     assert second.id == first.id
     assert second.created_at == first.created_at
 
 
-def test_redelivery_keeps_attachment_ids_deterministic() -> None:
+def test_reprocess_keeps_attachment_ids_deterministic() -> None:
     use_case_first, mocks_first = _make_use_case(_raw_email())
     first = asyncio.run(use_case_first.execute(SES_MESSAGE_ID))
     first_att = mocks_first["attachment_repo"].save.await_args.args[0]
 
     use_case_again, mocks_again = _make_use_case(_raw_email(), existing_email=first)
-    asyncio.run(use_case_again.execute(SES_MESSAGE_ID))
+    asyncio.run(use_case_again.execute(SES_MESSAGE_ID, reprocess=True))
     second_att = mocks_again["attachment_repo"].save.await_args.args[0]
 
     assert second_att.id == first_att.id
     assert second_att.storage_key == first_att.storage_key
+
+
+def test_passive_redelivery_of_parsed_email_short_circuits() -> None:
+    """A passive redelivery of an already-'parsed' email re-runs NO enrichment.
+
+    At-least-once SNS redelivery (or a graphile job re-enqueued after its job_key
+    freed) must not re-spend the Bedrock/Textract pipeline on an email that is
+    already fully parsed. execute() returns the existing row untouched: no save,
+    no attachment work, no region proposal.
+    """
+    use_case_first, _ = _make_use_case(_raw_email())
+    first = asyncio.run(use_case_first.execute(SES_MESSAGE_ID))
+    assert first.parse_status == "parsed"
+
+    use_case_again, mocks = _make_use_case(_raw_email(), existing_email=first)
+    second = asyncio.run(use_case_again.execute(SES_MESSAGE_ID))
+
+    assert second is first  # the existing row is returned as-is
+    mocks["email_repo"].save.assert_not_awaited()
+    mocks["attachment_storage"].store.assert_not_awaited()
+    mocks["propose_regions"].execute.assert_not_awaited()
+
+
+def test_passive_redelivery_of_unparsed_email_still_ingests() -> None:
+    """Only 'parsed' short-circuits — a non-terminal-good row still re-ingests.
+
+    A 'failed'/'degraded'/'received' row is incomplete, so a redelivery is allowed
+    to drive it toward a terminal state (the full pipeline runs).
+    """
+    use_case_first, _ = _make_use_case(_raw_email())
+    first = asyncio.run(use_case_first.execute(SES_MESSAGE_ID))
+    failed = replace(first, parse_status="failed")
+
+    use_case_again, mocks = _make_use_case(_raw_email(), existing_email=failed)
+    asyncio.run(use_case_again.execute(SES_MESSAGE_ID))
+
+    mocks["email_repo"].save.assert_awaited_once()
+    mocks["propose_regions"].execute.assert_awaited_once()
 
 
 def test_falls_back_to_ses_message_id_when_no_mime_message_id() -> None:
