@@ -62,6 +62,11 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~11:26 UTC — PR #11 CI GREEN on Node 22. The new gate immediately EARNED ITS KEEP: it caught a
+  pre-existing clean-install bug (root/apps-web jsdom@29 → ESM @exodus/bytes → ERR_REQUIRE_ESM under
+  `npm ci`, masked by local stale node_modules). Fixed via Node 22 (stable require(ESM), zero lockfile
+  churn) + a harmless html-encoding-sniffer@4 pin. Deeper fix (align apps/web jsdom→^25.0.1 like
+  genui/ui) noted as a follow-up. Substantive safe queue is DONE; remaining W4/6/7/8/9 stay deferred.
 - ~10:52 UTC — PR #11 opened (overnight batch, NOT merged — migration-order gated). Added codeIslands
   router test (+fixed a fake-db regression W3 exposed) + references router test (last untested router).
   api-client 784 green. Ledger + PEDRO-CHECKLIST updated for morning handoff.

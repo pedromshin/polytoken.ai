@@ -21,7 +21,7 @@ durable store. Held to the hard safety lines (NO terraform apply / prod migratio
 classifier bypass). Browser/visual sim was INFEASIBLE (no Supabase/auth, no .env.local) — visible surfaces
 still owe Pedro's real-browser pass. All work is additive + locally CI-green, accumulated on
 **PR #11 (NOT merged — held for Pedro's review + the migration order below).**
-- ✅ **W1 — the TypeScript side finally has CI** (`ci-web-and-packages.yml`). tsc + vitest for all 9 TS
+- ✅ **W1 — the TypeScript side finally has CI** (`ci-web-and-packages.yml`) — **GREEN in GitHub on Node 22**; it immediately caught a pre-existing clean-install jsdom@29→ESM-@exodus/bytes ERR_REQUIRE_ESM bug (fixed via Node 22 + a follow-up to align apps/web jsdom→^25.0.1). tsc + vitest for all 9 TS
   workspaces + drizzle-kit check, path-filtered. Validated all 9 green locally first. (master-plan Track 2
   shortlist #3 — the TS side had ZERO CI.) daemon excluded (known-red non-hermetic suite).
 - ✅ **W2 — "Recent tables" home-board panel** → /spreadsheets discoverability (wires spreadsheets.list).
