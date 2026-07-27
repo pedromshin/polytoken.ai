@@ -320,9 +320,7 @@ def _latest_user_text(history: Sequence[ChatMessage]) -> str:
     for message in reversed(list(history)):
         if message.role != "user":
             continue
-        text = " ".join(
-            str(part.get("text", "")) for part in message.parts if part.get("type") == "text"
-        ).strip()
+        text = " ".join(str(part.get("text", "")) for part in message.parts if part.get("type") == "text").strip()
         if text:
             return text
     return ""
@@ -683,7 +681,12 @@ class RunChatTurn:
         )
 
     async def _system_prompt_with_linked_context(
-        self, *, base_system_prompt: str, conversation_id: str, importer_id: str, importer_ids: Sequence[str] | None = None
+        self,
+        *,
+        base_system_prompt: str,
+        conversation_id: str,
+        importer_id: str,
+        importer_ids: Sequence[str] | None = None,
     ) -> str:
         """Thin delegator to chat/linked_context.py (999.31 carve) with this instance's collaborators."""
         return await system_prompt_with_linked_context(

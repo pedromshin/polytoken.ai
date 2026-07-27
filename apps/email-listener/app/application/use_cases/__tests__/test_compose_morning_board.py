@@ -117,8 +117,7 @@ def test_composer_emits_only_registered_node_types() -> None:
     assert emitted == list(_EXPECTED_STARTER_TYPES)
     for node_type in emitted:
         assert node_type in _REGISTERED_NODE_TYPES, (
-            f"composer emitted unregistered node type {node_type!r} "
-            f"(not in node-type-registry.ts)"
+            f"composer emitted unregistered node type {node_type!r} (not in node-type-registry.ts)"
         )
 
 

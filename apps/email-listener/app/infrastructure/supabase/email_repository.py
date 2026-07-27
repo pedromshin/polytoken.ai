@@ -88,9 +88,7 @@ class SupabaseEmailRepository:
         return _from_row(cast("dict[str, Any]", result.data[0]))
 
     async def find_by_id(self, email_id: str) -> Email | None:
-        result = await asyncio.to_thread(
-            lambda: self._client.table("emails").select("*").eq("id", email_id).execute()
-        )
+        result = await asyncio.to_thread(lambda: self._client.table("emails").select("*").eq("id", email_id).execute())
         if not result.data:
             return None
         return _from_row(cast("dict[str, Any]", result.data[0]))

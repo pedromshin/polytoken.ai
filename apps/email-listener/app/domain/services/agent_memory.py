@@ -277,10 +277,7 @@ def build_memory_citation_envelope(
         "mode": MEMORY_ENVELOPE_MODE,
         "report": "",
         "aborted": False,
-        "sources": [
-            {"id": s.id, "url": s.url, "title": s.title, "excerpt": s.excerpt}
-            for s in sources_by_id.values()
-        ],
+        "sources": [{"id": s.id, "url": s.url, "title": s.title, "excerpt": s.excerpt} for s in sources_by_id.values()],
         "claims": claims,
     }
 

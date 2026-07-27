@@ -104,6 +104,7 @@ def test_route_is_api_key_guarded() -> None:
     """Do NOT override the guard — a request with a wrong key against a configured
     key must be rejected (401) before the use case runs, proving the router's
     require_api_key dependency is wired."""
+
     def _fake_settings() -> _AuthSettings:
         return _AuthSettings()
 

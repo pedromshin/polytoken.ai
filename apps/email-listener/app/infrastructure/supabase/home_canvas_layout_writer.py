@@ -73,11 +73,7 @@ class SupabaseHomeCanvasLayoutWriter:
         if existing.data:
             await asyncio.to_thread(
                 lambda: (
-                    self._client.table(_TABLE)
-                    .update(columns)
-                    .eq("user_id", user_id)
-                    .eq("scope", _HOME_SCOPE)
-                    .execute()
+                    self._client.table(_TABLE).update(columns).eq("user_id", user_id).eq("scope", _HOME_SCOPE).execute()
                 )
             )
             logger.info("home_canvas_snapshot_updated", user_id=user_id, node_count=len(snapshot.nodes))

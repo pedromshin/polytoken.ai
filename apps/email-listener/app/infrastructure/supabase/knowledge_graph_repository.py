@@ -197,9 +197,7 @@ class SupabaseKnowledgeGraphRepository:
             )
             return node_id
 
-        result = await asyncio.to_thread(
-            lambda: self._client.table("knowledge_nodes").insert(payload).execute()
-        )
+        result = await asyncio.to_thread(lambda: self._client.table("knowledge_nodes").insert(payload).execute())
         if not result.data:
             raise ValueError(f"knowledge_nodes insert returned no data: importer_id={importer_id}")
         return str(cast("dict[str, Any]", result.data[0])["id"])
@@ -263,9 +261,7 @@ class SupabaseKnowledgeGraphRepository:
             source=source,
             provenance=provenance,
         )
-        await asyncio.to_thread(
-            lambda: self._client.table("knowledge_node_edges").insert(payload).execute()
-        )
+        await asyncio.to_thread(lambda: self._client.table("knowledge_node_edges").insert(payload).execute())
 
     async def deactivate_edges_for_node(self, source_node_id: str) -> None:
         """Set is_active=False on all active edges for source_node_id.
@@ -558,10 +554,7 @@ class SupabaseKnowledgeGraphRepository:
         """Fail-closed seed check: exists, is_active, and same-importer as the caller (T-37-03)."""
         seed_result = await asyncio.to_thread(
             lambda: (
-                self._client.table("knowledge_nodes")
-                .select("id, importer_id, is_active")
-                .eq("id", node_id)
-                .execute()
+                self._client.table("knowledge_nodes").select("id, importer_id, is_active").eq("id", node_id).execute()
             )
         )
         seed_rows = cast("list[dict[str, Any]]", seed_result.data or [])

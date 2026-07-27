@@ -87,6 +87,4 @@ async def backfill_reprocess(
             logger.exception("backfill_reprocess_failed", email_id=email_id)
             items.append(ReprocessItem(email_id=email_id, ok=False, error=repr(exc)[:300]))
 
-    return ApiResponse.ok(
-        ReprocessAck(reprocessed=reprocessed, failed=failed, skipped_not_owned=skipped, items=items)
-    )
+    return ApiResponse.ok(ReprocessAck(reprocessed=reprocessed, failed=failed, skipped_not_owned=skipped, items=items))
