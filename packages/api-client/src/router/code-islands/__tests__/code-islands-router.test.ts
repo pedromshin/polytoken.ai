@@ -57,7 +57,12 @@ function makeDb(opts: {
     insert: () => ({
       values: (v: FakeRow) => {
         if (opts.captured) opts.captured.values = v;
-        return { returning: () => Promise.resolve(opts.insertReturning ?? []) };
+        // create() now upserts: .values().onConflictDoUpdate().returning().
+        const insertChain = {
+          onConflictDoUpdate: () => insertChain,
+          returning: () => Promise.resolve(opts.insertReturning ?? []),
+        };
+        return insertChain;
       },
     }),
     delete: () => ({
