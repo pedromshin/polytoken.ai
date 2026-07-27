@@ -53,7 +53,7 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
 - [ ] **W6. Real-Postgres tenant-isolation CI job** (master-plan Track 2) — ephemeral-Postgres job that
       applies all migrations from scratch + runs the isolation suite. THIS is the prerequisite that
       unblocks the deferred workspace-sharing hazard. Higher effort.
-- [~] **W7. Phase 75 — 75-01 ledger SHIPPED; visible half (75-05/CPF-05) ALREADY existed; cascade core deferred.**
+- [~] **W7. Phase 75 — 75-01 ledger + 75-02 CascadeCorrectionUseCase SHIPPED (additive); 75-05 already existed.**
       Shipped correction_propagations (mig 0060, importer-scoped, job_key-unique for CPF-02 idempotency).
       CPF-05 (entities.byId invalidation on merge) + the cascade-highlight were already in use-merge-review.ts.
       DEFERRED: 75-02 CascadeCorrectionUseCase + 75-03 wire-into-ConfirmMerge + 75-04 worker — complex domain
@@ -66,6 +66,11 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~12:1x UTC — Phase 75-02 shipped: CascadeCorrectionUseCase + new correction_cascade ports + 4 CPF-01/02
+  tests. Domain-pure (lint-imports clean), additive (NOT wired to ConfirmMerge, no infra adapters). Full
+  listener suite green (mypy 315, ruff, 2100+ pytest). REMAINING (deferred, live-merge-path): 75-03 wire
+  into ConfirmMergeUseCase best-effort + concrete SQL adapters + surface summary through the confirm
+  endpoint/tRPC; 75-04 worker cascade_relabel task. These modify the live merge path → Pedro's review.
 - ~11:40 UTC — W9 found ALREADY DONE (container.py already split into 11 composition/ provider modules).
   Phase 75: shipped 75-01 correction_propagations ledger (mig 0060); found CPF-05 + cascade-highlight already
   shipped in use-merge-review.ts. Deferred the 75-02/03/04 cascade core (live-merge-path domain logic) for review.
