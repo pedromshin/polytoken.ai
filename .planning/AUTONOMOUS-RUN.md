@@ -62,6 +62,9 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~10:52 UTC — PR #11 opened (overnight batch, NOT merged — migration-order gated). Added codeIslands
+  router test (+fixed a fake-db regression W3 exposed) + references router test (last untested router).
+  api-client 784 green. Ledger + PEDRO-CHECKLIST updated for morning handoff.
 - ~10:38 UTC — W3 shipped (code_islands provenance upsert, mig 0059, backend+web, atomic 2 commits).
 - ~10:27 UTC — W1 (TS CI), W2 (tables panel), W5 (source invalidation) shipped+pushed. Daemon suite
   greening assessed = rabbit hole (non-hermetic realpath/junction, 12 fails) — left excluded from CI.

@@ -38,6 +38,10 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
   (adds `canvas_recipes` + its RLS policies) for Phase 73 Wave C — safe additive table, no existing data
   touched. `npm run db:migrate` (via the sanctioned `deploy-migrate-prod.yml` path once its
   `environment: production` scoping is fixed — see ledger).
+- **⚠️ PR #11 (overnight batch) — apply `0058` AND `0059_moaning_wrecker` BEFORE merging/deploying it.**
+  0059 adds `code_islands.provenance` (+ unique index); the new `codeIslands.create` upserts on it, so
+  deploying PR #11 ahead of the migration would break the LIVE "Build a tool from these" flow. PR #11 is
+  additive + CI-green but intentionally NOT merged — review, apply migrations, then merge.
 - **IAM `s3:DeleteObject`** grant on the SES inbound bucket (`infrastructure/aws/iam.tf`) — WITHOUT it,
   self-serve account deletion 502s for any user who has received SES mail (right-to-erasure gap).
   **Gated: no TF remote state yet** — do NOT `terraform apply` from a checkout until shared state

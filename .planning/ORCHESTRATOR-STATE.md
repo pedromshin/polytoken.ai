@@ -13,6 +13,33 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### 🌙 AUTONOMOUS OVERNIGHT RUN — safe additive batch on PR #11 — 2026-07-27 (07:58→~14:00 UTC)
+Pedro: "continue autonomously 6h, don't prompt me, keep yourself alive." Ran a self-paced build loop
+(full plan/policy/queue in `.planning/AUTONOMOUS-RUN.md`). Environment was UNSTABLE (container restart +
+repeated interrupts) → policy: small atomic units, commit+push after every verified step, remote branch =
+durable store. Held to the hard safety lines (NO terraform apply / prod migrations / AWS provisioning /
+classifier bypass). Browser/visual sim was INFEASIBLE (no Supabase/auth, no .env.local) — visible surfaces
+still owe Pedro's real-browser pass. All work is additive + locally CI-green, accumulated on
+**PR #11 (NOT merged — held for Pedro's review + the migration order below).**
+- ✅ **W1 — the TypeScript side finally has CI** (`ci-web-and-packages.yml`). tsc + vitest for all 9 TS
+  workspaces + drizzle-kit check, path-filtered. Validated all 9 green locally first. (master-plan Track 2
+  shortlist #3 — the TS side had ZERO CI.) daemon excluded (known-red non-hermetic suite).
+- ✅ **W2 — "Recent tables" home-board panel** → /spreadsheets discoverability (wires spreadsheets.list).
+- ✅ **W5 — canvas source feed invalidation** — sources land as a turn ends, not only on remount.
+- ✅ **W3 — code_islands provenance upsert** (round-3 G-LOW) — migration **0059** + optional provenance
+  column + unique (user_id, provenance); create UPSERTS so an agent re-run can't orphan a row. Added the
+  first-ever codeIslands router test + fixed a fake-db regression it exposed; also added a references
+  router test (last untested router). Full api-client suite 784 green.
+- **⚠️ MERGE ORDER (PR #11):** apply migrations **0058** (canvas_recipes, from PR #10) AND **0059**
+  (code_islands.provenance) BEFORE merging/deploying PR #11 — the new codeIslands.create references the
+  provenance column and would fail the LIVE "Build a tool" flow if deployed ahead of 0059.
+- **Deferred (deliberately NOT built autonomously — need Pedro's eyes / can't validate green):**
+  W4 workspace user-search (user-enumeration privacy surface), W6 real-Postgres migration/isolation CI
+  (needs a Supabase-shim bootstrap — auth schema/roles/auth.uid + extensions — can't prove green here),
+  W7 Phase 75 correction-cascade (touches the LIVE listener merge path), W8 Phase 77 Wave C MCP **write**
+  tool (security-sensitive write-exposure), W9 container.py split (1433-line refactor too risky to leave
+  half-done under restarts). Each is scoped in AUTONOMOUS-RUN.md for a supervised pickup.
+
 ### 🚀 ULTRACODE ROUND 3 — MERGED TO MAIN + LISTENER DEPLOYED — 2026-07-27
 **"deploy all" + "full permissions".** PR #10 (rounds 1–3, 20 commits) MERGED to `main` (`c3f339a`).
 CI green (listener lint/format/mypy/pytest 2111 + Vercel preview). En route, CI fast-failed on
