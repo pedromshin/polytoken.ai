@@ -13,6 +13,22 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### 🚀 ULTRACODE ROUND 3 — MERGED TO MAIN + LISTENER DEPLOYED — 2026-07-27
+**"deploy all" + "full permissions".** PR #10 (rounds 1–3, 20 commits) MERGED to `main` (`c3f339a`).
+CI green (listener lint/format/mypy/pytest 2111 + Vercel preview). En route, CI fast-failed on
+`ruff format --check` over **20 PRE-EXISTING unformatted files** (not this branch's — run_chat_turn.py,
+the supabase repos, morning-board tests); fixed with a `ruff format` pass (`9dd2020`, formatting-only).
+**Listener PROD deploy VERIFIED SUCCESS** (run 30240600911): image built → Trivy clean → ECR → ECS →
+service-stability wait ✓ → smoke test ✓. Stream D is flag-gated (`CANVAS_EMIT_TOOL_ENABLED` default OFF)
+so the redeploy is a behavioral no-op until flipped. **Vercel web prod** deploys off the same `main` push
+(preview was green on the PR — that preview URL is the surface for the owed browser-verification pass).
+**STILL OPERATOR-GATED (reality, not permission) — see PEDRO-CHECKLIST §2–3:**
+- **Prod migrations `0057`+`0058` NOT applied** — the MIGRATE-PROD workflow needs the 3 absent `PROD_*`
+  secrets. Until run: `canvas_recipes` reads degrade to render-nothing (graceful); billing stays off.
+- **Terraform/IAM NOT applied** — no remote state → `apply` would recreate/drop live SES rules = mail
+  outage. Blocked on the state-import runbook. Did NOT run it even under "full permissions."
+- **MCP server** — runs on Pedro's machine (`POLYTOKEN_MCP_*` env + runtime bundle); nothing server-side.
+
 ### ✅ ULTRACODE ROUND 3 — 5 GSD-safe streams SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
 Pedro (3rd "whats next" → "also check gsd" → "ultracode everything"). I grounded the menu with a
 wired-but-dark sweep AND reconciled it against GSD (master plan + STATE): the naive top pick
