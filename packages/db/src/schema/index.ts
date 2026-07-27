@@ -23,6 +23,7 @@ export * from "./entity-instances";
 export * from "./sender-profiles";
 export * from "./component-links";
 export * from "./entity-type-corrections";
+export * from "./correction-propagations";
 export * from "./knowledge-node-edges";
 export * from "./genui-generation-events";
 export * from "./ui-spec-templates";

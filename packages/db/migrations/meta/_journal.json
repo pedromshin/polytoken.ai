@@ -414,6 +414,13 @@
       "when": 1785148521379,
       "tag": "0059_moaning_wrecker",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1785170835688,
+      "tag": "0060_rapid_red_skull",
+      "breakpoints": true
     }
   ]
 }
