@@ -20,7 +20,7 @@
  * target Stripe would send the buyer to.
  */
 
-import { eq } from "drizzle-orm";
+import { and, count, eq, gte } from "drizzle-orm";
 import { z } from "zod";
 
 import {
@@ -32,7 +32,13 @@ import {
   type TierPriceIds,
 } from "@polytoken/billing";
 import { createDrizzleBillingStore } from "@polytoken/billing/store-drizzle";
-import { Subscriptions } from "@polytoken/db/schema";
+import {
+  ChatConversations,
+  ChatMessages,
+  Emails,
+  Importers,
+  Subscriptions,
+} from "@polytoken/db/schema";
 
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
@@ -89,6 +95,89 @@ export const billingRouter = createTRPCRouter({
       // billing is off until then anyway, so everyone is effectively `free`.
       return { tier: "free", status: "inactive", currentPeriodEnd: null, hasSubscription: false };
     }
+  }),
+
+  /**
+   * usage — the caller's LIVE consumption against the two metered entitlement
+   * caps, so /billing can render "X / Y used" instead of a static allowance.
+   *
+   *   - `dailyIngestUsed`: the caller's BUSIEST importer's `emails` today —
+   *     max over importers of the per-importer count with created_at >= the
+   *     start of the current UTC day. Matches the IngestBudgetGuard exactly,
+   *     which is PER-IMPORTER and filters on server-stamped `created_at` (NEVER
+   *     the sender-controlled `received_at`, which a mail-bomb could backdate).
+   *     A cross-importer sum against the per-importer cap would falsely read
+   *     >100% for a multi-importer user, so we compare the worst importer.
+   *   - `monthlyChatTurnsUsed`: ACTIVE user-role `chat_messages` in the caller's
+   *     own conversations (chat_messages.conversation_id → chat_conversations.user_id
+   *     = ctx.user.id) since the 1st of the current UTC month. is_active=true
+   *     counts one row per logical turn — a regenerated/edited turn adds a
+   *     sibling row, and only the active one should count, matching `monthlyChatTurns`.
+   *
+   * STRICTLY caller-scoped: every count joins to the owning tenant column and
+   * filters on ctx.user.id — no client field, no cross-user leak. Safe to call
+   * regardless of the billing flag, and graceful: any query failure (e.g. a
+   * table absent before its migration) degrades to 0, never a 500. Zero is also
+   * the honest reading when the caller simply has no rows yet.
+   */
+  usage: protectedProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const startOfUtcDay = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    );
+    const startOfUtcMonth = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+
+    let dailyIngestUsed = 0;
+    let monthlyChatTurnsUsed = 0;
+
+    try {
+      const rows = await ctx.db
+        .select({ importerId: Emails.importerId, value: count() })
+        .from(Emails)
+        .innerJoin(Importers, eq(Emails.importerId, Importers.id))
+        .where(
+          and(
+            eq(Importers.userId, ctx.user.id),
+            // created_at (server-stamped), NEVER received_at (sender header,
+            // backdatable) — the guard caps on created_at.
+            gte(Emails.createdAt, startOfUtcDay),
+          ),
+        )
+        .groupBy(Emails.importerId);
+      // Per-importer cap → "used" is the busiest importer (the one that hits the
+      // cap first), not a cross-importer sum.
+      dailyIngestUsed = rows.reduce((m, r) => Math.max(m, Number(r.value ?? 0)), 0);
+    } catch {
+      // Graceful default — a missing table / unapplied migration reads as 0.
+      dailyIngestUsed = 0;
+    }
+
+    try {
+      const rows = await ctx.db
+        .select({ value: count() })
+        .from(ChatMessages)
+        .innerJoin(
+          ChatConversations,
+          eq(ChatMessages.conversationId, ChatConversations.id),
+        )
+        .where(
+          and(
+            eq(ChatConversations.userId, ctx.user.id),
+            eq(ChatMessages.role, "user"),
+            // Only the active sibling counts — a regenerated/edited turn adds a
+            // row sharing sibling_group_id; counting all would over-report turns.
+            eq(ChatMessages.isActive, true),
+            gte(ChatMessages.createdAt, startOfUtcMonth),
+          ),
+        );
+      monthlyChatTurnsUsed = Number(rows[0]?.value ?? 0);
+    } catch {
+      monthlyChatTurnsUsed = 0;
+    }
+
+    return { dailyIngestUsed, monthlyChatTurnsUsed };
   }),
 
   /**

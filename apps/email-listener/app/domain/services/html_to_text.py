@@ -18,8 +18,26 @@ from html.parser import HTMLParser
 
 _DROP_CONTENT_TAGS = {"script", "style", "head", "title", "noscript"}
 _BLOCK_TAGS = {
-    "p", "div", "br", "li", "tr", "table", "h1", "h2", "h3", "h4", "h5", "h6",
-    "ul", "ol", "section", "article", "header", "footer", "blockquote", "pre",
+    "p",
+    "div",
+    "br",
+    "li",
+    "tr",
+    "table",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "ul",
+    "ol",
+    "section",
+    "article",
+    "header",
+    "footer",
+    "blockquote",
+    "pre",
 }
 
 

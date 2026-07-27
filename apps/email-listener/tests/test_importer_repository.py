@@ -196,7 +196,11 @@ def test_resolve_cross_tenant_slug_conflict_fails_closed_to_default() -> None:
     chain.select.return_value = chain
     # owner-scoped select (empty), insert RAISES (unique(slug) collision),
     # ownership re-check (still empty for B)
-    chain.execute.side_effect = [empty_before, RuntimeError("duplicate key value violates unique constraint"), empty_after]
+    chain.execute.side_effect = [
+        empty_before,
+        RuntimeError("duplicate key value violates unique constraint"),
+        empty_after,
+    ]
 
     client = MagicMock()
     client.table.return_value = chain

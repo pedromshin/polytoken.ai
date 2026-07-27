@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.application.use_cases.run_chat_turn_tool_loop import (
@@ -111,9 +113,10 @@ def test_classify_dispatch_unknown() -> None:
 
 @pytest.mark.unit
 def test_classify_dispatch_canvas() -> None:
-    """Phase 73: canvas emit tools route to the emit-a-part 'canvas' branch, never 'server'."""
+    """Phase 73/76-05: canvas emit tools route to the emit-a-part 'canvas' branch, never 'server'."""
     assert classify_tool_dispatch("emit_canvas_node", set()) == "canvas"
     assert classify_tool_dispatch("emit_canvas_connect", set()) == "canvas"
+    assert classify_tool_dispatch("emit_code_island", set()) == "canvas"
 
 
 @pytest.mark.unit
@@ -183,6 +186,143 @@ def test_build_canvas_part_fail_closed_on_missing_required_fields() -> None:
 @pytest.mark.unit
 def test_build_canvas_part_unknown_tool_name_returns_none() -> None:
     assert build_canvas_part("emit_ui_spec", '{"handle": "x", "nodeType": "chat", "data": {}}') is None
+
+
+# ---------------------------------------------------------------------------
+# build_canvas_part — canvas_code_island (Phase 76-05, BTAP-07 frozen contract)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_code_island_part_full_shape() -> None:
+    raw = json.dumps(
+        {
+            "intent": "reconcile these invoices against the bank rows",
+            "selectedNodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+            "inputBindings": {
+                "invoices": {"sourceNodeKey": "spreadsheet:inv", "sourcePath": "published.inv"},
+                "bank": {"sourceNodeKey": "spreadsheet:bank", "sourcePath": "published.bank"},
+            },
+            "inputs": {
+                "invoices": {
+                    "kind": "spreadsheet",
+                    "columns": ["id", "vendor", "amount"],
+                    "rowCount": 3,
+                    "sample": [{"id": 1, "vendor": "Acme", "amount": 100}],
+                },
+                "bank": {"kind": "spreadsheet", "columns": ["date", "description", "amount"], "rowCount": 12},
+            },
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part == {
+        "type": "canvas_code_island",
+        "intent": "reconcile these invoices against the bank rows",
+        "inputs": {
+            "invoices": {
+                "kind": "spreadsheet",
+                "columns": ["id", "vendor", "amount"],
+                "rowCount": 3,
+                "sample": [{"id": 1, "vendor": "Acme", "amount": 100}],
+            },
+            "bank": {"kind": "spreadsheet", "columns": ["date", "description", "amount"], "rowCount": 12},
+        },
+        "inputBindings": {
+            "invoices": {"sourceNodeKey": "spreadsheet:inv", "sourcePath": "published.inv"},
+            "bank": {"sourceNodeKey": "spreadsheet:bank", "sourcePath": "published.bank"},
+        },
+        "selectedNodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+    }
+
+
+@pytest.mark.unit
+def test_build_code_island_part_minimal_manifest_omits_optional_keys() -> None:
+    """A manifest entry with only `kind` carries no columns/rowCount/sample keys."""
+    raw = json.dumps(
+        {
+            "intent": "summarize",
+            "selectedNodeKeys": ["n1"],
+            "inputBindings": {"data": {"sourceNodeKey": "n1", "sourcePath": "published.n1"}},
+            "inputs": {"data": {"kind": "document"}},
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputs"] == {"data": {"kind": "document"}}
+
+
+@pytest.mark.unit
+def test_build_code_island_part_caps_columns_and_sample() -> None:
+    raw = json.dumps(
+        {
+            "intent": "big table",
+            "selectedNodeKeys": ["n1"],
+            "inputBindings": {"t": {"sourceNodeKey": "n1", "sourcePath": "data"}},
+            "inputs": {
+                "t": {
+                    "kind": "spreadsheet",
+                    "columns": [f"c{i}" for i in range(200)],
+                    "sample": [{"i": i} for i in range(50)],
+                }
+            },
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    entry = part["inputs"]["t"]
+    assert len(entry["columns"]) == 64  # MAX columns (mirrors table.ts MAX_TABLE_COLUMNS)
+    assert len(entry["sample"]) == 5  # tiny sample cap
+
+
+@pytest.mark.unit
+def test_build_code_island_part_drops_pollution_keys() -> None:
+    """Prototype-pollution targetKeys are stripped from bindings AND manifest."""
+    raw = json.dumps(
+        {
+            "intent": "x",
+            "selectedNodeKeys": ["n1", "__proto__"],
+            "inputBindings": {
+                "safe": {"sourceNodeKey": "n1", "sourcePath": "data"},
+                "__proto__": {"sourceNodeKey": "n1", "sourcePath": "data"},
+            },
+            "inputs": {
+                "safe": {"kind": "document"},
+                "constructor": {"kind": "document"},
+            },
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["selectedNodeKeys"] == ["n1"]
+    assert list(part["inputBindings"].keys()) == ["safe"]
+    assert list(part["inputs"].keys()) == ["safe"]
+
+
+@pytest.mark.unit
+def test_build_code_island_part_fail_closed_on_bad_json() -> None:
+    assert build_canvas_part("emit_code_island", "{not json") is None
+
+
+@pytest.mark.unit
+def test_build_code_island_part_fail_closed_on_missing_or_empty_fields() -> None:
+    base = {
+        "intent": "x",
+        "selectedNodeKeys": ["n1"],
+        "inputBindings": {"t": {"sourceNodeKey": "n1", "sourcePath": "data"}},
+        "inputs": {"t": {"kind": "document"}},
+    }
+    # missing / empty intent
+    assert build_canvas_part("emit_code_island", json.dumps({**base, "intent": ""})) is None
+    assert build_canvas_part("emit_code_island", json.dumps({k: v for k, v in base.items() if k != "intent"})) is None
+    # no usable selectedNodeKeys
+    assert build_canvas_part("emit_code_island", json.dumps({**base, "selectedNodeKeys": []})) is None
+    # no usable bindings (binding missing sourcePath)
+    assert (
+        build_canvas_part("emit_code_island", json.dumps({**base, "inputBindings": {"t": {"sourceNodeKey": "n1"}}}))
+        is None
+    )
+    # no usable manifest (entry missing kind)
+    assert build_canvas_part("emit_code_island", json.dumps({**base, "inputs": {"t": {"columns": ["a"]}}})) is None
 
 
 # ---------------------------------------------------------------------------

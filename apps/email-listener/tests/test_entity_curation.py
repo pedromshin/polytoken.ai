@@ -128,9 +128,7 @@ class FakeCurationRepository:
 
     async def find_merged_children(self, entity_instance_id: str) -> list[EntityInstance]:
         return [
-            instance
-            for cid, instance in self._instances.items()
-            if self._merged_into.get(cid) == entity_instance_id
+            instance for cid, instance in self._instances.items() if self._merged_into.get(cid) == entity_instance_id
         ]
 
     async def list_confirmed_entity_components(self, importer_id: str) -> list[Any]:

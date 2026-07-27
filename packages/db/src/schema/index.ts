@@ -49,5 +49,6 @@ export * from "./resource-shares";
 export * from "./canvases";
 export * from "./canvas-nodes";
 export * from "./canvas-edges";
+export * from "./canvas-recipes";
 export * from "./subscriptions";
 export * from "./stripe-webhook-events";

@@ -19,7 +19,13 @@ interface Sub {
   hasSubscription: boolean;
 }
 
+interface UsageData {
+  dailyIngestUsed: number;
+  monthlyChatTurnsUsed: number;
+}
+
 let subData: Sub = { tier: "free", status: "inactive", currentPeriodEnd: null, hasSubscription: false };
+let usageData: UsageData = { dailyIngestUsed: 0, monthlyChatTurnsUsed: 0 };
 const checkoutMutate = vi.fn();
 const portalMutate = vi.fn();
 
@@ -31,6 +37,7 @@ vi.mock("~/trpc/react", () => ({
   api: {
     billing: {
       currentSubscription: { useQuery: () => ({ data: subData, isLoading: false }) },
+      usage: { useQuery: () => ({ data: usageData, isLoading: false }) },
       createCheckoutSession: {
         useMutation: () => ({ mutate: checkoutMutate, isPending: false, variables: undefined }),
       },
@@ -65,6 +72,7 @@ function button(re: RegExp): HTMLButtonElement | undefined {
 
 beforeEach(() => {
   subData = { tier: "free", status: "inactive", currentPeriodEnd: null, hasSubscription: false };
+  usageData = { dailyIngestUsed: 0, monthlyChatTurnsUsed: 0 };
   checkoutMutate.mockClear();
   portalMutate.mockClear();
 });
@@ -84,6 +92,72 @@ describe("BillingSurface", () => {
     expect(text).toContain("Power");
     expect(text).toContain("$29");
     expect(text).toContain("$49");
+  });
+
+  it("renders the concrete per-tier entitlement caps from ENTITLEMENTS on the plan cards", async () => {
+    await mount();
+    const text = container.textContent ?? "";
+    // Labels (text-2xs) present for the limits.
+    expect(text).toContain("Daily email ingest");
+    expect(text).toContain("Monthly chat turns");
+    // pro card: 500 emails/day, 2,000 chat turns/mo (static allowance).
+    expect(text).toContain("500 / day");
+    expect(text).toContain("2,000 / mo");
+    // power card: 2,000 emails/day, unlimited chat turns.
+    expect(text).toContain("2,000 / day");
+    expect(text).toContain("Unlimited");
+  });
+
+  it("shows LIVE usage against the current tier's caps in the current-plan section", async () => {
+    // free current tier: caps are 100/day and 200/mo.
+    usageData = { dailyIngestUsed: 37, monthlyChatTurnsUsed: 142 };
+    await mount();
+    const text = container.textContent ?? "";
+    // Current-plan section shows "X / Y used" against the free caps.
+    expect(text).toContain("37 / 100 used");
+    expect(text).toContain("142 / 200 used");
+  });
+
+  it("shows 0 usage gracefully when the caller has no rows", async () => {
+    usageData = { dailyIngestUsed: 0, monthlyChatTurnsUsed: 0 };
+    await mount();
+    const text = container.textContent ?? "";
+    expect(text).toContain("0 / 100 used");
+    expect(text).toContain("0 / 200 used");
+  });
+
+  it("shows the used count with no denominator when the tier's chat cap is unlimited (power)", async () => {
+    subData = {
+      tier: "power",
+      status: "active",
+      currentPeriodEnd: new Date("2099-01-01"),
+      hasSubscription: true,
+    };
+    usageData = { dailyIngestUsed: 512, monthlyChatTurnsUsed: 4096 };
+    await mount();
+    const text = container.textContent ?? "";
+    // power daily cap is 2,000 → "512 / 2,000 used".
+    expect(text).toContain("512 / 2,000 used");
+    // power monthlyChatTurns is null (unlimited) → used count, no denominator.
+    expect(text).toContain("4,096 used");
+  });
+
+  it("shows the current plan's own caps (pro): live usage in current-plan, static on the card", async () => {
+    subData = {
+      tier: "pro",
+      status: "active",
+      currentPeriodEnd: new Date("2099-01-01"),
+      hasSubscription: true,
+    };
+    usageData = { dailyIngestUsed: 42, monthlyChatTurnsUsed: 137 };
+    await mount();
+    const text = container.textContent ?? "";
+    // Current-plan section: live usage against pro caps.
+    expect(text).toContain("42 / 500 used");
+    expect(text).toContain("137 / 2,000 used");
+    // pro CARD keeps the static allowance.
+    expect(text).toContain("500 / day");
+    expect(text).toContain("2,000 / mo");
   });
 
   it("starts checkout for the clicked tier", async () => {

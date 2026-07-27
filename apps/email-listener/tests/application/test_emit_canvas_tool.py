@@ -32,12 +32,15 @@ from app.domain.services.cost_circuit_breaker import PreTurnDecision
 from app.infrastructure.llm.chat_tools import (
     EMIT_CANVAS_CONNECT_TOOL_NAME,
     EMIT_CANVAS_NODE_TOOL_NAME,
+    EMIT_CODE_ISLAND_TOOL_NAME,
     build_emit_canvas_connect_tool,
     build_emit_canvas_node_tool,
+    build_emit_code_island_tool,
 )
 
 EMIT_CANVAS_NODE_TOOL = build_emit_canvas_node_tool()
 EMIT_CANVAS_CONNECT_TOOL = build_emit_canvas_connect_tool()
+EMIT_CODE_ISLAND_TOOL = build_emit_code_island_tool()
 _EMIT_UI_SPEC_TOOL: dict[str, Any] = {"name": "emit_ui_spec", "description": "test", "input_schema": {}}
 
 _IMPORTER_ID = "importer-1"
@@ -219,7 +222,11 @@ class _FakeRouter:
 def _make_use_case(
     *,
     provider: FakeChatProvider,
-    emit_canvas_tools: tuple[dict[str, Any], ...] = (EMIT_CANVAS_NODE_TOOL, EMIT_CANVAS_CONNECT_TOOL),
+    emit_canvas_tools: tuple[dict[str, Any], ...] = (
+        EMIT_CANVAS_NODE_TOOL,
+        EMIT_CANVAS_CONNECT_TOOL,
+        EMIT_CODE_ISLAND_TOOL,
+    ),
 ) -> tuple[RunChatTurn, dict[str, Any]]:
     collaborators: dict[str, Any] = {
         "messages": FakeChatMessageRepository(),
@@ -262,6 +269,7 @@ async def test_genui_model_offers_both_canvas_tools_when_wired() -> None:
     offered_names = [t["name"] for t in offered]
     assert EMIT_CANVAS_NODE_TOOL_NAME in offered_names
     assert EMIT_CANVAS_CONNECT_TOOL_NAME in offered_names
+    assert EMIT_CODE_ISLAND_TOOL_NAME in offered_names
 
 
 @pytest.mark.unit
@@ -289,6 +297,7 @@ async def test_unwired_canvas_tools_are_not_offered() -> None:
     offered_names = [t["name"] for t in provider.stream_calls[0]["tools"]]
     assert EMIT_CANVAS_NODE_TOOL_NAME not in offered_names
     assert EMIT_CANVAS_CONNECT_TOOL_NAME not in offered_names
+    assert EMIT_CODE_ISLAND_TOOL_NAME not in offered_names
 
 
 # ---------------------------------------------------------------------------
@@ -319,9 +328,7 @@ async def test_canvas_node_then_connect_produce_frozen_parts_in_order() -> None:
 
     events = [
         event
-        async for event in use_case.run(
-            conversation_id=_CONVERSATION_ID, user_text="draw", model_id=_GENUI_MODEL.id
-        )
+        async for event in use_case.run(conversation_id=_CONVERSATION_ID, user_text="draw", model_id=_GENUI_MODEL.id)
     ]
 
     messages: FakeChatMessageRepository = fakes["messages"]
@@ -374,7 +381,89 @@ async def test_canvas_node_omits_position_key_when_absent() -> None:
     assistant = next(m for m in messages.messages if m.role == "assistant")
     node_part = next(p for p in assistant.parts if p["type"] == "canvas_add_node")
     assert "position" not in node_part
-    assert node_part == {"type": "canvas_add_node", "handle": "tile", "nodeType": "document", "data": {"title": "Notes"}}
+    assert node_part == {
+        "type": "canvas_add_node",
+        "handle": "tile",
+        "nodeType": "document",
+        "data": {"title": "Notes"},
+    }
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_code_island_call_produces_frozen_part() -> None:
+    """Phase 76-05 (BTAP-07): emit_code_island finalizes into a `canvas_code_island` part."""
+    island_json = json.dumps(
+        {
+            "intent": "reconcile these invoices against the bank rows",
+            "selectedNodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+            "inputBindings": {
+                "invoices": {"sourceNodeKey": "spreadsheet:inv", "sourcePath": "published.inv"},
+                "bank": {"sourceNodeKey": "spreadsheet:bank", "sourcePath": "published.bank"},
+            },
+            "inputs": {
+                "invoices": {"kind": "spreadsheet", "columns": ["id", "vendor", "amount"], "rowCount": 3},
+                "bank": {"kind": "spreadsheet", "columns": ["date", "amount"], "rowCount": 12},
+            },
+        }
+    )
+    provider = FakeChatProvider(
+        [
+            ToolCallDelta(tool_name=EMIT_CODE_ISLAND_TOOL_NAME, id="tool-1", partial_json=island_json[:20]),
+            ToolCallDelta(tool_name=EMIT_CODE_ISLAND_TOOL_NAME, id="tool-1", partial_json=island_json[20:]),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider)
+
+    events = [
+        event
+        async for event in use_case.run(
+            conversation_id=_CONVERSATION_ID, user_text="build me a reconciler", model_id=_GENUI_MODEL.id
+        )
+    ]
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant = next(m for m in messages.messages if m.role == "assistant")
+    island_part = next(p for p in assistant.parts if p["type"] == "canvas_code_island")
+    assert island_part == {
+        "type": "canvas_code_island",
+        "intent": "reconcile these invoices against the bank rows",
+        "inputs": {
+            "invoices": {"kind": "spreadsheet", "columns": ["id", "vendor", "amount"], "rowCount": 3},
+            "bank": {"kind": "spreadsheet", "columns": ["date", "amount"], "rowCount": 12},
+        },
+        "inputBindings": {
+            "invoices": {"sourceNodeKey": "spreadsheet:inv", "sourcePath": "published.inv"},
+            "bank": {"sourceNodeKey": "spreadsheet:bank", "sourcePath": "published.bank"},
+        },
+        "selectedNodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+    }
+
+    tool_result_events = [e for e in events if e.type == "tool_result"]
+    assert tool_result_events[-1].data["part"]["type"] == "canvas_code_island"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_bad_json_code_island_call_fails_closed_to_parse_failure_text() -> None:
+    provider = FakeChatProvider(
+        [
+            ToolCallDelta(tool_name=EMIT_CODE_ISLAND_TOOL_NAME, id="tool-1", partial_json='{"intent": "x", "sel'),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider)
+
+    async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="build", model_id=_GENUI_MODEL.id):
+        pass
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant = next(m for m in messages.messages if m.role == "assistant")
+    part_types = [p["type"] for p in assistant.parts]
+    assert "canvas_code_island" not in part_types
+    text_part = next(p for p in assistant.parts if p["type"] == "text")
+    assert text_part["text"] == PARSE_FAILURE_TEXT
 
 
 # ---------------------------------------------------------------------------

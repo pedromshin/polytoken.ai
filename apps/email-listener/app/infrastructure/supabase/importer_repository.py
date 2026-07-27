@@ -101,9 +101,9 @@ class SupabaseImporterRepository:
         domain = slug.replace("-", ".")
         try:
             await asyncio.to_thread(
-                lambda: self._client.table("importers")
-                .insert({"slug": slug, "name": domain, "user_id": user_id})
-                .execute()
+                lambda: (
+                    self._client.table("importers").insert({"slug": slug, "name": domain, "user_id": user_id}).execute()
+                )
             )
         except Exception:
             # Either a concurrent insert by the SAME user (idempotent redelivery)
@@ -153,13 +153,7 @@ class SupabaseImporterRepository:
     async def _find_owned_importer_id(self, slug: str, user_id: str) -> str | None:
         """Return the importer id owned by user_id for this slug, or None."""
         result = await asyncio.to_thread(
-            lambda: (
-                self._client.table("importers")
-                .select("id")
-                .eq("slug", slug)
-                .eq("user_id", user_id)
-                .execute()
-            )
+            lambda: self._client.table("importers").select("id").eq("slug", slug).eq("user_id", user_id).execute()
         )
         if result.data:
             row = cast("dict[str, Any]", result.data[0])

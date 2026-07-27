@@ -53,6 +53,4 @@ async def run_assemble_job(
     to not lose the job (MORN-03).
     """
     outcome = await use_case.execute(payload.user_id)
-    return ApiResponse.ok(
-        AssembleJobAck(assembled=outcome.assembled, node_count=outcome.node_count)
-    )
+    return ApiResponse.ok(AssembleJobAck(assembled=outcome.assembled, node_count=outcome.node_count))

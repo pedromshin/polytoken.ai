@@ -129,10 +129,7 @@ class SupabaseEntityTypeRepository:
         """
         result = await asyncio.to_thread(
             lambda: (
-                self._client.table("entity_types")
-                .select("*, entity_type_fields(*)")
-                .eq("id", entity_type_id)
-                .execute()
+                self._client.table("entity_types").select("*, entity_type_fields(*)").eq("id", entity_type_id).execute()
             )
         )
         if not result.data:
@@ -309,9 +306,7 @@ class SupabaseEntityTypeRepository:
 
     async def delete_field(self, field_id: str) -> None:
         """Hard-delete a field row (caller guarantees zero confirmed references)."""
-        await asyncio.to_thread(
-            lambda: self._client.table("entity_type_fields").delete().eq("id", field_id).execute()
-        )
+        await asyncio.to_thread(lambda: self._client.table("entity_type_fields").delete().eq("id", field_id).execute())
 
     async def reorder_fields(self, entity_type_id: str, ordered_field_ids: list[str]) -> None:
         """Set sort_order = position for each id in the given order (one update per id)."""

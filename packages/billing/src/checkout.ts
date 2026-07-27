@@ -42,32 +42,51 @@ export async function createCheckoutSession(
     throw new BillingError(`No Stripe price configured for tier "${params.tier}"`, "UNKNOWN_TIER");
   }
 
-  const existing = await deps.store.getByUserId(params.userId);
+  // Serialize concurrent checkouts for this user (a double-submit, two tabs).
+  // WITHOUT this, the duplicate-active guard and the customer-create are
+  // check-then-act: two concurrent calls both read no active sub / no customer
+  // and both create a Stripe customer + session. Holding a per-user lock makes
+  // the guard + reuse re-read committed state, so the second call sees the
+  // first's active guard (throws) or reuses the persisted customer.
+  return deps.store.withUserLock(params.userId, async () => {
+    const existing = await deps.store.getByUserId(params.userId);
 
-  // Duplicate-active guard: an active/trialing paid subscription must be changed
-  // through the customer portal, never by opening a second checkout.
-  if (
-    existing &&
-    existing.tier !== "free" &&
-    (existing.status === "active" || existing.status === "trialing")
-  ) {
-    throw new DuplicateSubscriptionError(
-      `User "${params.userId}" already has an active subscription (${existing.tier})`,
-    );
-  }
+    // Duplicate-active guard: an active/trialing paid subscription must be
+    // changed through the customer portal, never by opening a second checkout.
+    if (
+      existing &&
+      existing.tier !== "free" &&
+      (existing.status === "active" || existing.status === "trialing")
+    ) {
+      throw new DuplicateSubscriptionError(
+        `User "${params.userId}" already has an active subscription (${existing.tier})`,
+      );
+    }
 
-  // Reuse or create the Stripe customer, persisting the id so the webhook can map
-  // customer -> user even if the subscription.created event lands first.
-  let customerId = existing?.stripeCustomerId ?? null;
-  if (!customerId) {
-    const customer = await deps.stripe.customers.create({
-      ...(params.email ? { email: params.email } : {}),
-      metadata: { userId: params.userId },
-    });
-    customerId = customer.id;
-    await deps.store.upsertByUserId(params.userId, { stripeCustomerId: customerId });
-  }
+    // Reuse or create the Stripe customer, persisting the id so the webhook can
+    // map customer -> user even if the subscription.created event lands first.
+    let customerId = existing?.stripeCustomerId ?? null;
+    if (!customerId) {
+      const customer = await deps.stripe.customers.create({
+        ...(params.email ? { email: params.email } : {}),
+        metadata: { userId: params.userId },
+      });
+      customerId = customer.id;
+      await deps.store.upsertByUserId(params.userId, { stripeCustomerId: customerId });
+    }
 
+    return createSessionFor(deps, params, priceId, customerId);
+  });
+}
+
+/** Create the Stripe Checkout Session once a customer id is resolved. Split out
+ * so the whole guard→customer→session flow runs inside the per-user lock. */
+async function createSessionFor(
+  deps: CheckoutDeps,
+  params: CheckoutParams,
+  priceId: string,
+  customerId: string,
+): Promise<CheckoutSession> {
   const session = await deps.stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,

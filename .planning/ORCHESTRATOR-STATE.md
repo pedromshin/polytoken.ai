@@ -13,6 +13,114 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ ULTRACODE ROUND 3 — 5 GSD-safe streams SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro (3rd "whats next" → "also check gsd" → "ultracode everything"). I grounded the menu with a
+wired-but-dark sweep AND reconciled it against GSD (master plan + STATE): the naive top pick
+(workspaces) is a Track-5 cross-tenant-leak hazard to batch-build (no real-PG isolation CI yet), so I
+scoped "everything" to the GSD-SAFE set and held out the two flagged hazards (workspace *sharing*
+list-unions; desktop-spawn, GSD-least-urgent + cost-bearing). 14-agent Workflow (5 disjoint builds ∥ →
+adversarial verify each; then 2 canvas-web halves sequential → verify). I integrated + ran the FULL gate
+matrix + fixed every CONFIRMED finding + committed per-stream. Pushed on top of `c5cea3d`.
+Gates all green: **db drizzle-kit check + tsc · api-client 33 + tsc · mcp-server 32 + tsc · web tsc +
+spreadsheets 5 / workspaces 11 / recipe-overlay 8 / agent-reconcile 21 / chat-canvas 7 / design-law ·
+listener ruff/format/lint-imports/mypy(313) + pytest 2111.**
+- ✅ **VISIBLE — `/spreadsheets` "My tables" index** (`5fba2e6`). Wires the callerless `spreadsheets.list`;
+  registry surface mirroring /documents. Verdict SOUND. Rows non-navigating (no standalone table viewer
+  route yet — followup). Reachable by direct URL; nav/home-board tile is a documented followup.
+- ✅ **VISIBLE — owner-scoped workspace shell** (`c539265`). Opens the 100%-dark workspaces router
+  (switcher + members/roles admin) using ONLY the 7 owner/RBAC procedures — **NO** shareResource/
+  listShares/revokeShare, **NO** resource list-union (the deferred cross-tenant hazard). Verdict SOUND.
+  Dark (URL-only until linked). Add-member is raw-UUID (user-search followup).
+- ✅ **Phase 73 Wave C — canvas_recipes** (`e1da907` backend, `de8137e` web badge). LCAN-07 durable table
+  + ownership-gated CRUD (LCAN-08) + on-canvas neutral recipe legend (LCAN-06). **Fixed 2 CONFIRMED:**
+  MED the drizzle-gen migration dropped the brand-new-table RLS idiom every sibling user-owned table
+  carries → hand-appended ENABLE RLS + anon-deny + owner policy (0058); LOW typed node/edge_keys jsonb.
+  LCAN-09 (durable after-close recompute) remains the live-only worker seam.
+- ✅ **Phase 76-05 — emit_code_island** (`353839d` listener, `de8137e` web reconcile). BTAP-07: agent
+  emits a `canvas_code_island` part behind `CANVAS_EMIT_TOOL_ENABLED` (fail-closed, byte-identical off) →
+  web re-grounds against the live canvas (values never reach the model) → generate → materialize wired
+  node. Listener verdict SOUND. **Fixed 1 CONFIRMED (web):** MED the reconcile effect ignored publish
+  state so a part arriving before its sources published never retried → added a publish-signature dep on
+  the store's `values.shared` identity. Known LOW (documented followup): remount/delete-reload can
+  re-mint a code_islands row (islandId is network-minted); clean fix = provenance-keyed upsert on
+  codeIslands.create. BTAP-07 end-to-end is a named live seam.
+- ✅ **Phase 77 Waves A+B — capability-registry MCP server** (`d1dd3bd`). New `apps/mcp-server`:
+  expose-only stdio server projecting 3 owner-scoped read tools through the same appRouter+createCaller;
+  single fixed principal (fail-closed), identity never from tool input, expose-only machine-checked
+  (no external MCP client — Track-7 mandate). **Fixed 3 CONFIRMED:** MED verbatim-manifest describe
+  over-promised (id-lookup / graph-expand the read procs lack) → authored procedure-accurate descriptions,
+  kept the id∈manifest∧risk:read guard + a regression test; MED the SDK entrypoint (principal→context→
+  caller wiring) was untested/unbuilt → extracted a pure `handlers.ts` + unit-tested the identity
+  threading, installed `@modelcontextprotocol/sdk` (1.29.0) so tsc covers index.ts; LOW "confirmed"→
+  "extracted" knowledge wording. Wave C (canvas.addNode write tool) deferred (depends on 73). MCPX-09
+  (Pedro's real Claude Code) is a named live seam.
+- **Owed (in the checklist):** apply migration 0058 (canvas_recipes); wire nav/home-board discoverability
+  for /spreadsheets + /workspaces; MCP runtime packaging (bundle for `node dist/index.js`) + set
+  POLYTOKEN_MCP_USER_ID/TOKEN + MCPX-09 live loop; the real-browser pass on all shipped web UI; the
+  2 documented dark-seam followups (code_islands provenance upsert; table viewer route; user-search).
+- **Deliberately NOT built (GSD hazard/least-urgent):** workspace *sharing* list-unions (needs real-PG
+  isolation CI first) and desktop-spawn (cost-bearing). Do NOT batch-build these without Pedro direction.
+
+### ✅ ULTRACODE ROUND 2 — 3 dark seams LIT + Pedro checklist — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro (2nd "whats next"): "amazing, ultracode everything." 6-agent Workflow (3 build → adversarial verify),
+integrated + full gates + fixed every CONFIRMED finding. All three previously-DARK seams are now LIVE.
+Gates green: **api-client 770 + tsc · web 1465 (incl design-law 195) + tsc**. Pushed on top of `012c403`.
+- ✅ **RCNV-02 now LIVE** — `chat.listSources` (ownership-scoped, 500-cap) feeds ChatCanvasIsland →
+  ChatCanvas `sourceRows` → the reconcile Pass 2c materializes a source node per `chat_source_ledger`
+  row. Sources land on conversation open. Verdict SOUND. Known limit (documented): load-time feed, no
+  mid-session invalidation yet.
+- ✅ **Live usage-vs-cap on /billing** — `billing.usage` + "X / Y used" meters. **Verify caught 2 MEDIUM
+  bugs I FIXED before shipping:** (1) counted `received_at` (sender-controlled, backdatable) instead of
+  server-stamped `created_at` — the exact mail-bomb concern the DailyIngestCounter port documents; (2)
+  summed across all a user's importers vs a PER-importer cap (could read >100%) → now max-over-importers
+  (busiest importer). Also fixed a LOW (count only `is_active` chat turns). Added a per-importer-max test.
+- ✅ **REG-04 now LIVE (in-app)** — client-executable registry folds the tRPC-backed CANVAS_ +
+  TABLE_CAPABILITIES (executors forward to api.chat.*CanvasNode / api.spreadsheets.*); daemon-only caps
+  (fs/terminal/git/browser) stay UNREGISTERED = fail-closed; all risk:write so every invoke is confirm-
+  card-gated (no auto-invoke). CapabilityInvokerProvider mounted around ConversationView. Verdict SOUND,
+  0 findings. Flat-input caps drivable now; nested-arg (addNode/table.create) light up when an emit path
+  supplies runtime args.
+- ✅ **`.planning/PEDRO-CHECKLIST.md`** — the single ordered "at-your-computer" list (rotate tokens →
+  browser-verify the shipped UI → flip Stripe/Vercel → apply migration 0057 + IAM + worker → flip flags).
+  Supersedes the scattered [PEDRO] notes for day-to-day use.
+- **Owed (all in the checklist):** the browser/screenshot pass on all the shipped UI (jsdom does no
+  layout — I can't run the server here); the 2 dark-seam follow-ups (source-feed invalidation; nested-arg
+  capability emit path) are buildable by me next, non-blocking.
+
+### ✅ ULTRACODE EVERYTHING (5 streams) SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro: "whats next" → "ultracode everything." Built via a 10-agent Workflow (5 parallel/waved builds →
+adversarial verify each), then I integrated + ran the FULL gate suite + fixed every CONFIRMED finding
+before committing. Pushed `1f5241d..012c403`. Gates all green: **billing 30 + tsc · db 124 + drizzle-kit
+check · api-client 6 + tsc · web 1261 + tsc · design-law 195**.
+- ✅ **VISIBLE — /billing entitlement limits** (`f1fdabd`). Each tier's real caps (ingest/day + chat
+  turns/mo, power=unlimited) now render on the plan cards + current plan. Makes slice-B tiers meaningful.
+  Verdict SOUND. Owes a screenshot pass (jsdom can't see layout).
+- ✅ **VISIBLE — DOCS-01 save-response-as-document** (`630b7b4`). Real message/report→document export
+  affordance in the chat action row; documents.create now takes optional initial blocks additively
+  (blank path byte-identical); existing typeset-PDF then applies. Verdict SOUND (2 trivial LOW: docstring
+  fixed; Next-internal import path disclosed/acceptable). Owes a screenshot pass.
+- ✅ **CORRECTNESS — billing pre-launch hardening** (`ff0fb40`, inert until BILLING_ENABLED). Event-ordering
+  high-water mark (`subscriptions.last_event_at`, migration 0057) stops a stale `subscription.updated`
+  resurrecting a canceled tier + same-second tie-break (cancels win ties); atomic idempotency
+  (claim-on-insert, release-on-throw); checkout TOCTOU advisory lock. **Fixed the MEDIUM verify finding**
+  (0057 was NOT journal-registered → `db:migrate` would never create the column → 500s once billing on):
+  added the column to the Drizzle model + `drizzle-kit generate` so journal+snapshot are consistent
+  (`drizzle-kit check` clean). Closes the 3 DEFERRED billing findings from the prior A+B+C ship.
+- 🌓 **DARK PREREQ — RCNV-02 canvas source reconcile** (`8773c85`). Reconcile pass that materializes a
+  source node per `chat_source_ledger` row is built+tested+wired through a ChatCanvas `sourceRows` prop,
+  but byte-identical until fed: **remaining to make sources visibly land = a per-conversation source-list
+  tRPC query in api-client + page.tsx passing sourceRows** (both out of the _canvas/** build scope).
+  RCNV-03 standalone CanonToolbar deliberately NOT mounted — SelectionToolbar already owns the
+  bottom-center slot + generalizes canon mode; a 2nd toolbar would overlap (verified design call).
+- 🌓 **DARK PREREQ — REG-04 capability confirm-card path** (`012c403`). Agent-emits-binding-spec →
+  CapabilityConfirmCard → resolver invoke is wired fail-closed + proven end-to-end in test, but renders
+  nothing in-app until a host mounts `CapabilityInvokerProvider` with a **client-reachable executable
+  registry — which the web tier does not have today** (executors live server-side/daemon). That client
+  executor path is the real remaining build; not forced (architectural, needs its own slice).
+- **NEXT visible candidates** (both unblock a dark seam, both need the owed real-browser pass): wire the
+  RCNV-02 source-list feed (smaller); build a client-reachable capability executor + mount the REG-04
+  provider (larger). Neither is Pedro-gated.
+
 ### ✅ ULTRACODE ALL THREE (A+B+C) SHIPPED — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 Built via a 6-agent Workflow (2 parallel builds → adversarial verify + 3 review agents), then I
 gated + fixed every CONFIRMED finding before shipping. All to `main`:
@@ -68,6 +176,11 @@ gated + fixed every CONFIRMED finding before shipping. All to `main`:
     ingest PROBLEMS(2 HIGH) → both fixed.
   - ✅ **Listener deploy VERIFIED SUCCESS** — `deploy-email-listener.yml` run 30223784262 (SHA `5cebe7e`):
     completed/success (test job + build&deploy green). Scheduled check-in confirmed; listener image on main is current.
+  - ✅ **ULTRACODE-ALL-THREE deploy VERIFIED SUCCESS** — `deploy-email-listener.yml` run 30225009732
+    (SHA `445cdfa`, the final ledger+B+C push): completed/success. Listener image on main now carries the
+    B tier-cap wiring (flag OFF, byte-identical) + C compute-idempotency + reprocess fixes. Scheduled
+    verification check-in (trig_01GzKkMtVoVV3LKqnhoxgvbu) proactively confirmed early and cancelled — no
+    fix needed, CI green on the SHA.
 
 ### ✅ B2 ACCOUNT DELETION SHIPPED (ultracode + adversarial-hardened) — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 - ✅ **B2 self-serve account/data deletion DEPLOYED TO MAIN** (`786edc4`; web + listener). Makes the

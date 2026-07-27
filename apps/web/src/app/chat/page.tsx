@@ -12,6 +12,7 @@ import { Button } from "@polytoken/ui/button";
 
 import { api } from "~/trpc/react";
 
+import { ChatCapabilityInvokerProvider } from "./_components/chat-capability-invoker-provider";
 import { ChatHomeEmptyState } from "./_components/chat-home-empty-state";
 import { ChatQuickActionsFab } from "./_components/chat-quick-actions-fab";
 import { Composer } from "./_components/composer";
@@ -146,10 +147,17 @@ function ConversationView({
   const [canvasSaveStatus, setCanvasSaveStatus] = useState<SaveStatus>("idle");
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <span className="sr-only" aria-live="polite">
-        {controller.liveAnnouncement}
-      </span>
+    // REG-04 (Stream #2): supply the chat tree's live CapabilityInvoker so an
+    // agent-emitted capability binding on a genui panel resolves to a confirm
+    // card whose approve fires the real tRPC mutation. Context-scoped, so it
+    // reaches the confirm card in EITHER branch (the docked MessageList and the
+    // canvas island's genui panels) without touching chat-canvas.tsx. Inert
+    // until an agent emits a binding — the boundary fails closed otherwise.
+    <ChatCapabilityInvokerProvider>
+      <div className="flex h-full min-h-0 flex-col">
+        <span className="sr-only" aria-live="polite">
+          {controller.liveAnnouncement}
+        </span>
       {/* ONE rule (61-03) — the rail toggle and the conversation's controls
           share it. ChatPage's separate "Chat" title bar above this one is
           gone; see ChatHeaderRule. */}
@@ -243,7 +251,8 @@ function ConversationView({
           </TranscriptPanelHost>
         )}
       </div>
-    </div>
+      </div>
+    </ChatCapabilityInvokerProvider>
   );
 }
 

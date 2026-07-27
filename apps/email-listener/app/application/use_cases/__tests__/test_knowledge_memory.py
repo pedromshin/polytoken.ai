@@ -254,6 +254,9 @@ async def test_propose_writes_suggested_tier_never_promotes() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_propose_unwired_is_noop() -> None:
-    assert await propose_suggested_edge(
-        None, source_node_id="a", target_ref_id="b", target_ref_type="t", relation_type="r"
-    ) is False
+    assert (
+        await propose_suggested_edge(
+            None, source_node_id="a", target_ref_id="b", target_ref_type="t", relation_type="r"
+        )
+        is False
+    )

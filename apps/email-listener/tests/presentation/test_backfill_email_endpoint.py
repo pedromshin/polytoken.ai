@@ -121,9 +121,7 @@ def test_resolved_token_returns_200_and_ack(client: TestClient, mock_use_case: M
 
 
 @pytest.mark.unit
-def test_unresolved_token_is_401(
-    client: TestClient, mock_resolver: MagicMock, mock_use_case: MagicMock
-) -> None:
+def test_unresolved_token_is_401(client: TestClient, mock_resolver: MagicMock, mock_use_case: MagicMock) -> None:
     mock_resolver.resolve_recipients = AsyncMock(return_value=None)
     resp = client.post("/v1/emails/backfill", json=_payload(recipients=["stranger@x.test"]))
     assert resp.status_code == 401

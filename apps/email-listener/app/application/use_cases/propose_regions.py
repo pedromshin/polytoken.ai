@@ -166,9 +166,7 @@ class ProposeRegionsUseCase:
         Returns the list of persisted child Components (may be empty).
         """
         all_components = await self._components.find_by_email_id(email_id)
-        pages = _dedup_pages(
-            [c for c in all_components if c.source_type in ("attachment_page", "email_body")]
-        )
+        pages = _dedup_pages([c for c in all_components if c.source_type in ("attachment_page", "email_body")])
 
         logger.info(
             "propose_regions_start",

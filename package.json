@@ -8,7 +8,8 @@
     "packages/*",
     "apps/web",
     "apps/daemon",
-    "apps/worker"
+    "apps/worker",
+    "apps/mcp-server"
   ],
   "scripts": {
     "dev": "docker compose -f apps/email-listener/docker-compose.yaml up --build",

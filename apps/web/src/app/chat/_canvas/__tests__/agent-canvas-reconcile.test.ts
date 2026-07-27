@@ -17,8 +17,10 @@
  */
 
 import { describe, expect, it } from "vitest";
+import type { Node as FlowNode } from "@xyflow/react";
 
 import type { ChatHistoryRow } from "../../_hooks/use-conversation-controller";
+import type { MessagePart } from "../../_hooks/use-chat-stream";
 import {
   agentEdgeId,
   agentNodeId,
@@ -26,6 +28,12 @@ import {
   reconcileNodesFromHistory,
   type PersistedCanvasNode,
 } from "../use-canvas-persistence";
+import {
+  agentCodeIslandNodeId,
+  buildAgentCodeIslandNode,
+  collectAgentCodeIslandPlans,
+} from "../agent-code-island-reconcile";
+import { publishedNodePath } from "../canvas-publish";
 
 const MSG_1 = "00000000-0000-0000-0000-0000000000b1";
 const MSG_2 = "00000000-0000-0000-0000-0000000000b2";
@@ -308,5 +316,134 @@ describe("collectAgentEdges — canvas_connect parts (LCAN-01/06)", () => {
       present,
     );
     expect(edges).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 76-05 / BTAP-07 — agent-authored code-island reconcile.
+// ---------------------------------------------------------------------------
+describe("collectAgentCodeIslandPlans — canvas_code_island parts (BTAP-07)", () => {
+  const MSG_3 = "00000000-0000-0000-0000-0000000000c3";
+  const SRC_A = "spreadsheet:aaaa";
+  const SRC_B = "spreadsheet:bbbb";
+
+  function flowNode(id: string, type: string): FlowNode {
+    return { id, type, position: { x: 0, y: 0 }, data: {} };
+  }
+
+  /** Two published spreadsheet sources on the canvas + their live projections. */
+  const sourceNodes: FlowNode[] = [
+    flowNode(SRC_A, "spreadsheet"),
+    flowNode(SRC_B, "spreadsheet"),
+  ];
+  const values: Record<string, unknown> = {
+    shared: {
+      published: {
+        [SRC_A]: { label: "Invoices", rowCount: 3, rows: [{ amount: 10 }] },
+        [SRC_B]: { label: "Bank", rowCount: 5, rows: [{ amount: 10 }] },
+      },
+    },
+  };
+
+  const islandPart: MessagePart = {
+    type: "canvas_code_island",
+    intent: "reconcile invoices against the bank rows",
+    inputs: { invoices: { kind: "table" }, bank: { kind: "table" } },
+    inputBindings: {
+      invoices: { sourceNodeKey: SRC_A, sourcePath: publishedNodePath(SRC_A) },
+      bank: { sourceNodeKey: SRC_B, sourcePath: publishedNodePath(SRC_B) },
+    },
+    selectedNodeKeys: [SRC_A, SRC_B],
+  };
+
+  function islandRow(part: MessagePart = islandPart): ChatHistoryRow {
+    return historyRow({ id: MSG_3, turnIndex: 2, parts: [part] });
+  }
+
+  it("plans exactly one code-island node + one data-edge per published source", () => {
+    const plans = collectAgentCodeIslandPlans([islandRow()], sourceNodes, values);
+
+    expect(plans).toHaveLength(1);
+    const plan = plans[0]!;
+    // deterministic node id from the part's provenance (idempotency anchor)
+    expect(plan.nodeId).toBe(agentCodeIslandNodeId(MSG_3, 0));
+    expect(plan.nodeId).toBe(`agent-island:${MSG_3}:0`);
+    // the agent's own intent wins
+    expect(plan.intent).toBe("reconcile invoices against the bank rows");
+    // re-grounded: two present, published sources → two sources, two edges
+    expect(plan.sources).toHaveLength(2);
+    expect(plan.edges).toHaveLength(2);
+    // exactly one edge per SOURCE, all pointing at the single island node
+    expect(new Set(plan.edges.map((e) => e.target))).toEqual(new Set([plan.nodeId]));
+    expect(plan.edges.map((e) => e.source).sort()).toEqual([SRC_A, SRC_B].sort());
+    // the payload carries the PHYSICAL published path (usePanelData resolves it)
+    for (const edge of plan.edges) {
+      expect(edge.data.sourcePath.startsWith("shared.published.")).toBe(true);
+      expect(edge.data.targetKey.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("materializes a ref-only code-island node carrying only the islandId", () => {
+    const plan = collectAgentCodeIslandPlans([islandRow()], sourceNodes, values)[0]!;
+    const node = buildAgentCodeIslandNode(plan, "island-uuid-1", { x: 120, y: 340 });
+
+    expect(node.id).toBe(plan.nodeId);
+    expect(node.type).toBe("code-island");
+    expect(node.position).toEqual({ x: 120, y: 340 });
+    expect(node.data).toEqual({ islandId: "island-uuid-1" });
+  });
+
+  it("is idempotent: once the island node is present, the part re-plans to nothing", () => {
+    const plan = collectAgentCodeIslandPlans([islandRow()], sourceNodes, values)[0]!;
+    const islandNode = buildAgentCodeIslandNode(plan, "island-uuid-1", { x: 0, y: 0 });
+
+    // the post-turn getCanvasLayout refetch restores the saved island node by id
+    const withIsland = [...sourceNodes, islandNode];
+    expect(collectAgentCodeIslandPlans([islandRow()], withIsland, values)).toEqual([]);
+  });
+
+  it("dedupes the same edge id across a re-run (no double-draw)", () => {
+    const first = collectAgentCodeIslandPlans([islandRow()], sourceNodes, values)[0]!;
+    const second = collectAgentCodeIslandPlans([islandRow()], sourceNodes, values)[0]!;
+    // deterministic edge ids: the identical part yields the identical edge id-set
+    expect(new Set(second.edges.map((e) => e.id))).toEqual(
+      new Set(first.edges.map((e) => e.id)),
+    );
+  });
+
+  it("skips the part below the ≥2 published-source floor (fail-closed)", () => {
+    // only SRC_A has published; SRC_B is on the canvas but unpublished
+    const onlyA: Record<string, unknown> = {
+      shared: { published: { [SRC_A]: { label: "Invoices", rowCount: 3 } } },
+    };
+    expect(collectAgentCodeIslandPlans([islandRow()], sourceNodes, onlyA)).toEqual([]);
+  });
+
+  it("falls back to the auto intent when the part's intent is blank", () => {
+    const blank: MessagePart = { ...islandPart, intent: "   " };
+    const plans = collectAgentCodeIslandPlans([islandRow(blank)], sourceNodes, values);
+    expect(plans).toHaveLength(1);
+    // the auto intent references the sandbox data global (build-tool-flow default)
+    expect(plans[0]!.intent).toContain("window.__ISLAND_DATA__");
+  });
+
+  it("skips a part from an INACTIVE row (a non-displayed sibling)", () => {
+    const row = historyRow({
+      id: MSG_3,
+      turnIndex: 2,
+      isActive: false,
+      parts: [islandPart],
+    });
+    expect(collectAgentCodeIslandPlans([row], sourceNodes, values)).toEqual([]);
+  });
+
+  it("skips when selectedNodeKeys reference nodes not on this canvas", () => {
+    const ghostPart: MessagePart = {
+      ...islandPart,
+      selectedNodeKeys: ["spreadsheet:ghost1", "spreadsheet:ghost2"],
+    };
+    expect(collectAgentCodeIslandPlans([islandRow(ghostPart)], sourceNodes, values)).toEqual(
+      [],
+    );
   });
 });

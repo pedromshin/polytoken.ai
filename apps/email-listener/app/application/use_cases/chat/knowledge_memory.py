@@ -238,9 +238,7 @@ async def build_knowledge_memory_injection(
 
     edges = await _list_canon_edges(knowledge_graph, importer_id=importer_id)
     canon_facts = await _resolve_canon_facts(knowledge_graph, edges)
-    entity_profiles = await _search_entity_profiles(
-        knowledge_graph, importer_id=importer_id, query_text=query_text
-    )
+    entity_profiles = await _search_entity_profiles(knowledge_graph, importer_id=importer_id, query_text=query_text)
 
     block = build_agent_memory_block(canon_facts, entity_profiles)
     envelope = build_memory_citation_envelope(canon_facts, entity_profiles)

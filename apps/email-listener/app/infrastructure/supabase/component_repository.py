@@ -117,10 +117,12 @@ class SupabaseComponentRepository:
     async def update_embedding(self, component_id: str, embedding: tuple[float, ...]) -> None:
         """Persist a computed embedding vector onto a component row (halfvec column)."""
         await asyncio.to_thread(
-            lambda: self._client.table("email_components")
-            .update({"embedding": list(embedding)})
-            .eq("id", component_id)
-            .execute()
+            lambda: (
+                self._client.table("email_components")
+                .update({"embedding": list(embedding)})
+                .eq("id", component_id)
+                .execute()
+            )
         )
 
     async def find_pages_by_attachment(self, attachment_id: str) -> list[Component]:

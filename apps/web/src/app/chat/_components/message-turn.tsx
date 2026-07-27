@@ -11,6 +11,7 @@ import { useOptionalPanelOverlay } from "../_canvas/panel-overlay-context";
 import { PanelThemeScope } from "../_canvas/panel-theme-scope";
 import { useIsTranscriptPanelHost } from "../_canvas/transcript-panel-host";
 import { genuiPanelNodeId } from "../_canvas/use-canvas-persistence";
+import { CapabilityBindingBoundary, extractCapabilityBinding } from "./capability-binding-boundary";
 import { CompactInteractionEntry } from "./compact-interaction-entry";
 import { CostCapBlockedCard } from "./cost-cap-blocked-card";
 import { GenuiPartBoundary } from "./genui-part-boundary";
@@ -384,14 +385,37 @@ export function MessageTurn({
             // half. `index` IS the `partIndex` the canvas's own node id is
             // built from.
             if (part.type === "genui_spec") {
+              // REG-04: a finalized spec may NAME a registry capability via a
+              // top-level `capability` binding descriptor (the agent-emits-
+              // binding-spec path). Split it off so the confirm affordance can
+              // mount and the panel still receives a `.strict()`-valid spec.
+              const { binding, spec } = extractCapabilityBinding(part.spec);
+              // No binding ⇒ byte-identical to the pre-REG-04 path: the panel
+              // is returned DIRECTLY with `key={index}` (no wrapping Fragment,
+              // so this branch never remounts the panel and loses in-progress
+              // form state), and `spec` is the SAME object reference as
+              // `part.spec` when there was no `capability` key.
+              if (binding === null) {
+                return (
+                  <TranscriptGenuiPanel
+                    key={index}
+                    messageId={messageId}
+                    partIndex={index}
+                    specJson={JSON.stringify(spec)}
+                    isStreaming={false}
+                  />
+                );
+              }
               return (
-                <TranscriptGenuiPanel
-                  key={index}
-                  messageId={messageId}
-                  partIndex={index}
-                  specJson={JSON.stringify(part.spec)}
-                  isStreaming={false}
-                />
+                <React.Fragment key={index}>
+                  <CapabilityBindingBoundary binding={binding} />
+                  <TranscriptGenuiPanel
+                    messageId={messageId}
+                    partIndex={index}
+                    specJson={JSON.stringify(spec)}
+                    isStreaming={false}
+                  />
+                </React.Fragment>
               );
             }
 
@@ -497,10 +521,14 @@ export function MessageTurn({
               );
             }
 
-            // Phase 73 (LCAN-01) — the agent-authored canvas parts are
-            // CANVAS-only intent (materialized by the canvas reconcile pass),
-            // never transcript content. No row in the chat thread.
-            if (part.type === "canvas_add_node" || part.type === "canvas_connect") {
+            // Phase 73 (LCAN-01) + Phase 76-05 (BTAP-07) — the agent-authored
+            // canvas parts are CANVAS-only intent (materialized by the canvas
+            // reconcile pass), never transcript content. No row in the chat thread.
+            if (
+              part.type === "canvas_add_node" ||
+              part.type === "canvas_connect" ||
+              part.type === "canvas_code_island"
+            ) {
               return null;
             }
 

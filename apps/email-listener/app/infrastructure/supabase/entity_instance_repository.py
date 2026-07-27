@@ -453,12 +453,7 @@ class SupabaseEntityInstanceRepository:
             return []
 
         comp_result = await asyncio.to_thread(
-            lambda: (
-                self._client.table("email_components")
-                .select("email_id")
-                .in_("id", component_ids)
-                .execute()
-            )
+            lambda: self._client.table("email_components").select("email_id").in_("id", component_ids).execute()
         )
         email_ids = {
             cast("dict[str, Any]", row)["email_id"]
@@ -469,12 +464,7 @@ class SupabaseEntityInstanceRepository:
             return []
 
         all_result = await asyncio.to_thread(
-            lambda: (
-                self._client.table("email_components")
-                .select("id")
-                .in_("email_id", sorted(email_ids))
-                .execute()
-            )
+            lambda: self._client.table("email_components").select("id").in_("email_id", sorted(email_ids)).execute()
         )
         return [cast("dict[str, Any]", row)["id"] for row in all_result.data]
 

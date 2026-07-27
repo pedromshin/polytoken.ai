@@ -45,7 +45,27 @@ EMIT_UI_SPEC_TOOL_NAME = "emit_ui_spec"
 # (never "server") and their part is built at finalize time.
 EMIT_CANVAS_NODE_TOOL_NAME = "emit_canvas_node"
 EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
-CANVAS_EMIT_TOOL_NAMES: tuple[str, ...] = (EMIT_CANVAS_NODE_TOOL_NAME, EMIT_CANVAS_CONNECT_TOOL_NAME)
+# Phase 76-05 (BTAP-07): emit_code_island rides the SAME canvas emit-a-part
+# machinery — it finalizes into a `canvas_code_island` part (build_canvas_part
+# below) carrying the grounding-flow inputs the web half (Plan 76-04) consumes.
+EMIT_CODE_ISLAND_TOOL_NAME = "emit_code_island"
+CANVAS_EMIT_TOOL_NAMES: tuple[str, ...] = (
+    EMIT_CANVAS_NODE_TOOL_NAME,
+    EMIT_CANVAS_CONNECT_TOOL_NAME,
+    EMIT_CODE_ISLAND_TOOL_NAME,
+)
+
+# Bounded-manifest / binding caps for emit_code_island's `canvas_code_island`
+# part (re-enforced HERE server-side — the tool's input_schema only GUIDES the
+# model, the part builder is the real gate, mirroring emit_canvas_node/connect).
+# Columns mirror packages/capabilities/src/table.ts MAX_TABLE_COLUMNS=64; sample
+# rows stay TINY per the SPEC risk note ("Keep the sample tiny; the full rows
+# only ever reach the sandbox"). Pollution-keyed targetKeys are dropped.
+_CODE_ISLAND_MAX_INPUTS = 16
+_CODE_ISLAND_MAX_COLUMNS = 64
+_CODE_ISLAND_MAX_SAMPLE_ROWS = 5
+_CODE_ISLAND_MAX_SELECTED = 32
+_FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
 
 # Visible-surface text (LOOP-02/LOOP-03, "never silent" motto). Exact strings
 # -- consumed verbatim by Plans 34-02/34-03.
@@ -163,8 +183,9 @@ def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
     run_chat_turn_widgets.build_interactive_widget_part. The returned part shapes
     are FROZEN (the web half is written against them verbatim):
 
-        canvas_add_node: {"type","handle","nodeType","data"[, "position"]}
-        canvas_connect:  {"type","sourceHandle","targetHandle","sourcePath","targetKey"}
+        canvas_add_node:    {"type","handle","nodeType","data"[, "position"]}
+        canvas_connect:     {"type","sourceHandle","targetHandle","sourcePath","targetKey"}
+        canvas_code_island: {"type","intent","inputs","inputBindings","selectedNodeKeys"}
     """
     try:
         raw: Any = json.loads(raw_json) if raw_json else {}
@@ -176,6 +197,8 @@ def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
         return _build_canvas_add_node_part(raw)
     if tool_name == EMIT_CANVAS_CONNECT_TOOL_NAME:
         return _build_canvas_connect_part(raw)
+    if tool_name == EMIT_CODE_ISLAND_TOOL_NAME:
+        return _build_canvas_code_island_part(raw)
     return None
 
 
@@ -211,6 +234,118 @@ def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     return part
 
 
+def _clean_selected_node_keys(value: Any) -> list[str]:
+    """Filter to non-empty, non-pollution string keys; dedupe (order-preserving); cap."""
+    if not isinstance(value, list):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in value:
+        if not isinstance(item, str) or not item or item in _FORBIDDEN_MANIFEST_KEYS:
+            continue
+        if item in seen:
+            continue
+        seen.add(item)
+        out.append(item)
+        if len(out) >= _CODE_ISLAND_MAX_SELECTED:
+            break
+    return out
+
+
+def _clean_input_bindings(value: Any) -> dict[str, dict[str, str]]:
+    """Keep only well-formed `targetKey -> {sourceNodeKey, sourcePath}` entries; cap count."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, dict[str, str]] = {}
+    for target_key, binding in value.items():
+        if not isinstance(target_key, str) or not target_key or target_key in _FORBIDDEN_MANIFEST_KEYS:
+            continue
+        if not isinstance(binding, dict):
+            continue
+        source_node_key = binding.get("sourceNodeKey")
+        source_path = binding.get("sourcePath")
+        if not isinstance(source_node_key, str) or not source_node_key:
+            continue
+        if not isinstance(source_path, str) or not source_path:
+            continue
+        out[target_key] = {"sourceNodeKey": source_node_key, "sourcePath": source_path}
+        if len(out) >= _CODE_ISLAND_MAX_INPUTS:
+            break
+    return out
+
+
+def _clean_manifest_entry(entry: Any) -> dict[str, Any] | None:
+    """Build one bounded manifest entry `{kind[, columns, rowCount, sample]}`; None if unusable."""
+    if not isinstance(entry, dict):
+        return None
+    kind = entry.get("kind")
+    if not isinstance(kind, str) or not kind:
+        return None
+    cleaned: dict[str, Any] = {"kind": kind}
+    columns = entry.get("columns")
+    if isinstance(columns, list):
+        cols = [c for c in columns if isinstance(c, str)][:_CODE_ISLAND_MAX_COLUMNS]
+        cleaned["columns"] = cols
+    row_count = entry.get("rowCount")
+    # bool is an int subclass -- exclude it explicitly so True/False never poses as a count.
+    if isinstance(row_count, int) and not isinstance(row_count, bool) and row_count >= 0:
+        cleaned["rowCount"] = row_count
+    sample = entry.get("sample")
+    if isinstance(sample, list):
+        cleaned["sample"] = sample[:_CODE_ISLAND_MAX_SAMPLE_ROWS]
+    return cleaned
+
+
+def _clean_inputs_manifest(value: Any) -> dict[str, dict[str, Any]]:
+    """Keep only well-formed manifest entries keyed by a safe targetKey; cap count + shape."""
+    if not isinstance(value, dict):
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    for target_key, entry in value.items():
+        if not isinstance(target_key, str) or not target_key or target_key in _FORBIDDEN_MANIFEST_KEYS:
+            continue
+        cleaned = _clean_manifest_entry(entry)
+        if cleaned is None:
+            continue
+        out[target_key] = cleaned
+        if len(out) >= _CODE_ISLAND_MAX_INPUTS:
+            break
+    return out
+
+
+def _build_canvas_code_island_part(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the frozen `canvas_code_island` part (Phase 76-05, BTAP-07).
+
+    None (dropped -> caller appends the visible PARSE_FAILURE_TEXT) when the
+    intent is missing/empty or NONE of selectedNodeKeys / inputBindings / inputs
+    survive validation -- fail-closed, mirroring _build_canvas_connect_part. The
+    manifest + bindings are bounded/capped and pollution-keyed entries dropped so
+    the persisted part can never blow the sharedState bound or carry a full
+    dataset. The FROZEN shape (the web half of Plan 76-04 is written against it):
+
+        {"type","intent","inputs","inputBindings","selectedNodeKeys"}
+    """
+    intent = raw.get("intent")
+    if not isinstance(intent, str) or not intent:
+        return None
+    selected = _clean_selected_node_keys(raw.get("selectedNodeKeys"))
+    if not selected:
+        return None
+    bindings = _clean_input_bindings(raw.get("inputBindings"))
+    if not bindings:
+        return None
+    inputs = _clean_inputs_manifest(raw.get("inputs"))
+    if not inputs:
+        return None
+    return {
+        "type": "canvas_code_island",
+        "intent": intent,
+        "inputs": inputs,
+        "inputBindings": bindings,
+        "selectedNodeKeys": selected,
+    }
+
+
 def cap_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     """Truncate `text` to `limit` chars, appending a visible truncation marker when cut."""
     if len(text) <= limit:
@@ -222,6 +357,7 @@ __all__ = [
     "CANVAS_EMIT_TOOL_NAMES",
     "EMIT_CANVAS_CONNECT_TOOL_NAME",
     "EMIT_CANVAS_NODE_TOOL_NAME",
+    "EMIT_CODE_ISLAND_TOOL_NAME",
     "EMIT_UI_SPEC_TOOL_NAME",
     "FINAL_ROUND_NUDGE_TEXT",
     "MAX_SERVER_CALLS_PER_ROUND",

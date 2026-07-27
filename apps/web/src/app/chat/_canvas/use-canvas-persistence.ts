@@ -57,6 +57,7 @@ import {
 import { publishedNodePath } from "./canvas-publish";
 import type { CanvasStore } from "./canvas-store";
 import { EdgePayloadSchema } from "./edge-payload-schema";
+import { SourceNodeDataSchema } from "./node-data-schemas";
 import { NODE_REGISTRY_VERSION } from "./node-registry-version";
 import { resolveNodeType } from "./node-type-registry";
 
@@ -229,6 +230,76 @@ function buildExpectedAgentNodeSpecs(
 }
 
 /**
+ * SourceLedgerRow — a `chat_source_ledger` row as the client reconcile pass
+ * (RCNV-02/RSRCH-03) sees it: the row id + the immutable display payload + the
+ * promotion anchor. This is the exact shape a per-conversation source-list read
+ * returns (the wiring seam's data source). `snippet`/`knowledgeNodeId` are
+ * nullable in the table (`chat-source-ledger.ts`): `knowledgeNodeId !== null`
+ * is precisely "promoted into the knowledge graph", which resolves the
+ * materialized node's tier to "confirmed" (else the suggest-only "suggested").
+ */
+export interface SourceLedgerRow {
+  readonly id: string;
+  readonly url: string;
+  readonly title: string;
+  readonly snippet: string | null;
+  readonly knowledgeNodeId: string | null;
+}
+
+/** Excerpt cap — SourceNodeDataSchema's `excerpt` max (500). The wiring seam
+ * truncates a ledger `snippet` to this when it maps a row into node.data, as
+ * SourceNodeDataSchema's own header states ("truncates to this cap"). */
+const SOURCE_EXCERPT_MAX = 500;
+
+/**
+ * buildExpectedSourceNodeSpecs — every `chat_source_ledger` row the
+ * conversation has collected → the `source` node the wiring seam should draw
+ * (RCNV-02/RSRCH-03). This is the SOURCE counterpart of
+ * `buildExpectedGenuiPanelSpecs`: zero capture ceremony — a row landed in the
+ * ledger because a tool round USED it, so it materializes WITHOUT the user
+ * asking ("arrival is free", taste-references §3). The id is `source:{ledgerId}`
+ * via `sourceNodeId` so a row is placed EXACTLY ONCE and a saved placement is
+ * recognized on restore — canonicalNodeId's server-side mapping
+ * (`source:${sourceLedgerId}`) agrees, so a persisted source node round-trips.
+ *
+ * Each candidate is gated through `SourceNodeDataSchema` (the url http(s)
+ * refine + title min/1 + excerpt/500 bounds); a row that fails to gate is
+ * SKIPPED rather than placed as a broken/unsafe node — a ledger url should
+ * always be http(s), but node.data must never carry an unrenderable payload,
+ * and buildSnapshot would reject it at save time anyway. `tier` derives from
+ * the promotion anchor: `knowledgeNodeId` set ⇒ "confirmed", else the
+ * suggest-only default "suggested" (an auto-capture never claims an unearned
+ * confirmation — tier.ts's stance). Reuses `ExpectedAgentNodeSpec`'s shape (a
+ * source node carries no explicit model position — auto-placement always
+ * cascades). Pure; never mutates its input.
+ */
+function buildExpectedSourceNodeSpecs(
+  sourceRows: readonly SourceLedgerRow[],
+): ExpectedAgentNodeSpec[] {
+  const specs: ExpectedAgentNodeSpec[] = [];
+  for (const row of sourceRows) {
+    const snippet = row.snippet?.trim();
+    const candidate = {
+      sourceLedgerId: row.id,
+      url: row.url,
+      title: row.title,
+      ...(snippet !== undefined && snippet.length > 0
+        ? { excerpt: snippet.slice(0, SOURCE_EXCERPT_MAX) }
+        : {}),
+      tier: row.knowledgeNodeId !== null ? "confirmed" : "suggested",
+    };
+    const parsed = SourceNodeDataSchema.safeParse(candidate);
+    if (!parsed.success) continue;
+    specs.push({
+      id: sourceNodeId(row.id),
+      type: "source",
+      data: parsed.data as Record<string, unknown>,
+    });
+  }
+  return specs;
+}
+
+/**
  * toPhysicalSourcePath — maps the model's friendly connect `sourcePath` to the
  * physical store path the resolution engine walks (Phase 73 Wave B). A path the
  * model already rooted at `shared.`/`panels.` is an absolute reference and is
@@ -307,6 +378,7 @@ export function collectAgentEdges(
 export function reconcileNodesFromHistory(
   savedNodes: readonly PersistedCanvasNode[],
   historyRows: readonly ChatHistoryRow[],
+  sourceRows: readonly SourceLedgerRow[] = [],
 ): ReconciledNode[] {
   const reconciled: ReconciledNode[] = [];
   const placedRects: CanvasRect[] = [];
@@ -371,6 +443,30 @@ export function reconcileNodesFromHistory(
     const desired: CanvasRect = spec.explicitPosition
       ? { ...spec.explicitPosition, ...dims }
       : { x: 0, y: 0, ...dims };
+    const finalPosition = offsetCascadePosition(desired, placedRects);
+    reconciled.push({
+      id: spec.id,
+      type: spec.type,
+      position: finalPosition,
+      data: spec.data,
+      isNew: true,
+    });
+    placedRects.push({ ...finalPosition, ...dims });
+  }
+
+  // Pass 2c — every `chat_source_ledger` row the conversation collected
+  // (RCNV-02/RSRCH-03) with no saved/existing node yet. THE WIRING SEAM: this
+  // is where `sourceNodeId` finally materializes a node so auto-collected
+  // sources appear on the canvas without the user asking. Same idempotency +
+  // cascade engine as Pass 2/2b — a `source:{ledgerId}` id already in `savedIds`
+  // (placed + saved on a prior visit) is skipped, so a ledger refetch never
+  // double-places, and it never touches an already-restored node's position.
+  const sourceSpecs = buildExpectedSourceNodeSpecs(sourceRows).filter(
+    (spec) => !savedIds.has(spec.id),
+  );
+  for (const spec of sourceSpecs) {
+    const dims = dimensionsForType(spec.type);
+    const desired: CanvasRect = { x: 0, y: 0, ...dims };
     const finalPosition = offsetCascadePosition(desired, placedRects);
     reconciled.push({
       id: spec.id,

@@ -92,6 +92,10 @@ import { CanvasEmptyState } from "./canvas-empty-state";
 import { AddNodeMenu, type SimpleNodeKind } from "./add-node-menu";
 import { BuildToolDialog } from "./build-tool-dialog";
 import { collectToolInputs } from "./build-tool-flow";
+import {
+  buildAgentCodeIslandNode,
+  collectAgentCodeIslandPlans,
+} from "./agent-code-island-reconcile";
 import { CodeIslandPickerDialog } from "./code-island-picker-dialog";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
@@ -118,6 +122,7 @@ import { EdgeCreationPicker } from "./edge-creation-picker";
 import { edgeTypes } from "./edge-types";
 import type { EdgePayload } from "./edge-payload-schema";
 import { ChatControllerProvider } from "./chat-node";
+import { RecipeOverlay } from "./recipe-overlay";
 import { nodeTypes } from "./node-types";
 import {
   CanvasPersistenceProvider,
@@ -131,6 +136,7 @@ import {
   withDefaultChatNode,
   type PersistedCanvasEdge,
   type SaveStatus,
+  type SourceLedgerRow,
   useCanvasPersistence,
 } from "./use-canvas-persistence";
 
@@ -160,6 +166,13 @@ import {
  * `--edge` at 1.5px, which makes the pair agree in one line.
  */
 const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)" } as const;
+
+/** Reference-stable empty fallback for the optional `sourceRows` prop (RCNV-02)
+ * — mirrors `EMPTY_PERSISTED_EDGES`'s reasoning in use-canvas-persistence.ts: a
+ * bare `?? []` default would allocate a new array every render, and `sourceRows`
+ * is a dependency of the reconcile effect below, so an unstable identity would
+ * re-fire it (setNodes) on every render. One frozen module-level instance. */
+const EMPTY_SOURCE_ROWS: readonly SourceLedgerRow[] = [];
 
 /**
  * PANE_ADDABLE_NODE_TYPES — the node types the pane context menu can actually
@@ -408,6 +421,15 @@ export interface ChatCanvasProps {
    * tests without a host wired for this yet.
    */
   readonly onOpenConversation?: (conversationId: string) => void;
+  /**
+   * sourceRows (RCNV-02/RSRCH-03) — the conversation's `chat_source_ledger`
+   * rows, fed into `reconcileNodesFromHistory`'s Pass 2c so auto-collected
+   * research sources materialize as `source` canvas nodes WITHOUT the user
+   * asking. Optional + defaults to a stable empty array, so a host that does
+   * not (yet) provide the per-conversation source-list read keeps byte-
+   * identical behaviour (no source nodes) — the wiring seam is inert until fed.
+   */
+  readonly sourceRows?: readonly SourceLedgerRow[];
 }
 
 export function ChatCanvas({
@@ -416,6 +438,7 @@ export function ChatCanvas({
   historyRows,
   onSaveStatusChange,
   onOpenConversation,
+  sourceRows = EMPTY_SOURCE_ROWS,
 }: ChatCanvasProps): React.ReactElement {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
@@ -510,7 +533,7 @@ export function ChatCanvas({
     setNodes((prev) => {
       const baseline = wasSeeded ? prev.map(toPersistedShape) : persistence.initialNodes;
       const reconciled = withDefaultChatNode(
-        reconcileNodesFromHistory(baseline, historyRows),
+        reconcileNodesFromHistory(baseline, historyRows, sourceRows),
         conversationId,
       );
       return reconciled.map(toFlowNode);
@@ -531,6 +554,7 @@ export function ChatCanvas({
     persistence.initialEdges,
     persistence.initialViewport,
     historyRows,
+    sourceRows,
     conversationId,
   ]);
 
@@ -1225,6 +1249,101 @@ export function ChatCanvas({
     [setNodes, persistence, canvasStore, history],
   );
 
+  // Phase 76-05 / BTAP-07 — materialize an AGENT-authored code-island. When the
+  // model calls the flag-gated `emit_code_island` tool, the listener persists a
+  // `canvas_code_island` part; on the post-turn history refetch this effect runs
+  // the SAME grounding flow handleBuildTool runs, but sourced from the part:
+  // re-ground each `selectedNodeKey` against the live store → generate → persist
+  // via codeIslands.create → materialize ONE code-island node + one data-edge
+  // per source (through the unchanged toFlowEdge path). Idempotent: the node id
+  // is deterministic from the part's provenance, so once saved the getCanvasLayout
+  // refetch restores it and `collectAgentCodeIslandPlans` skips the part; an
+  // in-flight ref keeps a pending generate from double-firing across renders.
+  // Wholly inert unless a `canvas_code_island` part arrives (listener flag off ⇒
+  // no part ⇒ byte-for-byte the prior behaviour).
+  const agentIslandInFlightRef = useRef<Set<string>>(new Set());
+  // A part can arrive (post-turn refetch / reload) BEFORE its sources have
+  // published their `shared.published.{nodeKey}` projections — collectAgentCodeIslandPlans
+  // then finds <MIN_SOURCES and skips. Publishing writes into the store's `values.shared`
+  // bag, which changes neither `nodes` nor `historyRows`, so without this the reconcile
+  // would never retry when a source settles a tick later (the gap the doc promises to
+  // close). Tick a signature on `values.shared` identity — the immutable store rebuilds
+  // that reference only on a `shared.*` write (a panels-only change leaves it stable) —
+  // and feed it into the reconcile deps so a late publish re-fires the pass. Over-firing
+  // is safe: the pass is idempotent (in-flight ref + deterministic ids + the present-node
+  // skip), so a spurious tick just re-checks and does nothing.
+  const [publishTick, setPublishTick] = useState(0);
+  useEffect(() => {
+    if (!canvasStore) return;
+    let prevShared = canvasStore.getState().values?.shared;
+    const unsubscribe = canvasStore.subscribe((state) => {
+      const shared = state.values?.shared;
+      if (shared !== prevShared) {
+        prevShared = shared;
+        setPublishTick((tick) => tick + 1);
+      }
+    });
+    return unsubscribe;
+  }, [canvasStore]);
+  useEffect(() => {
+    if (persistence.isRestoring || !seededRef.current) return;
+    const storeValues = canvasStore?.getState().values ?? {};
+    const plans = collectAgentCodeIslandPlans(historyRows, nodes, storeValues);
+    for (const plan of plans) {
+      if (agentIslandInFlightRef.current.has(plan.provenanceKey)) continue;
+      // Mark before the async work — never removed, so a failed generate does not
+      // re-spam the generator on the next nodes/history tick (matches handleBuildTool's
+      // no-auto-retry posture; a reload restarts from the persisted layout).
+      agentIslandInFlightRef.current.add(plan.provenanceKey);
+      void (async () => {
+        try {
+          const generated = await utils.genui.codeIslandGenerate.fetch({
+            intent: plan.intent,
+            inputs: plan.inputs,
+          });
+          const { islandId } = await createIsland.mutateAsync({
+            intent: plan.intent,
+            code: generated.code,
+            inputBindings: plan.inputBindings,
+          });
+          const center = rfInstanceRef.current?.screenToFlowPosition({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+          }) ?? { x: 0, y: 0 };
+          const existingRects: CanvasRect[] = nodesRef.current.map((node) => ({
+            x: node.position.x,
+            y: node.position.y,
+            ...(CANVAS_NODE_DIMENSIONS[node.type ?? ""] ?? DEFAULT_CANVAS_NODE_DIMENSIONS),
+          }));
+          const dims =
+            CANVAS_NODE_DIMENSIONS["code-island"] ?? DEFAULT_CANVAS_NODE_DIMENSIONS;
+          const position = offsetCascadePosition(
+            { x: center.x, y: center.y, ...dims },
+            existingRects,
+          );
+          const islandNode = buildAgentCodeIslandNode(plan, islandId, position);
+          // Additive + idempotent on the deterministic node/edge ids — a
+          // concurrent refetch or a re-run never double-inserts.
+          setNodes((prev) =>
+            prev.some((node) => node.id === islandNode.id) ? prev : [...prev, islandNode],
+          );
+          setEdges((prev) => {
+            const existing = new Set(prev.map((edge) => edge.id));
+            const additions = plan.edges
+              .filter((edge) => !existing.has(edge.id))
+              .map(toFlowEdge);
+            return additions.length === 0 ? prev : [...prev, ...additions];
+          });
+          persistence.scheduleSave(canvasStore);
+        } catch {
+          // Detail-free (the generate proxy logs server-side; the create error is
+          // a secret-free TRPCError). The canvas is untouched on failure.
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes/setEdges are stable (useNodesState/useEdgesState); utils/createIsland are stable tRPC handles; reads happen at fire time. publishTick re-fires the pass when a source publishes late.
+  }, [persistence, historyRows, nodes, canvasStore, publishTick]);
+
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {
       setViewportState(nextViewport);
@@ -1765,6 +1884,10 @@ export function ChatCanvas({
                       passes every gate.
                     */}
                     <Background gap={22} size={2} color="var(--grid)" />
+                    {/* LCAN-07: neutral on-canvas recipe legends (grouped by
+                        member nodeKeys). Additive read-only; renders nothing
+                        when the conversation has no recipes. */}
+                    <RecipeOverlay conversationId={conversationId} nodes={nodes} />
                     <Controls showZoom showFitView showInteractive />
                     {showMiniMap && (
                       <MiniMap

@@ -39,19 +39,64 @@ export interface BillingStore {
   getByCustomerId(customerId: string): Promise<BillingSubscription | null>;
 
   /** Upsert the user's single subscription row (unique on user_id), setting the
-   * provided fields. Creates the row if absent. */
+   * provided fields. Creates the row if absent. No event-ordering guard — use
+   * {@link applyOrderedSync} for Stripe-event-driven writes. */
   upsertByUserId(userId: string, patch: BillingSubscriptionPatch): Promise<void>;
+
+  /**
+   * Event-ordered upsert (the resurrection guard). Apply `patch` for `userId`
+   * ONLY when `eventAt` is not older than the most recent event already applied
+   * to this row; a strictly-older event (e.g. a stale
+   * `customer.subscription.updated` delivered AFTER the
+   * `customer.subscription.deleted`) is ignored so it cannot resurrect a
+   * canceled tier. Records `eventAt` as the row's new high-water mark when it
+   * wins. Returns `true` if the patch was applied, `false` if skipped as stale.
+   * Atomic: the compare-and-apply is a single conditional upsert, so concurrent
+   * out-of-order events for one subscription cannot interleave.
+   */
+  applyOrderedSync(
+    userId: string,
+    patch: BillingSubscriptionPatch,
+    eventAt: Date,
+  ): Promise<boolean>;
+
+  /**
+   * Run `fn` while holding a per-user exclusive lock, serializing concurrent
+   * billing mutations for one user (two simultaneous checkout calls, a
+   * double-submit). The lock is released when `fn` settles. This closes the
+   * checkout TOCTOU: the duplicate-active guard + customer reuse re-read state
+   * inside the critical section, so two concurrent checkouts cannot both pass
+   * the guard or both create a Stripe customer. Implemented with a
+   * transaction-scoped Postgres advisory lock in production.
+   */
+  withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T>;
 
   // --- webhook idempotency (stripe_webhook_events dedupe) ---
 
   /** True if this Stripe event id has already been fully processed. */
   wasEventProcessed(eventId: string): Promise<boolean>;
 
-  /** Record that an event has begun processing (insert; no-op on conflict). */
-  recordEventStart(eventId: string, eventType: string, payload: unknown): Promise<void>;
+  /**
+   * Atomically CLAIM an event id for processing (insert; ON CONFLICT DO
+   * NOTHING). Returns `true` when THIS call inserted the row (the caller won the
+   * claim and must process), `false` when the row already existed (a concurrent
+   * in-flight worker or an already-recorded event owns it). This is the atomic
+   * idempotency gate: two concurrent duplicate deliveries cannot both win, so
+   * the handler body runs exactly once.
+   */
+  recordEventStart(eventId: string, eventType: string, payload: unknown): Promise<boolean>;
 
   /** Mark an event fully processed (sets processed_at). */
   markEventProcessed(eventId: string): Promise<void>;
+
+  /**
+   * Release a claim that never completed — delete the ledger row ONLY while it
+   * is still unprocessed (`processed_at IS NULL`). Called when the handler
+   * throws after {@link recordEventStart} won the claim, so Stripe's retry can
+   * re-claim and re-run it instead of the crashed claim silently swallowing the
+   * event. A no-op once the event has been marked processed.
+   */
+  releaseUnprocessedEvent(eventId: string): Promise<void>;
 }
 
 /** Result of processing a Stripe webhook event. */
