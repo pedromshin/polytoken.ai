@@ -82,6 +82,7 @@ EMIT_CLARIFY_WIDGET_TOOL_NAME = "emit_clarify_widget"
 EMIT_CONFIRM_ACTION_TOOL_NAME = "emit_confirm_action"
 EMIT_CANVAS_NODE_TOOL_NAME = "emit_canvas_node"
 EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
+EMIT_CODE_ISLAND_TOOL_NAME = "emit_code_island"
 
 _DESCRIPTION = (
     "Emit a declarative UI spec (a SpecRoot JSON document) for the trusted genui renderer "
@@ -451,4 +452,124 @@ def build_emit_canvas_connect_tool() -> dict[str, Any]:
         "name": EMIT_CANVAS_CONNECT_TOOL_NAME,
         "description": _CANVAS_CONNECT_DESCRIPTION,
         "input_schema": _CANVAS_CONNECT_INPUT_SCHEMA,
+    }
+
+
+# Phase 76-05 (BTAP-07, seam 5): emit_code_island is a THIRD canvas emit-a-part
+# tool — "the agent writes you a throwaway app wired to your real files". It
+# rides the EXACT same machinery as emit_canvas_node/emit_canvas_connect (an
+# emit-a-part tool, NOT a registry/executor tool; runs NO server executor;
+# touches NO mail/SES/S3/Lambda path) and sits behind the SAME
+# CANVAS_EMIT_TOOL_ENABLED flag (default OFF, structural omission in
+# composition/chat_turn_providers.py). Its only effect: a completed call
+# appends a `canvas_code_island` message PART (persisted verbatim as JSONB)
+# carrying the grounding-flow inputs BTAP's web flow (Plan 76-04) consumes —
+# { intent, inputs (bounded manifest), inputBindings, selectedNodeKeys }. The
+# web half reads the selected nodes' bounded `shared.published.{nodeKey}`
+# projections, generates the island code, persists it, and materializes ONE
+# `code-island` node wired by one data-edge per source.
+#
+# The `inputs` manifest is a SHAPE DESCRIPTION + tiny sample (columns ≤ 64,
+# sample rows ≤ 5, keyed by targetKey) — NEVER the full dataset. Per the SPEC
+# it is model-visible by design (unlike raw_content, which stays quarantined),
+# but it MUST stay capped so it never becomes a backdoor for the whole table.
+_CODE_ISLAND_DESCRIPTION = (
+    "Build the user a bespoke, disposable mini-app (a 'code-island') grounded in the DATA of two "
+    "or more canvas nodes they have selected — e.g. 'reconcile these invoices against the bank "
+    "rows'. Call this AFTER the user has selected the source data nodes you want to wire in. "
+    "`intent` is the plain-language task the generated app performs. `selectedNodeKeys` are the "
+    "keys of the selected source nodes. `inputBindings` maps each input `targetKey` (a short name "
+    "the generated app reads, e.g. 'invoices') to { sourceNodeKey, sourcePath } — which selected "
+    "node it draws from and the dotted path into that node's published data. `inputs` is a bounded "
+    "MANIFEST keyed by the same targetKeys: per key a { kind, columns?, rowCount?, sample? } SHAPE "
+    "description so the generated code knows the data's structure. Keep `sample` TINY (a few rows "
+    "at most) and NEVER paste the whole dataset — the full rows reach only the sandbox, never you. "
+    "Only call this when a grounded, data-wired app genuinely helps; a normal reply does not need it."
+)
+
+# Bounded-manifest / binding caps (mirror packages/capabilities/src/table.ts's
+# MAX_TABLE_COLUMNS=64 for columns; sample rows kept TINY per the SPEC risk note
+# "Keep the sample tiny; the full rows only ever reach the sandbox"). These bound
+# what the model may express in the input_schema; build_canvas_part re-enforces
+# them server-side (the schema only GUIDES the model — the part builder is the
+# real gate, mirroring emit_canvas_node/connect).
+_CODE_ISLAND_MAX_INPUTS = 16
+_CODE_ISLAND_MAX_COLUMNS = 64
+_CODE_ISLAND_MAX_SAMPLE_ROWS = 5
+_CODE_ISLAND_MAX_SELECTED = 32
+
+# Hand-authored, Bedrock-valid input_schema (root type:object,
+# additionalProperties:false, no root $ref). `inputBindings` and `inputs` are
+# map-style objects keyed by an arbitrary targetKey, expressed via
+# `additionalProperties: {schema}` (valid JSON Schema, accepted by Bedrock);
+# `sample` rows are schema-free ({}) tiny data payloads, capped by maxItems.
+_CODE_ISLAND_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["intent", "inputs", "inputBindings", "selectedNodeKeys"],
+    "additionalProperties": False,
+    "properties": {
+        "intent": {"type": "string", "minLength": 1},
+        "selectedNodeKeys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": _CODE_ISLAND_MAX_SELECTED,
+            "items": {"type": "string", "minLength": 1},
+        },
+        "inputBindings": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["sourceNodeKey", "sourcePath"],
+                "additionalProperties": False,
+                "properties": {
+                    "sourceNodeKey": {"type": "string", "minLength": 1},
+                    "sourcePath": {"type": "string", "minLength": 1},
+                },
+            },
+        },
+        "inputs": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "required": ["kind"],
+                "additionalProperties": False,
+                "properties": {
+                    "kind": {"type": "string", "minLength": 1},
+                    "columns": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "maxItems": _CODE_ISLAND_MAX_COLUMNS,
+                    },
+                    "rowCount": {"type": "integer", "minimum": 0},
+                    "sample": {"type": "array", "maxItems": _CODE_ISLAND_MAX_SAMPLE_ROWS},
+                },
+            },
+        },
+    },
+}
+
+# Load-time assertions mirroring emit_canvas_node/connect's guards.
+assert _CODE_ISLAND_INPUT_SCHEMA["type"] == "object", (
+    "emit_code_island input_schema root must be type:object (Bedrock tool-input contract)"
+)
+assert _CODE_ISLAND_INPUT_SCHEMA["additionalProperties"] is False, (
+    "emit_code_island input_schema root must forbid additionalProperties"
+)
+
+
+def build_emit_code_island_tool() -> dict[str, Any]:
+    """Build the emit_code_island tool dict (Phase 76-05, BTAP-07, canvas emit).
+
+    Offered (never forced) alongside emit_canvas_node/emit_canvas_connect to
+    genui-capable models, behind the SAME CANVAS_EMIT_TOOL_ENABLED flag. A
+    completed call finalizes into a `canvas_code_island` message part
+    (run_chat_turn_tool_loop.build_canvas_part), stored verbatim — no
+    server-side generation happens here; the web half runs the grounding flow
+    (read published projections -> generate -> persist -> materialize node +
+    data-edges).
+    """
+    return {
+        "name": EMIT_CODE_ISLAND_TOOL_NAME,
+        "description": _CODE_ISLAND_DESCRIPTION,
+        "input_schema": _CODE_ISLAND_INPUT_SCHEMA,
     }

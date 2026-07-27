@@ -60,6 +60,7 @@ from app.infrastructure.llm.chat_tools import (
     build_emit_canvas_connect_tool,
     build_emit_canvas_node_tool,
     build_emit_clarify_widget_tool,
+    build_emit_code_island_tool,
     build_emit_confirm_action_tool,
     build_emit_proposal_cards_tool,
     build_emit_ui_spec_tool,
@@ -313,7 +314,11 @@ def _provide_run_chat_turn(
         # the LIVE mail receiver is therefore safe: the tools are absent from
         # the model's tool offer until the flag is flipped.
         emit_canvas_tools=(
-            (build_emit_canvas_node_tool(), build_emit_canvas_connect_tool())
+            (
+                build_emit_canvas_node_tool(),
+                build_emit_canvas_connect_tool(),
+                build_emit_code_island_tool(),
+            )
             if settings.CANVAS_EMIT_TOOL_ENABLED
             else ()
         ),

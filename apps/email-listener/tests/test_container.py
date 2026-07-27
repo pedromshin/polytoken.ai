@@ -27,6 +27,7 @@ from app.domain.services.chat_model_registry import get_model
 from app.infrastructure.llm.chat_tools import (
     EMIT_CANVAS_CONNECT_TOOL_NAME,
     EMIT_CANVAS_NODE_TOOL_NAME,
+    EMIT_CODE_ISLAND_TOOL_NAME,
 )
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
 from app.infrastructure.pdf.pdf_parser import PdfParser
@@ -400,6 +401,7 @@ class TestCanvasEmitExposureGate:
         return {t["name"] for t in run_chat_turn._build_tool_offer(model)} & {
             EMIT_CANVAS_NODE_TOOL_NAME,
             EMIT_CANVAS_CONNECT_TOOL_NAME,
+            EMIT_CODE_ISLAND_TOOL_NAME,
         }
 
     def test_container_canvas_emit_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -424,10 +426,15 @@ class TestCanvasEmitExposureGate:
                 run_chat_turn = asyncio.run(container.get(RunChatTurn))
 
             offered_names = {t["name"] for t in run_chat_turn._emit_canvas_tools}
-            assert offered_names == {EMIT_CANVAS_NODE_TOOL_NAME, EMIT_CANVAS_CONNECT_TOOL_NAME}
+            assert offered_names == {
+                EMIT_CANVAS_NODE_TOOL_NAME,
+                EMIT_CANVAS_CONNECT_TOOL_NAME,
+                EMIT_CODE_ISLAND_TOOL_NAME,
+            }
             assert self._offered_canvas_names(run_chat_turn) == {
                 EMIT_CANVAS_NODE_TOOL_NAME,
                 EMIT_CANVAS_CONNECT_TOOL_NAME,
+                EMIT_CODE_ISLAND_TOOL_NAME,
             }
         finally:
             get_settings.cache_clear()
