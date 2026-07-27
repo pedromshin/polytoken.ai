@@ -86,6 +86,38 @@ describe("BillingSurface", () => {
     expect(text).toContain("$49");
   });
 
+  it("renders the concrete per-tier entitlement caps from ENTITLEMENTS", async () => {
+    await mount();
+    const text = container.textContent ?? "";
+    // Labels (text-2xs) present for the limits.
+    expect(text).toContain("Daily email ingest");
+    expect(text).toContain("Monthly chat turns");
+    // free (current-plan section): 100 emails/day, 200 chat turns/mo.
+    expect(text).toContain("100 / day");
+    expect(text).toContain("200 / mo");
+    // pro card: 500 emails/day, 2,000 chat turns/mo.
+    expect(text).toContain("500 / day");
+    expect(text).toContain("2,000 / mo");
+    // power card: 2,000 emails/day, unlimited chat turns.
+    expect(text).toContain("2,000 / day");
+    expect(text).toContain("Unlimited");
+  });
+
+  it("shows the current plan's own caps (pro) in the current-plan section", async () => {
+    subData = {
+      tier: "pro",
+      status: "active",
+      currentPeriodEnd: new Date("2099-01-01"),
+      hasSubscription: true,
+    };
+    await mount();
+    const text = container.textContent ?? "";
+    // pro caps must appear at least twice: once in the current-plan section,
+    // once on the pro card.
+    expect(text.match(/500 \/ day/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+    expect(text.match(/2,000 \/ mo/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
   it("starts checkout for the clicked tier", async () => {
     await mount();
     const btn = button(/subscribe to power/i);
