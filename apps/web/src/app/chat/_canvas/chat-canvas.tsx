@@ -131,6 +131,7 @@ import {
   withDefaultChatNode,
   type PersistedCanvasEdge,
   type SaveStatus,
+  type SourceLedgerRow,
   useCanvasPersistence,
 } from "./use-canvas-persistence";
 
@@ -160,6 +161,13 @@ import {
  * `--edge` at 1.5px, which makes the pair agree in one line.
  */
 const DATA_EDGE_MARKER_END = { type: MarkerType.ArrowClosed, color: "var(--edge)" } as const;
+
+/** Reference-stable empty fallback for the optional `sourceRows` prop (RCNV-02)
+ * — mirrors `EMPTY_PERSISTED_EDGES`'s reasoning in use-canvas-persistence.ts: a
+ * bare `?? []` default would allocate a new array every render, and `sourceRows`
+ * is a dependency of the reconcile effect below, so an unstable identity would
+ * re-fire it (setNodes) on every render. One frozen module-level instance. */
+const EMPTY_SOURCE_ROWS: readonly SourceLedgerRow[] = [];
 
 /**
  * PANE_ADDABLE_NODE_TYPES — the node types the pane context menu can actually
@@ -408,6 +416,15 @@ export interface ChatCanvasProps {
    * tests without a host wired for this yet.
    */
   readonly onOpenConversation?: (conversationId: string) => void;
+  /**
+   * sourceRows (RCNV-02/RSRCH-03) — the conversation's `chat_source_ledger`
+   * rows, fed into `reconcileNodesFromHistory`'s Pass 2c so auto-collected
+   * research sources materialize as `source` canvas nodes WITHOUT the user
+   * asking. Optional + defaults to a stable empty array, so a host that does
+   * not (yet) provide the per-conversation source-list read keeps byte-
+   * identical behaviour (no source nodes) — the wiring seam is inert until fed.
+   */
+  readonly sourceRows?: readonly SourceLedgerRow[];
 }
 
 export function ChatCanvas({
@@ -416,6 +433,7 @@ export function ChatCanvas({
   historyRows,
   onSaveStatusChange,
   onOpenConversation,
+  sourceRows = EMPTY_SOURCE_ROWS,
 }: ChatCanvasProps): React.ReactElement {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<FlowEdge>([]);
@@ -510,7 +528,7 @@ export function ChatCanvas({
     setNodes((prev) => {
       const baseline = wasSeeded ? prev.map(toPersistedShape) : persistence.initialNodes;
       const reconciled = withDefaultChatNode(
-        reconcileNodesFromHistory(baseline, historyRows),
+        reconcileNodesFromHistory(baseline, historyRows, sourceRows),
         conversationId,
       );
       return reconciled.map(toFlowNode);
@@ -531,6 +549,7 @@ export function ChatCanvas({
     persistence.initialEdges,
     persistence.initialViewport,
     historyRows,
+    sourceRows,
     conversationId,
   ]);
 
