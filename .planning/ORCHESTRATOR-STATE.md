@@ -13,6 +13,40 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ ULTRACODE EVERYTHING (5 streams) SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro: "whats next" → "ultracode everything." Built via a 10-agent Workflow (5 parallel/waved builds →
+adversarial verify each), then I integrated + ran the FULL gate suite + fixed every CONFIRMED finding
+before committing. Pushed `1f5241d..012c403`. Gates all green: **billing 30 + tsc · db 124 + drizzle-kit
+check · api-client 6 + tsc · web 1261 + tsc · design-law 195**.
+- ✅ **VISIBLE — /billing entitlement limits** (`f1fdabd`). Each tier's real caps (ingest/day + chat
+  turns/mo, power=unlimited) now render on the plan cards + current plan. Makes slice-B tiers meaningful.
+  Verdict SOUND. Owes a screenshot pass (jsdom can't see layout).
+- ✅ **VISIBLE — DOCS-01 save-response-as-document** (`630b7b4`). Real message/report→document export
+  affordance in the chat action row; documents.create now takes optional initial blocks additively
+  (blank path byte-identical); existing typeset-PDF then applies. Verdict SOUND (2 trivial LOW: docstring
+  fixed; Next-internal import path disclosed/acceptable). Owes a screenshot pass.
+- ✅ **CORRECTNESS — billing pre-launch hardening** (`ff0fb40`, inert until BILLING_ENABLED). Event-ordering
+  high-water mark (`subscriptions.last_event_at`, migration 0057) stops a stale `subscription.updated`
+  resurrecting a canceled tier + same-second tie-break (cancels win ties); atomic idempotency
+  (claim-on-insert, release-on-throw); checkout TOCTOU advisory lock. **Fixed the MEDIUM verify finding**
+  (0057 was NOT journal-registered → `db:migrate` would never create the column → 500s once billing on):
+  added the column to the Drizzle model + `drizzle-kit generate` so journal+snapshot are consistent
+  (`drizzle-kit check` clean). Closes the 3 DEFERRED billing findings from the prior A+B+C ship.
+- 🌓 **DARK PREREQ — RCNV-02 canvas source reconcile** (`8773c85`). Reconcile pass that materializes a
+  source node per `chat_source_ledger` row is built+tested+wired through a ChatCanvas `sourceRows` prop,
+  but byte-identical until fed: **remaining to make sources visibly land = a per-conversation source-list
+  tRPC query in api-client + page.tsx passing sourceRows** (both out of the _canvas/** build scope).
+  RCNV-03 standalone CanonToolbar deliberately NOT mounted — SelectionToolbar already owns the
+  bottom-center slot + generalizes canon mode; a 2nd toolbar would overlap (verified design call).
+- 🌓 **DARK PREREQ — REG-04 capability confirm-card path** (`012c403`). Agent-emits-binding-spec →
+  CapabilityConfirmCard → resolver invoke is wired fail-closed + proven end-to-end in test, but renders
+  nothing in-app until a host mounts `CapabilityInvokerProvider` with a **client-reachable executable
+  registry — which the web tier does not have today** (executors live server-side/daemon). That client
+  executor path is the real remaining build; not forced (architectural, needs its own slice).
+- **NEXT visible candidates** (both unblock a dark seam, both need the owed real-browser pass): wire the
+  RCNV-02 source-list feed (smaller); build a client-reachable capability executor + mount the REG-04
+  provider (larger). Neither is Pedro-gated.
+
 ### ✅ ULTRACODE ALL THREE (A+B+C) SHIPPED — 2026-07-26 · session_01NhVUcfpAuwy4YBkvme7dUp
 Built via a 6-agent Workflow (2 parallel builds → adversarial verify + 3 review agents), then I
 gated + fixed every CONFIRMED finding before shipping. All to `main`:
