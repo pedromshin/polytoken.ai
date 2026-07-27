@@ -52,6 +52,11 @@ const documentsData = {
   nextOffset: 0,
 };
 
+// spreadsheets.list returns the array directly (not { items }).
+const tablesData = [
+  { id: "tbl-1", title: "Invoices Q3", createdAt: NOW, updatedAt: NOW },
+];
+
 const reviewsData = {
   items: [
     {
@@ -115,6 +120,11 @@ vi.mock("~/trpc/react", () => ({
     documents: {
       list: {
         useQuery: () => ({ data: documentsData, isPending: false, isError: false }),
+      },
+    },
+    spreadsheets: {
+      list: {
+        useQuery: () => ({ data: tablesData, isPending: false, isError: false }),
       },
     },
   },

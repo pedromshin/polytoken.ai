@@ -5,6 +5,7 @@ import {
   Inbox,
   Boxes,
   FileText,
+  Table2,
   ArrowRight,
   Pin,
   Check,
@@ -70,6 +71,9 @@ export function HomeBoard(): React.ReactElement {
   const threads = api.emails.listThreads.useQuery({ limit: PANEL_LIMIT });
   const entities = api.entities.list.useQuery({ limit: PANEL_LIMIT });
   const documents = api.documents.list.useQuery({ limit: PANEL_LIMIT });
+  // spreadsheets.list takes no input and returns the array directly (not { items });
+  // sliced to PANEL_LIMIT below. Makes user-created tables discoverable from the hub.
+  const tables = api.spreadsheets.list.useQuery();
   const reviews = api.entities.reviewQueue.useQuery({ limit: PANEL_LIMIT });
 
   const saveLayout = api.chat.saveHomeCanvasLayout.useMutation();
@@ -250,6 +254,24 @@ export function HomeBoard(): React.ReactElement {
                 </Link>
                 <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                   {fmtDate(d.createdAt)}
+                </span>
+              </li>
+            ))}
+          </BoardPanel>
+
+          <BoardPanel
+            title="Recent tables"
+            icon={<Table2 className="size-4 text-ink" aria-hidden strokeWidth={1.5} />}
+            href="/spreadsheets"
+            isPending={tables.isPending}
+            isError={tables.isError}
+            count={tables.data?.length ?? 0}
+          >
+            {(tables.data ?? []).slice(0, PANEL_LIMIT).map((t) => (
+              <li key={t.id} className="flex items-center gap-2 truncate text-sm text-ink">
+                <span className="truncate">{t.title}</span>
+                <span className="ml-auto shrink-0 text-xs text-muted-foreground">
+                  {fmtDate(t.updatedAt)}
                 </span>
               </li>
             ))}
