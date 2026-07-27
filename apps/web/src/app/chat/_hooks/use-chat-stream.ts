@@ -165,6 +165,27 @@ export type MessagePart =
       readonly targetHandle: string;
       readonly sourcePath: string;
       readonly targetKey: string;
+    }
+  // Phase 76-05 (BTAP-07) — the agent-authored code-island wedge. When the model
+  // calls the flag-gated (`CANVAS_EMIT_TOOL_ENABLED`) listener tool
+  // `emit_code_island`, the listener persists this part (frozen shape mirrored
+  // from run_chat_turn_tool_loop.py `_build_canvas_code_island_part`) so the
+  // canvas can run the grounding flow on the post-turn `chat.getHistory`
+  // refetch — the same seam `canvas_connect` uses. The client re-grounds against
+  // ITS OWN live canvas (agent-code-island-reconcile.ts): `intent` + `inputs` +
+  // `inputBindings` are the model's ask, `selectedNodeKeys` names which canvas
+  // nodes to wire, but the reconcile reads each node's OWN published projection
+  // and materializes the island + one data-edge per source idempotently by a
+  // deterministic id, so the refetch is a no-op. The whole path is inert unless
+  // this part arrives (which needs the listener flag on).
+  | {
+      readonly type: "canvas_code_island";
+      readonly intent: string;
+      readonly inputs: Readonly<Record<string, unknown>>;
+      readonly inputBindings: Readonly<
+        Record<string, { readonly sourceNodeKey: string; readonly sourcePath: string }>
+      >;
+      readonly selectedNodeKeys: readonly string[];
     };
 
 export interface ChatStreamAccumulator {
@@ -243,6 +264,9 @@ const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set<StreamTerminalState>(
 const CANVAS_EMIT_TOOL_NAMES: ReadonlySet<string> = new Set([
   "emit_canvas_node",
   "emit_canvas_connect",
+  // Phase 76-05 (BTAP-07) — the code-island emit tool is canvas-only intent too;
+  // its streaming tool_call/tool_result must not render a transcript skeleton.
+  "emit_code_island",
 ]);
 
 function toChatRunEvent(value: unknown): ChatRunEvent | null {
