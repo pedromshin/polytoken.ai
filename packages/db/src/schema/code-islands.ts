@@ -28,7 +28,15 @@
  * through `usePanelData` at render time; only the wiring is persisted.
  */
 
-import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import {
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
 
 import { AuthUsers } from "./_auth";
 
@@ -60,6 +68,15 @@ export const CodeIslands = pgTable(
     // wire to their source nodes' published projections. jsonb, whole-written.
     inputBindings: jsonb("input_bindings").notNull().default({}),
 
+    // Optional idempotency key for AGENT-authored islands (Phase 76-05): the
+    // `{messageId}:{partIndex}` provenance of the canvas_code_island part that
+    // materialized this island. NULL for user-summoned islands (the "Build a tool
+    // from these" flow) — each of those is an intentional distinct creation. When
+    // set, `create` upserts on (user_id, provenance) so a re-run of the same part
+    // (remount / delete+reload) returns the SAME row instead of orphaning a fresh
+    // one. NULLs are distinct in the unique index, so user-summon rows never collide.
+    provenance: text("provenance"),
+
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -70,6 +87,12 @@ export const CodeIslands = pgTable(
   (t) => ({
     // Ownership lookups + the per-user tools list (newest first).
     codeIslandsUserIdIdx: index("idx_code_islands_user_id").on(t.userId),
+    // Agent-island idempotency: at most one island per (owner, provenance).
+    // NULL provenance (user-summoned) rows are distinct and never conflict.
+    codeIslandsProvenanceIdx: uniqueIndex("uq_code_islands_user_provenance").on(
+      t.userId,
+      t.provenance,
+    ),
   }),
 );
 
