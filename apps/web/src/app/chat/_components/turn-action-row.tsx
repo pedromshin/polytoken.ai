@@ -12,6 +12,7 @@ import { useCallback, useState } from "react";
 import { Check, Copy, RefreshCw } from "lucide-react";
 
 import type { MessagePart } from "../_hooks/use-chat-stream";
+import { SaveAsDocumentAction } from "./save-as-document-action";
 import { SiblingNav } from "./sibling-nav";
 
 const COPIED_RESET_MS = 1500;
@@ -82,6 +83,10 @@ export function TurnActionRow({
           <RefreshCw className="size-3.5" aria-hidden />
         </button>
       )}
+      {/* DOCS-01 — turn this response into a stored, typeset-exportable document.
+          Sits in the always-visible action row (no hover-only affordances) and
+          wears the same monochrome icon-button idiom as copy/regenerate. */}
+      <SaveAsDocumentAction parts={parts} />
       {siblings && onNavigateSibling && (
         <SiblingNav
           siblings={siblings}
