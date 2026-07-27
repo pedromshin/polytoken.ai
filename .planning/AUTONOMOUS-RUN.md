@@ -41,7 +41,7 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
 - [x] **W2. Discoverability wiring** — DONE (tables panel). Home-board 'Recent tables' BoardPanel →
       /spreadsheets. Workspaces entry link still small-pending. — home-board "Recent tables" BoardPanel → /spreadsheets, and a
       /workspaces entry point (mount the built WorkspaceSwitcher / a link). Completes round-3 visibility.
-- [ ] **W3. code_islands provenance upsert** (round-3 G-LOW) — codeIslands.create upsert keyed on
+- [x] **W3. code_islands provenance upsert** — DONE (migration 0059 + upsert + web threading). (round-3 G-LOW) — codeIslands.create upsert keyed on
       (conversationId, messageId, partIndex) so the agent path can't re-mint a row on remount/reload.
       Small migration + router change + test.
 - [ ] **W4. Workspace member user-search** — a protected search endpoint so members are added by
@@ -62,6 +62,7 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~10:38 UTC — W3 shipped (code_islands provenance upsert, mig 0059, backend+web, atomic 2 commits).
 - ~10:27 UTC — W1 (TS CI), W2 (tables panel), W5 (source invalidation) shipped+pushed. Daemon suite
   greening assessed = rabbit hole (non-hermetic realpath/junction, 12 fails) — left excluded from CI.
 - 07:58 UTC — run started; env assessed (Docker yes; Supabase/auth NO → browser sim infeasible);

@@ -1305,6 +1305,9 @@ export function ChatCanvas({
             intent: plan.intent,
             code: generated.code,
             inputBindings: plan.inputBindings,
+            // Idempotency: a re-run of this same part (remount / delete+reload)
+            // upserts the SAME code_islands row instead of orphaning a new one.
+            provenance: plan.provenanceKey,
           });
           const center = rfInstanceRef.current?.screenToFlowPosition({
             x: window.innerWidth / 2,
