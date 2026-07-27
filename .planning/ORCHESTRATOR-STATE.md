@@ -13,6 +13,32 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ ULTRACODE ROUND 2 — 3 dark seams LIT + Pedro checklist — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro (2nd "whats next"): "amazing, ultracode everything." 6-agent Workflow (3 build → adversarial verify),
+integrated + full gates + fixed every CONFIRMED finding. All three previously-DARK seams are now LIVE.
+Gates green: **api-client 770 + tsc · web 1465 (incl design-law 195) + tsc**. Pushed on top of `012c403`.
+- ✅ **RCNV-02 now LIVE** — `chat.listSources` (ownership-scoped, 500-cap) feeds ChatCanvasIsland →
+  ChatCanvas `sourceRows` → the reconcile Pass 2c materializes a source node per `chat_source_ledger`
+  row. Sources land on conversation open. Verdict SOUND. Known limit (documented): load-time feed, no
+  mid-session invalidation yet.
+- ✅ **Live usage-vs-cap on /billing** — `billing.usage` + "X / Y used" meters. **Verify caught 2 MEDIUM
+  bugs I FIXED before shipping:** (1) counted `received_at` (sender-controlled, backdatable) instead of
+  server-stamped `created_at` — the exact mail-bomb concern the DailyIngestCounter port documents; (2)
+  summed across all a user's importers vs a PER-importer cap (could read >100%) → now max-over-importers
+  (busiest importer). Also fixed a LOW (count only `is_active` chat turns). Added a per-importer-max test.
+- ✅ **REG-04 now LIVE (in-app)** — client-executable registry folds the tRPC-backed CANVAS_ +
+  TABLE_CAPABILITIES (executors forward to api.chat.*CanvasNode / api.spreadsheets.*); daemon-only caps
+  (fs/terminal/git/browser) stay UNREGISTERED = fail-closed; all risk:write so every invoke is confirm-
+  card-gated (no auto-invoke). CapabilityInvokerProvider mounted around ConversationView. Verdict SOUND,
+  0 findings. Flat-input caps drivable now; nested-arg (addNode/table.create) light up when an emit path
+  supplies runtime args.
+- ✅ **`.planning/PEDRO-CHECKLIST.md`** — the single ordered "at-your-computer" list (rotate tokens →
+  browser-verify the shipped UI → flip Stripe/Vercel → apply migration 0057 + IAM + worker → flip flags).
+  Supersedes the scattered [PEDRO] notes for day-to-day use.
+- **Owed (all in the checklist):** the browser/screenshot pass on all the shipped UI (jsdom does no
+  layout — I can't run the server here); the 2 dark-seam follow-ups (source-feed invalidation; nested-arg
+  capability emit path) are buildable by me next, non-blocking.
+
 ### ✅ ULTRACODE EVERYTHING (5 streams) SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
 Pedro: "whats next" → "ultracode everything." Built via a 10-agent Workflow (5 parallel/waved builds →
 adversarial verify each), then I integrated + ran the FULL gate suite + fixed every CONFIRMED finding
