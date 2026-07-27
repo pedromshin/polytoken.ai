@@ -42,6 +42,14 @@ export const Subscriptions = pgTable(
     // When the current paid period ends (for grace/renewal display). Null when free.
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
 
+    // Event-ordering high-water mark: the Stripe `event.created` (or Checkout
+    // Session `created`) of the most recent event applied to this row. The
+    // webhook's ordered upsert writes state ONLY when the incoming event is not
+    // older than this mark, so a stale/out-of-order `subscription.updated`
+    // delivered AFTER `subscription.deleted` cannot resurrect a canceled tier.
+    // Nullable/no-default: existing rows read NULL → the first event seeds it.
+    lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

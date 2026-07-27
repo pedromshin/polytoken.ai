@@ -10,7 +10,7 @@
  * is signature-authed) — RLS is defense-in-depth, not the wall.
  */
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 import { StripeWebhookEvents, Subscriptions } from "@polytoken/db/schema";
 import type { OwnershipDb } from "@polytoken/db/ownership";
@@ -87,6 +87,58 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
         });
     },
 
+    async applyOrderedSync(userId, patch, eventAt) {
+      // Single conditional upsert: apply the patch ONLY when this event is not
+      // older than the row's high-water mark (`last_event_at`), so a stale /
+      // out-of-order Stripe event cannot resurrect a canceled subscription.
+      // `last_event_at` lives in the DB but NOT in the Drizzle model, so this is
+      // a raw parameterized statement. Only patch-provided fields are set on
+      // conflict (undefined = leave as-is), matching upsertByUserId's semantics.
+      const setFragments = [];
+      if (patch.stripeCustomerId !== undefined)
+        setFragments.push(sql`stripe_customer_id = ${patch.stripeCustomerId}`);
+      if (patch.stripeSubscriptionId !== undefined)
+        setFragments.push(sql`stripe_subscription_id = ${patch.stripeSubscriptionId}`);
+      if (patch.tier !== undefined) setFragments.push(sql`tier = ${patch.tier}`);
+      if (patch.status !== undefined) setFragments.push(sql`status = ${patch.status}`);
+      if (patch.currentPeriodEnd !== undefined)
+        setFragments.push(sql`current_period_end = ${patch.currentPeriodEnd}`);
+      setFragments.push(sql`last_event_at = GREATEST(subscriptions.last_event_at, EXCLUDED.last_event_at)`);
+      setFragments.push(sql`updated_at = now()`);
+
+      const result = await db.execute(sql`
+        INSERT INTO subscriptions
+          (user_id, stripe_customer_id, stripe_subscription_id, tier, status,
+           current_period_end, last_event_at, updated_at)
+        VALUES
+          (${userId}, ${patch.stripeCustomerId ?? null}, ${patch.stripeSubscriptionId ?? null},
+           ${patch.tier ?? "free"}, ${patch.status ?? "inactive"}, ${patch.currentPeriodEnd ?? null},
+           ${eventAt}, now())
+        ON CONFLICT (user_id) DO UPDATE SET ${sql.join(setFragments, sql`, `)}
+          WHERE subscriptions.last_event_at IS NULL
+             OR subscriptions.last_event_at < EXCLUDED.last_event_at
+             OR (subscriptions.last_event_at = EXCLUDED.last_event_at
+                 AND NOT (subscriptions.status = 'canceled' AND EXCLUDED.status <> 'canceled'))
+        RETURNING user_id
+      `);
+      // postgres-js returns a RowList (array-like); a returned row means the
+      // insert happened or the guarded update won. Empty = skipped as stale.
+      const rows = result as unknown as Array<unknown>;
+      return rows.length > 0;
+    },
+
+    async withUserLock(userId, fn) {
+      // Serialize concurrent billing mutations for one user with a
+      // transaction-scoped advisory lock (auto-released on commit/rollback, so
+      // it survives connection pooling — the whole txn is one connection). The
+      // key is stable per user; `fn` runs its own queries on the outer db, but a
+      // second withUserLock for the same user blocks until this txn commits.
+      return db.transaction(async (tx) => {
+        await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`billing:user:${userId}`}))`);
+        return fn();
+      });
+    },
+
     async wasEventProcessed(eventId) {
       const rows = await db
         .select({ processedAt: StripeWebhookEvents.processedAt })
@@ -97,7 +149,12 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
     },
 
     async recordEventStart(eventId, eventType, payload) {
-      await db
+      // Atomic claim: ON CONFLICT DO NOTHING + RETURNING. A returned row means
+      // THIS call inserted it (won the claim); an empty result means the id was
+      // already recorded (concurrent in-flight worker or prior delivery). The
+      // unique PK on stripe_webhook_events makes the insert the single point of
+      // serialization, so duplicate deliveries can't both win.
+      const inserted = await db
         .insert(StripeWebhookEvents)
         .values({
           id: eventId,
@@ -105,7 +162,9 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
           payload: (payload ?? {}) as Record<string, unknown>,
           processedAt: null,
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing()
+        .returning({ id: StripeWebhookEvents.id });
+      return inserted.length > 0;
     },
 
     async markEventProcessed(eventId) {
@@ -113,6 +172,18 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
         .update(StripeWebhookEvents)
         .set({ processedAt: new Date() })
         .where(eq(StripeWebhookEvents.id, eventId));
+    },
+
+    async releaseUnprocessedEvent(eventId) {
+      // Delete the claim ONLY while still unprocessed, so a handler crash after
+      // winning the claim doesn't permanently swallow the event — Stripe's retry
+      // re-claims and re-runs it. Guarded on processed_at so it never races away
+      // a concurrently-completing success.
+      await db
+        .delete(StripeWebhookEvents)
+        .where(
+          sql`${StripeWebhookEvents.id} = ${eventId} AND ${StripeWebhookEvents.processedAt} IS NULL`,
+        );
     },
   };
 }

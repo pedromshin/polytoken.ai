@@ -65,8 +65,12 @@ export async function verifySession(deps: VerifyDeps, sessionId: string): Promis
 
   if (subscriptionId) {
     // No userIdHint: resolve identity from the subscription's OWN metadata, not
-    // from any client-reachable session field.
-    await syncSubscription(deps, { subscriptionId });
+    // from any client-reachable session field. Order this fulfilment by the
+    // session's `created` time so it goes through the same resurrection guard as
+    // the webhook — a `deleted` event that already landed (larger event time)
+    // wins over this fallback rather than being overwritten.
+    const eventAt = new Date((session.created ?? 0) * 1000);
+    await syncSubscription(deps, { subscriptionId, eventAt });
   }
 
   await deps.store.markEventProcessed(key);

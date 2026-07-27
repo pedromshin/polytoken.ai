@@ -85,6 +85,45 @@ describe("createCheckoutSession", () => {
     expect(stripe.checkout.sessions.create).not.toHaveBeenCalled();
   });
 
+  it("serializes two concurrent checkouts: one customer created, not two (TOCTOU)", async () => {
+    const stripe = fakeStripe();
+    let seq = 0;
+    // Distinct customer id per create call so a double-create would be visible.
+    stripe.customers.create.mockImplementation(async () => ({ id: `cus_${++seq}` }));
+    const { store, current } = makeFakeStore(null);
+
+    const [r1, r2] = await Promise.all([
+      createCheckoutSession({ stripe, store }, { userId: "u1", email: "u1@example.com", ...BASE }),
+      createCheckoutSession({ stripe, store }, { userId: "u1", email: "u1@example.com", ...BASE }),
+    ]);
+
+    // The per-user lock serialized the guard+customer-create: the second call
+    // re-read the persisted customer and reused it instead of creating a second.
+    expect(stripe.customers.create).toHaveBeenCalledOnce();
+    expect(current()?.stripeCustomerId).toBe("cus_1");
+    // Both still get a session url (serialization, not rejection).
+    expect(r1.url).toBeTruthy();
+    expect(r2.url).toBeTruthy();
+    const customersUsed = stripe.checkout.sessions.create.mock.calls.map(
+      (c) => (c[0] as Record<string, unknown>).customer,
+    );
+    expect(customersUsed).toEqual(["cus_1", "cus_1"]);
+  });
+
+  it("runs the duplicate-active guard inside the lock (re-reads committed state)", async () => {
+    const stripe = fakeStripe();
+    const { store } = makeFakeStore(null);
+    const getSpy = vi.spyOn(store, "getByUserId");
+    const lockSpy = vi.spyOn(store, "withUserLock");
+
+    await createCheckoutSession({ stripe, store }, { userId: "u1", ...BASE });
+
+    // The guard's read happened; and it happened through the lock wrapper.
+    expect(lockSpy).toHaveBeenCalledOnce();
+    expect(getSpy).toHaveBeenCalledWith("u1");
+    expect(lockSpy.mock.invocationCallOrder[0]).toBeLessThan(getSpy.mock.invocationCallOrder[0]!);
+  });
+
   it("rejects a tier with no configured price", async () => {
     const stripe = fakeStripe();
     const { store } = makeFakeStore(null);

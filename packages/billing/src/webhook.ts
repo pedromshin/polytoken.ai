@@ -58,7 +58,16 @@ function customerIdOf(customer: Stripe.Subscription["customer"]): string {
  */
 export async function syncSubscription(
   deps: WebhookDeps,
-  args: { subscription?: Stripe.Subscription; subscriptionId?: string; userIdHint?: string | null },
+  args: {
+    subscription?: Stripe.Subscription;
+    subscriptionId?: string;
+    userIdHint?: string | null;
+    /** Ordering high-water mark for this write (the Stripe event's `created`, or
+     * the Checkout Session's `created` for the verify fallback). When provided,
+     * the write goes through the event-ordered guard so a stale event cannot
+     * resurrect a canceled subscription. Omit only for legacy callers. */
+    eventAt?: Date;
+  },
 ): Promise<void> {
   const sub =
     args.subscription ??
@@ -77,27 +86,43 @@ export async function syncSubscription(
 
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
   const periodEndUnix = readPeriodEndUnix(sub);
-  await deps.store.upsertByUserId(userId, {
+  const patch = {
     stripeCustomerId: customerId,
     stripeSubscriptionId: sub.id,
     tier: tierFromPriceId(priceId, deps.prices),
     status: sub.status,
     currentPeriodEnd: periodEndUnix ? new Date(periodEndUnix * 1000) : null,
-  });
+  };
+  if (args.eventAt) {
+    await deps.store.applyOrderedSync(userId, patch, args.eventAt);
+  } else {
+    await deps.store.upsertByUserId(userId, patch);
+  }
 }
 
-async function applyCanceled(deps: WebhookDeps, sub: Stripe.Subscription): Promise<void> {
+async function applyCanceled(
+  deps: WebhookDeps,
+  sub: Stripe.Subscription,
+  eventAt: Date,
+): Promise<void> {
   const customerId = customerIdOf(sub.customer);
   const userId =
     (sub.metadata?.userId || null) ?? (await deps.store.getByCustomerId(customerId))?.userId ?? null;
   // A cancel for an unknown user is a no-op, not a failure.
   if (!userId) return;
-  await deps.store.upsertByUserId(userId, {
-    tier: "free",
-    status: sub.status ?? "canceled",
-    stripeSubscriptionId: null,
-    currentPeriodEnd: null,
-  });
+  // Event-ordered: a `deleted` that is itself stale (an even newer event already
+  // applied) is skipped; otherwise it downgrades and raises the high-water mark
+  // so a late `updated` cannot re-activate the tier.
+  await deps.store.applyOrderedSync(
+    userId,
+    {
+      tier: "free",
+      status: sub.status ?? "canceled",
+      stripeSubscriptionId: null,
+      currentPeriodEnd: null,
+    },
+    eventAt,
+  );
 }
 
 /**
@@ -110,6 +135,9 @@ export async function handleStripeEvent(
 ): Promise<WebhookResult> {
   const eventId = event.id;
   const eventType = event.type;
+  // Ordering high-water mark for every state write in this event (Stripe's
+  // `created` is the generation time, so it orders out-of-order deliveries).
+  const eventAt = new Date((event.created ?? 0) * 1000);
 
   if (await deps.store.wasEventProcessed(eventId)) {
     return { eventId, eventType, handled: false, action: "skipped_duplicate" };
@@ -118,36 +146,54 @@ export async function handleStripeEvent(
     return { eventId, eventType, handled: false, action: "unknown_event_type" };
   }
 
-  await deps.store.recordEventStart(eventId, eventType, event.data.object);
+  // Atomic idempotency gate: claim the event id (unique insert). If the claim is
+  // lost, a concurrent duplicate delivery already owns it — do NOT run the
+  // handler a second time. This closes the check-then-act race that
+  // `wasEventProcessed` alone leaves open between claim and mark-processed.
+  const claimed = await deps.store.recordEventStart(eventId, eventType, event.data.object);
+  if (!claimed) {
+    return { eventId, eventType, handled: false, action: "skipped_duplicate" };
+  }
 
   let action = "noop";
-  switch (eventType) {
-    case "checkout.session.completed": {
-      const session = event.data.object as Stripe.Checkout.Session;
-      const userId = session.client_reference_id ?? session.metadata?.userId ?? null;
-      const subscriptionId =
-        typeof session.subscription === "string"
-          ? session.subscription
-          : (session.subscription?.id ?? null);
-      if (userId && subscriptionId) {
-        await syncSubscription(deps, { subscriptionId, userIdHint: userId });
-        action = "checkout_fulfilled";
-      } else {
-        action = "checkout_no_subscription";
+  try {
+    switch (eventType) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const userId = session.client_reference_id ?? session.metadata?.userId ?? null;
+        const subscriptionId =
+          typeof session.subscription === "string"
+            ? session.subscription
+            : (session.subscription?.id ?? null);
+        if (userId && subscriptionId) {
+          await syncSubscription(deps, { subscriptionId, userIdHint: userId, eventAt });
+          action = "checkout_fulfilled";
+        } else {
+          action = "checkout_no_subscription";
+        }
+        break;
       }
-      break;
+      case "customer.subscription.created":
+      case "customer.subscription.updated": {
+        await syncSubscription(deps, {
+          subscription: event.data.object as Stripe.Subscription,
+          eventAt,
+        });
+        action = "subscription_synced";
+        break;
+      }
+      case "customer.subscription.deleted": {
+        await applyCanceled(deps, event.data.object as Stripe.Subscription, eventAt);
+        action = "subscription_canceled";
+        break;
+      }
     }
-    case "customer.subscription.created":
-    case "customer.subscription.updated": {
-      await syncSubscription(deps, { subscription: event.data.object as Stripe.Subscription });
-      action = "subscription_synced";
-      break;
-    }
-    case "customer.subscription.deleted": {
-      await applyCanceled(deps, event.data.object as Stripe.Subscription);
-      action = "subscription_canceled";
-      break;
-    }
+  } catch (err) {
+    // Release the claim so Stripe's retry can re-run this event instead of the
+    // crashed claim silently swallowing it (recordEventStart would otherwise
+    // reject the retry as a duplicate).
+    await deps.store.releaseUnprocessedEvent(eventId);
+    throw err;
   }
 
   await deps.store.markEventProcessed(eventId);
