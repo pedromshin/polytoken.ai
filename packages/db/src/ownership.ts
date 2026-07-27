@@ -34,6 +34,7 @@ import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import * as schema from "./schema";
 import { Canvases } from "./schema/canvases";
+import { CanvasRecipes } from "./schema/canvas-recipes";
 import { ChatConversations } from "./schema/chat-conversations";
 import { ChatMessages } from "./schema/chat-messages";
 import { ChatSourceLedger } from "./schema/chat-source-ledger";
@@ -370,6 +371,32 @@ export async function assertCanvasOwnership(
   const row = rows[0];
   if (!row || row.userId !== userId) {
     throw new OwnershipError("canvas", canvasId);
+  }
+}
+
+/**
+ * assertCanvasRecipeOwnership — resolves when canvas_recipes.user_id = userId.
+ * Direct owner anchor, no join (mirrors assertSpreadsheetOwnership — a recipe
+ * carries a DIRECT user_id, Phase 73 LCAN-08). Throws OwnershipError
+ * otherwise/missing (fail-closed, no existence oracle). This is the ONLY path
+ * the `canvasRecipes.byId` read + `rename`/`remove` mutations use to gate a
+ * single recipe on — never an ad-hoc per-call-site owner filter. (The list read
+ * scopes by conversation via assertConversationOwnership instead.)
+ */
+export async function assertCanvasRecipeOwnership(
+  db: OwnershipDb,
+  recipeId: string,
+  userId: string,
+): Promise<void> {
+  const rows = await db
+    .select({ userId: CanvasRecipes.userId })
+    .from(CanvasRecipes)
+    .where(eq(CanvasRecipes.id, recipeId))
+    .limit(1);
+
+  const row = rows[0];
+  if (!row || row.userId !== userId) {
+    throw new OwnershipError("canvas_recipe", recipeId);
   }
 }
 

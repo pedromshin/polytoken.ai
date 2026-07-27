@@ -1,4 +1,5 @@
 import { billingRouter } from "./router/billing";
+import { canvasRecipesRouter } from "./router/canvas-recipes";
 import { capabilitiesRouter } from "./router/capabilities";
 import { chatRouter } from "./router/chat";
 import { codeIslandsRouter } from "./router/code-islands";
@@ -35,6 +36,7 @@ export const appRouter = createTRPCRouter({
   codeIslands: codeIslandsRouter,
   workspaces: workspacesRouter,
   billing: billingRouter,
+  canvasRecipes: canvasRecipesRouter,
 });
 
 // export type definition of API
