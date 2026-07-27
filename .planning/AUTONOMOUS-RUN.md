@@ -1,0 +1,98 @@
+# AUTONOMOUS OVERNIGHT RUN — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp
+
+> Pedro: "continue autonomously for the next 6 hours … don't prompt me, I'll be sleeping …
+> go as far as you can with everything ahead and in GSD … keep yourself alive every 5 min."
+> Started **07:58 UTC**, target end **~14:00 UTC**. THIS FILE + `ORCHESTRATOR-STATE.md` are the
+> durable memory — a fresh wakeup/compaction reads them and continues. Branch:
+> `claude/phase-76-summon-loop-al5emg` (PR #10 already MERGED to main; treat new work as fresh
+> commits on this main-based branch).
+
+## HARD SAFETY LINES (never cross, even under "full permissions")
+- NO `terraform apply` (no remote state → recreates/drops live SES rules = mail outage).
+- NO prod DB migrations (MIGRATE-PROD needs the 3 absent PROD_* secrets; can't run).
+- NO AWS/cloud provisioning (cost + touches the live account + security).
+- NO routing around the auto-mode classifier; NO live keys; NO SES/nauta/magnitude edits.
+- Do NOT prompt Pedro (asleep). No AskUserQuestion. Decide and proceed.
+
+## DEPLOY POLICY (overnight)
+- Build ONLY additive / flag-gated changes (byte-identical when the flag is OFF / path unused).
+- Every CI-gateable gate GREEN before commit (web/api-client/db/mcp-server vitest+tsc+design-law;
+  listener ruff/format/lint-imports/mypy/pytest). No red commits.
+- Push to the branch continuously. Keep ONE PR open + green.
+- Merge→deploy is allowed for CI-green ADDITIVE work; listener changes only if flag-gated DEFAULT-OFF
+  (behavioral no-op in prod). When in doubt, leave it PR-only for Pedro and note it.
+- Browser/visual verification is NOT achievable here (no Supabase/auth, no .env.local) — every visible
+  surface still owes Pedro's real-browser pass; never claim visual-done.
+
+## KEEPALIVE
+- Hourly self-bind Routine (created via create_trigger) = crash/phone-death backstop.
+- During active work, background tasks (Workflows/gates/waits) keep re-invoking me; when genuinely idle
+  with queue remaining, arm a send_later ~5 min out. Always leave something pending. Delete the backstop
+  Routine + stop at ~14:00 UTC (or when the queue is exhausted).
+
+## WORK QUEUE (prioritized; all safe/additive/CI-gateable)
+Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
+
+- [x] **W1. ci-web-and-packages.yml** — DONE. TS CI gate: tsc + vitest for all 9 TS workspaces
+      (db/api-client/billing/capabilities/genui/ui/web/worker/mcp-server) + drizzle-kit check,
+      path-filtered, SKIP_ENV_VALIDATION=1. daemon excluded (known-red suite, Track 2). Validated all
+      9 green locally first (genui 645, web+design-law, api-client 33, mcp-server 32, billing 30,
+      capabilities 65, ui 49, worker 7, db). Pushed.
+- [x] **W2. Discoverability wiring** — DONE (tables panel). Home-board 'Recent tables' BoardPanel →
+      /spreadsheets. Workspaces entry link still small-pending. — home-board "Recent tables" BoardPanel → /spreadsheets, and a
+      /workspaces entry point (mount the built WorkspaceSwitcher / a link). Completes round-3 visibility.
+- [x] **W3. code_islands provenance upsert** — DONE (migration 0059 + upsert + web threading). (round-3 G-LOW) — codeIslands.create upsert keyed on
+      (conversationId, messageId, partIndex) so the agent path can't re-mint a row on remount/reload.
+      Small migration + router change + test.
+- [ ] **W4. Workspace member user-search** — a protected search endpoint so members are added by
+      name/email instead of a raw UUID; wire into the members panel.
+- [x] **W5. Canvas sources mid-session invalidation** — DONE. ChatCanvasIsland invalidates
+      chat.listSources whenever historyRows grows (turn boundary), so auto-collected sources land on
+      the canvas as a turn ends, not only on remount. tsc + 1369 canvas/design-law tests green. (earlier dark seam) — invalidate chat.listSources
+      on new-source events so sources land instantly, not only on remount.
+- [ ] **W6. Real-Postgres tenant-isolation CI job** (master-plan Track 2) — ephemeral-Postgres job that
+      applies all migrations from scratch + runs the isolation suite. THIS is the prerequisite that
+      unblocks the deferred workspace-sharing hazard. Higher effort.
+- [~] **W7. Phase 75 — 75-01 ledger + 75-02 CascadeCorrectionUseCase SHIPPED (additive); 75-05 already existed.**
+      Shipped correction_propagations (mig 0060, importer-scoped, job_key-unique for CPF-02 idempotency).
+      CPF-05 (entities.byId invalidation on merge) + the cascade-highlight were already in use-merge-review.ts.
+      DEFERRED: 75-02 CascadeCorrectionUseCase + 75-03 wire-into-ConfirmMerge + 75-04 worker — complex domain
+      logic touching the LIVE merge path; wants Pedro's review. ORIG: — correction_propagations ledger migration → CascadeCorrectionUseCase
+      → wire into ConfirmMergeUseCase (best-effort) → worker re-label. Flag-gated; touches listener merge
+      path (default-OFF → PR-only unless clearly no-op). FULL pytest.
+- [ ] **W8. Phase 77 Wave C** — expose polytoken.addCanvasNode as a WRITE tool behind a SEPARATE
+      default-OFF POLYTOKEN_MCP_WRITE_ENABLED flag (73 connect/recipes substrate now exists).
+- [x] **W9. container.py split — ALREADY DONE** (composition/ has 11 provider modules; app/container.py is a 233-line wiring file). No action needed. (master-plan Track 2) — split the 1433-line DI god-file into
+      container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
+
+## ✅ RUN CONCLUDED (~window end; clock resynced to 17:2x UTC)
+PR #11 fully GREEN in GitHub (Vercel preview + listener CI + web/packages CI). Delivered, all additive +
+CI-validated: W1 TS-CI + Node-22/jsdom clean-install fix · W2 tables discoverability · W3 code_islands
+provenance upsert (mig 0059) +tests · W5 source invalidation · references test · Phase 75-01 ledger (mig
+0060) · Phase 75-02 CascadeCorrectionUseCase +ports +4 tests. Found W9 (container split) + CPF-05 already
+done. Held every hard line (no tf apply / prod migrations / AWS / classifier bypass). NOT merged — PR #11
+awaits Pedro: apply migrations 0058+0059+0060 THEN merge. Deferred (need live DB / security review /
+live-path): 75-03/04 cascade wiring+SQL adapters, W8 MCP write tool, W4 user-search, W6 real-PG CI.
+
+## PROGRESS LOG (newest first)
+- ~12:1x UTC — Phase 75-02 shipped: CascadeCorrectionUseCase + new correction_cascade ports + 4 CPF-01/02
+  tests. Domain-pure (lint-imports clean), additive (NOT wired to ConfirmMerge, no infra adapters). Full
+  listener suite green (mypy 315, ruff, 2100+ pytest). REMAINING (deferred, live-merge-path): 75-03 wire
+  into ConfirmMergeUseCase best-effort + concrete SQL adapters + surface summary through the confirm
+  endpoint/tRPC; 75-04 worker cascade_relabel task. These modify the live merge path → Pedro's review.
+- ~11:40 UTC — W9 found ALREADY DONE (container.py already split into 11 composition/ provider modules).
+  Phase 75: shipped 75-01 correction_propagations ledger (mig 0060); found CPF-05 + cascade-highlight already
+  shipped in use-merge-review.ts. Deferred the 75-02/03/04 cascade core (live-merge-path domain logic) for review.
+- ~11:26 UTC — PR #11 CI GREEN on Node 22. The new gate immediately EARNED ITS KEEP: it caught a
+  pre-existing clean-install bug (root/apps-web jsdom@29 → ESM @exodus/bytes → ERR_REQUIRE_ESM under
+  `npm ci`, masked by local stale node_modules). Fixed via Node 22 (stable require(ESM), zero lockfile
+  churn) + a harmless html-encoding-sniffer@4 pin. Deeper fix (align apps/web jsdom→^25.0.1 like
+  genui/ui) noted as a follow-up. Substantive safe queue is DONE; remaining W4/6/7/8/9 stay deferred.
+- ~10:52 UTC — PR #11 opened (overnight batch, NOT merged — migration-order gated). Added codeIslands
+  router test (+fixed a fake-db regression W3 exposed) + references router test (last untested router).
+  api-client 784 green. Ledger + PEDRO-CHECKLIST updated for morning handoff.
+- ~10:38 UTC — W3 shipped (code_islands provenance upsert, mig 0059, backend+web, atomic 2 commits).
+- ~10:27 UTC — W1 (TS CI), W2 (tables panel), W5 (source invalidation) shipped+pushed. Daemon suite
+  greening assessed = rabbit hole (non-hermetic realpath/junction, 12 fails) — left excluded from CI.
+- 07:58 UTC — run started; env assessed (Docker yes; Supabase/auth NO → browser sim infeasible);
+  plan + keepalive being set up.

@@ -48,5 +48,8 @@
     "jsdom": "^29.1.1",
     "knip": "^5.64.3",
     "supabase": "^2.106.0"
+  },
+  "overrides": {
+    "html-encoding-sniffer": "^4.0.0"
   }
 }

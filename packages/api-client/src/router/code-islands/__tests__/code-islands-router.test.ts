@@ -25,6 +25,7 @@ vi.mock("@polytoken/db/ownership", async () => {
 import { assertCodeIslandOwnership, OwnershipError } from "@polytoken/db/ownership";
 
 import { appRouter } from "../../../root";
+import { __resetColumnExistsCacheForTests } from "../../_column-detect";
 
 const USER_A = { id: "a1000000-0000-0000-0000-00000000000a" };
 const ISLAND_A = "c1000000-0000-0000-0000-0000000000c1";
@@ -50,14 +51,31 @@ function makeDb(opts: {
   selectRows?: ReadonlyArray<FakeRow>;
   insertReturning?: ReadonlyArray<FakeRow>;
   deleteReturning?: ReadonlyArray<FakeRow>;
-  captured?: { values?: FakeRow };
+  captured?: { values?: FakeRow; usedUpsert?: boolean };
+  // Whether the code_islands.provenance column is present (migration 0059
+  // applied). tableColumnExists() runs db.execute() against information_schema;
+  // a non-empty result means "column exists" → create() upserts, an empty
+  // result means "absent" → create() falls back to a plain insert. Defaults to
+  // present so existing create() tests keep exercising the upsert path.
+  hasProvenanceColumn?: boolean;
 }) {
+  const columnPresent = opts.hasProvenanceColumn ?? true;
   return {
+    execute: () => Promise.resolve(columnPresent ? [{ "1": 1 }] : []),
     select: () => createSelectChain(opts.selectRows ?? []),
     insert: () => ({
       values: (v: FakeRow) => {
         if (opts.captured) opts.captured.values = v;
-        return { returning: () => Promise.resolve(opts.insertReturning ?? []) };
+        // create() upserts when provenance exists (.values().onConflictDoUpdate()
+        // .returning()) and plain-inserts when it doesn't (.values().returning()).
+        const insertChain = {
+          onConflictDoUpdate: () => {
+            if (opts.captured) opts.captured.usedUpsert = true;
+            return insertChain;
+          },
+          returning: () => Promise.resolve(opts.insertReturning ?? []),
+        };
+        return insertChain;
       },
     }),
     delete: () => ({
@@ -72,10 +90,14 @@ function caller(user: { id: string } | null, db: unknown = {}) {
 
 beforeEach(() => {
   vi.mocked(assertCodeIslandOwnership).mockReset();
+  // The column-detection cache is process-lifetime; reset between cases so the
+  // present/absent branches don't leak into one another.
+  __resetColumnExistsCacheForTests();
 });
 
 afterEach(() => {
   vi.mocked(assertCodeIslandOwnership).mockReset();
+  __resetColumnExistsCacheForTests();
 });
 
 describe("codeIslandsRouter tenancy (Phase 76 / BTAP-09)", () => {
@@ -125,11 +147,11 @@ describe("codeIslandsRouter tenancy (Phase 76 / BTAP-09)", () => {
     expect(result).toMatchObject({ id: ISLAND_A, intent: "reconcile invoices", code: "const x=1;" });
   });
 
-  it("create stamps ctx.user.id server-side (never a client field)", async () => {
-    const captured: { values?: FakeRow } = {};
+  it("create stamps ctx.user.id server-side (never a client field), upserting when provenance exists", async () => {
+    const captured: { values?: FakeRow; usedUpsert?: boolean } = {};
     const result = await caller(
       USER_A,
-      makeDb({ insertReturning: [{ id: ISLAND_A }], captured }),
+      makeDb({ insertReturning: [{ id: ISLAND_A }], captured, hasProvenanceColumn: true }),
     ).codeIslands.create({
       intent: "reconcile these",
       code: "const x=1;",
@@ -138,6 +160,29 @@ describe("codeIslandsRouter tenancy (Phase 76 / BTAP-09)", () => {
     expect(result).toEqual({ islandId: ISLAND_A, created: true });
     expect(captured.values?.userId).toBe(USER_A.id);
     expect(captured.values?.intent).toBe("reconcile these");
+    // Column present → the upsert branch runs and provenance is written.
+    expect(captured.usedUpsert).toBe(true);
+    expect(captured.values).toHaveProperty("provenance");
+  });
+
+  it("create falls back to a plain insert when the provenance column is absent (pre-0059 prod)", async () => {
+    // Migration 0059 not yet applied: tableColumnExists() → false, so create()
+    // must NOT reference provenance/onConflictDoUpdate (which would 500 with a
+    // raw UndefinedColumn against the real DB). Owner is still stamped.
+    const captured: { values?: FakeRow; usedUpsert?: boolean } = {};
+    const result = await caller(
+      USER_A,
+      makeDb({ insertReturning: [{ id: ISLAND_A }], captured, hasProvenanceColumn: false }),
+    ).codeIslands.create({
+      intent: "reconcile these",
+      code: "const x=1;",
+      provenance: "msg-1:0",
+    });
+    expect(result).toEqual({ islandId: ISLAND_A, created: true });
+    expect(captured.values?.userId).toBe(USER_A.id);
+    // No upsert, and the insert payload carries no provenance key.
+    expect(captured.usedUpsert).toBeUndefined();
+    expect(captured.values).not.toHaveProperty("provenance");
   });
 
   it("remove asserts ownership first, then reports removal (BTAP-10)", async () => {

@@ -1,0 +1,103 @@
+name: CI — Web & Packages
+
+# The TypeScript side of the monorepo had ZERO automated CI (only the Python listener was gated).
+# This runs tsc --noEmit + vitest for every TS workspace, plus the Drizzle journal/snapshot check,
+# on any PR or push that touches TS code. Unit-test only (jsdom) — the geometry/screenshot gates need
+# a running :3000 server and are intentionally NOT run here. SKIP_ENV_VALIDATION=1 mirrors how these
+# suites run locally (they mock the DB / tRPC ctx; no real env is needed).
+
+on:
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "apps/worker/**"
+      - "apps/mcp-server/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - ".github/workflows/ci-web-and-packages.yml"
+  push:
+    branches: [main, dev]
+    paths:
+      - "apps/web/**"
+      - "apps/worker/**"
+      - "apps/mcp-server/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig*.json"
+      - ".github/workflows/ci-web-and-packages.yml"
+
+permissions:
+  contents: read
+
+env:
+  SKIP_ENV_VALIDATION: "1"
+
+jobs:
+  quality:
+    name: Typecheck + test (web & packages)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 22 (>=22.12 has stable require(ESM)). The root/apps-web jsdom@29 stack pulls the
+      # ESM-only @exodus/bytes (no top-level await) and require()s it from CJS — which throws
+      # ERR_REQUIRE_ESM on Node 20 under a clean `npm ci` (local dev masks it via a stale
+      # node_modules). This is a pre-existing repo issue; the deeper fix is aligning apps/web's
+      # jsdom to ^25.0.1 like packages/genui + packages/ui already pin (see AUTONOMOUS-RUN.md).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Every TS workspace exposes `typecheck` (tsc --noEmit) and `test` (vitest run).
+      # apps/daemon TYPECHECKS here (it is type-clean) but its TESTS are omitted below until
+      # the suite is greened (12 known non-hermetic realpath/junction failures) — gating on
+      # those would make CI red; track its greening separately.
+      - name: Typecheck all workspaces
+        run: |
+          set -e
+          for ws in \
+            @polytoken/db \
+            @polytoken/api-client \
+            @polytoken/billing \
+            @polytoken/capabilities \
+            @polytoken/genui \
+            @polytoken/ui \
+            @polytoken/web \
+            @polytoken/worker \
+            @polytoken/mcp-server \
+            @polytoken/daemon; do
+            echo "::group::typecheck $ws"
+            npm run typecheck -w "$ws"
+            echo "::endgroup::"
+          done
+
+      - name: Test all workspaces
+        run: |
+          set -e
+          for ws in \
+            @polytoken/db \
+            @polytoken/api-client \
+            @polytoken/billing \
+            @polytoken/capabilities \
+            @polytoken/genui \
+            @polytoken/ui \
+            @polytoken/web \
+            @polytoken/worker \
+            @polytoken/mcp-server; do
+            echo "::group::test $ws"
+            npm run test -w "$ws"
+            echo "::endgroup::"
+          done
+
+      # Drizzle migration/journal/snapshot consistency (run directly, not via the `check`
+      # script which loads a local .env.local that does not exist in CI).
+      - name: Drizzle-kit check (journal/snapshot consistency)
+        working-directory: packages/db
+        run: npx drizzle-kit check

@@ -24,7 +24,7 @@
  * `ctx.user.id`. `remove`'s DELETE also scopes on user_id (defense in depth).
  */
 
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
 import { CodeIslands } from "@polytoken/db/schema";
@@ -33,6 +33,7 @@ import { assertCodeIslandOwnership } from "@polytoken/db/ownership";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
+import { tableColumnExists } from "../_column-detect";
 
 // ---------------------------------------------------------------------------
 // Bounds — an island program + its bindings must stay sane (the code is bounded
@@ -120,18 +121,62 @@ export const codeIslandsRouter = createTRPCRouter({
         intent: z.string().min(1).max(4096),
         code: z.string().min(1).max(MAX_CODE_LEN),
         inputBindings: inputBindingsSchema.default({}),
+        // Optional idempotency key for AGENT-authored islands (Phase 76-05): the
+        // `{messageId}:{partIndex}` provenance of the canvas_code_island part.
+        // When present, an insert with the same (owner, provenance) UPSERTS the
+        // existing row instead of minting a new one — so a remount / delete+reload
+        // re-run of the same part cannot orphan a fresh code_islands row (the
+        // islandId is otherwise network-minted and non-deterministic). Omitted for
+        // user-summoned islands, which stay distinct (NULL provenance never conflicts).
+        provenance: z.string().min(1).max(200).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const inserted = await ctx.db
-        .insert(CodeIslands)
-        .values({
-          userId: ctx.user.id,
-          intent: input.intent,
-          code: input.code,
-          inputBindings: input.inputBindings,
-        })
-        .returning({ id: CodeIslands.id });
+      // Migration-order guard (the 0036 pattern): the `provenance` column +
+      // its (user_id, provenance) unique index arrive in migration 0059. Until
+      // that migration lands in an environment, the column is absent — so gate
+      // the upsert on feature-detection. When the column exists we upsert (agent
+      // path idempotency); when it doesn't we fall back to a plain insert with
+      // no provenance, so this deploy is safe in ANY migration order and a
+      // pre-0059 prod never hits a raw UndefinedColumn (42703) 500.
+      const hasProvenance = await tableColumnExists(
+        ctx.db,
+        "code_islands",
+        "provenance",
+      );
+
+      const inserted = hasProvenance
+        ? await ctx.db
+            .insert(CodeIslands)
+            .values({
+              userId: ctx.user.id,
+              intent: input.intent,
+              code: input.code,
+              inputBindings: input.inputBindings,
+              provenance: input.provenance ?? null,
+            })
+            // Upsert on (user_id, provenance): a NULL provenance never conflicts
+            // (user-summon path is a plain insert), a set provenance returns the
+            // SAME island id and refreshes its code/bindings (agent-path idempotency).
+            .onConflictDoUpdate({
+              target: [CodeIslands.userId, CodeIslands.provenance],
+              set: {
+                intent: input.intent,
+                code: input.code,
+                inputBindings: input.inputBindings,
+                updatedAt: sql`now()`,
+              },
+            })
+            .returning({ id: CodeIslands.id })
+        : await ctx.db
+            .insert(CodeIslands)
+            .values({
+              userId: ctx.user.id,
+              intent: input.intent,
+              code: input.code,
+              inputBindings: input.inputBindings,
+            })
+            .returning({ id: CodeIslands.id });
       const id = inserted[0]?.id;
       if (id === undefined) {
         throw new TRPCError({
