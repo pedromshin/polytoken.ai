@@ -32,16 +32,26 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
   (`STRIPE_PRICE_PRO` / `STRIPE_PRICE_POWER`), `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BILLING_APP_URL`.
 - **Before real charges:** legal review of privacy/ToS (LGPD/SCCs), and a Merchant-of-Record decision.
 
-## 3. Apply the DB migration + the two infra changes (needs shared TF state / DB access)
-- **`db:migrate`** — migration `0057_sour_peter_quill` (adds `subscriptions.last_event_at`) must run
-  before billing is enabled, or the webhook's ordered-sync path errors. Also now **`0058_secret_mesmero`**
-  (adds `canvas_recipes` + its RLS policies) for Phase 73 Wave C — safe additive table, no existing data
-  touched. `npm run db:migrate` (via the sanctioned `deploy-migrate-prod.yml` path once its
-  `environment: production` scoping is fixed — see ledger).
-- **⚠️ PR #11 (overnight batch) — apply `0058` AND `0059_moaning_wrecker` BEFORE merging/deploying it.**
-  0059 adds `code_islands.provenance` (+ unique index); the new `codeIslands.create` upserts on it, so
-  deploying PR #11 ahead of the migration would break the LIVE "Build a tool from these" flow. PR #11 is
-  additive + CI-green but intentionally NOT merged — review, apply migrations, then merge.
+## 3. Apply the DB migrations + the two infra changes (needs the prod-env secrets / shared TF state)
+- **⚠️ THE ONE THING BLOCKING THE MIGRATE PIPELINE — add 3 secrets to the `production` GitHub Environment.**
+  You dispatched **Migrate prod DB** (`deploy-migrate-prod.yml`) at 18:50 UTC 2026-07-27 and it failed in
+  ~48s with `POSTGRES_URL_NON_POOLING is not defined` — same as the two prior runs. The workflow is correct
+  (`environment: production` is set); the `production` Environment simply has **empty** secrets. In GitHub →
+  Settings → Environments → **production**, add: `PROD_POSTGRES_URL_NON_POOLING` (the session/direct :5432
+  string), `PROD_POSTGRES_URL` (pooled is fine), `PROD_SUPABASE_URL` (`https://<ref>.supabase.co`). Then
+  re-dispatch the workflow with confirm `MIGRATE-PROD`. **Take a Supabase PITR/backup point first** (the
+  migrations are additive + forward-only, but belt-and-suspenders on prod). This is the only step I could
+  not do — I can't set GitHub Environment secrets, and the Supabase Management-API path is classifier-blocked.
+- **Migrations the run will apply (all additive):** `0057_sour_peter_quill` (`subscriptions.last_event_at` —
+  needed before billing), `0058_secret_mesmero` (`canvas_recipes` + RLS), `0059_moaning_wrecker`
+  (`code_islands.provenance` + unique index), `0060_rapid_red_skull` (`correction_propagations` ledger).
+- **✅ PR #11 is MERGED + DEPLOYED (2026-07-27 ~18:53 UTC, commit `cb20ba8`)** — listener ECS prod deploy +
+  web CI green, Vercel auto-deploys web from main. It was made **migration-order-safe** first:
+  `codeIslands.create` now gates its provenance upsert behind `tableColumnExists("code_islands","provenance")`
+  (the repo's 0036 feature-detection pattern), so with `0059` still unapplied it falls back to a plain insert
+  — no 500 in the live "Build a tool" flow. **After you apply the migrations above, the dormant features
+  light up automatically on the next web process restart** (a deploy restarts it): provenance-dedup on
+  code-islands, `canvas_recipes` reads, and the `correction_propagations` ledger. Until then they no-op.
 - **IAM `s3:DeleteObject`** grant on the SES inbound bucket (`infrastructure/aws/iam.tf`) — WITHOUT it,
   self-serve account deletion 502s for any user who has received SES mail (right-to-erasure gap).
   **Gated: no TF remote state yet** — do NOT `terraform apply` from a checkout until shared state
@@ -60,19 +70,18 @@ Default-OFF today (byte-identical). Flip after a real end-to-end mail loop confi
 ## 5. Round-3 (5-stream) follow-ups — buildable by me next, not blocking
 Shipped 2026-07-27 to `claude/phase-76-summon-loop-al5emg` (see ledger ROUND 3). Gate-green; these are
 the honest remaining edges:
-- **Discoverability wiring** — `/spreadsheets` and `/workspaces` are functional but reachable only by
-  direct URL. Small web follow-up: a "Recent tables" `BoardPanel` on the home board (mirror the documents
-  panel) + a workspaces entry point / mount the built `WorkspaceSwitcher` in shared nav.
+- **Discoverability wiring** — ✅ the home-board "Recent tables" `BoardPanel` → `/spreadsheets` SHIPPED
+  (PR #11, deployed). Still open: a `/workspaces` entry point / mount the built `WorkspaceSwitcher` in
+  shared nav (workspaces is still direct-URL-only).
 - **MCP server go-live (Phase 77)** — code + tests are in `apps/mcp-server` (SDK installed). Before it
   runs: (a) a runtime build strategy so `node dist/index.js` works (it imports `@polytoken/api-client` as
   TS source — bundle via esbuild/tsup, or build deps to dist first); (b) set `POLYTOKEN_MCP_USER_ID` (your
   auth.users id) + `POLYTOKEN_MCP_TOKEN` + `POSTGRES_URL_NON_POOLING`; (c) add the one `mcpServers` entry
   to your own Claude Code config; (d) MCPX-09 live check — `tools/list` shows the 3 polytoken tools and
   `searchMyKnowledge` returns grounded results from your real graph.
-- **code_islands provenance upsert** — the agent code-island path (Phase 76-05) can re-mint a
-  `code_islands` row on remount-before-save-flush or delete+reload (islandId is network-minted). Clean fix:
-  a provenance-keyed (conversationId, messageId, partIndex) upsert on `codeIslands.create`. LOW; the whole
-  path is flag-OFF (`CANVAS_EMIT_TOOL_ENABLED`) until go-live.
+- **code_islands provenance upsert** — ✅ SHIPPED (PR #11, deployed) — `codeIslands.create` upserts on a
+  provenance key, now gated behind `tableColumnExists` so it's live-safe ahead of migration `0059`. The
+  dedup activates once `0059` is applied (§3). The whole agent path stays flag-OFF (`CANVAS_EMIT_TOOL_ENABLED`).
 - **Table viewer route** — `/spreadsheets` rows are non-navigating cards because a table only opens as a
   canvas node today; wire an open-on-canvas / standalone viewer affordance.
 - **Workspace member user-search** — add-member takes a raw user UUID; add a user-search endpoint.
@@ -80,8 +89,9 @@ the honest remaining edges:
   graphile-worker after-close recompute is the live-only seam (needs the worker provisioned, §3).
 
 ## 6. Earlier dark-seam follow-ups (still open)
-- **Canvas sources are load-time only** — no mid-session query invalidation yet, so sources collected
-  during an open session appear on remount, not instantly. Small web follow-up.
+- **Canvas sources are load-time only** — ✅ SHIPPED (PR #11, deployed): `chat.listSources` is now
+  invalidated at each turn boundary, so auto-collected sources land on the canvas as a turn ends, not only
+  on remount. (Still owes a real-browser confirm — §1.)
 - **Capability confirm card** drives flat-input capabilities today (canvas.connect/removeNode, title-only
   table.update); nested-arg ones (canvas.addNode, table.create) light up when an emit path supplies
   runtime args (the binding descriptor carries primitives only today).
