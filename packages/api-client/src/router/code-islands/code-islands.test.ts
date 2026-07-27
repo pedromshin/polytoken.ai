@@ -44,6 +44,10 @@ function fakeDb(opts: { insertReturns?: unknown[] } = {}) {
     Promise.resolve([]).then(res, rej);
   return {
     db: {
+      // tableColumnExists() gate in create(): a non-empty result means the
+      // provenance column (migration 0059) is present → the upsert branch runs,
+      // which is what these provenance-threading assertions exercise.
+      execute: () => Promise.resolve([{ "1": 1 }]),
       select: () => chain,
       insert: () => {
         captured.insertReached = true;
