@@ -53,15 +53,22 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
 - [ ] **W6. Real-Postgres tenant-isolation CI job** (master-plan Track 2) — ephemeral-Postgres job that
       applies all migrations from scratch + runs the isolation suite. THIS is the prerequisite that
       unblocks the deferred workspace-sharing hazard. Higher effort.
-- [ ] **W7. Phase 75 SERVER cascade** — correction_propagations ledger migration → CascadeCorrectionUseCase
+- [~] **W7. Phase 75 — 75-01 ledger SHIPPED; visible half (75-05/CPF-05) ALREADY existed; cascade core deferred.**
+      Shipped correction_propagations (mig 0060, importer-scoped, job_key-unique for CPF-02 idempotency).
+      CPF-05 (entities.byId invalidation on merge) + the cascade-highlight were already in use-merge-review.ts.
+      DEFERRED: 75-02 CascadeCorrectionUseCase + 75-03 wire-into-ConfirmMerge + 75-04 worker — complex domain
+      logic touching the LIVE merge path; wants Pedro's review. ORIG: — correction_propagations ledger migration → CascadeCorrectionUseCase
       → wire into ConfirmMergeUseCase (best-effort) → worker re-label. Flag-gated; touches listener merge
       path (default-OFF → PR-only unless clearly no-op). FULL pytest.
 - [ ] **W8. Phase 77 Wave C** — expose polytoken.addCanvasNode as a WRITE tool behind a SEPARATE
       default-OFF POLYTOKEN_MCP_WRITE_ENABLED flag (73 connect/recipes substrate now exists).
-- [ ] **W9. container.py split** (master-plan Track 2) — split the 1433-line DI god-file into
+- [x] **W9. container.py split — ALREADY DONE** (composition/ has 11 provider modules; app/container.py is a 233-line wiring file). No action needed. (master-plan Track 2) — split the 1433-line DI god-file into
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~11:40 UTC — W9 found ALREADY DONE (container.py already split into 11 composition/ provider modules).
+  Phase 75: shipped 75-01 correction_propagations ledger (mig 0060); found CPF-05 + cascade-highlight already
+  shipped in use-merge-review.ts. Deferred the 75-02/03/04 cascade core (live-merge-path domain logic) for review.
 - ~11:26 UTC — PR #11 CI GREEN on Node 22. The new gate immediately EARNED ITS KEEP: it caught a
   pre-existing clean-install bug (root/apps-web jsdom@29 → ESM @exodus/bytes → ERR_REQUIRE_ESM under
   `npm ci`, masked by local stale node_modules). Fixed via Node 22 (stable require(ESM), zero lockfile
