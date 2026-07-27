@@ -33,9 +33,11 @@
 ## WORK QUEUE (prioritized; all safe/additive/CI-gateable)
 Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
 
-- [ ] **W1. ci-web-and-packages.yml** — the entire TS side has ZERO CI (master-plan shortlist #3).
-      Add a GitHub workflow running vitest + tsc for web/api-client/db/mcp-server/billing/capabilities/
-      genui/daemon + the web design-law suite, path-filtered. Pure additive IaC, no runtime risk.
+- [x] **W1. ci-web-and-packages.yml** — DONE. TS CI gate: tsc + vitest for all 9 TS workspaces
+      (db/api-client/billing/capabilities/genui/ui/web/worker/mcp-server) + drizzle-kit check,
+      path-filtered, SKIP_ENV_VALIDATION=1. daemon excluded (known-red suite, Track 2). Validated all
+      9 green locally first (genui 645, web+design-law, api-client 33, mcp-server 32, billing 30,
+      capabilities 65, ui 49, worker 7, db). Pushed.
 - [ ] **W2. Discoverability wiring** — home-board "Recent tables" BoardPanel → /spreadsheets, and a
       /workspaces entry point (mount the built WorkspaceSwitcher / a link). Completes round-3 visibility.
 - [ ] **W3. code_islands provenance upsert** (round-3 G-LOW) — codeIslands.create upsert keyed on
