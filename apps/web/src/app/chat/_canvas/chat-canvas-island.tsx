@@ -10,6 +10,7 @@
  */
 
 import dynamic from "next/dynamic";
+import * as React from "react";
 
 import { api } from "~/trpc/react";
 
@@ -57,6 +58,17 @@ export function ChatCanvasIsland({
   // (no field remap). Until data arrives / when the pool is empty we hand the
   // reference-stable empty array, so the canvas stays byte-identical.
   const { data: sourceRows } = api.chat.listSources.useQuery({ conversationId });
+
+  // Mid-session freshness: a turn just landed whenever `historyRows` grows (the
+  // controller refetches chat.getHistory on the turn's terminal event). A web-search
+  // turn writes new chat_source_ledger rows during it, so invalidate the source feed
+  // on each new turn — sources now materialize on the canvas as the turn ends, not
+  // only on a later remount. Keyed on the row count so mid-stream ticks don't thrash it.
+  const utils = api.useUtils();
+  const historyCount = historyRows.length;
+  React.useEffect(() => {
+    void utils.chat.listSources.invalidate({ conversationId });
+  }, [historyCount, conversationId, utils]);
 
   return (
     <ChatCanvasDynamic

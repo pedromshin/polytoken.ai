@@ -38,14 +38,17 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       path-filtered, SKIP_ENV_VALIDATION=1. daemon excluded (known-red suite, Track 2). Validated all
       9 green locally first (genui 645, web+design-law, api-client 33, mcp-server 32, billing 30,
       capabilities 65, ui 49, worker 7, db). Pushed.
-- [ ] **W2. Discoverability wiring** — home-board "Recent tables" BoardPanel → /spreadsheets, and a
+- [x] **W2. Discoverability wiring** — DONE (tables panel). Home-board 'Recent tables' BoardPanel →
+      /spreadsheets. Workspaces entry link still small-pending. — home-board "Recent tables" BoardPanel → /spreadsheets, and a
       /workspaces entry point (mount the built WorkspaceSwitcher / a link). Completes round-3 visibility.
 - [ ] **W3. code_islands provenance upsert** (round-3 G-LOW) — codeIslands.create upsert keyed on
       (conversationId, messageId, partIndex) so the agent path can't re-mint a row on remount/reload.
       Small migration + router change + test.
 - [ ] **W4. Workspace member user-search** — a protected search endpoint so members are added by
       name/email instead of a raw UUID; wire into the members panel.
-- [ ] **W5. Canvas sources mid-session invalidation** (earlier dark seam) — invalidate chat.listSources
+- [x] **W5. Canvas sources mid-session invalidation** — DONE. ChatCanvasIsland invalidates
+      chat.listSources whenever historyRows grows (turn boundary), so auto-collected sources land on
+      the canvas as a turn ends, not only on remount. tsc + 1369 canvas/design-law tests green. (earlier dark seam) — invalidate chat.listSources
       on new-source events so sources land instantly, not only on remount.
 - [ ] **W6. Real-Postgres tenant-isolation CI job** (master-plan Track 2) — ephemeral-Postgres job that
       applies all migrations from scratch + runs the isolation suite. THIS is the prerequisite that
@@ -59,5 +62,7 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
 ## PROGRESS LOG (newest first)
+- ~10:27 UTC — W1 (TS CI), W2 (tables panel), W5 (source invalidation) shipped+pushed. Daemon suite
+  greening assessed = rabbit hole (non-hermetic realpath/junction, 12 fails) — left excluded from CI.
 - 07:58 UTC — run started; env assessed (Docker yes; Supabase/auth NO → browser sim infeasible);
   plan + keepalive being set up.
