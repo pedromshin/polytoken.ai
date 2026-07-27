@@ -65,6 +65,15 @@ Legend: [ ] todo · [~] in progress · [x] done+pushed · [M] merged to main
 - [x] **W9. container.py split — ALREADY DONE** (composition/ has 11 provider modules; app/container.py is a 233-line wiring file). No action needed. (master-plan Track 2) — split the 1433-line DI god-file into
       container/providers/{ingest,chat,entities,genui,infra}.py. Declarative DI, behavior-risk ~0. Big.
 
+## ✅ RUN CONCLUDED (~window end; clock resynced to 17:2x UTC)
+PR #11 fully GREEN in GitHub (Vercel preview + listener CI + web/packages CI). Delivered, all additive +
+CI-validated: W1 TS-CI + Node-22/jsdom clean-install fix · W2 tables discoverability · W3 code_islands
+provenance upsert (mig 0059) +tests · W5 source invalidation · references test · Phase 75-01 ledger (mig
+0060) · Phase 75-02 CascadeCorrectionUseCase +ports +4 tests. Found W9 (container split) + CPF-05 already
+done. Held every hard line (no tf apply / prod migrations / AWS / classifier bypass). NOT merged — PR #11
+awaits Pedro: apply migrations 0058+0059+0060 THEN merge. Deferred (need live DB / security review /
+live-path): 75-03/04 cascade wiring+SQL adapters, W8 MCP write tool, W4 user-search, W6 real-PG CI.
+
 ## PROGRESS LOG (newest first)
 - ~12:1x UTC — Phase 75-02 shipped: CascadeCorrectionUseCase + new correction_cascade ports + 4 CPF-01/02
   tests. Domain-pure (lint-imports clean), additive (NOT wired to ConfirmMerge, no infra adapters). Full
