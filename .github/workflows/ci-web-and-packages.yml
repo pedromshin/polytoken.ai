@@ -51,8 +51,9 @@ jobs:
         run: npm ci
 
       # Every TS workspace exposes `typecheck` (tsc --noEmit) and `test` (vitest run).
-      # apps/daemon is intentionally omitted until its suite is greened (12 known Windows-only
-      # failures) — adding it here would gate CI red; track its greening separately.
+      # apps/daemon TYPECHECKS here (it is type-clean) but its TESTS are omitted below until
+      # the suite is greened (12 known non-hermetic realpath/junction failures) — gating on
+      # those would make CI red; track its greening separately.
       - name: Typecheck all workspaces
         run: |
           set -e
@@ -65,7 +66,8 @@ jobs:
             @polytoken/ui \
             @polytoken/web \
             @polytoken/worker \
-            @polytoken/mcp-server; do
+            @polytoken/mcp-server \
+            @polytoken/daemon; do
             echo "::group::typecheck $ws"
             npm run typecheck -w "$ws"
             echo "::endgroup::"
