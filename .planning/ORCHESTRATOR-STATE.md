@@ -13,6 +13,54 @@
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);
 > **no autonomous backstop is active.**
 
+### ✅ ULTRACODE ROUND 3 — 5 GSD-safe streams SHIPPED — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
+Pedro (3rd "whats next" → "also check gsd" → "ultracode everything"). I grounded the menu with a
+wired-but-dark sweep AND reconciled it against GSD (master plan + STATE): the naive top pick
+(workspaces) is a Track-5 cross-tenant-leak hazard to batch-build (no real-PG isolation CI yet), so I
+scoped "everything" to the GSD-SAFE set and held out the two flagged hazards (workspace *sharing*
+list-unions; desktop-spawn, GSD-least-urgent + cost-bearing). 14-agent Workflow (5 disjoint builds ∥ →
+adversarial verify each; then 2 canvas-web halves sequential → verify). I integrated + ran the FULL gate
+matrix + fixed every CONFIRMED finding + committed per-stream. Pushed on top of `c5cea3d`.
+Gates all green: **db drizzle-kit check + tsc · api-client 33 + tsc · mcp-server 32 + tsc · web tsc +
+spreadsheets 5 / workspaces 11 / recipe-overlay 8 / agent-reconcile 21 / chat-canvas 7 / design-law ·
+listener ruff/format/lint-imports/mypy(313) + pytest 2111.**
+- ✅ **VISIBLE — `/spreadsheets` "My tables" index** (`5fba2e6`). Wires the callerless `spreadsheets.list`;
+  registry surface mirroring /documents. Verdict SOUND. Rows non-navigating (no standalone table viewer
+  route yet — followup). Reachable by direct URL; nav/home-board tile is a documented followup.
+- ✅ **VISIBLE — owner-scoped workspace shell** (`c539265`). Opens the 100%-dark workspaces router
+  (switcher + members/roles admin) using ONLY the 7 owner/RBAC procedures — **NO** shareResource/
+  listShares/revokeShare, **NO** resource list-union (the deferred cross-tenant hazard). Verdict SOUND.
+  Dark (URL-only until linked). Add-member is raw-UUID (user-search followup).
+- ✅ **Phase 73 Wave C — canvas_recipes** (`e1da907` backend, `de8137e` web badge). LCAN-07 durable table
+  + ownership-gated CRUD (LCAN-08) + on-canvas neutral recipe legend (LCAN-06). **Fixed 2 CONFIRMED:**
+  MED the drizzle-gen migration dropped the brand-new-table RLS idiom every sibling user-owned table
+  carries → hand-appended ENABLE RLS + anon-deny + owner policy (0058); LOW typed node/edge_keys jsonb.
+  LCAN-09 (durable after-close recompute) remains the live-only worker seam.
+- ✅ **Phase 76-05 — emit_code_island** (`353839d` listener, `de8137e` web reconcile). BTAP-07: agent
+  emits a `canvas_code_island` part behind `CANVAS_EMIT_TOOL_ENABLED` (fail-closed, byte-identical off) →
+  web re-grounds against the live canvas (values never reach the model) → generate → materialize wired
+  node. Listener verdict SOUND. **Fixed 1 CONFIRMED (web):** MED the reconcile effect ignored publish
+  state so a part arriving before its sources published never retried → added a publish-signature dep on
+  the store's `values.shared` identity. Known LOW (documented followup): remount/delete-reload can
+  re-mint a code_islands row (islandId is network-minted); clean fix = provenance-keyed upsert on
+  codeIslands.create. BTAP-07 end-to-end is a named live seam.
+- ✅ **Phase 77 Waves A+B — capability-registry MCP server** (`d1dd3bd`). New `apps/mcp-server`:
+  expose-only stdio server projecting 3 owner-scoped read tools through the same appRouter+createCaller;
+  single fixed principal (fail-closed), identity never from tool input, expose-only machine-checked
+  (no external MCP client — Track-7 mandate). **Fixed 3 CONFIRMED:** MED verbatim-manifest describe
+  over-promised (id-lookup / graph-expand the read procs lack) → authored procedure-accurate descriptions,
+  kept the id∈manifest∧risk:read guard + a regression test; MED the SDK entrypoint (principal→context→
+  caller wiring) was untested/unbuilt → extracted a pure `handlers.ts` + unit-tested the identity
+  threading, installed `@modelcontextprotocol/sdk` (1.29.0) so tsc covers index.ts; LOW "confirmed"→
+  "extracted" knowledge wording. Wave C (canvas.addNode write tool) deferred (depends on 73). MCPX-09
+  (Pedro's real Claude Code) is a named live seam.
+- **Owed (in the checklist):** apply migration 0058 (canvas_recipes); wire nav/home-board discoverability
+  for /spreadsheets + /workspaces; MCP runtime packaging (bundle for `node dist/index.js`) + set
+  POLYTOKEN_MCP_USER_ID/TOKEN + MCPX-09 live loop; the real-browser pass on all shipped web UI; the
+  2 documented dark-seam followups (code_islands provenance upsert; table viewer route; user-search).
+- **Deliberately NOT built (GSD hazard/least-urgent):** workspace *sharing* list-unions (needs real-PG
+  isolation CI first) and desktop-spawn (cost-bearing). Do NOT batch-build these without Pedro direction.
+
 ### ✅ ULTRACODE ROUND 2 — 3 dark seams LIT + Pedro checklist — 2026-07-27 · session_01NhVUcfpAuwy4YBkvme7dUp · branch `claude/phase-76-summon-loop-al5emg`
 Pedro (2nd "whats next"): "amazing, ultracode everything." 6-agent Workflow (3 build → adversarial verify),
 integrated + full gates + fixed every CONFIRMED finding. All three previously-DARK seams are now LIVE.
