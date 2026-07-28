@@ -3,23 +3,13 @@ name: Migrate prod DB
 # Applies pending Drizzle migrations to the PRODUCTION Supabase database.
 # Manual-dispatch only, guarded by a typed confirmation, so it never fires by
 # accident. The DB connection happens on the GitHub runner (which can reach
-# Supabase over the public internet) using a repo secret — the credential lives
-# in GitHub, never in a local checkout.
+# Supabase over the public internet) using a repo/environment secret.
 #
-# ORDER: run this BEFORE merging to `main` (the app/listener deploys expect the
-# new tables). Run it on the feature branch, confirm success, then merge.
-#
-# ROLLBACK: migrations are additive + forward-only. If a run goes wrong, restore
-# the Supabase backup / PITR point you took immediately before dispatching.
-#
-# Required secrets — scoped to the `production` GitHub Environment (DEPLOY.md
-# §5/§6: prod DB URLs live under `production`, not at repo level). The job
-# declares `environment: production` below so these resolve; without it they
-# come through EMPTY and migrate.ts throws "POSTGRES_URL_NON_POOLING is not
-# defined" (the mode this workflow's first run failed in, 2026-07-23):
-#   PROD_POSTGRES_URL_NON_POOLING  — the session/direct (port 5432) connection string
-#   PROD_POSTGRES_URL              — same DB (pooled is fine; only NON_POOLING is used)
-#   PROD_SUPABASE_URL              — https://<project-ref>.supabase.co
+# Secret names accepted (first non-empty wins), so a name mismatch or repo-vs-
+# environment scope no longer silently fails:
+#   POSTGRES_URL_NON_POOLING: PROD_POSTGRES_URL_NON_POOLING | POSTGRES_URL_NON_POOLING | DATABASE_URL_NON_POOLING | DATABASE_URL
+#   POSTGRES_URL:             PROD_POSTGRES_URL | POSTGRES_URL | DATABASE_URL
+#   SUPABASE_URL:             PROD_SUPABASE_URL | SUPABASE_URL | NEXT_PUBLIC_SUPABASE_URL
 
 on:
   workflow_dispatch:
@@ -35,9 +25,8 @@ permissions:
 jobs:
   migrate:
     runs-on: ubuntu-latest
-    # Bind to the `production` Environment so the PROD_* secrets scoped there are
-    # readable (and any required-reviewer gate on it applies). Without this the
-    # secrets resolve empty and the run fails before touching the DB.
+    # Bind to the `production` Environment so environment-scoped secrets resolve
+    # (repo-level secrets resolve too). Any required-reviewer gate also applies.
     environment: production
     steps:
       - name: Guard — require typed confirmation
@@ -45,6 +34,18 @@ jobs:
         run: |
           echo "::error::Refusing to run: 'confirm' must be exactly MIGRATE-PROD (got '${{ github.event.inputs.confirm }}')."
           exit 1
+
+      - name: Report which secret NAMES are present (booleans only — never values)
+        run: |
+          echo "PROD_POSTGRES_URL_NON_POOLING set: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING != '' }}"
+          echo "POSTGRES_URL_NON_POOLING set:      ${{ secrets.POSTGRES_URL_NON_POOLING != '' }}"
+          echo "DATABASE_URL_NON_POOLING set:      ${{ secrets.DATABASE_URL_NON_POOLING != '' }}"
+          echo "DATABASE_URL set:                  ${{ secrets.DATABASE_URL != '' }}"
+          echo "PROD_POSTGRES_URL set:             ${{ secrets.PROD_POSTGRES_URL != '' }}"
+          echo "POSTGRES_URL set:                  ${{ secrets.POSTGRES_URL != '' }}"
+          echo "PROD_SUPABASE_URL set:             ${{ secrets.PROD_SUPABASE_URL != '' }}"
+          echo "SUPABASE_URL set:                  ${{ secrets.SUPABASE_URL != '' }}"
+          echo "NEXT_PUBLIC_SUPABASE_URL set:      ${{ secrets.NEXT_PUBLIC_SUPABASE_URL != '' }}"
 
       - uses: actions/checkout@v4
 
@@ -59,9 +60,9 @@ jobs:
       - name: Apply migrations to prod
         working-directory: packages/db
         env:
-          # createEnv (client.ts) reads runtimeEnv: process.env, so setting the
-          # vars here is sufficient — no .env.production file required in CI.
-          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
-          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
-          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          # createEnv (client.ts) reads runtimeEnv: process.env. First non-empty
+          # secret name wins (an unset secret is an empty string; '' || x -> x).
+          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING || secrets.POSTGRES_URL_NON_POOLING || secrets.DATABASE_URL_NON_POOLING || secrets.DATABASE_URL }}
+          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL || secrets.POSTGRES_URL || secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL || secrets.SUPABASE_URL || secrets.NEXT_PUBLIC_SUPABASE_URL }}
         run: npx tsx src/migrate.ts
