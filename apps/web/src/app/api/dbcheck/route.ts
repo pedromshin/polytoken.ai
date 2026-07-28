@@ -4,10 +4,12 @@ import { sql } from "drizzle-orm";
 import { db } from "@polytoken/db";
 
 // TEMPORARY prod diagnostic (no secrets — password masked; host/ref are public).
+// Localizes "signed-in queries return no data" to the exact Postgres endpoint +
+// error the running Vercel function hits. Remove after diagnosis.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function endpointOf(url) {
+function endpointOf(url: string | undefined): string | null {
   if (!url) return null;
   try {
     const u = new URL(url);
@@ -18,14 +20,25 @@ function endpointOf(url) {
   }
 }
 
-export async function GET() {
-  const present = (k) => (process.env[k] ?? "") !== "";
-  const onVercel = !!process.env.VERCEL;
+interface MaybeErr {
+  name?: string;
+  message?: string;
+  code?: string;
+  cause?: { message?: string; code?: string };
+}
+
+export async function GET(): Promise<NextResponse> {
+  const present = (k: string): boolean => (process.env[k] ?? "") !== "";
+  const onVercel = Boolean(process.env.VERCEL);
   const info = {
     onVercel,
-    selectedVar: onVercel ? "POSTGRES_URL (IPv4 pooler)" : "POSTGRES_URL_NON_POOLING (direct)",
+    selectedVar: onVercel
+      ? "POSTGRES_URL (IPv4 pooler)"
+      : "POSTGRES_URL_NON_POOLING (direct)",
     postgres_url_endpoint: endpointOf(process.env.POSTGRES_URL),
-    postgres_url_non_pooling_endpoint: endpointOf(process.env.POSTGRES_URL_NON_POOLING),
+    postgres_url_non_pooling_endpoint: endpointOf(
+      process.env.POSTGRES_URL_NON_POOLING,
+    ),
     env_present: {
       POSTGRES_URL: present("POSTGRES_URL"),
       POSTGRES_URL_NON_POOLING: present("POSTGRES_URL_NON_POOLING"),
@@ -40,15 +53,15 @@ export async function GET() {
     await db.execute(sql`select 1 as ok`);
     return NextResponse.json({ db: "ok", ...info });
   } catch (e) {
-    const cause = e?.cause;
+    const err = e as MaybeErr;
     return NextResponse.json({
       db: "FAIL",
       error: {
-        name: e?.name ?? null,
-        message: String(e?.message ?? e),
-        code: e?.code ?? null,
-        causeMessage: cause?.message ?? null,
-        causeCode: cause?.code ?? null,
+        name: err.name ?? null,
+        message: String(err.message ?? e),
+        code: err.code ?? null,
+        causeMessage: err.cause?.message ?? null,
+        causeCode: err.cause?.code ?? null,
       },
       ...info,
     });
