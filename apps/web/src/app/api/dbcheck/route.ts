@@ -1,69 +1,82 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import postgres from "postgres";
 
-import { db } from "@polytoken/db";
-
-// TEMPORARY prod diagnostic (no secrets — password masked; host/ref are public).
-// Localizes "signed-in queries return no data" to the exact Postgres endpoint +
-// error the running Vercel function hits. Remove after diagnosis.
+// TEMPORARY prod diagnostic (no secrets — password masked). Tries a `select 1`
+// through EVERY candidate DB-URL env var to find one that authenticates, so a
+// stale password on the var the app reads can be fixed by pointing the client at
+// a working var (in code) instead of needing Vercel env access. Remove after.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function endpointOf(url: string | undefined): string | null {
-  if (!url) return null;
+const CANDIDATES = [
+  "POSTGRES_URL",
+  "POSTGRES_URL_NON_POOLING",
+  "POSTGRES_PRISMA_URL",
+  "POSTGRES_URL_NO_SSL",
+  "DATABASE_URL",
+  "DATABASE_URL_UNPOOLED",
+  "SUPABASE_DB_URL",
+  "SUPABASE_POSTGRES_URL",
+] as const;
+
+function endpointOf(url: string): string {
   try {
     const u = new URL(url);
-    const userPrefix = u.username ? `${u.username.split(".")[0]}.***` : "?";
-    return `${userPrefix}@${u.hostname}:${u.port || "5432"}/${u.pathname.replace(/^\//, "")}`;
+    return `${u.username || "?"}@${u.hostname}:${u.port || "5432"}/${u.pathname.replace(/^\//, "")}`;
   } catch {
     return "unparseable";
   }
 }
 
-interface MaybeErr {
-  name?: string;
-  message?: string;
-  code?: string;
-  cause?: { message?: string; code?: string };
+function optionsOf(url: string): postgres.Options<Record<string, never>> {
+  const u = new URL(url);
+  return {
+    host: u.hostname,
+    port: u.port ? Number(u.port) : 5432,
+    database: decodeURIComponent(u.pathname.replace(/^\//, "")) || "postgres",
+    username: decodeURIComponent(u.username),
+    password: decodeURIComponent(u.password),
+    prepare: false,
+    max: 1,
+    idle_timeout: 5,
+    connect_timeout: 12,
+  };
+}
+
+interface Probe {
+  var: string;
+  endpoint: string;
+  result: "ok" | "fail";
+  error?: string;
 }
 
 export async function GET(): Promise<NextResponse> {
-  const present = (k: string): boolean => (process.env[k] ?? "") !== "";
-  const onVercel = Boolean(process.env.VERCEL);
-  const info = {
-    onVercel,
-    selectedVar: onVercel
-      ? "POSTGRES_URL (IPv4 pooler)"
-      : "POSTGRES_URL_NON_POOLING (direct)",
-    postgres_url_endpoint: endpointOf(process.env.POSTGRES_URL),
-    postgres_url_non_pooling_endpoint: endpointOf(
-      process.env.POSTGRES_URL_NON_POOLING,
-    ),
-    env_present: {
-      POSTGRES_URL: present("POSTGRES_URL"),
-      POSTGRES_URL_NON_POOLING: present("POSTGRES_URL_NON_POOLING"),
-      SUPABASE_URL: present("SUPABASE_URL"),
-      SUPABASE_SERVICE_ROLE_KEY: present("SUPABASE_SERVICE_ROLE_KEY"),
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: present("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
-      EMAIL_LISTENER_URL: present("EMAIL_LISTENER_URL"),
-      EMAIL_LISTENER_API_KEY: present("EMAIL_LISTENER_API_KEY"),
-    },
-  };
-  try {
-    await db.execute(sql`select 1 as ok`);
-    return NextResponse.json({ db: "ok", ...info });
-  } catch (e) {
-    const err = e as MaybeErr;
-    return NextResponse.json({
-      db: "FAIL",
-      error: {
-        name: err.name ?? null,
-        message: String(err.message ?? e),
-        code: err.code ?? null,
-        causeMessage: err.cause?.message ?? null,
-        causeCode: err.cause?.code ?? null,
-      },
-      ...info,
-    });
+  const probes: Probe[] = [];
+  for (const name of CANDIDATES) {
+    const url = process.env[name];
+    if (!url) continue;
+    const endpoint = endpointOf(url); // username is not secret; password never shown
+    let client: postgres.Sql | null = null;
+    try {
+      client = postgres(optionsOf(url));
+      await client`select 1 as ok`;
+      probes.push({ var: name, endpoint, result: "ok" });
+    } catch (e) {
+      const err = e as { message?: string; cause?: { message?: string } };
+      probes.push({
+        var: name,
+        endpoint,
+        result: "fail",
+        error: String(err.cause?.message ?? err.message ?? e).slice(0, 160),
+      });
+    } finally {
+      if (client) await client.end({ timeout: 2 }).catch(() => {});
+    }
   }
+  const working = probes.find((p) => p.result === "ok")?.var ?? null;
+  return NextResponse.json({
+    onVercel: Boolean(process.env.VERCEL),
+    workingVar: working,
+    probes,
+  });
 }
