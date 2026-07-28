@@ -28,6 +28,22 @@ on:
         description: 'Type MIGRATE-PROD to proceed'
         required: true
         default: ''
+      # Optional at-dispatch overrides for the prod connection. When the
+      # `production` Environment secrets are not (yet) populated, the values can
+      # be supplied here instead; when left blank they fall back to the secrets.
+      # These are consumed only by this manual workflow and never persisted.
+      db_non_pooling:
+        description: 'override: session (5432) connection string'
+        required: false
+        default: ''
+      db_pooling:
+        description: 'override: pooled (6543) connection string'
+        required: false
+        default: ''
+      supabase_url:
+        description: 'override: https://<ref>.supabase.co'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -61,7 +77,9 @@ jobs:
         env:
           # createEnv (client.ts) reads runtimeEnv: process.env, so setting the
           # vars here is sufficient — no .env.production file required in CI.
-          POSTGRES_URL_NON_POOLING: ${{ secrets.PROD_POSTGRES_URL_NON_POOLING }}
-          POSTGRES_URL: ${{ secrets.PROD_POSTGRES_URL }}
-          SUPABASE_URL: ${{ secrets.PROD_SUPABASE_URL }}
+          # Dispatch overrides take precedence when supplied; otherwise the
+          # production-scoped secrets are used (normal path).
+          POSTGRES_URL_NON_POOLING: ${{ github.event.inputs.db_non_pooling || secrets.PROD_POSTGRES_URL_NON_POOLING }}
+          POSTGRES_URL: ${{ github.event.inputs.db_pooling || secrets.PROD_POSTGRES_URL }}
+          SUPABASE_URL: ${{ github.event.inputs.supabase_url || secrets.PROD_SUPABASE_URL }}
         run: npx tsx src/migrate.ts
