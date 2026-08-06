@@ -7,7 +7,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.application.use_cases.cascade_correction import CascadeCorrectionUseCase
 from app.application.use_cases.confirm_action_dispatch import SourceCaptureHandler
+from app.application.use_cases.curate_entity_merge import ConfirmMergeUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
 from app.application.use_cases.research.deep_research import DeepResearchToolExecutor
@@ -501,3 +503,45 @@ class TestClusterContextWiring:
         # (same instance, no new provider) — still assert it is not None,
         # since a regression there would silently drop captured-source reads.
         assert run_chat_turn._knowledge_graph is not None
+
+
+class TestCascadeCorrectionGate:
+    """CPF flag guard: CASCADE_CORRECTION_ENABLED drives structural omission, never dead code.
+
+    Mirrors the repo's Test*ExposureGate convention (search_knowledge, canvas
+    emit): flag off/unset => ConfirmMergeUseCase resolves with NO cascade
+    collaborator (byte-dark on the live merge path); flag on => the container
+    composes a real CascadeCorrectionUseCase into it.
+    """
+
+    def _resolve_confirm_merge(self) -> ConfirmMergeUseCase:
+        with _patched_container():
+            container = create_container()
+            return asyncio.run(container.get(ConfirmMergeUseCase))
+
+    def test_container_cascade_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("CASCADE_CORRECTION_ENABLED", raising=False)
+        get_settings.cache_clear()
+        try:
+            confirm_merge = self._resolve_confirm_merge()
+            assert confirm_merge._cascade is None
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_cascade_disabled_via_explicit_false(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CASCADE_CORRECTION_ENABLED", "false")
+        get_settings.cache_clear()
+        try:
+            confirm_merge = self._resolve_confirm_merge()
+            assert confirm_merge._cascade is None
+        finally:
+            get_settings.cache_clear()
+
+    def test_container_cascade_composed_when_enabled(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("CASCADE_CORRECTION_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            confirm_merge = self._resolve_confirm_merge()
+            assert isinstance(confirm_merge._cascade, CascadeCorrectionUseCase)
+        finally:
+            get_settings.cache_clear()

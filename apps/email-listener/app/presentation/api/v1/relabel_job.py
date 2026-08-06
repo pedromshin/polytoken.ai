@@ -53,7 +53,9 @@ class RelabelJobIn(BaseModel):
 
     survivor_id: str = Field(min_length=1)
     absorbed_id: str = Field(min_length=1)
-    email_ids: list[str] = Field(default_factory=list)
+    # Bounded so a crafted payload cannot demand unbounded serial reprocess work;
+    # the cascade's own fan-out stays far below this in practice.
+    email_ids: list[str] = Field(default_factory=list, max_length=1000)
 
 
 class RelabelEmailOutcome(BaseModel):
