@@ -6,6 +6,10 @@ Verifies:
 - body validation: 422 on missing required fields
 - DI wiring: use case injected via FromDishka
 - fallback code surfaced in data.code
+- typed-inputs manifest (76-02b): optional `inputs` accepted + forwarded to the
+  use case as plain dicts; omitted/null forwards None (back-compat BTAP-05);
+  bounded like the web zod (<=32 keys, key<=120, strict entries, pollution keys
+  rejected) — the emit-tool's {kind, columns, sample} shape is NOT accepted
 """
 
 from __future__ import annotations
@@ -151,6 +155,119 @@ def test_generate_surfaces_fallback_code(client: TestClient, mock_use_case: Magi
     assert body["success"] is True
     assert body["data"]["outcome"] == "fallback"
     assert "island-root" in body["data"]["code"]
+
+
+# ---------------------------------------------------------------------------
+# Typed-inputs manifest (76-02b) — the WEB shape, mirrored from
+# packages/api-client/src/router/genui/code-island.ts
+# ---------------------------------------------------------------------------
+
+_MANIFEST = {
+    "emails": {
+        "label": "Inbox emails",
+        "nodeType": "email-table",
+        "fields": [{"name": "subject", "type": "string"}, {"name": "count"}],
+        "rowCount": 12,
+    },
+    "usage": {"nodeType": "usage"},
+}
+
+
+@pytest.mark.unit
+def test_generate_accepts_and_forwards_inputs_manifest(client: TestClient, mock_use_case: MagicMock) -> None:
+    """A valid typed-inputs manifest is accepted and forwarded to execute() as plain dicts."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a tool from these", "inputs": _MANIFEST},
+    )
+    assert resp.status_code == 200
+    call_kwargs = mock_use_case.execute.call_args.kwargs
+    assert call_kwargs["inputs"] == _MANIFEST
+
+
+@pytest.mark.unit
+def test_generate_omitted_inputs_forwards_none(client: TestClient, mock_use_case: MagicMock) -> None:
+    """Omitting `inputs` preserves today's behavior: execute() receives inputs=None (BTAP-05)."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a card"},
+    )
+    assert resp.status_code == 200
+    assert mock_use_case.execute.call_args.kwargs["inputs"] is None
+
+
+@pytest.mark.unit
+def test_generate_null_inputs_forwards_none(client: TestClient, mock_use_case: MagicMock) -> None:
+    """The web sends inputs:null when unwired — accepted, forwarded as None."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a card", "inputs": None},
+    )
+    assert resp.status_code == 200
+    assert mock_use_case.execute.call_args.kwargs["inputs"] is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("bad_key", ["__proto__", "constructor", "prototype"])
+def test_generate_rejects_pollution_input_keys(client: TestClient, bad_key: str) -> None:
+    """Prototype-pollution manifest keys are rejected (mirror of the web zod guard)."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a tool", "inputs": {bad_key: {"nodeType": "email-table"}}},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_generate_rejects_more_than_32_input_keys(client: TestClient) -> None:
+    """At most 32 typed inputs (mirror of the web zod cap)."""
+    manifest = {f"k{i}": {"nodeType": "t"} for i in range(33)}
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a tool", "inputs": manifest},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_generate_rejects_overlong_input_key(client: TestClient) -> None:
+    """A targetKey longer than 120 chars is rejected (mirror of the web zod key cap)."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a tool", "inputs": {"k" * 121: {"nodeType": "t"}}},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_generate_rejects_emit_tool_manifest_shape(client: TestClient) -> None:
+    """Entries are strict: the emit-tool's {kind, columns, sample} shape is NOT accepted."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={
+            "intent": "Build a tool",
+            "inputs": {"emails": {"kind": "table", "columns": ["a"], "sample": [["x"]]}},
+        },
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_generate_rejects_overlong_label_and_too_many_fields(client: TestClient) -> None:
+    """Entry bounds mirror the web zod: label<=200, fields<=50."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a tool", "inputs": {"emails": {"label": "x" * 201}}},
+    )
+    assert resp.status_code == 422
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={
+            "intent": "Build a tool",
+            "inputs": {"emails": {"fields": [{"name": f"f{i}"} for i in range(51)]}},
+        },
+    )
+    assert resp.status_code == 422
 
 
 @pytest.mark.unit

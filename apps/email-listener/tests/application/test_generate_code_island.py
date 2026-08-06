@@ -14,6 +14,8 @@ Verifies:
 - use_case imports NO infrastructure (lint-imports contract)
 - registry_version marker + neutral spec-field defaults on the audit row
 - _candidate_temperatures pure helper spread
+- typed-inputs manifest (76-02b): `inputs` threaded pass-through to every
+  code_generator.generate() candidate; defaults to None (back-compat BTAP-05)
 """
 
 from __future__ import annotations
@@ -436,6 +438,45 @@ async def test_judge_out_of_range_index_is_clamped(
 
     assert result.code == "G1"
     assert result.judged is True
+
+
+# ---------------------------------------------------------------------------
+# Typed-inputs manifest threading (76-02b)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_inputs_manifest_threaded_to_every_candidate(
+    mock_quarantine: MagicMock,
+    mock_judge: MagicMock,
+    mock_audit: MagicMock,
+) -> None:
+    """execute(inputs=...) passes the manifest through to EVERY fan-out generate() call."""
+    generator = MagicMock()
+    generator.generate = AsyncMock(side_effect=[_good("A"), _good("B"), _good("C")])
+    uc = _make_use_case(
+        quarantine=mock_quarantine, code_generator=generator, judge=mock_judge, audit=mock_audit, candidates=3
+    )
+    manifest = {"emails": {"nodeType": "email-table", "rowCount": 3}}
+
+    await uc.execute(intent="Build a tool from these", inputs=manifest)
+
+    assert generator.generate.await_count == 3
+    for call in generator.generate.call_args_list:
+        assert call.kwargs["inputs"] == manifest
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_inputs_defaults_to_none(
+    use_case: GenerateCodeIslandUseCase,
+    mock_code_generator: MagicMock,
+) -> None:
+    """Omitting inputs preserves today's behavior: generate() receives inputs=None (BTAP-05)."""
+    await use_case.execute(intent="Build a card")
+
+    assert mock_code_generator.generate.call_args.kwargs["inputs"] is None
 
 
 # ---------------------------------------------------------------------------

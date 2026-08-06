@@ -11,10 +11,15 @@ test_genui_generator_adapter:
   - After 3 failures → SAFE_FALLBACK_CODE + is_fallback (D-07).
   - cache_control ephemeral on the static system prompt block (D-21).
   - On timeout/exception: return SAFE_FALLBACK_CODE, never raise.
+  - Typed-inputs manifest (76-02b): non-empty `inputs` injected as a second
+    <INPUTS_SECTION> in the USER turn only; the system blocks stay STATIC
+    (D-21 cache discipline); inputs=None/{} → today's byte-identical user
+    message (back-compat BTAP-05).
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -260,6 +265,95 @@ async def test_extraction_appears_as_data_section(
     assert "<DATA_SECTION>" in user_content
     assert "table" in user_content
     assert "Build a table of emails" in user_content
+
+
+# ---------------------------------------------------------------------------
+# Typed-inputs manifest (76-02b) — INPUTS_SECTION in the user turn only
+# ---------------------------------------------------------------------------
+
+_MANIFEST: dict[str, Any] = {
+    "emails": {
+        "label": "Inbox emails",
+        "nodeType": "email-table",
+        "fields": [{"name": "subject", "type": "string"}],
+        "rowCount": 3,
+    },
+}
+
+_EXPECTED_PLAIN_USER_CONTENT = (
+    "<DATA_SECTION>"
+    + json.dumps(
+        {"entity_type": "card", "intent_summary": "Build a dashboard", "confidence": "high"},
+        ensure_ascii=False,
+    )
+    + "</DATA_SECTION>\n\n"
+    "Generate a self-contained JavaScript island using the emit_code_island tool."
+)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_inputs_manifest_appears_as_inputs_section_in_user_turn(
+    adapter: GenuiCodeGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """A non-empty manifest is injected as <INPUTS_SECTION> JSON in the first user turn."""
+    _install_stream(mock_bedrock_client, final=_make_code_tool_response())
+
+    await adapter.generate(extraction=_make_extraction(), inputs=_MANIFEST)
+
+    call_kwargs = mock_bedrock_client.messages.stream.call_args.kwargs
+    user_content = str(call_kwargs["messages"][0]["content"])
+    assert "<DATA_SECTION>" in user_content  # extraction section still present
+    assert "<INPUTS_SECTION>" in user_content
+    assert json.dumps(_MANIFEST, ensure_ascii=False) in user_content
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_system_blocks_stay_static_with_inputs(
+    adapter: GenuiCodeGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """The system blocks are IDENTICAL with and without a manifest (D-21 cache discipline)."""
+    _install_stream(mock_bedrock_client, final=_make_code_tool_response())
+
+    await adapter.generate(extraction=_make_extraction(), inputs=_MANIFEST)
+    system_with = mock_bedrock_client.messages.stream.call_args.kwargs["system"]
+
+    await adapter.generate(extraction=_make_extraction())
+    system_without = mock_bedrock_client.messages.stream.call_args.kwargs["system"]
+
+    assert system_with == system_without
+    system_text = str(system_with)
+    # The STATIC runtime-contract paragraph is always present…
+    assert "window.__ISLAND_DATA__" in system_text
+    # …but the per-request manifest never leaks into the system prompt.
+    assert "Inbox emails" not in system_text
+    assert "email-table" not in system_text
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_none_inputs_produces_byte_identical_user_message(
+    adapter: GenuiCodeGeneratorAdapter,
+    mock_bedrock_client: MagicMock,
+) -> None:
+    """inputs omitted / None / {} all produce today's exact user message (BTAP-05)."""
+    _install_stream(mock_bedrock_client, final=_make_code_tool_response())
+
+    await adapter.generate(extraction=_make_extraction())
+    omitted = mock_bedrock_client.messages.stream.call_args.kwargs["messages"][0]["content"]
+
+    await adapter.generate(extraction=_make_extraction(), inputs=None)
+    explicit_none = mock_bedrock_client.messages.stream.call_args.kwargs["messages"][0]["content"]
+
+    await adapter.generate(extraction=_make_extraction(), inputs={})
+    empty = mock_bedrock_client.messages.stream.call_args.kwargs["messages"][0]["content"]
+
+    assert omitted == _EXPECTED_PLAIN_USER_CONTENT
+    assert explicit_none == _EXPECTED_PLAIN_USER_CONTENT
+    assert empty == _EXPECTED_PLAIN_USER_CONTENT
 
 
 # ---------------------------------------------------------------------------

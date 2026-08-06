@@ -102,6 +102,7 @@ class GenerateCodeIslandUseCase:
         intent: str,
         raw_content: str = "",
         importer_id: str | None = None,
+        inputs: dict[str, Any] | None = None,
     ) -> GenerateCodeIslandResult:
         """Run the quarantine → fan-out → judge → audit pipeline and return the best island code.
 
@@ -109,6 +110,11 @@ class GenerateCodeIslandUseCase:
             intent: Trusted user intent string (what to build).
             raw_content: Untrusted document content — quarantined in Call A (SAFE-01).
             importer_id: Optional importer context for audit rows (D-19).
+            inputs: Optional typed-inputs SHAPE manifest (76-02b): targetKey →
+                shape descriptor of a wired data source, already bounded at the
+                presentation boundary. Pass-through to the code generator —
+                shape only, never row values. None preserves today's behavior
+                (BTAP-05).
 
         Returns:
             GenerateCodeIslandResult wrapping the best emitted JavaScript. When every
@@ -150,6 +156,7 @@ class GenerateCodeIslandUseCase:
                     extraction=extraction,
                     importer_id=importer_id,
                     temperature=t,
+                    inputs=inputs,
                 )
                 for t in temps
             ]

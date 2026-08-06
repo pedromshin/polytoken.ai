@@ -21,7 +21,7 @@ is not fully defined).
 
 from dishka.integrations.fastapi import FromDishka, inject
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.application.use_cases.generate_code_island import GenerateCodeIslandUseCase
 from app.presentation.api.response import ApiResponse
@@ -37,6 +37,41 @@ router = APIRouter(
 # ---------------------------------------------------------------------------
 # Request / response models
 # ---------------------------------------------------------------------------
+
+# Typed-inputs manifest bounds (76-02b) — mirror the web zod caps in
+# packages/api-client/src/router/genui/code-island.ts (CodeIslandInputsManifest).
+_INPUTS_MAX_KEYS = 32
+_INPUTS_MAX_KEY_LENGTH = 120
+# Manifest keys become property names on the injected window.__ISLAND_DATA__
+# global downstream — never let them be pollution vectors (mirror of the web
+# FORBIDDEN_MANIFEST_KEYS + run_chat_turn_tool_loop's _clean_inputs_manifest).
+_FORBIDDEN_INPUT_KEYS = frozenset({"__proto__", "constructor", "prototype"})
+
+
+class CodeIslandInputField(BaseModel):
+    """One field of a wired source's published projection — a name + coarse type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., min_length=1, max_length=120)
+    type: str | None = Field(default=None, max_length=40)
+
+
+class CodeIslandInputManifestEntry(BaseModel):
+    """One wired source's SHAPE descriptor, keyed by its targetKey in the manifest.
+
+    This is the WEB shape (build-tool-flow.ts's ToolInputManifestEntry) — what
+    BOTH callers actually put on the wire — NOT the emit-tool's
+    {kind, columns, sample} shape. Strict (extra='forbid') + alias-only
+    population mirrors the web zod's .strict() camelCase entries.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    label: str | None = Field(default=None, max_length=200)
+    node_type: str | None = Field(default=None, alias="nodeType", max_length=80)
+    fields: list[CodeIslandInputField] | None = Field(default=None, max_length=50)
+    row_count: int | None = Field(default=None, alias="rowCount", ge=0)
 
 
 class GenerateCodeIslandRequest(BaseModel):
@@ -59,6 +94,32 @@ class GenerateCodeIslandRequest(BaseModel):
         default=None,
         description="Optional importer context for audit rows (D-19).",
     )
+    inputs: dict[str, CodeIslandInputManifestEntry] | None = Field(
+        default=None,
+        description=(
+            "Optional typed-inputs SHAPE manifest (76-02b): targetKey → shape of a "
+            "wired data source. Shape only, never row values — the values reach the "
+            "running island at runtime as window.__ISLAND_DATA__.{targetKey}, never "
+            "the model prompt. null when the caller wired no inputs."
+        ),
+    )
+
+    @field_validator("inputs")
+    @classmethod
+    def _validate_inputs_keys(
+        cls, value: dict[str, CodeIslandInputManifestEntry] | None
+    ) -> dict[str, CodeIslandInputManifestEntry] | None:
+        """Bound the manifest like the web zod: <=32 keys, key 1-120 chars, no pollution keys."""
+        if value is None:
+            return value
+        if len(value) > _INPUTS_MAX_KEYS:
+            raise ValueError(f"at most {_INPUTS_MAX_KEYS} typed inputs")
+        for key in value:
+            if not 1 <= len(key) <= _INPUTS_MAX_KEY_LENGTH:
+                raise ValueError(f"input key must be 1-{_INPUTS_MAX_KEY_LENGTH} characters")
+            if key in _FORBIDDEN_INPUT_KEYS:
+                raise ValueError("input key must not be __proto__/constructor/prototype")
+        return value
 
 
 class GenerateCodeIslandView(BaseModel):
@@ -94,10 +155,19 @@ async def generate_code_island(
     On total pipeline failure the response contains SAFE_FALLBACK_CODE (D-07) --
     the endpoint always returns 200 (the fallback IS the response, not an error).
     """
+    # 76-02b: forward the typed-inputs manifest as plain dicts in the WEB wire
+    # shape (by_alias → camelCase keys; exclude_none → absent optionals stay
+    # absent, exactly as the caller sent them). None when unwired (BTAP-05).
+    inputs = (
+        {key: entry.model_dump(by_alias=True, exclude_none=True) for key, entry in body.inputs.items()}
+        if body.inputs is not None
+        else None
+    )
     result = await use_case.execute(
         intent=body.intent,
         raw_content=body.raw_content,
         importer_id=body.importer_id,
+        inputs=inputs,
     )
 
     return ApiResponse.ok(

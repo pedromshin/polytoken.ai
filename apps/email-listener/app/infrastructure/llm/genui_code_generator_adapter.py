@@ -18,6 +18,10 @@ Security/correctness contracts (mirror genui_generator_adapter):
   - D-18: temperature is threaded per-call (parallel multi-candidate path varies it across
     concurrent candidates); the caller controls the value. Defaults to 0.7.
   - D-21: cache_control ephemeral on the static system prompt block.
+  - 76-02b: an optional typed-inputs SHAPE manifest (bounded upstream) is injected
+    as a second <INPUTS_SECTION> in the USER turn — never the system prompt, which
+    stays byte-static for the cache. None/empty manifest keeps the user message
+    byte-identical to the pre-76-02b one (BTAP-05).
 
 No eval/exec/compile anywhere on this path (D-24). The emitted code is treated as
 inert text here — a downstream AST allowlist hard-blocks unsafe constructs before
@@ -144,6 +148,20 @@ _SYSTEM_PROMPT_TEXT = (
     "increment, a working compose box) using addEventListener + local JS state.\n"
     "- Populate with realistic, specific, representative content (real-sounding names, copy, "
     "numbers) — never lorem ipsum or 'Item 1/2/3'.\n\n"
+    "Typed data inputs (optional):\n"
+    "- Some requests wire live data sources into the island. When they do, the user turn also "
+    "contains an <INPUTS_SECTION>: a JSON object mapping each targetKey to the SHAPE of one "
+    "wired source (label, nodeType, fields as name/type pairs, rowCount). It describes shape "
+    "only — the actual VALUES are injected by the host at runtime as "
+    "window.__ISLAND_DATA__.{targetKey}, an object whose top-level properties match the "
+    "declared fields (each type is a coarse JSON type: string, number, boolean, object, "
+    "array, null).\n"
+    "- When an <INPUTS_SECTION> is present, build the UI FROM that data: read each source via "
+    "its targetKey (e.g. const src = (window.__ISLAND_DATA__ || {}).myKey || {};), access it "
+    "defensively so a missing key still renders a sensible empty state, and do NOT invent "
+    "hardcoded sample rows for wired inputs.\n"
+    "- When there is no <INPUTS_SECTION>, window.__ISLAND_DATA__ does not exist — do not "
+    "reference it; populate the UI with realistic self-contained content as described above.\n\n"
     "Rules:\n"
     "- Output ONLY via the emit_code_island tool — no prose, no markdown, no code fences.\n"
     "- Build a concrete, complete UI; keep it accessible (labels, alt text, aria where needed, "
@@ -234,6 +252,7 @@ class GenuiCodeGeneratorAdapter:
         extraction: QuarantineExtraction,
         importer_id: str | None = None,
         temperature: float = 0.7,
+        inputs: dict[str, Any] | None = None,
     ) -> CodeGeneratorResult:
         """Generate a self-contained JavaScript island from the quarantine extraction.
 
@@ -244,6 +263,12 @@ class GenuiCodeGeneratorAdapter:
             temperature: Sampling temperature for the generation call. The parallel
                 multi-candidate path varies this across concurrent candidates so a
                 judge can pick the best. Defaults to 0.7.
+            inputs: Optional typed-inputs SHAPE manifest (76-02b): targetKey →
+                shape descriptor of a wired data source, bounded at the presentation
+                boundary. Shape-only and model-visible BY DESIGN (unlike raw_content
+                it does not go through quarantine); injected as an <INPUTS_SECTION>
+                in the user turn when non-empty. None/{} preserves today's
+                byte-identical user message (BTAP-05).
 
         Returns:
             CodeGeneratorResult with code (emitted JavaScript or SAFE_FALLBACK_CODE),
@@ -251,7 +276,7 @@ class GenuiCodeGeneratorAdapter:
             Never raises — returns a fallback CodeGeneratorResult on any exception.
         """
         try:
-            return await self._generation_loop(extraction=extraction, temperature=temperature)
+            return await self._generation_loop(extraction=extraction, temperature=temperature, inputs=inputs)
         except Exception:
             logger.warning(
                 "genui_code_generator_failed",
@@ -272,6 +297,7 @@ class GenuiCodeGeneratorAdapter:
         *,
         extraction: QuarantineExtraction,
         temperature: float = 0.7,
+        inputs: dict[str, Any] | None = None,
     ) -> CodeGeneratorResult:
         """Run up to 3 attempts; escalate to Sonnet on attempt 3 (D-05).
 
@@ -290,8 +316,16 @@ class GenuiCodeGeneratorAdapter:
             },
             ensure_ascii=False,
         )
+        # 76-02b: the typed-inputs SHAPE manifest rides in the USER turn as a
+        # second delimited section — NEVER in the system prompt, which must stay
+        # byte-static for the D-21 cache. Empty/None manifest → the suffix is ""
+        # and the user message is byte-identical to the pre-76-02b one (BTAP-05).
+        inputs_section = (
+            f"<INPUTS_SECTION>{json.dumps(inputs, ensure_ascii=False)}</INPUTS_SECTION>\n\n" if inputs else ""
+        )
         initial_user_content = (
             f"<DATA_SECTION>{data_section}</DATA_SECTION>\n\n"
+            f"{inputs_section}"
             "Generate a self-contained JavaScript island using the emit_code_island tool."
         )
 
