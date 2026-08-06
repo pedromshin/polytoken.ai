@@ -6,6 +6,7 @@
   "description": "Expose-only MCP server (Track 7, Phase 77 Waves A+B) — projects the read side of the capability registry (knowledge.search / entities.list / search.omnibox) as stdio MCP tools scoped to a single fixed server principal. NEVER consumes an external MCP server.",
   "scripts": {
     "build": "tsc",
+    "bundle": "node scripts/bundle.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

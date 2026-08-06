@@ -8,7 +8,7 @@
  * so a future "let polytoken use external MCP tools" idea cannot silently land HERE.
  */
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
@@ -77,7 +77,8 @@ describe("expose-only guardrail — MCPX-08", () => {
     for (const file of SOURCE_FILES) {
       const text = stripComments(readFileSync(file, "utf8"));
       const importsSdk = text.includes("@modelcontextprotocol/sdk");
-      if (file.endsWith("/index.ts")) {
+      // Normalize win32 backslash separators so the entrypoint check matches on Windows too.
+      if (file.split(sep).join("/").endsWith("/index.ts")) {
         expect(importsSdk, "index.ts is the SDK entrypoint").toBe(true);
         // Only the SERVER surface — never a client subpath.
         expect(text).toContain("@modelcontextprotocol/sdk/server/");

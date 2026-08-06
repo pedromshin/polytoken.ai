@@ -98,3 +98,6 @@ apps/daemon/\\tmp\\daemon-tools-*
 
 # Track 3a co-located worker build output
 /apps/worker/dist/
+
+# Phase 77 MCP server runtime bundle output
+/apps/mcp-server/dist/

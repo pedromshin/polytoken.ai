@@ -66,6 +66,7 @@ jobs:
             @polytoken/db \
             @polytoken/api-client \
             @polytoken/billing \
+            @polytoken/daemon-protocol \
             @polytoken/capabilities \
             @polytoken/genui \
             @polytoken/ui \
@@ -85,6 +86,7 @@ jobs:
             @polytoken/db \
             @polytoken/api-client \
             @polytoken/billing \
+            @polytoken/daemon-protocol \
             @polytoken/capabilities \
             @polytoken/genui \
             @polytoken/ui \
