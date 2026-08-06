@@ -421,6 +421,13 @@
       "when": 1785170835688,
       "tag": "0060_rapid_red_skull",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1785974400000,
+      "tag": "0061_enqueue_allowlist_cascade_recipe",
+      "breakpoints": true
     }
   ]
 }

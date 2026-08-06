@@ -32,13 +32,23 @@ function envPositiveInt(name: string, fallback: number): number {
 
 /**
  * The in-process cron schedule (graphile-worker `crontab`, NOT cloud infra — no Terraform/
- * EventBridge, per the CLAUDE.md live-infra landmines). It fires ONCE globally at 05:00 UTC and
- * enqueues the `dispatch_morning_boards` fan-out task — which then enumerates active users and
- * enqueues one per-user `assemble_morning_board` job. The cron points at the DISPATCHER, never at
- * `assemble_morning_board` directly, because a global cron fires once and we need per-user jobs.
- * graphile-worker dedupes cron firings across multiple workers via its `known_crontabs` table.
+ * EventBridge, per the CLAUDE.md live-infra landmines). Each line fires ONCE globally and
+ * enqueues a DISPATCHER task — never a per-user/per-recipe task directly, because a global cron
+ * fires once and the dispatcher fans out the per-row jobs. graphile-worker dedupes cron firings
+ * across multiple workers via its `known_crontabs` table.
+ *   - 05:00 UTC `dispatch_morning_boards` (Phase 74): enumerates active users and enqueues one
+ *     `assemble_morning_board` job each.
+ *   - every 15 min `dispatch_recipe_recomputes` (Phase 73 Wave C, LCAN-09): enumerates
+ *     source-bearing `canvas_recipes` rows and enqueues one `recompute_canvas_recipe` job each.
  */
-const CRONTAB = "0 5 * * * dispatch_morning_boards";
+const MORNING_CRONTAB_LINE = "0 5 * * * dispatch_morning_boards";
+const RECIPE_CRONTAB_LINE = "*/15 * * * * dispatch_recipe_recomputes";
+
+/** The shared truthy-env convention both ship-dark gates read. */
+function envFlagEnabled(name: string): boolean {
+  const raw = process.env[name];
+  return raw === "true" || raw === "1";
+}
 
 /**
  * Ship-dark gate (Phase 74). The morning-board cron only fires when
@@ -51,15 +61,37 @@ const CRONTAB = "0 5 * * * dispatch_morning_boards";
  * verify) still runs; only the automatic schedule is gated.
  */
 function morningBoardEnabled(): boolean {
-  const raw = process.env.MORNING_BOARD_ENABLED;
-  return raw === "true" || raw === "1";
+  return envFlagEnabled("MORNING_BOARD_ENABLED");
+}
+
+/**
+ * Ship-dark gate (Phase 73 Wave C, LCAN-09). Same posture as the morning board:
+ * `RECIPE_RECOMPUTE_ENABLED` default OFF — a fresh deploy adds no recompute
+ * crontab line, so no recipe is re-polled until the feature is turned on. The
+ * `recompute_canvas_recipe`/`dispatch_recipe_recomputes` handlers stay registered
+ * either way (a manually-enqueued job still runs — the live-verification seam);
+ * only the automatic schedule is gated.
+ */
+function recipeRecomputeEnabled(): boolean {
+  return envFlagEnabled("RECIPE_RECOMPUTE_ENABLED");
+}
+
+/** The composed crontab: only the ENABLED lines, or undefined when everything is dark
+ * (graphile-worker then runs with no schedule at all — exactly today's default). */
+function crontab(): string | undefined {
+  const lines = [
+    ...(morningBoardEnabled() ? [MORNING_CRONTAB_LINE] : []),
+    ...(recipeRecomputeEnabled() ? [RECIPE_CRONTAB_LINE] : []),
+  ];
+  return lines.length > 0 ? lines.join("\n") : undefined;
 }
 
 async function main(): Promise<void> {
+  const schedule = crontab();
   const runner = await run({
     connectionString: connectionString(),
     taskList,
-    ...(morningBoardEnabled() ? { crontab: CRONTAB } : {}),
+    ...(schedule !== undefined ? { crontab: schedule } : {}),
     concurrency: envPositiveInt("WORKER_CONCURRENCY", 3),
     noHandleSignals: false,
     pollInterval: envPositiveInt("WORKER_POLL_INTERVAL_MS", 2000),
