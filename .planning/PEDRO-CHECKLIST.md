@@ -142,3 +142,30 @@ Gate-green; these are the honest remaining edges:
   backstop** (the app connects as `service_role`), and the real-Postgres isolation CI job that would catch
   a mistake does not exist yet (Track 2). Build the isolation job FIRST, then do these one path at a time.
 - **Desktop spawn/attach** — GSD ranks remote desktops least-urgent, and spawning bears live $/hr cost.
+
+## 8. 2026-08-06 late-night addendum (post-wrap-up session)
+
+- **✅ TRACK 1 IS DONE — Terraform remote state is LIVE.** 5 forwarder resources imported, state
+  migrated to s3://nauta-services-terraform-state (+ DynamoDB lock `nauta-services-terraform-locks`),
+  and the 4 queued in-place changes APPLIED (incl. the **s3:DeleteObject right-to-erasure fix** and
+  the SES rule-order codification). `terraform plan` = "No changes"; forwarder lambda Active/Successful.
+  The no-apply landmine is retired — any checkout can now plan/apply safely.
+- **CI re-trigger owed:** the `edd0b4d5` push hit GitHub's 2026-08-06 major outage — ZERO Actions runs
+  were created (Vercel deployed fine). When GitHub recovers: re-run via an empty push or
+  `gh workflow run`, and confirm the listener prod deploy goes green (it ships 76-02b + 75-03/04, all
+  flag-dark).
+- **Stripe, one checkbox page from done:** the CLI key needs Products/Webhook-Endpoints/Checkout-
+  Sessions/Customers/Subscriptions **Write** — edit at the URL Stripe returned (see session report).
+  After that the agent creates Pro $29/Power $49 + webhook and sets the Vercel billing env. Note: CLI
+  keys expire ~90 days after `stripe login` — mint a durable restricted key before real launch.
+- **DB access (when you're ready, zero pressure):** every stored POSTGRES_URL password (Vercel env,
+  .env.production/.staging/.local) fails auth since the pause/restore. A ready script resets both
+  projects via your Management token and rewrites the local env files (prints no secrets):
+  `node "<session-scratchpad>\pwreset.mjs"` — the agent then propagates to Vercel + GitHub
+  `production` secrets, verifies /api/dbcheck, removes the diagnostic route, and applies 0061.
+- **DNS ground truth:** polytoken.ai is registered at **Name.com**, delegated to a **Cloudflare**
+  zone (nobody remembers making it). Recommendation: switch NS at Name.com to Vercel
+  (`ns1/ns2.vercel-dns.com`); the agent can then manage all records by CLI — including the 3 SES DKIM
+  CNAMEs already minted for polytoken.ai (tokens in the session report / SES console).
+- **SES production access:** case 178464704400134 still awaits your Support-Center reply (drafted in
+  the session report). `put-account-details` returns ConflictException while the case is open.

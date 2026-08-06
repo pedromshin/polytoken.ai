@@ -12,16 +12,17 @@ terraform {
     }
   }
 
-  # Uncomment once the state bucket + lock table exist — see REMOTE-STATE-RUNBOOK.md
-  # (create bucket/lock, then `terraform init -migrate-state`). Do NOT apply before the
-  # full stack is confirmed in state (`terraform plan` shows no creates for live resources).
-  # backend "s3" {
-  #   bucket         = "nauta-services-terraform-state"
-  #   key            = "email-listener/terraform.tfstate"
-  #   region         = "us-east-1"
-  #   dynamodb_table = "nauta-services-terraform-locks"
-  #   encrypt        = true
-  # }
+  # Shared remote state (Track 1, activated 2026-08-06): bucket + lock table created
+  # per REMOTE-STATE-RUNBOOK.md, local state migrated via `terraform init -migrate-state`
+  # after importing the 5 ses-forwarder.tf resources (IMPORT-RUNBOOK.md). Do NOT apply
+  # unless `terraform plan` shows no create/replace/destroy for live mail resources.
+  backend "s3" {
+    bucket         = "nauta-services-terraform-state"
+    key            = "email-listener/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "nauta-services-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {
