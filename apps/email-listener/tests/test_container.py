@@ -27,6 +27,7 @@ from app.domain.services.chat_model_registry import get_model
 from app.infrastructure.llm.chat_tools import (
     EMIT_CANVAS_CONNECT_TOOL_NAME,
     EMIT_CANVAS_NODE_TOOL_NAME,
+    EMIT_CANVAS_RECIPE_TOOL_NAME,
     EMIT_CODE_ISLAND_TOOL_NAME,
 )
 from app.infrastructure.llm.segmentation_adapter import AnthropicSegmenter
@@ -402,6 +403,7 @@ class TestCanvasEmitExposureGate:
             EMIT_CANVAS_NODE_TOOL_NAME,
             EMIT_CANVAS_CONNECT_TOOL_NAME,
             EMIT_CODE_ISLAND_TOOL_NAME,
+            EMIT_CANVAS_RECIPE_TOOL_NAME,
         }
 
     def test_container_canvas_emit_disabled_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -430,11 +432,13 @@ class TestCanvasEmitExposureGate:
                 EMIT_CANVAS_NODE_TOOL_NAME,
                 EMIT_CANVAS_CONNECT_TOOL_NAME,
                 EMIT_CODE_ISLAND_TOOL_NAME,
+                EMIT_CANVAS_RECIPE_TOOL_NAME,
             }
             assert self._offered_canvas_names(run_chat_turn) == {
                 EMIT_CANVAS_NODE_TOOL_NAME,
                 EMIT_CANVAS_CONNECT_TOOL_NAME,
                 EMIT_CODE_ISLAND_TOOL_NAME,
+                EMIT_CANVAS_RECIPE_TOOL_NAME,
             }
         finally:
             get_settings.cache_clear()

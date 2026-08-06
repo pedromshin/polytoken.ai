@@ -96,6 +96,7 @@ import {
   buildAgentCodeIslandNode,
   collectAgentCodeIslandPlans,
 } from "./agent-code-island-reconcile";
+import { collectAgentRecipePlans } from "./agent-recipe-reconcile";
 import { CodeIslandPickerDialog } from "./code-island-picker-dialog";
 import { CANVAS_PANEL_BUTTON_CLASS } from "./canvas-panel-button-class";
 import {
@@ -1346,6 +1347,55 @@ export function ChatCanvas({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setNodes/setEdges are stable (useNodesState/useEdgesState); utils/createIsland are stable tRPC handles; reads happen at fire time. publishTick re-fires the pass when a source publishes late.
   }, [persistence, historyRows, nodes, canvasStore, publishTick]);
+
+  // Phase 73C-R3 — persist an AGENT-named recipe. When the model calls the
+  // flag-gated `emit_canvas_recipe` tool, the listener persists a
+  // `canvas_recipe` part; on the post-turn history refetch this effect
+  // validates the part's keys against the LIVE canvas (never the model's
+  // claims — collectAgentRecipePlans drops unknown keys and requires ≥1
+  // present nodeKey), dedupes by name against the conversation's
+  // already-fetched `canvasRecipes.list` rows, and creates the row via
+  // canvasRecipes.create. Idempotent: the created name joins the list data on
+  // invalidate, so the same part yields no plan on every later pass; the
+  // in-flight ref keeps a pending create from double-firing across renders
+  // and is never removed, so a failed create does not auto-retry (matches the
+  // agent code-island runner's posture; a reload retries from the
+  // still-recipe-less list). Wholly inert unless a `canvas_recipe` part
+  // arrives (listener flag off ⇒ no part ⇒ byte-for-byte the prior
+  // behaviour). The list query shares recipe-overlay.tsx's cache entry —
+  // react-query dedupes the fetch, and the invalidate refreshes the badge too.
+  const recipesQuery = api.canvasRecipes.list.useQuery({ conversationId });
+  const createRecipe = api.canvasRecipes.create.useMutation();
+  const agentRecipeInFlightRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (persistence.isRestoring || !seededRef.current) return;
+    const existingRecipes = recipesQuery.data;
+    // The by-name dedupe NEEDS the fetched list — creating before it resolves
+    // could double-create, so the pass waits (fail-closed) for the data.
+    if (existingRecipes === undefined) return;
+    const plans = collectAgentRecipePlans(historyRows, nodes, edges, existingRecipes);
+    for (const plan of plans) {
+      if (agentRecipeInFlightRef.current.has(plan.provenanceKey)) continue;
+      // Marked before the async work — never removed (no auto-retry).
+      agentRecipeInFlightRef.current.add(plan.provenanceKey);
+      void (async () => {
+        try {
+          await createRecipe.mutateAsync({
+            conversationId,
+            name: plan.name,
+            nodeKeys: [...plan.nodeKeys],
+            edgeKeys: [...plan.edgeKeys],
+            ...(plan.sourceRef !== undefined ? { sourceRef: { ...plan.sourceRef } } : {}),
+          });
+          await utils.canvasRecipes.list.invalidate({ conversationId });
+        } catch {
+          // Detail-free (the create error is a secret-free TRPCError); the
+          // recipe list is untouched on failure.
+        }
+      })();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- createRecipe/utils are stable tRPC handles; reads happen at fire time.
+  }, [persistence, historyRows, nodes, edges, recipesQuery.data, conversationId]);
 
   const handleMoveEnd = useCallback(
     (_event: MouseEvent | TouchEvent | null, nextViewport: Viewport) => {

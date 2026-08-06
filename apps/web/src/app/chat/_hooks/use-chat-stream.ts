@@ -186,6 +186,24 @@ export type MessagePart =
         Record<string, { readonly sourceNodeKey: string; readonly sourcePath: string }>
       >;
       readonly selectedNodeKeys: readonly string[];
+    }
+  // Phase 73C-R3 — the agent-named recipe wedge. When the model calls the
+  // flag-gated (`CANVAS_EMIT_TOOL_ENABLED`) listener tool `emit_canvas_recipe`,
+  // the listener persists this part (frozen shape mirrored from
+  // run_chat_turn_tool_loop.py `_build_canvas_recipe_part`) so the canvas can
+  // create the named `canvas_recipes` row on the post-turn `chat.getHistory`
+  // refetch — the same seam `canvas_code_island` uses. The client never trusts
+  // the model's keys: the reconcile pass (agent-recipe-reconcile.ts) validates
+  // every node/edge key against the LIVE canvas, drops unknown keys, requires
+  // ≥1 valid nodeKey, and dedupes against the conversation's existing recipes
+  // by name so the refetch cannot double-create. Inert unless this part
+  // arrives (which needs the listener flag on).
+  | {
+      readonly type: "canvas_recipe";
+      readonly name: string;
+      readonly nodeKeys: readonly string[];
+      readonly edgeKeys: readonly string[];
+      readonly sourceRef?: Readonly<Record<string, unknown>>;
     };
 
 export interface ChatStreamAccumulator {
@@ -267,6 +285,10 @@ const CANVAS_EMIT_TOOL_NAMES: ReadonlySet<string> = new Set([
   // Phase 76-05 (BTAP-07) — the code-island emit tool is canvas-only intent too;
   // its streaming tool_call/tool_result must not render a transcript skeleton.
   "emit_code_island",
+  // Phase 73C-R3 — the recipe emit tool is canvas-only intent too; its
+  // persisted `canvas_recipe` part is consumed by the reconcile pass, never
+  // rendered in the transcript.
+  "emit_canvas_recipe",
 ]);
 
 function toChatRunEvent(value: unknown): ChatRunEvent | null {

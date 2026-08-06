@@ -83,6 +83,7 @@ EMIT_CONFIRM_ACTION_TOOL_NAME = "emit_confirm_action"
 EMIT_CANVAS_NODE_TOOL_NAME = "emit_canvas_node"
 EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
 EMIT_CODE_ISLAND_TOOL_NAME = "emit_code_island"
+EMIT_CANVAS_RECIPE_TOOL_NAME = "emit_canvas_recipe"
 
 _DESCRIPTION = (
     "Emit a declarative UI spec (a SpecRoot JSON document) for the trusted genui renderer "
@@ -572,4 +573,86 @@ def build_emit_code_island_tool() -> dict[str, Any]:
         "name": EMIT_CODE_ISLAND_TOOL_NAME,
         "description": _CODE_ISLAND_DESCRIPTION,
         "input_schema": _CODE_ISLAND_INPUT_SCHEMA,
+    }
+
+
+# Phase 73C-R3 (recipe seam): emit_canvas_recipe is a FOURTH canvas emit-a-part
+# tool — the agent NAMES a wired canvas selection as a persisted recipe (a
+# `canvas_recipes` row). It rides the EXACT same machinery as the three tools
+# above (an emit-a-part tool, NOT a registry/executor tool; runs NO server
+# executor; touches NO mail/SES/S3/Lambda path) and sits behind the SAME
+# CANVAS_EMIT_TOOL_ENABLED flag (default OFF, structural omission in
+# composition/chat_turn_providers.py). Its only effect: a completed call
+# appends a `canvas_recipe` message PART (persisted verbatim as JSONB). The web
+# reconcile (agent-recipe-reconcile.ts) NEVER trusts the model's keys — it
+# validates every node/edge key against the LIVE canvas, drops unknown keys,
+# and creates the row via the owner-gated canvasRecipes.create only when ≥1
+# member node is actually present.
+_CANVAS_RECIPE_DESCRIPTION = (
+    "Name a wired group of canvas nodes as a saved RECIPE the user can see and reuse — call this "
+    "AFTER the nodes exist and are wired (e.g. once you have laid out a dataflow worth keeping). "
+    "`name` is a short human label for the recipe (max 120 chars). `nodeKeys` are the exact keys "
+    "of the member nodes on the user's canvas (max 32); `edgeKeys` optionally lists the member "
+    "wire keys (max 64). `sourceRef` is an OPTIONAL small object recording where the recipe's "
+    "data came from, for later re-polling — omit it unless you have a concrete source to record. "
+    "Only keys that actually exist on the user's canvas are kept — never invent keys. Only call "
+    "this when a group genuinely deserves a persistent name; a normal reply does not need it."
+)
+
+# Caps the input_schema advertises; _build_canvas_recipe_part re-enforces them
+# server-side (the schema only GUIDES the model — the part builder is the real
+# gate, mirroring emit_code_island). Name cap is this seam's own (a label,
+# under canvasRecipes.create's 200); key caps mirror the recipe-seam contract.
+_CANVAS_RECIPE_MAX_NAME_CHARS = 120
+_CANVAS_RECIPE_MAX_NODE_KEYS = 32
+_CANVAS_RECIPE_MAX_EDGE_KEYS = 64
+
+# Hand-authored, Bedrock-valid input_schema (root type:object,
+# additionalProperties:false, no root $ref). `sourceRef` is intentionally
+# schema-free ({"type": "object"}) — an opaque re-poll descriptor the LCAN-09
+# worker seam defines later (mirrors emit_canvas_node's schema-free `data`).
+_CANVAS_RECIPE_INPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": ["name", "nodeKeys"],
+    "additionalProperties": False,
+    "properties": {
+        "name": {"type": "string", "minLength": 1, "maxLength": _CANVAS_RECIPE_MAX_NAME_CHARS},
+        "nodeKeys": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": _CANVAS_RECIPE_MAX_NODE_KEYS,
+            "items": {"type": "string", "minLength": 1},
+        },
+        "edgeKeys": {
+            "type": "array",
+            "maxItems": _CANVAS_RECIPE_MAX_EDGE_KEYS,
+            "items": {"type": "string", "minLength": 1},
+        },
+        "sourceRef": {"type": "object"},
+    },
+}
+
+# Load-time assertions mirroring emit_canvas_node/connect/code_island's guards.
+assert _CANVAS_RECIPE_INPUT_SCHEMA["type"] == "object", (
+    "emit_canvas_recipe input_schema root must be type:object (Bedrock tool-input contract)"
+)
+assert _CANVAS_RECIPE_INPUT_SCHEMA["additionalProperties"] is False, (
+    "emit_canvas_recipe input_schema root must forbid additionalProperties"
+)
+
+
+def build_emit_canvas_recipe_tool() -> dict[str, Any]:
+    """Build the emit_canvas_recipe tool dict (Phase 73C-R3, recipe seam).
+
+    Offered (never forced) alongside the other canvas emit tools to
+    genui-capable models, behind the SAME CANVAS_EMIT_TOOL_ENABLED flag. A
+    completed call finalizes into a `canvas_recipe` message part
+    (run_chat_turn_tool_loop.build_canvas_part), stored verbatim — no
+    server-side row creation happens here; the web half validates the keys
+    against the live canvas and creates the `canvas_recipes` row idempotently.
+    """
+    return {
+        "name": EMIT_CANVAS_RECIPE_TOOL_NAME,
+        "description": _CANVAS_RECIPE_DESCRIPTION,
+        "input_schema": _CANVAS_RECIPE_INPUT_SCHEMA,
     }

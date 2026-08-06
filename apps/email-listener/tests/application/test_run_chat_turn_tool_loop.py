@@ -117,6 +117,7 @@ def test_classify_dispatch_canvas() -> None:
     assert classify_tool_dispatch("emit_canvas_node", set()) == "canvas"
     assert classify_tool_dispatch("emit_canvas_connect", set()) == "canvas"
     assert classify_tool_dispatch("emit_code_island", set()) == "canvas"
+    assert classify_tool_dispatch("emit_canvas_recipe", set()) == "canvas"
 
 
 @pytest.mark.unit
@@ -323,6 +324,91 @@ def test_build_code_island_part_fail_closed_on_missing_or_empty_fields() -> None
     )
     # no usable manifest (entry missing kind)
     assert build_canvas_part("emit_code_island", json.dumps({**base, "inputs": {"t": {"columns": ["a"]}}})) is None
+
+
+# ---------------------------------------------------------------------------
+# build_canvas_part — canvas_recipe (Phase 73C-R3 frozen contract)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_full_shape() -> None:
+    raw = json.dumps(
+        {
+            "name": "Invoice reconciliation",
+            "nodeKeys": ["spreadsheet:inv", "spreadsheet:bank", "code-island:recon"],
+            "edgeKeys": ["e1", "e2"],
+            "sourceRef": {"kind": "gmail_query", "query": "from:billing"},
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part == {
+        "type": "canvas_recipe",
+        "name": "Invoice reconciliation",
+        "nodeKeys": ["spreadsheet:inv", "spreadsheet:bank", "code-island:recon"],
+        "edgeKeys": ["e1", "e2"],
+        "sourceRef": {"kind": "gmail_query", "query": "from:billing"},
+    }
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_omits_absent_source_ref_and_defaults_edge_keys() -> None:
+    """sourceRef is OPTIONAL (key absent when not an object); edgeKeys defaults to []."""
+    part = build_canvas_part("emit_canvas_recipe", '{"name": "My recipe", "nodeKeys": ["n1"]}')
+    assert part == {"type": "canvas_recipe", "name": "My recipe", "nodeKeys": ["n1"], "edgeKeys": []}
+    assert "sourceRef" not in part
+    # A non-object sourceRef is dropped, never stored.
+    part = build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": ["n1"], "sourceRef": "nope"}')
+    assert part is not None
+    assert "sourceRef" not in part
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_recaps_name_and_key_lists() -> None:
+    """Server-side re-caps: name 120 chars, nodeKeys 32, edgeKeys 64 (schema only guides)."""
+    raw = json.dumps(
+        {
+            "name": "x" * 300,
+            "nodeKeys": [f"n{i}" for i in range(50)],
+            "edgeKeys": [f"e{i}" for i in range(100)],
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert len(part["name"]) == 120
+    assert len(part["nodeKeys"]) == 32
+    assert len(part["edgeKeys"]) == 64
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_drops_pollution_keys_and_dedupes() -> None:
+    raw = json.dumps(
+        {
+            "name": "  Safe recipe  ",
+            "nodeKeys": ["n1", "__proto__", "n1", "constructor", "n2"],
+            "edgeKeys": ["e1", "prototype", "e1"],
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert part["name"] == "Safe recipe"  # trimmed
+    assert part["nodeKeys"] == ["n1", "n2"]
+    assert part["edgeKeys"] == ["e1"]
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_fail_closed() -> None:
+    # bad JSON
+    assert build_canvas_part("emit_canvas_recipe", "{not json") is None
+    # missing / empty / non-string name
+    assert build_canvas_part("emit_canvas_recipe", '{"nodeKeys": ["n1"]}') is None
+    assert build_canvas_part("emit_canvas_recipe", '{"name": "   ", "nodeKeys": ["n1"]}') is None
+    assert build_canvas_part("emit_canvas_recipe", '{"name": 7, "nodeKeys": ["n1"]}') is None
+    # no usable nodeKeys (missing, empty, non-string entries, pollution-only)
+    assert build_canvas_part("emit_canvas_recipe", '{"name": "R"}') is None
+    assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": []}') is None
+    assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": [1, "", null]}') is None
+    assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": ["__proto__"]}') is None
 
 
 # ---------------------------------------------------------------------------

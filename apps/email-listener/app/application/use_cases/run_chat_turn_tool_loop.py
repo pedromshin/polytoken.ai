@@ -27,7 +27,7 @@ from app.application.use_cases.run_chat_turn_widgets import INTERACTIVE_WIDGET_T
 from app.domain.ports.tool_executor import MAX_TOOL_OUTPUT_CHARS
 
 if TYPE_CHECKING:
-    from collections.abc import Collection, Sequence
+    from collections.abc import Callable, Collection, Sequence
 
     from app.domain.ports.tool_executor import ToolExecutionResult
 
@@ -49,10 +49,15 @@ EMIT_CANVAS_CONNECT_TOOL_NAME = "emit_canvas_connect"
 # machinery — it finalizes into a `canvas_code_island` part (build_canvas_part
 # below) carrying the grounding-flow inputs the web half (Plan 76-04) consumes.
 EMIT_CODE_ISLAND_TOOL_NAME = "emit_code_island"
+# Phase 73C-R3 (recipe seam): emit_canvas_recipe rides the SAME machinery — it
+# finalizes into a `canvas_recipe` part (build_canvas_part below) the web
+# reconcile validates against the LIVE canvas before creating the row.
+EMIT_CANVAS_RECIPE_TOOL_NAME = "emit_canvas_recipe"
 CANVAS_EMIT_TOOL_NAMES: tuple[str, ...] = (
     EMIT_CANVAS_NODE_TOOL_NAME,
     EMIT_CANVAS_CONNECT_TOOL_NAME,
     EMIT_CODE_ISLAND_TOOL_NAME,
+    EMIT_CANVAS_RECIPE_TOOL_NAME,
 )
 
 # Bounded-manifest / binding caps for emit_code_island's `canvas_code_island`
@@ -66,6 +71,14 @@ _CODE_ISLAND_MAX_COLUMNS = 64
 _CODE_ISLAND_MAX_SAMPLE_ROWS = 5
 _CODE_ISLAND_MAX_SELECTED = 32
 _FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
+
+# Recipe caps for emit_canvas_recipe's `canvas_recipe` part (Phase 73C-R3) —
+# re-enforced HERE server-side exactly like the code-island caps above (the
+# tool's input_schema only GUIDES the model; the part builder is the real
+# gate). Mirror chat_tools.py's _CANVAS_RECIPE_* constants.
+_CANVAS_RECIPE_MAX_NAME_CHARS = 120
+_CANVAS_RECIPE_MAX_NODE_KEYS = 32
+_CANVAS_RECIPE_MAX_EDGE_KEYS = 64
 
 # Visible-surface text (LOOP-02/LOOP-03, "never silent" motto). Exact strings
 # -- consumed verbatim by Plans 34-02/34-03.
@@ -186,6 +199,7 @@ def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
         canvas_add_node:    {"type","handle","nodeType","data"[, "position"]}
         canvas_connect:     {"type","sourceHandle","targetHandle","sourcePath","targetKey"}
         canvas_code_island: {"type","intent","inputs","inputBindings","selectedNodeKeys"}
+        canvas_recipe:      {"type","name","nodeKeys","edgeKeys"[, "sourceRef"]}
     """
     try:
         raw: Any = json.loads(raw_json) if raw_json else {}
@@ -193,13 +207,8 @@ def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
         return None
     if not isinstance(raw, dict):
         return None
-    if tool_name == EMIT_CANVAS_NODE_TOOL_NAME:
-        return _build_canvas_add_node_part(raw)
-    if tool_name == EMIT_CANVAS_CONNECT_TOOL_NAME:
-        return _build_canvas_connect_part(raw)
-    if tool_name == EMIT_CODE_ISLAND_TOOL_NAME:
-        return _build_canvas_code_island_part(raw)
-    return None
+    builder = _CANVAS_PART_BUILDERS.get(tool_name)
+    return builder(raw) if builder is not None else None
 
 
 def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
@@ -234,7 +243,7 @@ def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     return part
 
 
-def _clean_selected_node_keys(value: Any) -> list[str]:
+def _clean_key_list(value: Any, cap: int) -> list[str]:
     """Filter to non-empty, non-pollution string keys; dedupe (order-preserving); cap."""
     if not isinstance(value, list):
         return []
@@ -247,7 +256,7 @@ def _clean_selected_node_keys(value: Any) -> list[str]:
             continue
         seen.add(item)
         out.append(item)
-        if len(out) >= _CODE_ISLAND_MAX_SELECTED:
+        if len(out) >= cap:
             break
     return out
 
@@ -328,7 +337,7 @@ def _build_canvas_code_island_part(raw: dict[str, Any]) -> dict[str, Any] | None
     intent = raw.get("intent")
     if not isinstance(intent, str) or not intent:
         return None
-    selected = _clean_selected_node_keys(raw.get("selectedNodeKeys"))
+    selected = _clean_key_list(raw.get("selectedNodeKeys"), _CODE_ISLAND_MAX_SELECTED)
     if not selected:
         return None
     bindings = _clean_input_bindings(raw.get("inputBindings"))
@@ -346,6 +355,50 @@ def _build_canvas_code_island_part(raw: dict[str, Any]) -> dict[str, Any] | None
     }
 
 
+def _build_canvas_recipe_part(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the frozen `canvas_recipe` part (Phase 73C-R3, recipe seam).
+
+    None (dropped -> caller appends the visible PARSE_FAILURE_TEXT) when the
+    name is missing/empty or NO nodeKeys survive validation -- fail-closed,
+    mirroring _build_canvas_code_island_part. Name + key lists are re-capped
+    server-side and pollution-keyed entries dropped; `sourceRef` is included
+    ONLY when the model supplied an object (mirrors canvas_add_node's optional
+    position). The FROZEN shape (the web reconcile is written against it):
+
+        {"type","name","nodeKeys","edgeKeys"[, "sourceRef"]}
+    """
+    name = raw.get("name")
+    if not isinstance(name, str):
+        return None
+    name = name.strip()[:_CANVAS_RECIPE_MAX_NAME_CHARS].rstrip()
+    if not name:
+        return None
+    node_keys = _clean_key_list(raw.get("nodeKeys"), _CANVAS_RECIPE_MAX_NODE_KEYS)
+    if not node_keys:
+        return None
+    edge_keys = _clean_key_list(raw.get("edgeKeys"), _CANVAS_RECIPE_MAX_EDGE_KEYS)
+    part: dict[str, Any] = {
+        "type": "canvas_recipe",
+        "name": name,
+        "nodeKeys": node_keys,
+        "edgeKeys": edge_keys,
+    }
+    source_ref = raw.get("sourceRef")
+    if isinstance(source_ref, dict):
+        part["sourceRef"] = source_ref
+    return part
+
+
+# One frozen-part builder per canvas emit tool — the dispatch table
+# build_canvas_part consults (defined after the builders it references).
+_CANVAS_PART_BUILDERS: dict[str, Callable[[dict[str, Any]], dict[str, Any] | None]] = {
+    EMIT_CANVAS_NODE_TOOL_NAME: _build_canvas_add_node_part,
+    EMIT_CANVAS_CONNECT_TOOL_NAME: _build_canvas_connect_part,
+    EMIT_CODE_ISLAND_TOOL_NAME: _build_canvas_code_island_part,
+    EMIT_CANVAS_RECIPE_TOOL_NAME: _build_canvas_recipe_part,
+}
+
+
 def cap_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     """Truncate `text` to `limit` chars, appending a visible truncation marker when cut."""
     if len(text) <= limit:
@@ -357,6 +410,7 @@ __all__ = [
     "CANVAS_EMIT_TOOL_NAMES",
     "EMIT_CANVAS_CONNECT_TOOL_NAME",
     "EMIT_CANVAS_NODE_TOOL_NAME",
+    "EMIT_CANVAS_RECIPE_TOOL_NAME",
     "EMIT_CODE_ISLAND_TOOL_NAME",
     "EMIT_UI_SPEC_TOOL_NAME",
     "FINAL_ROUND_NUDGE_TEXT",

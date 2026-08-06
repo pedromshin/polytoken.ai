@@ -32,15 +32,18 @@ from app.domain.services.cost_circuit_breaker import PreTurnDecision
 from app.infrastructure.llm.chat_tools import (
     EMIT_CANVAS_CONNECT_TOOL_NAME,
     EMIT_CANVAS_NODE_TOOL_NAME,
+    EMIT_CANVAS_RECIPE_TOOL_NAME,
     EMIT_CODE_ISLAND_TOOL_NAME,
     build_emit_canvas_connect_tool,
     build_emit_canvas_node_tool,
+    build_emit_canvas_recipe_tool,
     build_emit_code_island_tool,
 )
 
 EMIT_CANVAS_NODE_TOOL = build_emit_canvas_node_tool()
 EMIT_CANVAS_CONNECT_TOOL = build_emit_canvas_connect_tool()
 EMIT_CODE_ISLAND_TOOL = build_emit_code_island_tool()
+EMIT_CANVAS_RECIPE_TOOL = build_emit_canvas_recipe_tool()
 _EMIT_UI_SPEC_TOOL: dict[str, Any] = {"name": "emit_ui_spec", "description": "test", "input_schema": {}}
 
 _IMPORTER_ID = "importer-1"
@@ -226,6 +229,7 @@ def _make_use_case(
         EMIT_CANVAS_NODE_TOOL,
         EMIT_CANVAS_CONNECT_TOOL,
         EMIT_CODE_ISLAND_TOOL,
+        EMIT_CANVAS_RECIPE_TOOL,
     ),
 ) -> tuple[RunChatTurn, dict[str, Any]]:
     collaborators: dict[str, Any] = {
@@ -270,6 +274,7 @@ async def test_genui_model_offers_both_canvas_tools_when_wired() -> None:
     assert EMIT_CANVAS_NODE_TOOL_NAME in offered_names
     assert EMIT_CANVAS_CONNECT_TOOL_NAME in offered_names
     assert EMIT_CODE_ISLAND_TOOL_NAME in offered_names
+    assert EMIT_CANVAS_RECIPE_TOOL_NAME in offered_names
 
 
 @pytest.mark.unit
@@ -298,6 +303,7 @@ async def test_unwired_canvas_tools_are_not_offered() -> None:
     assert EMIT_CANVAS_NODE_TOOL_NAME not in offered_names
     assert EMIT_CANVAS_CONNECT_TOOL_NAME not in offered_names
     assert EMIT_CODE_ISLAND_TOOL_NAME not in offered_names
+    assert EMIT_CANVAS_RECIPE_TOOL_NAME not in offered_names
 
 
 # ---------------------------------------------------------------------------
@@ -462,6 +468,71 @@ async def test_bad_json_code_island_call_fails_closed_to_parse_failure_text() ->
     assistant = next(m for m in messages.messages if m.role == "assistant")
     part_types = [p["type"] for p in assistant.parts]
     assert "canvas_code_island" not in part_types
+    text_part = next(p for p in assistant.parts if p["type"] == "text")
+    assert text_part["text"] == PARSE_FAILURE_TEXT
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_canvas_recipe_call_produces_frozen_part() -> None:
+    """Phase 73C-R3: emit_canvas_recipe finalizes into a `canvas_recipe` part."""
+    recipe_json = json.dumps(
+        {
+            "name": "Invoice reconciliation",
+            "nodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+            "edgeKeys": ["e1"],
+            "sourceRef": {"kind": "gmail_query", "query": "from:billing"},
+        }
+    )
+    provider = FakeChatProvider(
+        [
+            ToolCallDelta(tool_name=EMIT_CANVAS_RECIPE_TOOL_NAME, id="tool-1", partial_json=recipe_json[:16]),
+            ToolCallDelta(tool_name=EMIT_CANVAS_RECIPE_TOOL_NAME, id="tool-1", partial_json=recipe_json[16:]),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider)
+
+    events = [
+        event
+        async for event in use_case.run(
+            conversation_id=_CONVERSATION_ID, user_text="name this group", model_id=_GENUI_MODEL.id
+        )
+    ]
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant = next(m for m in messages.messages if m.role == "assistant")
+    recipe_part = next(p for p in assistant.parts if p["type"] == "canvas_recipe")
+    assert recipe_part == {
+        "type": "canvas_recipe",
+        "name": "Invoice reconciliation",
+        "nodeKeys": ["spreadsheet:inv", "spreadsheet:bank"],
+        "edgeKeys": ["e1"],
+        "sourceRef": {"kind": "gmail_query", "query": "from:billing"},
+    }
+
+    tool_result_events = [e for e in events if e.type == "tool_result"]
+    assert tool_result_events[-1].data["part"]["type"] == "canvas_recipe"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_bad_json_canvas_recipe_call_fails_closed_to_parse_failure_text() -> None:
+    provider = FakeChatProvider(
+        [
+            ToolCallDelta(tool_name=EMIT_CANVAS_RECIPE_TOOL_NAME, id="tool-1", partial_json='{"name": "x", "node'),
+            StreamEnd(stop_reason="end_turn"),
+        ]
+    )
+    use_case, fakes = _make_use_case(provider=provider)
+
+    async for _ in use_case.run(conversation_id=_CONVERSATION_ID, user_text="name it", model_id=_GENUI_MODEL.id):
+        pass
+
+    messages: FakeChatMessageRepository = fakes["messages"]
+    assistant = next(m for m in messages.messages if m.role == "assistant")
+    part_types = [p["type"] for p in assistant.parts]
+    assert "canvas_recipe" not in part_types
     text_part = next(p for p in assistant.parts if p["type"] == "text")
     assert text_part["text"] == PARSE_FAILURE_TEXT
 

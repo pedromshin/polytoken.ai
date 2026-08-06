@@ -521,13 +521,15 @@ export function MessageTurn({
               );
             }
 
-            // Phase 73 (LCAN-01) + Phase 76-05 (BTAP-07) — the agent-authored
-            // canvas parts are CANVAS-only intent (materialized by the canvas
-            // reconcile pass), never transcript content. No row in the chat thread.
+            // Phase 73 (LCAN-01) + Phase 76-05 (BTAP-07) + Phase 73C-R3 — the
+            // agent-authored canvas parts are CANVAS-only intent (materialized
+            // by the canvas reconcile pass), never transcript content. No row
+            // in the chat thread.
             if (
               part.type === "canvas_add_node" ||
               part.type === "canvas_connect" ||
-              part.type === "canvas_code_island"
+              part.type === "canvas_code_island" ||
+              part.type === "canvas_recipe"
             ) {
               return null;
             }
