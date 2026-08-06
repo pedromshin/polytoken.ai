@@ -208,6 +208,16 @@ def test_generate_null_inputs_forwards_none(client: TestClient, mock_use_case: M
 
 
 @pytest.mark.unit
+def test_generate_rejects_boolean_row_count(client: TestClient) -> None:
+    """A bool never poses as a count (mirror of _clean_manifest_entry + the web zod)."""
+    resp = client.post(
+        "/v1/genui/code-island/generate",
+        json={"intent": "Build a card", "inputs": {"k": {"rowCount": True}}},
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("bad_key", ["__proto__", "constructor", "prototype"])
 def test_generate_rejects_pollution_input_keys(client: TestClient, bad_key: str) -> None:
     """Prototype-pollution manifest keys are rejected (mirror of the web zod guard)."""

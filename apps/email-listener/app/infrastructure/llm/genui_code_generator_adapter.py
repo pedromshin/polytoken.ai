@@ -320,9 +320,13 @@ class GenuiCodeGeneratorAdapter:
         # second delimited section — NEVER in the system prompt, which must stay
         # byte-static for the D-21 cache. Empty/None manifest → the suffix is ""
         # and the user message is byte-identical to the pre-76-02b one (BTAP-05).
-        inputs_section = (
-            f"<INPUTS_SECTION>{json.dumps(inputs, ensure_ascii=False)}</INPUTS_SECTION>\n\n" if inputs else ""
-        )
+        # "<" is JSON-escaped so no manifest string can close the delimiter and
+        # smuggle un-quarantined prose into the turn (caller-controlled text).
+        if inputs:
+            escaped_manifest = json.dumps(inputs, ensure_ascii=False).replace("<", "\\u003c")
+            inputs_section = f"<INPUTS_SECTION>{escaped_manifest}</INPUTS_SECTION>\n\n"
+        else:
+            inputs_section = ""
         initial_user_content = (
             f"<DATA_SECTION>{data_section}</DATA_SECTION>\n\n"
             f"{inputs_section}"

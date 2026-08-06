@@ -73,6 +73,15 @@ class CodeIslandInputManifestEntry(BaseModel):
     fields: list[CodeIslandInputField] | None = Field(default=None, max_length=50)
     row_count: int | None = Field(default=None, alias="rowCount", ge=0)
 
+    @field_validator("row_count", mode="before")
+    @classmethod
+    def _reject_bool_row_count(cls, value: object) -> object:
+        # bool is an int subclass in Python; the web zod and the sibling
+        # _clean_manifest_entry gate both reject it — a bool never poses as a count.
+        if isinstance(value, bool):
+            raise ValueError("rowCount must be an integer, not a boolean")
+        return value
+
 
 class GenerateCodeIslandRequest(BaseModel):
     """Request body for POST /v1/genui/code-island/generate."""
