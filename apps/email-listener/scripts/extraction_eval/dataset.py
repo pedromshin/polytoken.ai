@@ -202,7 +202,10 @@ def dump_jsonl(meta: DatasetMeta, records: Sequence[EvalRecord]) -> str:
 
 def write_dataset(path: Path, meta: DatasetMeta, records: Sequence[EvalRecord]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(dump_jsonl(meta, records), encoding="utf-8")
+    # newline="\n" pins LF on every platform — the byte-identity gate compares
+    # against the committed LF dataset, and Windows would otherwise write CRLF.
+    with path.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(dump_jsonl(meta, records))
 
 
 def load_dataset(path: Path) -> tuple[DatasetMeta, list[EvalRecord]]:
