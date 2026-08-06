@@ -11,6 +11,9 @@
  *   Test 7: unmerge fetches the correct endpoint path (contains /unmerge).
  *   Test 8: all three mutations set the X-API-Key header from getListenerConfig.
  *   Test 9: confirmMerge throws with parseErrorDetail message on non-ok response.
+ *   Test 10: confirmMerge asserts ownership BEFORE any fetch (fail-closed order).
+ *   Test 11: confirmMerge passes the optional cascade summary through unmodified.
+ *   Test 12: confirmMerge rejects a malformed cascade summary (boundary validation).
  *
  * Since Phase 44 (44-06, TENA-03) these mutations are protectedProcedure and
  * assert ownership of every referenced entity's importer before the proxy
@@ -132,10 +135,22 @@ describe("entityMutationProcedures fetch proxy", () => {
     process.env["EMAIL_LISTENER_URL"] = MOCK_URL;
     process.env["EMAIL_LISTENER_API_KEY"] = MOCK_KEY;
 
-    // Mock global fetch
+    // Mock global fetch. confirmMerge validates its response envelope since
+    // Plan 75-05, so the default body is a valid MergeResultView envelope
+    // (reject/unmerge pass their bodies through untyped and don't care).
     global.fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       fetchCalls.push({ url: String(url), init: init ?? {} });
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          data: {
+            entity_instance_id: ENTITY_ID,
+            target_id: TARGET_ID,
+            cascade: null,
+          },
+        }),
+        { status: 200 },
+      );
     }) as typeof fetch;
   });
 
@@ -263,5 +278,95 @@ describe("entityMutationProcedures fetch proxy", () => {
         ctx: createFakeCtx(),
       }),
     ).rejects.toThrow("merge conflict");
+  });
+
+  it("Test 10: confirmMerge asserts ownership BEFORE any fetch", async () => {
+    // A failing ownership assert must fail the mutation with ZERO fetches —
+    // the FastAPI proxy is never reached for an entity the caller doesn't own.
+    vi.mocked(assertImporterOwnership).mockRejectedValue(
+      new Error("db unavailable"),
+    );
+
+    const { entityMutationProcedures } = await import("./mutations");
+    const proc = entityMutationProcedures.confirmMerge as unknown as {
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
+    };
+
+    await expect(
+      proc._def.resolver({
+        input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+        ctx: createFakeCtx(),
+      }),
+    ).rejects.toThrow();
+    expect(fetchCalls).toHaveLength(0);
+  });
+
+  it("Test 11: confirmMerge passes the cascade summary through unmodified", async () => {
+    const body = {
+      success: true,
+      data: {
+        entity_instance_id: ENTITY_ID,
+        target_id: TARGET_ID,
+        cascade: {
+          survivor_id: ENTITY_ID,
+          absorbed_id: TARGET_ID,
+          promoted_edge_ids: ["e1", "e2"],
+          affected_email_ids: ["m1"],
+        },
+      },
+    };
+    global.fetch = vi.fn(
+      async () => new Response(JSON.stringify(body), { status: 200 }),
+    ) as typeof fetch;
+
+    const { entityMutationProcedures } = await import("./mutations");
+    const proc = entityMutationProcedures.confirmMerge as unknown as {
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
+    };
+
+    const result = await proc._def.resolver({
+      input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+      ctx: createFakeCtx(),
+    });
+    // Validated at the boundary, then passed through byte-for-byte.
+    expect(result).toEqual(body);
+  });
+
+  it("Test 12: confirmMerge rejects a malformed cascade summary", async () => {
+    const body = {
+      success: true,
+      data: {
+        entity_instance_id: ENTITY_ID,
+        target_id: TARGET_ID,
+        // promoted_edge_ids must be an array of strings — this must fail fast.
+        cascade: {
+          survivor_id: ENTITY_ID,
+          absorbed_id: TARGET_ID,
+          promoted_edge_ids: "e1",
+          affected_email_ids: ["m1"],
+        },
+      },
+    };
+    global.fetch = vi.fn(
+      async () => new Response(JSON.stringify(body), { status: 200 }),
+    ) as typeof fetch;
+
+    const { entityMutationProcedures } = await import("./mutations");
+    const proc = entityMutationProcedures.confirmMerge as unknown as {
+      _def: {
+        resolver: (opts: { input: unknown; ctx: unknown }) => Promise<unknown>;
+      };
+    };
+
+    await expect(
+      proc._def.resolver({
+        input: { entityInstanceId: ENTITY_ID, targetId: TARGET_ID },
+        ctx: createFakeCtx(),
+      }),
+    ).rejects.toThrow();
   });
 });

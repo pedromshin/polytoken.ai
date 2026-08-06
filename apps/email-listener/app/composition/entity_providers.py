@@ -22,6 +22,7 @@ from dishka import Provider
 from supabase import Client
 
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
+from app.application.use_cases.cascade_correction import CascadeCorrectionUseCase
 from app.application.use_cases.confirm_action_dispatch import SourceCaptureHandler
 from app.application.use_cases.curate_entity_merge import (
     ConfirmMergeUseCase,
@@ -48,9 +49,12 @@ from app.domain.ports.entity_type_correction_repository import EntityTypeCorrect
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.importer_resolver import ImporterResolver
+from app.domain.ports.job_enqueuer import JobEnqueuer
 from app.domain.ports.source_ledger_repository import SourceLedgerRepository
+from app.infrastructure.supabase.correction_cascade_repository import SupabaseCorrectionCascadeRepository
 from app.infrastructure.supabase.entity_resolution_repository import SupabaseEntityResolutionRepository
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
+from app.settings import get_settings
 
 
 def _provide_promote_entity_use_case(
@@ -156,6 +160,41 @@ def _provide_resolve_candidates_use_case(
     )
 
 
+def _provide_confirm_merge_use_case(
+    entity_instances: EntityInstanceRepository,
+    promote_edge: PromoteEdgeUseCase,
+    job_enqueuer: JobEnqueuer,
+    client: Client,
+) -> ConfirmMergeUseCase:
+    """Factory for ConfirmMergeUseCase (Plan 75-03 — flag-gated cascade wiring).
+
+    dishka cannot auto-inject a defaulted Optional param (mirrors
+    _provide_suggest_entity_types_use_case's precedent), so this factory decides
+    the `cascade` collaborator explicitly:
+
+      - CASCADE_CORRECTION_ENABLED off (the default): inject None — a STRUCTURAL
+        omission; the merge path is byte-for-byte the pre-75 behavior.
+      - Flag on: build one SupabaseCorrectionCascadeRepository over the bound
+        Client (concrete infrastructure class, not a port — same rationale as
+        _provide_promote_edge_use_case) serving BOTH cascade ports, thread in
+        the already-bound PromoteEdgeUseCase (structurally satisfies the
+        EdgePromoter protocol — the ONE canon-raise write path, CPF-01) and the
+        JobEnqueuer, and hand the composed CascadeCorrectionUseCase to
+        ConfirmMergeUseCase, which invokes it BEST-EFFORT after its writes.
+    """
+    if not get_settings().CASCADE_CORRECTION_ENABLED:
+        return ConfirmMergeUseCase(entity_instances=entity_instances)
+    cascade_adapter = SupabaseCorrectionCascadeRepository(client=client)
+    cascade = CascadeCorrectionUseCase(
+        entity_instances=entity_instances,
+        edge_promoter=promote_edge,
+        cascade_reader=cascade_adapter,
+        propagations=cascade_adapter,
+        job_enqueuer=job_enqueuer,
+    )
+    return ConfirmMergeUseCase(entity_instances=entity_instances, cascade=cascade)
+
+
 def _provide_backfill_use_case(
     entity_instances: EntityInstanceRepository,
     promote: PromoteEntityOnConfirmUseCase,
@@ -203,7 +242,11 @@ def register(provider: Provider) -> None:
     provider.provide(_provide_resolve_candidates_use_case, provides=ResolveEntityCandidatesUseCase)
     provider.provide(_provide_backfill_use_case, provides=BackfillEntityIdentitiesUseCase)
     # Human curation loop (Phase 10-03, D-20): confirm/reject/unmerge.
-    # All three auto-inject EntityInstanceRepository (already bound).
-    provider.provide(ConfirmMergeUseCase)
+    # Confirm goes through an explicit factory (Plan 75-03): dishka won't
+    # auto-inject its defaulted Optional cascade collaborator, and the factory
+    # is where CASCADE_CORRECTION_ENABLED decides None (flag off — structural
+    # omission) vs a composed CascadeCorrectionUseCase. Reject/unmerge still
+    # auto-inject EntityInstanceRepository (already bound).
+    provider.provide(_provide_confirm_merge_use_case, provides=ConfirmMergeUseCase)
     provider.provide(RejectMergeUseCase)
     provider.provide(UnmergeEntityUseCase)

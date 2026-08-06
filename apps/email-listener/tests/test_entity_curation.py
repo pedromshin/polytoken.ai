@@ -22,6 +22,7 @@ from dishka import Provider, Scope, make_async_container
 from fastapi.testclient import TestClient
 
 from app.application.use_cases.backfill_entity_identities import BackfillEntityIdentitiesUseCase
+from app.application.use_cases.cascade_correction import CascadeSummary
 from app.application.use_cases.curate_entity_merge import (
     ConfirmMergeUseCase,
     RejectMergeUseCase,
@@ -276,6 +277,107 @@ class TestConfirmMergeUseCase:
         with pytest.raises(ValueError, match="already-merged"):
             asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
         assert repo.merge_state_writes == []
+
+
+# ---------------------------------------------------------------------------
+# 1b. ConfirmMergeUseCase x CascadeCorrection (Plan 75-03 — best-effort wiring)
+# ---------------------------------------------------------------------------
+
+
+class FakeCascade:
+    """Fake CascadeCorrectionUseCase collaborator: records calls; optionally raises."""
+
+    def __init__(self, *, raises: bool = False) -> None:
+        self.calls: list[dict[str, str]] = []
+        self._raises = raises
+
+    async def execute(self, *, survivor_id: str, absorbed_id: str) -> CascadeSummary:
+        self.calls.append({"survivor_id": survivor_id, "absorbed_id": absorbed_id})
+        if self._raises:
+            raise RuntimeError("cascade boom")
+        return CascadeSummary(
+            survivor_id,
+            absorbed_id,
+            ["edge-1"],
+            ["email-1", "email-2"],
+            ledger_written=True,
+        )
+
+
+class TestConfirmMergeCascadeWiring:
+    """Plan 75-03: the cascade is OPTIONAL (flag-off ⇒ None injected ⇒ structural
+    omission) and BEST-EFFORT (a cascade failure never fails the merge)."""
+
+    def _instances(self) -> dict[str, EntityInstance]:
+        return {
+            _ENTITY_ID_A: _make_instance(_ENTITY_ID_A),
+            _ENTITY_ID_B: _make_instance(_ENTITY_ID_B),
+        }
+
+    def test_flag_off_no_cascade_call_and_result_unchanged(self) -> None:
+        """cascade=None (flag off): no cascade runs; result is byte-for-byte the old shape."""
+        repo = FakeCurationRepository(self._instances())
+        use_case = ConfirmMergeUseCase(entity_instances=repo)
+
+        result = asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+        assert result == {"entity_instance_id": _ENTITY_ID_A, "target_id": _ENTITY_ID_B}
+        assert "cascade" not in result
+
+    def test_cascade_runs_after_merge_with_survivor_and_absorbed(self) -> None:
+        """Flag on: the cascade is invoked once, survivor=subject, absorbed=target."""
+        repo = FakeCurationRepository(self._instances())
+        cascade = FakeCascade()
+        use_case = ConfirmMergeUseCase(entity_instances=repo, cascade=cascade)
+
+        asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+        assert cascade.calls == [{"survivor_id": _ENTITY_ID_A, "absorbed_id": _ENTITY_ID_B}]
+        # The merge writes all happened (cascade runs AFTER them, never instead).
+        assert len(repo.merge_state_writes) == 1
+        assert len(repo.selected_links) == 1
+
+    def test_cascade_summary_threaded_into_result(self) -> None:
+        """The cascade summary lands on the result for the endpoint to surface (CPF-04)."""
+        repo = FakeCurationRepository(self._instances())
+        use_case = ConfirmMergeUseCase(entity_instances=repo, cascade=FakeCascade())
+
+        result = asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+        assert result["cascade"] == {
+            "survivor_id": _ENTITY_ID_A,
+            "absorbed_id": _ENTITY_ID_B,
+            "promoted_edge_ids": ["edge-1"],
+            "affected_email_ids": ["email-1", "email-2"],
+        }
+
+    def test_cascade_failure_never_fails_the_merge(self) -> None:
+        """BEST-EFFORT: a raising cascade is swallowed — merge completes, no cascade key."""
+        repo = FakeCurationRepository(self._instances())
+        cascade = FakeCascade(raises=True)
+        use_case = ConfirmMergeUseCase(entity_instances=repo, cascade=cascade)
+
+        result = asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+        assert cascade.calls  # it was attempted…
+        assert result == {"entity_instance_id": _ENTITY_ID_A, "target_id": _ENTITY_ID_B}  # …but never fatal
+        assert len(repo.merge_state_writes) == 1
+
+    def test_rejected_merge_never_reaches_cascade(self) -> None:
+        """A guard rejection (cross-importer) happens BEFORE the cascade collaborator."""
+        repo = FakeCurationRepository(
+            {
+                _ENTITY_ID_A: _make_instance(_ENTITY_ID_A, importer_id=_IMPORTER_ID),
+                _ENTITY_ID_B: _make_instance(_ENTITY_ID_B, importer_id=_OTHER_IMPORTER_ID),
+            }
+        )
+        cascade = FakeCascade()
+        use_case = ConfirmMergeUseCase(entity_instances=repo, cascade=cascade)
+
+        with pytest.raises(ValueError, match="not found"):
+            asyncio.run(use_case.execute(entity_instance_id=_ENTITY_ID_A, target_id=_ENTITY_ID_B))
+
+        assert cascade.calls == []
 
 
 # ---------------------------------------------------------------------------
@@ -585,6 +687,41 @@ class TestMergeEndpoints:
         assert body["success"] is True
         data = body["data"]
         assert data["entity_instance_id"] == _ENTITY_ID_A
+
+    def test_confirm_surfaces_cascade_summary_when_present(self) -> None:
+        """Plan 75-03 (CPF-04): a cascade-carrying merge result reaches the response additively."""
+        repo = FakeCurationRepository(
+            {
+                _ENTITY_ID_A: _make_instance(_ENTITY_ID_A),
+                _ENTITY_ID_B: _make_instance(_ENTITY_ID_B),
+            }
+        )
+        use_case = ConfirmMergeUseCase(entity_instances=repo, cascade=FakeCascade())
+        client = self._build_client(confirm_use_case=use_case)
+        resp = client.post(
+            f"/v1/entity-instances/{_ENTITY_ID_A}/merge/{_ENTITY_ID_B}/confirm",
+            headers={"X-API-Key": _make_api_key()},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["entity_instance_id"] == _ENTITY_ID_A
+        assert data["cascade"] == {
+            "survivor_id": _ENTITY_ID_A,
+            "absorbed_id": _ENTITY_ID_B,
+            "promoted_edge_ids": ["edge-1"],
+            "affected_email_ids": ["email-1", "email-2"],
+        }
+
+    def test_confirm_without_cascade_omits_summary(self) -> None:
+        """Back-compat: cascade-less confirm serializes cascade as null (additive field)."""
+        client = self._build_client()
+        resp = client.post(
+            f"/v1/entity-instances/{_ENTITY_ID_A}/merge/{_ENTITY_ID_B}/confirm",
+            headers={"X-API-Key": _make_api_key()},
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data.get("cascade") is None
 
     def test_confirm_cross_importer_returns_404(self) -> None:
         """T-10-20: cross-tenant merge attempt returns 404, never 500."""

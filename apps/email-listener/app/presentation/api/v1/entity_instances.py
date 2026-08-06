@@ -117,9 +117,21 @@ async def backfill_entity_identities(
 # ── Curation endpoints (D-20) ─────────────────────────────────────────────────
 
 
+class CascadeSummaryView(BaseModel):
+    """What the correction cascade touched (Plan 75-03, CPF-04) — additive, optional."""
+
+    survivor_id: str
+    absorbed_id: str
+    promoted_edge_ids: list[str]
+    affected_email_ids: list[str]
+
+
 class MergeResultView(BaseModel):
     entity_instance_id: str
     target_id: str
+    # Plan 75-03 (additive): present only when the flag-gated correction cascade
+    # ran cleanly on a confirm; always None for reject and for flag-off confirms.
+    cascade: CascadeSummaryView | None = None
 
 
 class UnmergeResultView(BaseModel):
@@ -147,10 +159,12 @@ async def confirm_entity_merge(
         )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=_NOT_FOUND_DETAIL) from exc
+    cascade_raw = result.get("cascade")
     return ApiResponse.ok(
         MergeResultView(
-            entity_instance_id=result["entity_instance_id"],
-            target_id=result["target_id"],
+            entity_instance_id=str(result["entity_instance_id"]),
+            target_id=str(result["target_id"]),
+            cascade=CascadeSummaryView.model_validate(cascade_raw) if cascade_raw is not None else None,
         )
     )
 

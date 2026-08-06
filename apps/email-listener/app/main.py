@@ -30,6 +30,7 @@ from app.presentation.api.v1.inbound_email import router as inbound_email_router
 from app.presentation.api.v1.ingest_job import router as ingest_job_router
 from app.presentation.api.v1.knowledge_edges import router as knowledge_edges_router
 from app.presentation.api.v1.pipeline_health import router as pipeline_health_router
+from app.presentation.api.v1.relabel_job import router as relabel_job_router
 from app.presentation.api.v1.sns_inbound import router as sns_inbound_router
 from app.presentation.middleware.request_logging import RequestLoggingMiddleware
 from app.settings import get_settings
@@ -71,6 +72,7 @@ def create_app() -> FastAPI:
     app.include_router(inbound_email_router)
     app.include_router(sns_inbound_router)
     app.include_router(ingest_job_router)
+    app.include_router(relabel_job_router)
     app.include_router(importers_delete_router)
     app.include_router(home_assemble_router)
     app.include_router(backfill_email_router)

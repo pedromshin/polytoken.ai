@@ -39,6 +39,40 @@ import { assertOwnedOrNotFound } from "../_ownership";
 import { getListenerConfig, parseErrorDetail } from "../_listener-config";
 
 /**
+ * Plan 75-03/75-05 (CPF-04): the listener's confirm response MAY carry an
+ * additive `cascade` summary — what the flag-gated correction cascade touched
+ * (null / absent while CASCADE_CORRECTION_ENABLED is off). Typed + validated
+ * here at the boundary (T-06-08's zod discipline applied to the RESPONSE),
+ * then passed through UNMODIFIED — `.passthrough()` keeps any keys this
+ * client version doesn't know about.
+ */
+const cascadeSummarySchema = z
+  .object({
+    survivor_id: z.string(),
+    absorbed_id: z.string(),
+    promoted_edge_ids: z.array(z.string()),
+    affected_email_ids: z.array(z.string()),
+  })
+  .passthrough();
+
+const confirmMergeResponseSchema = z
+  .object({
+    success: z.boolean(),
+    data: z
+      .object({
+        entity_instance_id: z.string(),
+        target_id: z.string(),
+        cascade: cascadeSummarySchema.nullish(),
+      })
+      .passthrough()
+      .nullish(),
+    error: z.string().nullish(),
+  })
+  .passthrough();
+
+export type ConfirmMergeResponse = z.infer<typeof confirmMergeResponseSchema>;
+
+/**
  * assertEntityInstanceOwned — loads the referenced entity_instances row's
  * importer_id and asserts the caller owns that importer (the plan's
  * load-then-assertImporterOwnership recipe for id-addressed rows).
@@ -104,7 +138,11 @@ export const entityMutationProcedures = {
       if (!res.ok) {
         throw new Error(await parseErrorDetail(res, "confirmMerge failed"));
       }
-      return res.json() as Promise<unknown>;
+      // Validate the envelope (incl. the optional cascade summary) at the
+      // boundary, then pass it through unmodified (passthrough keeps unknown
+      // keys) — the caller sees exactly what the listener returned.
+      const body: unknown = await res.json();
+      return confirmMergeResponseSchema.parse(body);
     }),
 
   /**

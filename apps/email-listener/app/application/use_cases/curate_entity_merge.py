@@ -18,9 +18,14 @@ T-10-20: cross-importer merges are rejected as ValueError → 404.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import structlog
 
 from app.domain.ports.entity_instance_repository import EntityInstanceRepository
+
+if TYPE_CHECKING:
+    from app.application.use_cases.cascade_correction import CascadeCorrectionUseCase
 
 logger = structlog.get_logger(__name__)
 
@@ -36,22 +41,37 @@ class ConfirmMergeUseCase:
     Raises ValueError (→ 404 at the endpoint) when:
       - Either id is not found in the repository.
       - The two identities belong to different importers (T-10-20, D-21).
+
+    Cascade (Plan 75-03, CPF-04): `cascade` is an OPTIONAL collaborator —
+    composition injects CascadeCorrectionUseCase only when
+    CASCADE_CORRECTION_ENABLED is set (flag off ⇒ None ⇒ structural omission,
+    byte-for-byte the pre-75 behavior). When present it runs BEST-EFFORT after
+    all merge writes: any cascade exception is swallowed-and-logged so the
+    already-committed merge NEVER fails on propagation; on success the summary
+    is threaded onto the result under the "cascade" key.
     """
 
-    def __init__(self, *, entity_instances: EntityInstanceRepository) -> None:
+    def __init__(
+        self,
+        *,
+        entity_instances: EntityInstanceRepository,
+        cascade: CascadeCorrectionUseCase | None = None,
+    ) -> None:
         self._entity_instances = entity_instances
+        self._cascade = cascade
 
     async def execute(
         self,
         entity_instance_id: str,
         target_id: str,
-    ) -> dict[str, str]:
+    ) -> dict[str, object]:
         """Confirm the merge of entity_instance_id and target_id.
 
         importer_id is derived from the loaded subject row (D-21).
 
         Returns:
-            dict with entity_instance_id and target_id keys (echoed by endpoint).
+            dict with entity_instance_id and target_id keys (echoed by endpoint),
+            plus a "cascade" summary dict when the optional cascade ran cleanly.
         """
         log = logger.bind(entity_instance_id=entity_instance_id, target_id=target_id)
         log.info("confirm_merge_start")
@@ -122,8 +142,33 @@ class ConfirmMergeUseCase:
             is_active=False,
         )
 
+        result: dict[str, object] = {"entity_instance_id": entity_instance_id, "target_id": target_id}
+
+        # Plan 75-03 (CPF-04): cascade the correction BEST-EFFORT, strictly AFTER
+        # the merge writes above. The merge is already committed — a cascade
+        # failure is logged and swallowed, never surfaced to the caller (the
+        # cascade is idempotent and re-runnable; the merge must not be).
+        if self._cascade is not None:
+            try:
+                summary = await self._cascade.execute(
+                    survivor_id=entity_instance_id,
+                    absorbed_id=target_id,
+                )
+            except Exception:
+                log.exception("confirm_merge_cascade_failed")
+            else:
+                result = {
+                    **result,
+                    "cascade": {
+                        "survivor_id": summary.survivor_id,
+                        "absorbed_id": summary.absorbed_id,
+                        "promoted_edge_ids": list(summary.promoted_edge_ids),
+                        "affected_email_ids": list(summary.affected_email_ids),
+                    },
+                }
+
         log.info("confirm_merge_done")
-        return {"entity_instance_id": entity_instance_id, "target_id": target_id}
+        return result
 
 
 class RejectMergeUseCase:

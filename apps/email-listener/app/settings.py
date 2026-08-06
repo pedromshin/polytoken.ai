@@ -360,6 +360,18 @@ class BaseAppSettings(BaseSettings):
     # wrapper) -- mirrors ANTICIPATORY_PROMPTING_ENABLED's own convention.
     MORNING_BOARD_ENABLED: bool = False
 
+    # --- Correction-cascade merge wiring (Phase 75, Plan 75-03 — default OFF) ---
+    # Gates whether ConfirmMergeUseCase receives a CascadeCorrectionUseCase
+    # collaborator. When False (the default), entity_providers.py injects None —
+    # a STRUCTURAL omission, never a mutation — and a confirmed merge behaves
+    # byte-for-byte as before (no edge promotion, no re-label fan-out, no
+    # correction_propagations ledger row). When True, the cascade runs
+    # BEST-EFFORT after the merge writes (a cascade failure never fails the
+    # merge). The use case + adapters + their test suites exist regardless of
+    # this flag; ONLY the composition provider reads it. Plain bool field (no
+    # @property wrapper) — mirrors MORNING_BOARD_ENABLED's own convention.
+    CASCADE_CORRECTION_ENABLED: bool = False
+
     @property
     def api_key(self) -> str:
         return parse_secret_value(self.API_KEY, "API_KEY", self.ENVIRONMENT.value)
