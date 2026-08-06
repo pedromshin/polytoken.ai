@@ -306,11 +306,13 @@ verifications (human-UAT + eval-lift-vs-baseline measurements needing live Bedro
 
 ## vNEXT The Living Canvas (Opened: 2026-07-25 · orchestrator run)
 
-**Status:** 🚧 IN PROGRESS — 73–76 substantially shipped to `main` (reconciled 2026-07-26; live
+**Status:** 🚧 CODE-COMPLETE — all five phases built on `main` (reconciled 2026-08-06; live
 per-slice detail in `ORCHESTRATOR-STATE.md`, structural status in the ROADMAP's ✅ SHIPPED-STATUS
-block). 73 Waves A+B ✓ · 74 MVP+backend ✓ (dark) · 75 visible half ✓ (server cascade owed) · 76
-summon loop ✓ + `0055 code_islands` LIVE IN PROD · 77 not started. Shipped as an orchestrator run,
-gates green, without per-plan GSD VERIFICATION.md trails.
+block). 73 Waves A+B+C ✓ · 74 MVP+backend ✓ (dark) · 75 both halves ✓ (cascade dark behind
+`CASCADE_CORRECTION_ENABLED`) · 76 ✓ incl. 76-02b/76-05 · 77 ✓ incl. the esbuild runtime bundle.
+Remaining = human-gated LIVE seams only: migration 0061 on prod · worker provisioning · flag flips
+· live UAT (LCAN-05/LCAN-09 · MORN-07 · BTAP-07 · MCPX-09 · CPF-live) · the real-browser pass.
+Shipped as an orchestrator run, gates green, without per-plan GSD VERIFICATION.md trails.
 **Phases planned:** 5 (73–77), the "bangers"
 **Requirements:** 41 (LCAN 9 + MORN 7 + CPF 6 + BTAP 10 + MCPX 9)
 **Depends on:** Phase 66 (durable graphile-worker + Workspace→Canvas→Node/Edge rows, shipped

@@ -6,8 +6,54 @@
 > the RESUME PROTOCOL below. Strategic `/compact` is safe at any batch boundary — this file + pushed
 > branches hold all durable state, so nothing critical lives only in chat.
 
-## ⭐ CURRENT — 2026-07-24 · session_016dmeeGLzwLPZfRwGpByHmn · branch `claude/polytoken-email-infra-cont-qi9q5g`
-> **This block is the live "where are we."** Everything below the RESUME PROTOCOL is chronological
+## ⭐ CURRENT — 2026-08-06 · wrap-up session · `main` (all commits LOCAL, about to push)
+> **This block is the live "where are we."** Everything below is chronological history
+> (newest-first). vNEXT (Phases 73–77) is now **CODE-COMPLETE** — every remaining item is a
+> Pedro-gated LIVE seam, not missing software.
+
+### ✅ vNEXT CODE-COMPLETE — 6 streams shipped + adversarially verified — 2026-08-06
+All local on `main` (about to push). Every stream got an adversarial verify pass; every CONFIRMED
+finding was fixed same-session. Gates at integration: **worker 34 · mcp-server 32/32 · web 461
+targeted + tsc · drizzle-kit check · api-client 59 (entities) · listener targeted suites +
+mypy 318 + lint-imports**. FULL listener pytest + the full TS matrix were still running at ledger
+time — assume green unless a note here says otherwise.
+- ✅ **`985e2071`** — merge of `claude/phase-76-summon-loop-al5emg` (migrate workflow back to
+  secrets-only + rotation docs). The feature-branch era is closed; everything now lives on `main`.
+- ✅ **Phase 76 CLOSED (code)** — `87f4daf5` 76-02b: the listener consumes the typed-inputs
+  manifest in the code-island generator prompt; `08c336a7` hardening (delimiter-breakout escape +
+  bool rowCount). With 76-05 (`emit_code_island`, 2026-07-27) already in, Phase 76 is
+  code-complete; **BTAP-07 live** is the only remaining leg.
+- ✅ **Phase 73 Wave C CLOSED (code)** — `f0510ee5` recipe creation seam: `emit_canvas_recipe` +
+  web reconcile; `a19aba67` fixes (all-or-nothing planning, sourceRef sanitize, esbuild pin).
+  Remaining: **LCAN-05 / LCAN-09 live** (worker + flag).
+- ✅ **Worker recompute + cascade fan-out** — `1d1391a2`: `cascade_relabel` +
+  `recompute_canvas_recipe` + `dispatch_recipe_recomputes` (dark behind
+  `RECIPE_RECOMPUTE_ENABLED`) + **migration `0061`** (task-allowlist widen) — **NEW, NOT yet on
+  prod**; goes through the migrate pipeline once the 3 `PROD_*` secrets exist.
+- ✅ **Phase 77 CLOSED (code)** — `58213cfc` esbuild runtime bundle (`dist` boots; stdio
+  `tools/list` smoke green) + Windows expose-only fix (32/32) + daemon-protocol suite into CI.
+  PEDRO-CHECKLIST §5(a) (the runtime build strategy) is DONE. Remaining: **MCPX-09 live**
+  (Pedro's real Claude Code).
+- ✅ **Phase 75 SERVER cascade CLOSED (code)** — `d5c5b1d2` 75-03/04: cascade wired into
+  ConfirmMerge behind `CASCADE_CORRECTION_ENABLED` (byte-dark OFF) +
+  `POST /v1/emails/relabel-job`. Remaining: **CPF live** (flag flip + live re-label).
+- ⛔ **REMAINING = LIVE SEAMS ONLY, all Pedro-gated:** migration `0061` (+ verify `0058`–`0060`)
+  on prod via the migrate pipeline once the 3 `PROD_*` env secrets exist · worker container
+  provisioning (`ecs.tf` wiring, Terraform remote-state gate) · flag flips
+  (`CANVAS_EMIT_TOOL_ENABLED`, `MORNING_BOARD_ENABLED`, `CASCADE_CORRECTION_ENABLED`,
+  `RECIPE_RECOMPUTE_ENABLED`, `INGEST_ENQUEUE_ENABLED`) · live UAT seams (LCAN-05 /
+  LCAN-09-live · MORN-07 · BTAP-07 · MCPX-09 · CPF-live) · the real-browser screenshot pass.
+- 🔥 **PROD INCIDENT (context):** both Supabase projects were AUTO-PAUSED (9 days) — the root
+  cause of the prod outage — and are restored now, but the DB passwords were changed everywhere
+  in recovery: Vercel env + local `.env.production`/`.env.staging` all hold STALE passwords, so
+  **prod web DB is still down** pending Pedro's password reset + paste. The `/api/dbcheck`
+  diagnostic stays on `main` until prod DB is verified, then DELETE it. Also: **SES
+  production-access case `178464704400134`** awaits Pedro's Support-Center reply; the **Stripe
+  CLI login is expired**.
+
+## 2026-07-24 · session_016dmeeGLzwLPZfRwGpByHmn · branch `claude/polytoken-email-infra-cont-qi9q5g` (superseded 2026-08-06)
+> **(Was the ⭐ CURRENT block until 2026-08-06 — the live status is now the block above.)**
+> Everything below the RESUME PROTOCOL is chronological
 > history (newest-first); the `01RZ`/`jzz1pg`-session standing config at the very BOTTOM of this file
 > (batch plan / merge protocol / completion criterion) is **SUPERSEDED** — all of that session's
 > `send_later` Routines show `ended_reason=run_once_fired` (verified via list_triggers 2026-07-24);

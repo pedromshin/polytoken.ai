@@ -1,8 +1,9 @@
 # PEDRO — when you're at your computer (ordered)
 
 > Single consolidated checklist of everything that needs YOU (a real machine, dashboard
-> access, or a human judgment call). Everything buildable-on-mobile has been shipped to
-> `claude/phase-76-summon-loop-al5emg`. Last updated 2026-07-28 · session_01NhVUcfpAuwy4YBkvme7dUp.
+> access, or a human judgment call). Everything buildable without you is now on `main` (the
+> `claude/phase-76-summon-loop-al5emg` branch merged via `985e2071`, 2026-08-06 — commits local,
+> about to push). Last updated 2026-08-06 (wrap-up session).
 > This supersedes the scattered "[PEDRO]" notes in the ledger for day-to-day use; the
 > ledger stays the full historical record.
 
@@ -39,8 +40,21 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
   a webhook to the billing endpoint, then set Vercel env `BILLING_ENABLED=true`, the price ids
   (`STRIPE_PRICE_PRO` / `STRIPE_PRICE_POWER`), `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `BILLING_APP_URL`.
 - **Before real charges:** legal review of privacy/ToS (LGPD/SCCs), and a Merchant-of-Record decision.
+- **🆕 2026-08-06: the Stripe CLI login is EXPIRED** — re-run `stripe login` before any CLI-side
+  Stripe work (dashboard steps unaffected).
 
-## 3. DB migrations — ✅ APPLIED 2026-07-28. Remaining: set the prod-env secrets + the infra changes
+## 3. DB migrations — 0057–0060 ✅ APPLIED 2026-07-28; **0061 is NEW + PENDING** the prod-env secrets; + the infra changes
+- **🔥 2026-08-06 PROD OUTAGE — root cause found: Supabase AUTO-PAUSE.** Both Supabase projects
+  were auto-paused (9 days) — that is what took prod down. Both are RESTORED now, but the DB
+  passwords were changed everywhere during recovery, so **Vercel env + local
+  `.env.production`/`.env.staging` all hold STALE passwords**. Prod web DB stays DOWN until you
+  reset the password (Supabase → Settings → Database) and paste the new one into Vercel + both
+  local env files (coordinate with the §0 rotation — one reset covers both). Verify with
+  `/api/dbcheck`; that diagnostic route stays on `main` ONLY until prod DB is verified, then
+  DELETE it.
+- **🆕 Migration `0061` (worker task-allowlist widen, 2026-08-06) is NOT yet on prod.** Once the 3
+  `PROD_*` secrets below exist, dispatch `deploy-migrate-prod.yml` (`confirm=MIGRATE-PROD`) — it
+  applies `0061` and re-verifies `0058`–`0060` in the same run.
 - **✅ PROD MIGRATIONS APPLIED (2026-07-28 ~12:07 UTC).** `0057`→`0060` were applied to prod via the
   sanctioned `deploy-migrate-prod.yml` pipeline (run #7, `30357523559`, conclusion **success** — the
   migrator exits non-zero on any error incl. "already exists", so success ⟹ clean apply, no drift). Applied,
@@ -78,29 +92,41 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
 Default-OFF today (byte-identical). Flip after a real end-to-end mail loop confirms them:
 - `INGEST_TIER_CAPS_ENABLED` — tier-aware ingest caps (free 100 / pro 500 / power 2000 per day).
 - `INGEST_BACKGROUND_ENABLED` — fast-200 SNS bridge (mitigates the 15s-timeout retry waste).
-- `CANVAS_EMIT_TOOL_ENABLED` — agent-emits-canvas-node/connect.
+- `CANVAS_EMIT_TOOL_ENABLED` — agent-emits-canvas-node/connect/recipe/code-island.
+- `MORNING_BOARD_ENABLED` — overnight board composer + worker cron (needs the worker, §3).
+- `CASCADE_CORRECTION_ENABLED` — 🆕 2026-08-06: the Phase-75 correction cascade wired into
+  ConfirmMerge (byte-dark OFF today) + the re-label fan-out.
+- `RECIPE_RECOMPUTE_ENABLED` — 🆕 2026-08-06: worker after-close recipe recompute (needs the
+  worker, §3, + migration `0061`).
+- `INGEST_ENQUEUE_ENABLED` — durable-worker ingest path (flip last, per `docs/DURABLE-WORKER-RUNBOOK.md`).
 - (Add an AWS budget cap + an ingest-failure alarm while you're in the console.)
+- **Reply to AWS SES production-access case `178464704400134`** — it's sitting in the Support
+  Center awaiting YOUR reply; SES stays sandboxed until answered.
 
 ## 5. Round-3 (5-stream) follow-ups — buildable by me next, not blocking
-Shipped 2026-07-27 to `claude/phase-76-summon-loop-al5emg` (see ledger ROUND 3). Gate-green; these are
-the honest remaining edges:
+Shipped 2026-07-27 (see ledger ROUND 3; the branch is now merged to `main` via `985e2071`).
+Gate-green; these are the honest remaining edges:
 - **Discoverability wiring** — ✅ the home-board "Recent tables" `BoardPanel` → `/spreadsheets` SHIPPED
   (PR #11, deployed). Still open: a `/workspaces` entry point / mount the built `WorkspaceSwitcher` in
   shared nav (workspaces is still direct-URL-only).
-- **MCP server go-live (Phase 77)** — code + tests are in `apps/mcp-server` (SDK installed). Before it
-  runs: (a) a runtime build strategy so `node dist/index.js` works (it imports `@polytoken/api-client` as
-  TS source — bundle via esbuild/tsup, or build deps to dist first); (b) set `POLYTOKEN_MCP_USER_ID` (your
-  auth.users id) + `POLYTOKEN_MCP_TOKEN` + `POSTGRES_URL_NON_POOLING`; (c) add the one `mcpServers` entry
-  to your own Claude Code config; (d) MCPX-09 live check — `tools/list` shows the 3 polytoken tools and
-  `searchMyKnowledge` returns grounded results from your real graph.
+- **MCP server go-live (Phase 77)** — code + tests in `apps/mcp-server`. **(a) ✅ DONE 2026-08-06:**
+  the esbuild runtime bundle EXISTS (`58213cfc`) — `node dist/index.js` boots and a stdio
+  `tools/list` smoke is green (Windows expose-only fix, 32/32; daemon-protocol suite now in CI).
+  Still yours: (b) set `POLYTOKEN_MCP_USER_ID` (your auth.users id) + `POLYTOKEN_MCP_TOKEN` +
+  `POSTGRES_URL_NON_POOLING`; (c) add the one `mcpServers` entry to your own Claude Code config;
+  (d) MCPX-09 live check — `tools/list` shows the 3 polytoken tools and `searchMyKnowledge`
+  returns grounded results from your real graph.
 - **code_islands provenance upsert** — ✅ SHIPPED (PR #11, deployed) — `codeIslands.create` upserts on a
   provenance key, now gated behind `tableColumnExists` so it's live-safe ahead of migration `0059`. The
   dedup activates once `0059` is applied (§3). The whole agent path stays flag-OFF (`CANVAS_EMIT_TOOL_ENABLED`).
 - **Table viewer route** — `/spreadsheets` rows are non-navigating cards because a table only opens as a
   canvas node today; wire an open-on-canvas / standalone viewer affordance.
 - **Workspace member user-search** — add-member takes a raw user UUID; add a user-search endpoint.
-- **Phase 73 Wave C durability (LCAN-09)** — `canvas_recipes.sourceRef` is stored but unconsumed; the
-  graphile-worker after-close recompute is the live-only seam (needs the worker provisioned, §3).
+- **Phase 73 Wave C durability (LCAN-09)** — ✅ BUILT 2026-08-06: the recipe creation seam
+  (`emit_canvas_recipe` + web reconcile, `f0510ee5`) + worker `recompute_canvas_recipe` /
+  `dispatch_recipe_recomputes` (`1d1391a2`), dark behind `RECIPE_RECOMPUTE_ENABLED` + migration
+  `0061` (§3). The remaining live-only seam: worker provisioned (§3) + flag flipped (§4) + a
+  DB-verified after-close recompute.
 
 ## 6. Earlier dark-seam follow-ups (still open)
 - **Canvas sources are load-time only** — ✅ SHIPPED (PR #11, deployed): `chat.listSources` is now

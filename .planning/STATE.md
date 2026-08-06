@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: vNEXT-living-canvas
 milestone_name: The Living Canvas
 status: in-progress
-last_updated: "2026-07-26T16:00:00.000Z"
+last_updated: "2026-08-06T00:00:00.000Z"
 progress:
   total_phases: 5
-  completed_phases: 2
+  completed_phases: 5
   total_plans: 0
   completed_plans: 0
-  percent: 45
+  percent: 90
 ---
 
 # State
@@ -37,24 +37,33 @@ Read it before re-deriving anything historical.
 
 ## Current Position
 
-**Milestone: vNEXT — The Living Canvas (Phases 73–77). IN PROGRESS** (opened as an orchestrator run
-2026-07-25; roadmap `milestones/vNEXT-living-canvas-ROADMAP.md` ✅ SHIPPED-STATUS block).
-Reconciled 2026-07-26:
+**Milestone: vNEXT — The Living Canvas (Phases 73–77). CODE-COMPLETE 2026-08-06 — open only on
+human-gated LIVE seams** (opened as an orchestrator run 2026-07-25; roadmap
+`milestones/vNEXT-living-canvas-ROADMAP.md` ✅ SHIPPED-STATUS block). Reconciled 2026-08-06 (all
+commits local on `main`, about to push; feature branch merged via `985e2071`):
 
-- **Phase 73 (living-canvas agent dataflow) — Waves A + B SHIPPED** (agent draws+wires nodes behind
-  `CANVAS_EMIT_TOOL_ENABLED`; the `shared.published.{nodeId}` publish port in 12 source nodes). Wave C
-  (named `canvas_recipes` + durable after-close recompute) remaining.
-- **Phase 74 (self-assembling morning board) — SHIPPED** (`/chat` Assemble-board + `/home` HomeCanvas
-  paint; overnight composer + worker cron ship DARK behind `MORNING_BOARD_ENABLED`). Live
-  overnight-run screenshot gate remaining.
-- **Phase 75 (correction-propagation flywheel) — VISIBLE half SHIPPED** (a merge repaints every placed
-  entity card live + cascade ring). SERVER cascade (ledger migration → promote edges → wire into
-  ConfirmMerge → worker re-label) remaining; it touches the LIVE listener merge path, LIVE-loop-gated.
-- **Phase 76 (bespoke code-islands) — SUMMON LOOP SHIPPED + LIVE IN PROD.** The full data-channel →
-  node → "Build a tool from these" flow; **`0055 code_islands` applied to prod 2026-07-26** (Supabase
-  Management API, verified against the DB), so it works end-to-end. Remaining: 76-02b (listener
-  consumes the typed-inputs manifest, ECS redeploy) + 76-05 (agent `emit_code_island`, flag-gated).
-- **Phase 77 (life-as-MCP-tool-surface) — NOT STARTED** (specced only).
+- **Phase 73 (living-canvas agent dataflow) — Waves A + B + C SHIPPED.** Wave C landed 2026-08-06:
+  recipe creation seam `emit_canvas_recipe` + web reconcile (`f0510ee5`, fixes `a19aba67`) + worker
+  `recompute_canvas_recipe` / `dispatch_recipe_recomputes` (`1d1391a2`, dark behind
+  `RECIPE_RECOMPUTE_ENABLED`; migration **0061** widens the task allowlist — NOT yet on prod).
+  Remaining: LCAN-05 / LCAN-09 **live** (HUMAN-GATED: worker provisioned + 0061 + flag).
+- **Phase 74 (self-assembling morning board) — SHIPPED (dark)** (`/chat` Assemble-board + `/home`
+  HomeCanvas paint; overnight composer + worker cron DARK behind `MORNING_BOARD_ENABLED`).
+  Remaining: MORN-07, the live overnight-run screenshot gate (HUMAN-GATED: flag + worker).
+- **Phase 75 (correction-propagation flywheel) — BOTH halves SHIPPED.** Visible half (repaint +
+  cascade ring) 2026-07-26; SERVER cascade 2026-08-06: wired into ConfirmMerge behind
+  `CASCADE_CORRECTION_ENABLED` (byte-dark OFF) + `POST /v1/emails/relabel-job` (`d5c5b1d2`) +
+  worker `cascade_relabel` (`1d1391a2`). Remaining: the CPF live re-label leg (HUMAN-GATED:
+  flag flip + live loop).
+- **Phase 76 (bespoke code-islands) — CODE-COMPLETE + LIVE IN PROD (data path).** Summon loop +
+  `0055 code_islands` on prod (2026-07-26); 76-05 `emit_code_island` (2026-07-27); 76-02b listener
+  consumes the typed-inputs manifest (`87f4daf5`, hardening `08c336a7`, 2026-08-06). Remaining:
+  BTAP-07 end-to-end **live** (HUMAN-GATED).
+- **Phase 77 (life-as-MCP-tool-surface) — CODE-COMPLETE.** Waves A+B 2026-07-27
+  (`apps/mcp-server`, expose-only stdio, 3 owner-scoped read tools) + the esbuild runtime bundle
+  2026-08-06 (`58213cfc` — `dist` boots, stdio `tools/list` smoke green, Windows expose-only fix
+  32/32, daemon-protocol suite in CI). Remaining: MCPX-09 — Pedro's real Claude Code connecting
+  (HUMAN-GATED).
 
 > These shipped as an orchestrator run, gates green, but WITHOUT per-plan PLAN.md/VERIFICATION.md
 > GSD trails. The honest record is the `ORCHESTRATOR-STATE.md` ledger + git history. GSD phase
@@ -90,27 +99,28 @@ SES receipt rule drift is in flight on a sibling branch
 
 ## Next Actions
 
-**vNEXT (active) — remaining legs of the shipped phases:**
-1. **Phase 76 close:** 76-02b (listener consumes the `inputs` typed-shape manifest in the code-island
-   generator prompt — additive, back-compat, FULL pytest + ECS redeploy of the live mail receiver) +
-   76-05 (agent-authored `emit_code_island` behind `CANVAS_EMIT_TOOL_ENABLED`).
-2. **Phase 75 SERVER cascade** (75-01 `correction_propagations` ledger migration → 75-02
-   `CascadeCorrectionUseCase` → 75-03 wire into `ConfirmMergeUseCase` best-effort → 75-04 worker
-   re-label). Touches the LIVE merge path; ship flag-gated, FULL pytest.
-3. **Phase 73 Wave C** (named `canvas_recipes` migration + CRUD + badge, LCAN-07; durable recompute
-   LCAN-09) and **Phase 77** (capability-registry MCP server, specced not started).
-4. **Live gates to flip when ready:** `CANVAS_EMIT_TOOL_ENABLED` (agent draws nodes/edges),
-   `MORNING_BOARD_ENABLED` (overnight board — needs the worker provisioned: install the
-   `graphile_worker` schema + apply 0053/0054 via the Management API).
+**Everything remaining on vNEXT is a Pedro-gated LIVE seam (no missing software):**
+1. **Prod DB back up:** both Supabase projects were AUTO-PAUSED (the 9-day outage's root cause),
+   restored now — but the DB passwords were changed everywhere in recovery, so Vercel env + local
+   `.env.production`/`.env.staging` all hold STALE passwords. Reset + paste the new password,
+   verify via `/api/dbcheck`, then DELETE that diagnostic route from `main`.
+2. **Create the 3 `PROD_*` secrets** (`PROD_POSTGRES_URL_NON_POOLING` / `PROD_POSTGRES_URL` /
+   `PROD_SUPABASE_URL`, production GitHub Environment) → run `deploy-migrate-prod.yml`: apply
+   migration **0061** (task-allowlist widen) + verify 0058–0060.
+3. **Provision the worker container** (`ecs.tf` wiring — needs a Node runtime image; Terraform
+   remote-state gate per `IMPORT-RUNBOOK.md` / `docs/DURABLE-WORKER-RUNBOOK.md`).
+4. **Flip the flags after a live smoke loop:** `CANVAS_EMIT_TOOL_ENABLED` ·
+   `MORNING_BOARD_ENABLED` · `CASCADE_CORRECTION_ENABLED` · `RECIPE_RECOMPUTE_ENABLED` ·
+   `INGEST_ENQUEUE_ENABLED`.
+5. **Run the live UAT seams:** LCAN-05 / LCAN-09-live · MORN-07 · BTAP-07 · MCPX-09 · CPF-live;
+   plus the real-browser screenshot pass over all shipped UI.
+6. **AWS/Stripe:** reply to SES production-access case `178464704400134` (Support Center — AWS is
+   waiting on Pedro's reply); the Stripe CLI login is expired (re-auth before CLI-side Stripe work).
 
 **Infra / carried (unchanged):**
-5. **Create the 3 missing GitHub prod secrets** (`PROD_POSTGRES_URL_NON_POOLING` / `PROD_POSTGRES_URL`
-   / `PROD_SUPABASE_URL`) so `deploy-migrate-prod.yml` works again (I added the `environment:
-   production` binding; the secrets themselves are absent). Until then prod DB changes go via the
-   Supabase Management API.
-6. Wire + verify Phases 68–72 (v1.11 closeout); pixel gates on 62/63; the owed v1.9 live legs
+7. Wire + verify Phases 68–72 (v1.11 closeout); pixel gates on 62/63; the owed v1.9 live legs
    (LIVE-03 / LIVE-04 / CLUS-07) per the MORNING-CHECKLIST runsheet.
-7. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
+8. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
    version-scoped `research/` dirs into milestone archives.
 
 ## Open Debug
