@@ -3,8 +3,11 @@
  * Covers the pure collector that turns a persisted `canvas_recipe` message part
  * into a `canvasRecipes.create` plan:
  *
- *   - keys are validated against the LIVE canvas — unknown node/edge keys are
- *     dropped, never trusted; a part with zero present nodeKeys yields no plan.
+ *   - keys are validated against the LIVE canvas ALL-OR-NOTHING — a part plans
+ *     ONLY when every nodeKey AND every edgeKey resolves (with ≥1 nodeKey);
+ *     any unknown key yields NO plan this pass (fail-closed: the part persists
+ *     in history and retries once same-turn agent-authored nodes/edges have
+ *     materialized, so a partial row is never frozen).
  *   - dedupe is idempotent on the conversation + name key: a name already in
  *     the fetched `canvasRecipes.list` data is skipped, so the post-turn
  *     refetch (after create + invalidate) cannot double-create; two same-name
@@ -52,7 +55,7 @@ function recipeRow(name: string, nodeKeys: readonly string[], extra?: Record<str
 }
 
 describe("collectAgentRecipePlans — key validation (never trust the model)", () => {
-  it("collects a plan keeping ONLY the live-present node/edge keys", () => {
+  it("collects a plan when EVERY node/edge key resolves against the live canvas", () => {
     const rows: ChatHistoryRow[] = [
       historyRow({
         id: MSG_1,
@@ -61,8 +64,8 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
           {
             type: "canvas_recipe",
             name: "Reconciliation",
-            nodeKeys: ["spreadsheet:inv", "not-on-canvas", "spreadsheet:bank"],
-            edgeKeys: ["edge-1", "ghost-edge"],
+            nodeKeys: ["spreadsheet:inv", "spreadsheet:bank"],
+            edgeKeys: ["edge-1"],
             sourceRef: { kind: "gmail_query" },
           },
         ],
@@ -81,6 +84,26 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
     });
   });
 
+  it("yields NO plan when ANY nodeKey fails resolution (fail-closed, not filtered)", () => {
+    // A not-yet-materialized (same-turn agent-authored) or invented nodeKey
+    // must NOT freeze a partial row — the part retries on a later pass.
+    const rows: ChatHistoryRow[] = [
+      historyRow({
+        id: MSG_1,
+        turnIndex: 0,
+        parts: [
+          recipeRow("Racing group", [
+            "spreadsheet:inv",
+            "not-on-canvas-yet",
+            "spreadsheet:bank",
+          ]),
+        ],
+      }),
+    ];
+
+    expect(collectAgentRecipePlans(rows, NODES, EDGES, [])).toEqual([]);
+  });
+
   it("yields NO plan when every nodeKey fails resolution (fail-closed)", () => {
     const rows: ChatHistoryRow[] = [
       historyRow({
@@ -93,7 +116,26 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
     expect(collectAgentRecipePlans(rows, NODES, EDGES, [])).toEqual([]);
   });
 
-  it("dedupes repeated keys and drops non-string entries without throwing", () => {
+  it("skips a part whose edgeKeys include ONE unknown edge (all-or-nothing on edges too)", () => {
+    const rows: ChatHistoryRow[] = [
+      historyRow({
+        id: MSG_1,
+        turnIndex: 0,
+        parts: [
+          {
+            type: "canvas_recipe",
+            name: "Half-wired",
+            nodeKeys: ["spreadsheet:inv", "spreadsheet:bank"],
+            edgeKeys: ["edge-1", "ghost-edge"],
+          },
+        ],
+      }),
+    ];
+
+    expect(collectAgentRecipePlans(rows, NODES, EDGES, [])).toEqual([]);
+  });
+
+  it("dedupes repeated present keys; tolerates absent edgeKeys", () => {
     const rows: ChatHistoryRow[] = [
       historyRow({
         id: MSG_1,
@@ -102,8 +144,7 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
           {
             type: "canvas_recipe",
             name: "Dupes",
-            nodeKeys: ["spreadsheet:inv", "spreadsheet:inv", 7, null],
-            edgeKeys: "not-an-array",
+            nodeKeys: ["spreadsheet:inv", "spreadsheet:inv"],
           },
         ],
       }),
@@ -114,6 +155,30 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
     expect(plans).toHaveLength(1);
     expect(plans[0]!.nodeKeys).toEqual(["spreadsheet:inv"]);
     expect(plans[0]!.edgeKeys).toEqual([]);
+  });
+
+  it("yields NO plan for malformed key lists (non-string entries, non-array edgeKeys)", () => {
+    const rows: ChatHistoryRow[] = [
+      historyRow({
+        id: MSG_1,
+        turnIndex: 0,
+        parts: [
+          {
+            type: "canvas_recipe",
+            name: "Bad node entries",
+            nodeKeys: ["spreadsheet:inv", 7, null],
+          },
+          {
+            type: "canvas_recipe",
+            name: "Bad edge list",
+            nodeKeys: ["spreadsheet:inv"],
+            edgeKeys: "not-an-array",
+          },
+        ],
+      }),
+    ];
+
+    expect(collectAgentRecipePlans(rows, NODES, EDGES, [])).toEqual([]);
   });
 
   it("skips inactive rows, non-recipe parts, and unusable names", () => {
@@ -151,6 +216,34 @@ describe("collectAgentRecipePlans — key validation (never trust the model)", (
 
     expect(plans).toHaveLength(1);
     expect("sourceRef" in plans[0]!).toBe(false);
+  });
+
+  it("caps an over-long name by CODE POINTS — never strands a lone surrogate", () => {
+    // 199 BMP chars + two astral emoji: a UTF-16-unit slice(0, 200) would cut
+    // the first emoji in half, stranding a high surrogate; the code-point cap
+    // keeps the whole first emoji and drops the second.
+    const overLong = `${"x".repeat(199)}\u{1F98A}\u{1F98A}`;
+    const rows: ChatHistoryRow[] = [
+      historyRow({
+        id: MSG_1,
+        turnIndex: 0,
+        parts: [recipeRow(overLong, ["spreadsheet:inv"])],
+      }),
+    ];
+
+    const plans = collectAgentRecipePlans(rows, NODES, EDGES, []);
+
+    expect(plans).toHaveLength(1);
+    const name = plans[0]!.name;
+    expect(name).toBe(`${"x".repeat(199)}\u{1F98A}`);
+    // No lone surrogate anywhere: every UTF-16 surrogate unit pairs up into a
+    // full code point (a stranded half would survive Array.from as a lone unit).
+    expect(
+      Array.from(name).every((cp) => !/^[\uD800-\uDFFF]$/.test(cp)),
+    ).toBe(true);
+    // Round-trip stability: the stored name re-enters via the fetched list and
+    // must dedupe the SAME part on the next pass (no permanent re-create loop).
+    expect(collectAgentRecipePlans(rows, NODES, EDGES, [{ name }])).toEqual([]);
   });
 });
 

@@ -79,6 +79,10 @@ _FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
 _CANVAS_RECIPE_MAX_NAME_CHARS = 120
 _CANVAS_RECIPE_MAX_NODE_KEYS = 32
 _CANVAS_RECIPE_MAX_EDGE_KEYS = 64
+# Serialized-size bound on the OPTIONAL sourceRef object — over the cap the
+# field is omitted entirely (fail-closed-to-omission; a recipe row stays a
+# grouping, never an unbounded model-authored blob).
+_CANVAS_RECIPE_MAX_SOURCE_REF_CHARS = 2048
 
 # Visible-surface text (LOOP-02/LOOP-03, "never silent" motto). Exact strings
 # -- consumed verbatim by Plans 34-02/34-03.
@@ -363,7 +367,10 @@ def _build_canvas_recipe_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     mirroring _build_canvas_code_island_part. Name + key lists are re-capped
     server-side and pollution-keyed entries dropped; `sourceRef` is included
     ONLY when the model supplied an object (mirrors canvas_add_node's optional
-    position). The FROZEN shape (the web reconcile is written against it):
+    position), with its top-level pollution keys dropped and the whole field
+    OMITTED when its serialized size exceeds the cap (the field is optional --
+    fail-closed-to-omission, never forwarded verbatim). The FROZEN shape (the
+    web reconcile is written against it):
 
         {"type","name","nodeKeys","edgeKeys"[, "sourceRef"]}
     """
@@ -385,7 +392,9 @@ def _build_canvas_recipe_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     }
     source_ref = raw.get("sourceRef")
     if isinstance(source_ref, dict):
-        part["sourceRef"] = source_ref
+        cleaned_ref = {key: value for key, value in source_ref.items() if key not in _FORBIDDEN_MANIFEST_KEYS}
+        if len(json.dumps(cleaned_ref, ensure_ascii=False)) <= _CANVAS_RECIPE_MAX_SOURCE_REF_CHARS:
+            part["sourceRef"] = cleaned_ref
     return part
 
 

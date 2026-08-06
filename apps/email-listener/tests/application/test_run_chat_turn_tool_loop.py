@@ -397,6 +397,66 @@ def test_build_canvas_recipe_part_drops_pollution_keys_and_dedupes() -> None:
 
 
 @pytest.mark.unit
+def test_build_canvas_recipe_part_source_ref_passes_through_when_small_and_clean() -> None:
+    """A normal small object sourceRef is stored unchanged (minus nothing)."""
+    raw = json.dumps(
+        {
+            "name": "R",
+            "nodeKeys": ["n1"],
+            "sourceRef": {"kind": "gmail_query", "query": "from:billing"},
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert part["sourceRef"] == {"kind": "gmail_query", "query": "from:billing"}
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_drops_pollution_keys_inside_source_ref() -> None:
+    """Top-level __proto__/constructor/prototype keys never reach the stored part."""
+    raw = json.dumps(
+        {
+            "name": "R",
+            "nodeKeys": ["n1"],
+            "sourceRef": {
+                "kind": "gmail_query",
+                "__proto__": {"polluted": True},
+                "constructor": "x",
+                "prototype": [],
+            },
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert part["sourceRef"] == {"kind": "gmail_query"}
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_omits_oversized_source_ref() -> None:
+    """Serialized sourceRef over 2048 chars -> the OPTIONAL field is omitted entirely."""
+    raw = json.dumps(
+        {
+            "name": "R",
+            "nodeKeys": ["n1"],
+            "sourceRef": {"kind": "gmail_query", "blob": "x" * 3000},
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert "sourceRef" not in part
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_omits_non_dict_source_ref() -> None:
+    """Any non-object sourceRef (list, string, number, null) is omitted, part still built."""
+    for bad_ref in ('["nope"]', '"nope"', "7", "null"):
+        raw = '{"name": "R", "nodeKeys": ["n1"], "sourceRef": ' + bad_ref + "}"
+        part = build_canvas_part("emit_canvas_recipe", raw)
+        assert part is not None
+        assert "sourceRef" not in part
+
+
+@pytest.mark.unit
 def test_build_canvas_recipe_part_fail_closed() -> None:
     # bad JSON
     assert build_canvas_part("emit_canvas_recipe", "{not json") is None

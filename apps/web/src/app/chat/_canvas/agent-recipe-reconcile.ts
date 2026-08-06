@@ -11,11 +11,18 @@
  *
  * RE-GROUNDING (the same posture every agent-canvas seam takes): the model's
  * part NAMES which keys belong to the recipe, but the client validates every
- * key against ITS OWN live canvas — a nodeKey that is not a present FlowNode id
- * is dropped, an edgeKey that is not a present edge id is dropped, and a part
- * whose nodeKeys ALL fail resolution yields no plan at all (fail-closed,
- * mirroring the LCAN "both endpoints must exist" posture). An agent can only
- * name what is actually on the user's canvas.
+ * key against ITS OWN live canvas — and it is ALL-OR-NOTHING per part: a plan
+ * is produced ONLY when EVERY nodeKey resolves to a present FlowNode id AND
+ * EVERY edgeKey resolves to a present edge id (fail-closed, mirroring the LCAN
+ * "both endpoints must exist" posture). Partial resolution yields NO plan for
+ * that part this pass — same-turn agent-authored nodes/edges materialize via
+ * setNodes/setEdges renders LATER than the part arrives, so filtering down to
+ * the currently-present subset would freeze a PARTIAL row that the by-name
+ * dedupe then blocks from ever self-healing. The part persists in message
+ * history, so the reconcile pass naturally retries on the next render once
+ * materialization settles; a truly-invented key never resolves and therefore
+ * never creates a row. An agent can only name what is actually on the user's
+ * canvas.
  *
  * IDEMPOTENCY (dedupe key: conversation + name): `canvas_recipes` has no
  * provenance column, so the deterministic-id trick the node/island seams use is
@@ -25,7 +32,9 @@
  * the name → the same part yields no plan on every later pass. Two same-name
  * parts in one pass collapse to one plan (first wins) for the same reason. The
  * plan is PURE (no network); the create + invalidate glue lives in
- * chat-canvas.tsx, exactly like the agent code-island runner.
+ * chat-canvas.tsx, exactly like the agent code-island runner. Note the by-name
+ * dedupe window is bounded by canvasRecipes.list's 200-row cap — names beyond
+ * the 200 most-recently-updated rows are invisible to this gate.
  */
 
 import type { Edge as FlowEdge, Node as FlowNode } from "@xyflow/react";
@@ -58,17 +67,23 @@ export interface AgentRecipePlan {
   readonly sourceRef?: Readonly<Record<string, unknown>>;
 }
 
-/** Keep only string keys present in `presentIds`, deduped (order-preserving).
- * Never trusts the part's keys — presence on the live canvas is the gate. */
-function resolvePresentKeys(
+/** Resolve a part's key list against `presentIds` ALL-OR-NOTHING: returns the
+ * deduped (order-preserving) keys only when EVERY entry is a string present on
+ * the live canvas; returns null (fail-closed — the part plans nothing this
+ * pass) when the list is malformed or ANY key fails resolution. An absent list
+ * (`undefined`/`null`) names nothing and trivially resolves to []. Never
+ * trusts the part's keys — presence on the live canvas is the gate. */
+function resolveAllKeys(
   keys: unknown,
   presentIds: ReadonlySet<string>,
-): string[] {
-  if (!Array.isArray(keys)) return [];
+): string[] | null {
+  if (keys === undefined || keys === null) return [];
+  if (!Array.isArray(keys)) return null;
   const seen = new Set<string>();
   const out: string[] = [];
   for (const key of keys) {
-    if (typeof key !== "string" || !presentIds.has(key) || seen.has(key)) continue;
+    if (typeof key !== "string" || !presentIds.has(key)) return null;
+    if (seen.has(key)) continue;
     seen.add(key);
     out.push(key);
   }
@@ -89,13 +104,16 @@ function asPlainRecord(
 /**
  * collectAgentRecipePlans — every ACTIVE turn's `canvas_recipe` part that
  * (a) is not already named by an existing recipe on this conversation (the
- * post-turn refetch idempotency gate) and (b) re-grounds to ≥1 present
+ * post-turn refetch idempotency gate) and (b) re-grounds COMPLETELY: every
+ * nodeKey AND every edgeKey must resolve against the live canvas, with ≥1
  * nodeKey. Pure; never mutates its inputs and never touches the network.
  *
  * `nodes`/`edges` are the CURRENT canvas state (the key-validation reads
  * them); `existingRecipes` is the already-fetched `canvasRecipes.list` data
- * (the by-name dedupe reads it). A part with an empty/unusable name, or whose
- * nodeKeys all resolve to nothing, is skipped — never created broken.
+ * (the by-name dedupe reads it). A part with an empty/unusable name, or with
+ * ANY unresolved key, is skipped this pass — never created broken or partial;
+ * the part persists in history, so a later pass retries once same-turn
+ * agent-authored nodes/edges have materialized.
  */
 export function collectAgentRecipePlans(
   historyRows: readonly ChatHistoryRow[],
@@ -116,18 +134,23 @@ export function collectAgentRecipePlans(
     parts.forEach((part, partIndex) => {
       if (part.type !== "canvas_recipe") return;
 
-      const name =
-        typeof part.name === "string"
-          ? part.name.trim().slice(0, MAX_RECIPE_NAME_CHARS).trimEnd()
-          : "";
+      // Cap by CODE POINTS, not UTF-16 units — a unit slice can strand a lone
+      // high surrogate, and the stored name would then never equal the
+      // client-recomputed name, breaking the by-name dedupe forever.
+      const trimmed = typeof part.name === "string" ? part.name.trim() : "";
+      const name = Array.from(trimmed)
+        .slice(0, MAX_RECIPE_NAME_CHARS)
+        .join("")
+        .trimEnd();
       if (name.length === 0) return;
       // Idempotent: an existing (or same-pass) recipe of this name is never
       // re-created — the dedupe key is conversation + name.
       if (takenNames.has(name)) return;
 
-      const nodeKeys = resolvePresentKeys(part.nodeKeys, presentNodeIds);
-      if (nodeKeys.length === 0) return;
-      const edgeKeys = resolvePresentKeys(part.edgeKeys, presentEdgeIds);
+      const nodeKeys = resolveAllKeys(part.nodeKeys, presentNodeIds);
+      if (nodeKeys === null || nodeKeys.length === 0) return;
+      const edgeKeys = resolveAllKeys(part.edgeKeys, presentEdgeIds);
+      if (edgeKeys === null) return;
       const sourceRef = asPlainRecord(part.sourceRef);
 
       takenNames.add(name);

@@ -194,10 +194,12 @@ export type MessagePart =
   // create the named `canvas_recipes` row on the post-turn `chat.getHistory`
   // refetch — the same seam `canvas_code_island` uses. The client never trusts
   // the model's keys: the reconcile pass (agent-recipe-reconcile.ts) validates
-  // every node/edge key against the LIVE canvas, drops unknown keys, requires
-  // ≥1 valid nodeKey, and dedupes against the conversation's existing recipes
-  // by name so the refetch cannot double-create. Inert unless this part
-  // arrives (which needs the listener flag on).
+  // every node/edge key against the LIVE canvas and plans ALL-OR-NOTHING — a
+  // part plans only when every key resolves (unresolved parts retry on later
+  // renders once same-turn nodes materialize; invented keys never create a
+  // row) — and dedupes against the conversation's existing recipes by name so
+  // the refetch cannot double-create. Inert unless this part arrives (which
+  // needs the listener flag on).
   | {
       readonly type: "canvas_recipe";
       readonly name: string;
