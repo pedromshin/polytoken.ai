@@ -1,48 +1,21 @@
 {
   "version": "1.0",
-  "timestamp": "2026-07-26T16:00:00.000Z",
-  "source": "orchestrator-run-reconciliation-2026-07-26",
-  "partial": false,
-  "milestone": "vNEXT-living-canvas",
-  "milestone_name": "The Living Canvas",
-  "phase": "76-bespoke-task-apps-codeisland",
-  "phase_name": "Bespoke disposable apps (code-islands over your data)",
-  "phase_dir": ".planning/phases/76-bespoke-task-apps-codeisland",
+  "timestamp": "2026-08-06T20:58:21.425Z",
+  "source": "auto-postool",
+  "partial": true,
+  "phase": null,
+  "phase_name": null,
+  "phase_dir": null,
   "plan": null,
   "task": null,
   "total_tasks": null,
-  "status": "in-progress",
-  "note": "Live source of truth is .planning/ORCHESTRATOR-STATE.md (the CURRENT block). These phases shipped as an orchestrator run (code on main, all build gates green) WITHOUT per-plan PLAN.md/VERIFICATION.md GSD trails.",
-  "completed_tasks": [
-    "Phase 73 Waves A+B — agent draws+wires canvas nodes (CANVAS_EMIT_TOOL_ENABLED, default-OFF) + the shared.published.{nodeId} publish port in 12 source nodes (a2393f2/203a8b5/c2139f7/00f19db)",
-    "Phase 74 — self-assembling morning board: /chat Assemble-board + /home HomeCanvas paint (f573c3d/f5eef75); overnight composer + worker cron ship DARK behind MORNING_BOARD_ENABLED (1fe5b80)",
-    "Phase 75 VISIBLE half (CPF-05/06) — a merge repaints every placed entity card live + cascade-highlight ring (32b21c6)",
-    "Phase 76 SUMMON LOOP — data channel (7866c10) + code-island node + code_islands table (b64c56c) + the 'Build a tool from these' flow: spreadsheet publish-port, api-client typed-inputs passthrough, multi-select generate->create->materialize (a24febb)",
-    "0055 code_islands migration APPLIED to prod 2026-07-26 via the Supabase Management API — verified against the DB (table + RLS live); 0050 (maritime purge) + 0052 (canvas tables) applied in the same pass"
-  ],
-  "remaining_tasks": [
-    "Phase 76 close: 76-02b (listener consumes the typed-inputs manifest in the code-island generator prompt — additive, FULL pytest, ECS redeploy) + 76-05 (agent-authored emit_code_island, flag-gated)",
-    "Phase 75 SERVER cascade: 75-01 correction_propagations ledger migration -> 75-02 CascadeCorrectionUseCase -> 75-03 wire into ConfirmMergeUseCase best-effort -> 75-04 worker re-label (touches the LIVE merge path; ship flag-gated, FULL pytest)",
-    "Phase 73 Wave C (named canvas_recipes migration + CRUD + badge, LCAN-07; durable recompute LCAN-09) and Phase 77 (capability-registry MCP server, specced not started)",
-    "GSD closeout owed: formal per-phase VERIFICATION.md trails were not produced (orchestrator run); produce them if closing the milestone through GSD",
-    "v1.11 carried debt: wire+verify Phases 68-72; pixel gates 62/63; v1.9 live legs LIVE-03/LIVE-04/CLUS-07"
-  ],
-  "blockers": [
-    "Prod CI migrate path broken: PROD_POSTGRES_URL_NON_POOLING / PROD_POSTGRES_URL / PROD_SUPABASE_URL do not exist in GitHub (repo or production env). environment:production binding added to deploy-migrate-prod.yml; the 3 secrets still need creating. Until then prod DB changes go via the Supabase Management API.",
-    "0053/0054 (Track-3a worker migrations) deferred: 0053 RAISEs unless the graphile_worker schema exists — needs apps/worker install-schema against a real PG connection (worker not provisioned in prod). 0055 is bookkept ahead of them, so a future drizzle migrate would skip them; apply 0053/0054 via the Management API when the worker is provisioned.",
-    "SES production-access request still pending AWS approval (sandbox until then)"
-  ],
-  "human_actions_pending": [
-    "Pedro: create the 3 PROD_* GitHub secrets (in the production environment) to restore CI migrations",
-    "Pedro: flip CANVAS_EMIT_TOOL_ENABLED / MORNING_BOARD_ENABLED to light up the agent-draw + overnight-board live paths (morning board also needs the worker provisioned)",
-    "Pedro: pixel-review Phases 62/63 + the night-run visual surfaces; execute the v1.9 live legs per MORNING-CHECKLIST.md"
-  ],
-  "decisions": [
-    "vNEXT (The Living Canvas, phases 73-77) opened as an orchestrator run 2026-07-25 rather than the full GSD discuss->plan->execute->verify ceremony; ORCHESTRATOR-STATE.md is the live ledger",
-    "0055 applied out-of-order (ahead of 0053/0054) via the Management API because 0053/0054 are Pedro-gated worker migrations and the drizzle-CI path is dead (missing secrets) — self-consistent as long as prod migrations stay Management-API-driven",
-    "76-02b/76-05 and the Phase 75 server cascade deferred rather than redeploy the live mail receiver / touch the live merge path for not-yet-end-to-end features"
-  ],
+  "status": "auto-checkpoint",
+  "completed_tasks": [],
+  "remaining_tasks": [],
+  "blockers": [],
+  "human_actions_pending": [],
+  "decisions": [],
   "uncommitted_files": [],
-  "next_action": "Phase 76 close (76-02b listener typed-inputs + 76-05 emit tool), then the Phase 75 server cascade — both LIVE-listener legs, batch with the worker/secret provisioning",
-  "context_notes": "Reconciled 2026-07-26 after the summon-loop orchestrator run. main == 32ba71d. Prior 2026-07-22 reconciliation snapshot (v1.11 focus) rotated into git history. Full per-slice detail + the credential-rotation checklist live in ORCHESTRATOR-STATE.md."
+  "next_action": null,
+  "context_notes": ""
 }
