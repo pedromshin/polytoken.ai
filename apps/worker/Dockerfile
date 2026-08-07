@@ -37,6 +37,11 @@ FROM node:22-slim
 # the deploy workflow's Trivy gate blocks CRITICAL/HIGH regardless).
 RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
 
+# Security: strip the bundled npm CLI from the runtime image — nothing here runs
+# npm (CMD is plain node), and npm's own vendored deps (tar, brace-expansion)
+# are what trip the Trivy CRITICAL/HIGH gate on node base images.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx /opt/yarn* /usr/local/bin/yarn /usr/local/bin/yarnpkg
+
 WORKDIR /app
 
 # Hoisted prod deps live at /app/node_modules; dist/*.js resolve them by walking up
