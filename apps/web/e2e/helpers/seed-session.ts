@@ -29,7 +29,7 @@
 import path from "node:path";
 
 import { createChunks, stringToBase64URL } from "@supabase/ssr";
-import { createClient, type Session } from "@supabase/supabase-js";
+import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { config as loadDotenv } from "dotenv";
 
 import type { BrowserContext } from "@playwright/test";

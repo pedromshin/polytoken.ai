@@ -8,8 +8,10 @@
  * timestamped run directory at `.planning/ui-reviews/{ISO-timestamp}/` (repo root, resolved via
  * `import.meta.url` so the output lands there regardless of the invoking cwd).
  *
- * Surfaces: /login (public), / (inbox), /chat, /knowledge, /studio, /settings/forwarding, and
- * (local target only) /emails/[id] built from a seeded fixture — see below.
+ * Surfaces: /login (public), / (inbox), /chat, /knowledge, /studio, /settings/forwarding,
+ * /files, and — added Wave 0.65 lane P4 for the PEDRO-CHECKLIST §1 never-photographed set —
+ * /billing, /settings/account, /workspaces, /spreadsheets; plus (local target only)
+ * /emails/[id] and the chat-thread/chat-canvas selections built from seeded fixtures — see below.
  * Viewports: mobile 390px, desktop 1440px.
  * Themes: light + dark.
  *
@@ -142,7 +144,8 @@ interface Surface {
   readonly openTabName?: string;
 }
 
-/** The six D-47-05 surfaces reviewed every run — login is public, the rest are auth-gated. */
+/** The surfaces reviewed every run (originally the six of D-47-05) — login is public, the rest
+ * are auth-gated (against a non-local target they capture the /login redirect, recorded as-is). */
 const BASE_SURFACES: readonly Surface[] = [
   { name: "login", path: "/login" },
   { name: "inbox", path: "/" },
@@ -152,6 +155,21 @@ const BASE_SURFACES: readonly Surface[] = [
   { name: "forwarding", path: "/settings/forwarding" },
   // Phase 66 — the files vault (v2.1 slice). Path-navigable, so it needs no selection step.
   { name: "files", path: "/files" },
+  // Wave 0.65 lane P4 — the PEDRO-CHECKLIST §1 surfaces that had NEVER been photographed
+  // (999.24's blindness, one more instance: every one of these shipped and was reviewed by
+  // reading source, never pixels). All four are plain path-navigable server shells, so they are
+  // CAMERA-ONLY additions: navigate, settle, shoot — no clicks, no mutations, no fixtures.
+  //   - billing: tier limits + usage meters ("account" follows the "forwarding" precedent of
+  //     naming the leaf, not the /settings prefix).
+  //   - The §1 remainder is deliberately NOT here: the chat save-as-document flow, canvas
+  //     source nodes, and the capability confirm card all require chat-tree interactions
+  //     (send/confirm mutations) that this harness's camera-only stance excludes — they are
+  //     BURN-01 manual review legs, not surfaces for this list. Do not add them as bare paths:
+  //     a path-only capture would photograph their absence and file it as coverage.
+  { name: "billing", path: "/billing" },
+  { name: "account", path: "/settings/account" },
+  { name: "workspaces", path: "/workspaces" },
+  { name: "spreadsheets", path: "/spreadsheets" },
 ];
 
 /** Hosts allowed to receive the seeded (service_role-minted) session — T-50-01. */
@@ -622,8 +640,14 @@ test.describe("screenshot review capture", () => {
     context,
     baseURL,
   }) => {
-    // Doubled by the theme axis (999.23) — 32 full-page captures, each with a bounded settle.
-    test.setTimeout(600_000);
+    // Doubled by the theme axis (999.23), grown since by the surface list: a full local run is
+    // now 14 surfaces x 2 viewports x 2 themes = 56 default frames + studio's 4 alternate-pack
+    // frames = 60 captures, each with a bounded settle (worst case ~16s). The budget scales with
+    // the list — 60 x 16s worst case is ~960s — so it was raised from 600s when the Wave 0.65
+    // lane P4 surfaces (billing/account/workspaces/spreadsheets) pushed the old ceiling past its
+    // worst case: a timeout here loses EVERY frame, which is the one failure this harness's
+    // "degrade, never drop the run" stance exists to prevent.
+    test.setTimeout(1_200_000);
     await mkdir(RUN_DIR, { recursive: true });
 
     // Local-only seeded session (T-50-01): the seeded session mints a service_role admin
