@@ -30,12 +30,15 @@ const ZERO_LEARNING: LearningSummaryLike = {
 
 interface LearningQueryState {
   data?: LearningSummaryLike;
+  /** React Query v5 three-state status — the component's source of truth. */
+  status: "pending" | "error" | "success";
   isLoading: boolean;
   isError: boolean;
 }
 
 let learningState: LearningQueryState = {
   data: ZERO_LEARNING,
+  status: "success",
   isLoading: false,
   isError: false,
 };
@@ -77,7 +80,12 @@ async function mount(element: React.ReactElement): Promise<HTMLDivElement> {
 }
 
 beforeEach(() => {
-  learningState = { data: ZERO_LEARNING, isLoading: false, isError: false };
+  learningState = {
+    data: ZERO_LEARNING,
+    status: "success",
+    isLoading: false,
+    isError: false,
+  };
   learningRefetch.mockClear();
 });
 
@@ -254,6 +262,7 @@ describe("LearningSummarySection (WEDG-03)", () => {
         relabelsPerCorrection: 10,
         stickRate: 0.86,
       },
+      status: "success",
       isLoading: false,
       isError: false,
     };
@@ -277,6 +286,7 @@ describe("LearningSummarySection (WEDG-03)", () => {
         relabelsPerCorrection: null,
         stickRate: 1,
       },
+      status: "success",
       isLoading: false,
       isError: false,
     };
@@ -289,7 +299,12 @@ describe("LearningSummarySection (WEDG-03)", () => {
   });
 
   it("shows a framed error with a Retry that refetches when the query fails", async () => {
-    learningState = { data: undefined, isLoading: false, isError: true };
+    learningState = {
+      data: undefined,
+      status: "error",
+      isLoading: false,
+      isError: true,
+    };
 
     const container = await mount(<LearningSummarySection />);
 
@@ -306,11 +321,35 @@ describe("LearningSummarySection (WEDG-03)", () => {
   });
 
   it("shows a skeleton (no alert, no numbers) while loading", async () => {
-    learningState = { data: undefined, isLoading: true, isError: false };
+    learningState = {
+      data: undefined,
+      status: "pending",
+      isLoading: true,
+      isError: false,
+    };
 
     const container = await mount(<LearningSummarySection />);
 
     expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain("corrections");
+  });
+
+  it("paused-pending (offline, RQ v5: isLoading false, isError false, no data) shows a skeleton, never the error alert", async () => {
+    // React Query v5: a query paused before its first fetch (fetchStatus
+    // "paused", e.g. offline) reports status "pending" with isLoading FALSE
+    // (isLoading = isPending && isFetching) and isError false. That is "no
+    // data yet", not a failure — skeleton, no alert.
+    learningState = {
+      data: undefined,
+      status: "pending",
+      isLoading: false,
+      isError: false,
+    };
+
+    const container = await mount(<LearningSummarySection />);
+
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.textContent).not.toContain("Learning metrics unavailable.");
     expect(container.textContent).not.toContain("corrections");
   });
 });

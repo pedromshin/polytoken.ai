@@ -177,41 +177,47 @@ export const learningRouter = createTRPCRouter({
    * an honest all-zeros before the cascade flag flips.
    */
   summary: protectedProcedure.query(async ({ ctx }): Promise<LearningSummary> => {
-    let typeCorrections: ReadonlyArray<TypeCorrectionSample> = [];
-    let propagations: ReadonlyArray<PropagationSample> = [];
-
-    try {
-      typeCorrections = await ctx.db
-        .select({
-          componentId: EntityTypeCorrections.componentId,
-          createdAt: EntityTypeCorrections.createdAt,
-        })
-        .from(EntityTypeCorrections)
-        .innerJoin(Importers, eq(EntityTypeCorrections.importerId, Importers.id))
-        .where(eq(Importers.userId, ctx.user.id));
-    } catch (error) {
-      // Graceful default — a missing table / unapplied migration reads as 0.
-      // Logged so a genuine post-migration failure is distinguishable from the
-      // honest pre-flip zero state on the server side.
-      console.error("[learning.summary] entity_type_corrections read failed — rendering zeros:", error);
-      typeCorrections = [];
-    }
-
-    try {
-      propagations = await ctx.db
-        .select({
-          survivorEntityInstanceId: CorrectionPropagations.survivorEntityInstanceId,
-          absorbedEntityInstanceId: CorrectionPropagations.absorbedEntityInstanceId,
-          affectedEmailIds: CorrectionPropagations.affectedEmailIds,
-          createdAt: CorrectionPropagations.createdAt,
-        })
-        .from(CorrectionPropagations)
-        .innerJoin(Importers, eq(CorrectionPropagations.importerId, Importers.id))
-        .where(eq(Importers.userId, ctx.user.id));
-    } catch (error) {
-      console.error("[learning.summary] correction_propagations read failed — rendering zeros:", error);
-      propagations = [];
-    }
+    // The two ledger reads are independent — run them concurrently, each with
+    // its own graceful default: a missing table / unapplied migration reads
+    // as 0. Logged so a genuine post-migration failure is distinguishable
+    // from the honest pre-flip zero state on the server side. The
+    // Promise.resolve().then(...) wrapper turns a synchronous builder throw
+    // into a rejection so the per-promise .catch degrades it too, matching
+    // the previous try/catch semantics exactly.
+    const [typeCorrections, propagations] = await Promise.all([
+      Promise.resolve()
+        .then(() =>
+          ctx.db
+            .select({
+              componentId: EntityTypeCorrections.componentId,
+              createdAt: EntityTypeCorrections.createdAt,
+            })
+            .from(EntityTypeCorrections)
+            .innerJoin(Importers, eq(EntityTypeCorrections.importerId, Importers.id))
+            .where(eq(Importers.userId, ctx.user.id)),
+        )
+        .catch((error: unknown): ReadonlyArray<TypeCorrectionSample> => {
+          console.error("[learning.summary] entity_type_corrections read failed — rendering zeros:", error);
+          return [];
+        }),
+      Promise.resolve()
+        .then(() =>
+          ctx.db
+            .select({
+              survivorEntityInstanceId: CorrectionPropagations.survivorEntityInstanceId,
+              absorbedEntityInstanceId: CorrectionPropagations.absorbedEntityInstanceId,
+              affectedEmailIds: CorrectionPropagations.affectedEmailIds,
+              createdAt: CorrectionPropagations.createdAt,
+            })
+            .from(CorrectionPropagations)
+            .innerJoin(Importers, eq(CorrectionPropagations.importerId, Importers.id))
+            .where(eq(Importers.userId, ctx.user.id)),
+        )
+        .catch((error: unknown): ReadonlyArray<PropagationSample> => {
+          console.error("[learning.summary] correction_propagations read failed — rendering zeros:", error);
+          return [];
+        }),
+    ]);
 
     return deriveLearningSummary(typeCorrections, propagations);
   }),

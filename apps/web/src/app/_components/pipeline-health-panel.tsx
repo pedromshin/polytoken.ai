@@ -120,14 +120,18 @@ export function LearningSummarySection(): React.ReactElement {
         Learning loop
       </div>
 
-      {summary.isLoading && (
+      {/* React Query v5 three-state status. `status === "pending"` (not
+          isLoading) covers the paused-pending query too — offline, a query
+          sits at status "pending" with isLoading false and isError false;
+          that is still "no data yet", a skeleton, never an error alert. */}
+      {summary.status === "pending" && (
         <div aria-hidden className="space-y-1.5">
           <Skeleton className="h-3 w-28 rounded-sm" />
           <Skeleton className="h-3 w-20 rounded-sm" />
         </div>
       )}
 
-      {!summary.isLoading && (summary.isError || summary.data === undefined) && (
+      {summary.isError && (
         <div role="alert" className="border border-rule p-2.5">
           <p className="text-xs font-semibold text-ink">
             Learning metrics unavailable.
@@ -146,7 +150,7 @@ export function LearningSummarySection(): React.ReactElement {
         </div>
       )}
 
-      {!summary.isLoading && !summary.isError && summary.data !== undefined && (
+      {summary.status === "success" && summary.data !== undefined && (
         <LearningSummaryReadout view={shapeLearningSummary(summary.data)} />
       )}
     </section>

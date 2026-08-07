@@ -23,6 +23,12 @@ export function asPaidTier(value: string | null | undefined): Tier | null {
   return value === "pro" || value === "power" ? value : null;
 }
 
+/** Narrow an arbitrary string (or its absence) to a known Tier, else `free` —
+ * the fail-closed default: an unrecognized tier must never read as paid. */
+export function asKnownTier(value: string | null | undefined): Tier {
+  return value === "pro" || value === "power" ? value : "free";
+}
+
 /** Resolve a Stripe price id back to its tier (for webhook sync), else `free`. */
 export function tierFromPriceId(priceId: string | null | undefined, prices: TierPriceIds): Tier {
   if (priceId && priceId === prices.pro) return "pro";
