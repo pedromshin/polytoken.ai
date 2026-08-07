@@ -8,8 +8,10 @@ import pytest
 
 from app.application.use_cases.run_chat_turn_tool_loop import (
     _CANVAS_DATA_MAX_DEPTH,
+    _UNSAFE_OBJECT_INDEX_KEYS,
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
+    _build_canvas_recipe_part,
     build_canvas_part,
     build_synthetic_tool_result_message,
     build_tool_invocation_part,
@@ -771,6 +773,124 @@ def test_build_canvas_recipe_part_fail_closed() -> None:
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": []}') is None
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": [1, "", null]}') is None
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": ["__proto__"]}') is None
+
+
+# ---------------------------------------------------------------------------
+# W12-1 — the `nodeType` / `handle` VALUE positions on `canvas_add_node`
+#
+# W11-1's doc claimed "all four canvas builders now filter, on both key and value
+# positions". That was false one row over: `nodeType` and `handle` still carried
+# only `isinstance(str) and non-empty`. `nodeType` is the live one -- the web does
+# `NODE_TYPE_REGISTRY[nodeType]` on a plain object literal
+# (`node-type-registry.ts:218-224`) and degrades to UnknownNodeTypePlaceholder
+# ONLY on `undefined` (CANVAS-03), so every inherited `Object.prototype` member
+# name defeats the degrade and `nodeTypes[node.type]` hands React Flow a
+# prototype method instead of a component. `canvas-schema.ts:105` types it
+# `z.string().min(1)`, so the persist boundary does not catch it either.
+#
+# These pin the FULL enumerated set, not just the three `_FORBIDDEN_MANIFEST_KEYS`
+# -- covering only those would leave `toString`/`valueOf`/`hasOwnProperty` live.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("node_type", sorted(_UNSAFE_OBJECT_INDEX_KEYS))
+def test_build_canvas_add_node_part_rejects_a_prototype_member_node_type(node_type: str) -> None:
+    """Every name that survives a plain-object index is refused, not just __proto__."""
+    raw = json.dumps({"handle": "x", "nodeType": node_type, "data": {"ok": 1}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_unsafe_object_index_keys_covers_every_object_prototype_member() -> None:
+    """The enumerated set is EXACTLY `Object.getOwnPropertyNames(Object.prototype)` + the pollution keys.
+
+    Pinned literally so a future edit cannot quietly shrink the set back to the
+    three `_FORBIDDEN_MANIFEST_KEYS` (which would cover 2 of the 12 names that
+    actually read back non-undefined off a JS object literal).
+    """
+    assert {
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString",
+        "prototype",
+    } == _UNSAFE_OBJECT_INDEX_KEYS
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("handle", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_add_node_part_rejects_a_pollution_handle(handle: str) -> None:
+    """`handle` gets the same refusal `_clean_key_list` gives the same identifier space."""
+    raw = json.dumps({"handle": handle, "nodeType": "chat", "data": {"ok": 1}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field", ["sourceHandle", "targetHandle"])
+@pytest.mark.parametrize("bad", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_connect_part_rejects_a_pollution_handle(field: str, bad: str) -> None:
+    fields = {"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data.x", "targetKey": "input"}
+    fields[field] = bad
+    assert build_canvas_part("emit_canvas_connect", json.dumps(fields)) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_still_accepts_ordinary_node_types_and_handles() -> None:
+    """Behaviour-preserving: real registry types and handles round-trip byte-identically.
+
+    `constructorNotes` / `prototypeBuilder` prove the refusal is an EXACT match on
+    the name, never a substring sweep that would break legitimate types.
+    """
+    for node_type in ("chat", "spreadsheet", "code-island", "constructorNotes", "prototypeBuilder"):
+        raw = json.dumps({"handle": "sheet-1", "nodeType": node_type, "data": {"ok": 1}})
+        assert build_canvas_part("emit_canvas_node", raw) == {
+            "type": "canvas_add_node",
+            "handle": "sheet-1",
+            "nodeType": node_type,
+            "data": {"ok": 1},
+        }
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_allows_a_dotted_node_type() -> None:
+    """`nodeType` is a bare registry key, never a traversed path — no segment filter applies.
+
+    Pins the deliberate asymmetry with `sourcePath`/`targetKey`: `a.__proto__.b`
+    is not a lookup primitive here, it is simply an unregistered type name, and
+    the web's `undefined` -> degrade branch handles it correctly.
+    """
+    raw = json.dumps({"handle": "x", "nodeType": "a.__proto__.b", "data": {"ok": 1}})
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part is not None
+    assert part["nodeType"] == "a.__proto__.b"
+
+
+# ---------------------------------------------------------------------------
+# W12-2 — the recipe `sourceRef` is COPIED, not aliased
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_does_not_alias_the_parsed_source_ref() -> None:
+    """The emitted part must not share identity with the model-authored input object."""
+    source_ref = {"kind": "gmail_query", "query": "from:billing"}
+    part = _build_canvas_recipe_part({"name": "R", "nodeKeys": ["n1"], "sourceRef": source_ref})
+
+    assert part is not None
+    assert part["sourceRef"] == source_ref
+    assert part["sourceRef"] is not source_ref
+
+    source_ref["query"] = "MUTATED"
+    assert part["sourceRef"]["query"] == "from:billing"
 
 
 # ---------------------------------------------------------------------------

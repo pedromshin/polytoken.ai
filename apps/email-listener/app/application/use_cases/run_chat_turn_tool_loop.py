@@ -72,6 +72,51 @@ _CODE_ISLAND_MAX_SAMPLE_ROWS = 5
 _CODE_ISLAND_MAX_SELECTED = 32
 _FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
 
+# W12-1: the VALUE position of `canvas_add_node.nodeType`, which is NOT a key --
+# it is an INDEX into a plain JS object literal, and that makes a wider set of
+# strings dangerous than `_FORBIDDEN_MANIFEST_KEYS`.
+#
+# `use-canvas-persistence.ts:212` hands an emitted part's `nodeType` straight to
+# `resolveNodeType` (`node-type-registry.ts:218-224`), which does
+# `NODE_TYPE_REGISTRY[type]` on an object literal and reads `undefined` as
+# "unregistered -> degrade to UnknownNodeTypePlaceholder" (CANVAS-03). Every name
+# INHERITED from `Object.prototype` reads back non-undefined there, so the
+# degrade never fires, `use-canvas-persistence.ts:223` keeps `type:
+# part.nodeType`, and `nodeTypes[node.type]` (`node-types.ts:45`, also an object
+# literal) hands React Flow `Object`/a prototype method instead of a component.
+# The tRPC persist boundary does NOT catch this either: `canvas-schema.ts:105`
+# types the node as `type: z.string().min(1)` with no key filter, so the emitter
+# is the only enforcement point for the agent-authored path.
+#
+# The set below is ENUMERATED from the runtime, not guessed:
+#     node -e "console.log(Object.getOwnPropertyNames(Object.prototype).join(' '))"
+#     constructor __defineGetter__ __defineSetter__ hasOwnProperty
+#     __lookupGetter__ __lookupSetter__ isPrototypeOf propertyIsEnumerable
+#     toString valueOf __proto__ toLocaleString
+# All twelve read back non-undefined off a plain `{a: 1}` (verified in the same
+# run). `prototype` is NOT among them -- it is not an Object.prototype member --
+# but stays refused via `_FORBIDDEN_MANIFEST_KEYS`. Refusing only
+# `_FORBIDDEN_MANIFEST_KEYS` here would cover 2 of the 12 and leave `toString`,
+# `valueOf`, `hasOwnProperty` and friends defeating the degrade: the
+# "guard it MOSTLY has" trap this lane exists to close.
+_JS_OBJECT_PROTOTYPE_MEMBERS = frozenset(
+    {
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString",
+    }
+)
+_UNSAFE_OBJECT_INDEX_KEYS = _FORBIDDEN_MANIFEST_KEYS | _JS_OBJECT_PROTOTYPE_MEMBERS
+
 # W9-1: nesting cap for the model-authored `canvas_add_node` payload and for the
 # code-island sample rows. This is a NEW server-side bound, NOT parity with the
 # tRPC persist boundary -- canvas-schema.ts has no depth cap on `node.data` (its
@@ -272,6 +317,19 @@ def _has_forbidden_path_segment(path: str) -> bool:
     return any(segment in _FORBIDDEN_MANIFEST_KEYS for segment in path.split("."))
 
 
+def _is_unsafe_object_index_value(value: str) -> bool:
+    """True when `value` is unsafe as an index into a plain JS object literal (W12-1).
+
+    Emitting-side guard for model-authored strings the WEB uses as a lookup key
+    rather than as data -- today `canvas_add_node.nodeType`. Covers the pollution
+    keys AND every `Object.prototype` member name, because an object-literal
+    lookup returns the INHERITED member (never `undefined`) for those, which
+    defeats any `=== undefined` "unknown -> degrade" branch downstream. See
+    `_UNSAFE_OBJECT_INDEX_KEYS` for how the set was enumerated.
+    """
+    return value in _UNSAFE_OBJECT_INDEX_KEYS
+
+
 def _is_refused_canvas_node_data(data: dict[str, Any]) -> bool:
     """True when node `data` carries anything the canvas layout boundary would reject.
 
@@ -298,13 +356,31 @@ def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
       refinement, so an emitted node can never render-but-never-save;
     - nesting past `_CANVAS_DATA_MAX_DEPTH` -- NOT parity; a new emitting-side
       bound, see that constant.
+
+    W12-1 -- `nodeType` and `handle` are model-authored too, and until now carried
+    ONLY `isinstance(str) and non-empty` while every sibling field on this same
+    part was filtered:
+
+    - `nodeType` is refused when it is unsafe as a plain-object index
+      (`_is_unsafe_object_index_value`). This is the DEMONSTRATED vector: the web
+      indexes `NODE_TYPE_REGISTRY[nodeType]` on an object literal and degrades to
+      `UnknownNodeTypePlaceholder` only on `undefined`, so an inherited member
+      name defeats the CANVAS-03 degrade. Note this is a KEY-safety refusal, not a
+      dotted-path one -- `nodeType` is a bare registry key, never traversed, so
+      `_has_forbidden_path_segment` would be cargo-cult here.
+    - `handle` is refused when it is a pollution key -- the same treatment
+      `_clean_key_list` gives `nodeKeys`/`edgeKeys`, which are the SAME identifier
+      space. Stated honestly: no live exploit runs through it today, because
+      `agentNodeId` namespaces it (`agent:${handle}`,
+      `use-canvas-persistence.ts:118`) and the ids are consumed through `new Map`.
+      It is consistency + defence in depth, not a fix for a proven break.
     """
     handle = raw.get("handle")
     node_type = raw.get("nodeType")
     data = raw.get("data")
-    if not isinstance(handle, str) or not handle:
+    if not isinstance(handle, str) or not handle or handle in _FORBIDDEN_MANIFEST_KEYS:
         return None
-    if not isinstance(node_type, str) or not node_type:
+    if not isinstance(node_type, str) or not node_type or _is_unsafe_object_index_value(node_type):
         return None
     if not isinstance(data, dict):
         return None
@@ -328,6 +404,12 @@ def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     `sourcePath`/`targetKey` are dotted paths the web walks into node data, so a
     pollution segment is refused here exactly as canvas-schema.ts refuses it at
     the persist boundary (W9-1).
+
+    W12-1: `sourceHandle`/`targetHandle` get the pollution-key refusal
+    `_clean_key_list` gives the same identifier space, for the same reason (and
+    with the same honesty) as `canvas_add_node`'s `handle` -- both are fed to
+    `agentNodeId` (`use-canvas-persistence.ts:339-340`), which namespaces them,
+    so this is consistency and defence in depth, not a proven-live break.
     """
     part: dict[str, Any] = {"type": "canvas_connect"}
     for key in ("sourceHandle", "targetHandle", "sourcePath", "targetKey"):
@@ -335,6 +417,8 @@ def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
         if not isinstance(value, str) or not value:
             return None
         part[key] = value
+    if part["sourceHandle"] in _FORBIDDEN_MANIFEST_KEYS or part["targetHandle"] in _FORBIDDEN_MANIFEST_KEYS:
+        return None
     if _has_forbidden_path_segment(part["sourcePath"]) or _has_forbidden_path_segment(part["targetKey"]):
         return None
     return part
@@ -515,7 +599,15 @@ def _build_canvas_recipe_part(raw: dict[str, Any]) -> dict[str, Any] | None:
         and not _has_forbidden_key_deep(source_ref)
         and len(json.dumps(source_ref, ensure_ascii=False)) <= _CANVAS_RECIPE_MAX_SOURCE_REF_CHARS
     ):
-        part["sourceRef"] = source_ref
+        # W12-2: a COPY, never the parsed input object itself. The pre-W11 code
+        # built a fresh `cleaned_ref` dict; the deep-filter rewrite dropped that
+        # and stored `raw["sourceRef"]` by reference. No live aliasing today
+        # (`raw` is function-local and discarded), but this is now a security
+        # filter, and a filter must not hand its caller a handle on the
+        # unfiltered input. Shallow `dict()` matches the previous posture --
+        # the nested values are plain JSON already walked by
+        # `_has_forbidden_key_deep`.
+        part["sourceRef"] = dict(source_ref)
     return part
 
 

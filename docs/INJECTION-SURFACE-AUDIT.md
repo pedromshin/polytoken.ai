@@ -58,7 +58,7 @@ attacker-influenced data, not trusted input.
 | 6 | model → `emit_ui_spec` → persisted spec → **`capability` key → live tRPC mutation** | **ENFORCED** (as of `26da8ea4`) | Default-OFF kill switch `capability-binding-boundary.tsx:181`; args required + disclosed; boundary `parseArgs`-validates before offering Approve. This was the DEPENDS-ON-COOPERATION path found the night before. |
 | 7 | model → `emit_confirm_action` → `PromoteEdgeUseCase` (a real write) | **ENFORCED** — the reference design | The model supplies **only** `{kind, id}`; the server re-reads the live row and builds the declaration itself (`run_chat_turn_confirm_action.py:82-115, 153-192`). Tool schema `additionalProperties:false` **plus** an independent `parse_confirm_action_call` re-validation. Every unavailable case collapses to one generic string so an id-probe cannot distinguish tenant-mismatch from nonexistent (`:64-69`). Submit-time: staleness → live tier re-check vs frozen `tierSnapshot` → CAS → dispatch keyed on the **stored** declaration, never client data (`submit_widget_interaction.py:10-49, 175-192`). |
 | 8 | web-search result → `source_capture` confirm → knowledge node/edge write | **ENFORCED** | Payload comes from the server-re-read persisted result, never model free text (`run_chat_turn_confirm_action.py:36-39`); URL keyed through `uuid5` before touching a uuid column; human confirm required; reject writes nothing (`confirm_action_dispatch.py:229-291`). |
-| 9 | model → `emit_canvas_node` → `canvas_add_node` part → canvas node | **DEPENDS-ON-COOPERATION → now ENFORCED** | `data` was accepted as any dict, unbounded depth, **no pollution-key filter** — while three sibling builders in the same file *do* filter `_FORBIDDEN_MANIFEST_KEYS` and cap sizes, and the tRPC persist boundary rejects the same keys at any depth (`canvas-schema.ts:88-100`). **Closed this lane** — see Fix 2. Flag-dark today (`CANVAS_EMIT_TOOL_ENABLED=False`, `settings.py:202`). |
+| 9 | model → `emit_canvas_node` → `canvas_add_node` part → canvas node | **DEPENDS-ON-COOPERATION → now ENFORCED on `data`, `position` (W9-1) and `nodeType`, `handle` (W12-1)** | `data` was accepted as any dict, unbounded depth, **no pollution-key filter** — while three sibling builders in the same file *do* filter `_FORBIDDEN_MANIFEST_KEYS` and cap sizes, and the tRPC persist boundary rejects the same keys at any depth (`canvas-schema.ts:88-100`). Closed in W9-1 — see Fix 2. **W12-1 correction:** that left `nodeType`/`handle` unfiltered, so the row's flat ENFORCED was too broad; `nodeType` in particular defeated the CANVAS-03 unknown-type degrade (see Fix 4). Now every field on this part is filtered. Flag-dark throughout (`CANVAS_EMIT_TOOL_ENABLED=False`, `settings.py:202`). |
 | 10 | model → `emit_canvas_connect` → dotted `sourcePath`/`targetKey` | **DEPENDS-ON-COOPERATION → now ENFORCED** | Emitter accepted any non-empty string; the web walks these as paths into node data, and `canvas-schema.ts:113-125` refuses pollution **segments** at the persist boundary. **Closed this lane** — see Fix 2. |
 | 11 | model → `emit_code_island` → island manifest | **DEPENDS-ON-COOPERATION → now ENFORCED** | **Row corrected in W11-1** — the original classification was wrong on its stated evidence (see §2.1). `_clean_key_list` / `_clean_input_bindings` / `_clean_manifest_entry` *did* filter `_FORBIDDEN_MANIFEST_KEYS` on the **key** positions, but three model-authored **value** positions were unfiltered: `inputBindings.<k>.sourcePath` (checked only for `isinstance(str)` + non-empty, though the web walks it as a dotted path — `canvas-store.ts:65-69` via `build-tool-flow.ts:199`), `inputs.<k>.sample` rows (copied verbatim), and `inputs.<k>.columns` entries. **Closed in W11-1** — see Fix 3. |
 | 12 | model → `emit_canvas_recipe` → `canvas_recipe` part | **DEPENDS-ON-COOPERATION → now ENFORCED** | **Row added in W11-1** — the fourth canvas emitter, missed by the original sweep. `_build_canvas_recipe_part`'s `sourceRef` filter was a TOP-LEVEL-only dict comprehension, so `{"meta": {"__proto__": {...}}}` was persisted verbatim: the shallow version of the bug Fix 2 closed on the sibling builders. **Closed in W11-1** — see Fix 3. |
@@ -100,9 +100,11 @@ attacker-influenced data, not trusted input.
 
 ## 2. What was actually wrong
 
-Three findings, all the same shape: **a real containment property that no code
-checked.** Finding C, and the corrections marked §2.1, come from the hostile review
-of this document's own first draft — see §2.1 before trusting any row above.
+Four findings, all the same shape: **a real containment property that no code
+checked.** Finding C and the first three corrections marked §2.1 come from the
+hostile review of this document's own first draft; Finding D and correction 4 come
+from the hostile review of the revision that shipped Finding C's fix — see §2.1
+before trusting any row above.
 
 ### Finding A — the read-only tool tier was documented, not enforced (path 1)
 
@@ -155,11 +157,34 @@ downstream boundary catches it" is exactly the argument this document rejected a
 insufficient when it wrote Fix 2, whose downstream boundary also caught it. The
 classification has to be consistent with the criterion the document declares.
 
+### Finding D — the same gap again, in the row Finding B declared closed (path 9, W12-1)
+
+Found by the hostile review of the W11-1 revision, and again by **executing** the
+builder rather than reading it:
+
+```
+build_canvas_part("emit_canvas_node",
+                  '{"handle":"__proto__","nodeType":"__proto__","data":{"ok":1}}')
+-> {"type":"canvas_add_node","handle":"__proto__","nodeType":"__proto__","data":{"ok":1}}
+```
+
+`data` and `position` had been filtered by Fix 2; `nodeType` and `handle` on the
+same part still carried only `isinstance(str)` + non-empty, and the two handles on
+`emit_canvas_connect` likewise. `nodeType` has a live consequence — it is the index
+into a plain-object registry whose `undefined`-only degrade it defeats — and it is
+caught by nothing downstream (`canvas-schema.ts:105` is `z.string().min(1)`). The
+handles do not: `agentNodeId` namespaces them, and their consumers use `new Map`.
+
+The structural lesson is Finding C's, one revision later: **a builder gets
+classified by the guard it MOSTLY has**, and two consecutive sweeps of the *same
+function* each stopped at the fields they had already been thinking about. Closed in
+Fix 4.
+
 ### 2.1 — corrections to this document's first draft
 
 The first draft of this file shipped three claims that its own hostile review
-refuted. They are corrected in place above; recorded here so the corrections are
-not silently absorbed:
+refuted, and the W11-1 revision shipped a fourth. They are corrected in place above;
+recorded here so the corrections are not silently absorbed:
 
 1. **"Fails closed at startup" (Fix 1) was false.** The assertion sat inside a
    dishka `Scope.APP` factory, which resolves lazily — the lifespan resolves
@@ -178,13 +203,23 @@ not silently absorbed:
    a part. Both the constant's comment and the builder docstring now say so, and a
    test pins the exact boundary (12 accepted, 13 refused) instead of a comment
    asserting "no legitimate payload is affected".
+4. **"All four canvas builders now filter, on both key and value positions" (W11-1
+   §4 P3) was false, and row 9's flat ENFORCED was too broad.** Refuted by
+   execution against the W11-1 tree:
+   `build_canvas_part("emit_canvas_node", '{"handle":"__proto__","nodeType":"__proto__","data":{"ok":1}}')`
+   returned the part verbatim. `nodeType` and `handle` carried only
+   `isinstance(str)` + non-empty while every sibling field on the same part was
+   filtered — the lane's own Finding-C lesson (a builder classified by the guard it
+   MOSTLY has) recurring one row over. **Closed in W12-1** — see Fix 4. Row 9 now
+   states which fields are covered rather than asserting the row as a whole.
 
 ---
 
 ## 3. Fixes shipped
 
 All TDD, all RED-checked (guard temporarily removed → the new tests fail → restored).
-Fixes 1–2 shipped in W9-1; Fix 3 and the amendments to Fix 1 shipped in W11-1.
+Fixes 1–2 shipped in W9-1; Fix 3 and the amendments to Fix 1 shipped in W11-1;
+Fixes 4–5 shipped in W12-1.
 
 ### Fix 1 — the read-tier gate (Finding A), amended in W11-1
 
@@ -284,6 +319,83 @@ re-run): `sourcePath` segment check → 4 fail; `sourceNodeKey` check → 3 fail
 fail; `spec`/`root` refusal → 2 fail. In every case the behaviour-preserving tests
 stayed green.
 
+### Fix 4 — the two plain-index value positions W11-1 still missed (Finding D, W12-1)
+
+W11-1's §4 P3 claimed all four canvas builders filtered "on both key and value
+positions". Executing the builder disproved it: `nodeType` and `handle` on
+`canvas_add_node`, and `sourceHandle`/`targetHandle` on `canvas_connect`, carried
+only `isinstance(str)` + non-empty.
+
+`nodeType` is the one with a live consequence, and it is **not** a pollution-key
+problem — it is a *plain-object index* problem:
+
+- `use-canvas-persistence.ts:212` feeds the emitted `nodeType` to `resolveNodeType`,
+  which does `NODE_TYPE_REGISTRY[type]` on an object **literal**
+  (`node-type-registry.ts:218-224`) and treats only `undefined` as "unregistered →
+  degrade to `UnknownNodeTypePlaceholder`" (CANVAS-03).
+- Every name inherited from `Object.prototype` reads back non-undefined there, so
+  the degrade never fires; `:223` keeps `type: part.nodeType`, `:449` pushes it into
+  the reconciled node, and `nodeTypes[node.type]` (`node-types.ts:45`, also an
+  object literal) hands React Flow `Object`/a prototype method instead of a
+  component. That is the CANVAS-03 "never breaks" degrade defeated by an
+  attacker-influenced string.
+- The persist boundary does **not** catch it either: `canvas-schema.ts:105` types
+  the node as `type: z.string().min(1)` with no key filter. The emitter is the only
+  enforcement point on the agent-authored path.
+
+Because the failure mode is an inherited-member lookup, refusing only
+`_FORBIDDEN_MANIFEST_KEYS` would have covered 2 of the 12 dangerous names and left
+`toString`, `valueOf`, `hasOwnProperty` and friends live — the same "guard it MOSTLY
+has" shape as the finding itself. `_UNSAFE_OBJECT_INDEX_KEYS` is therefore the
+pollution keys **plus** the enumerated `Object.getOwnPropertyNames(Object.prototype)`
+set, and a test pins that set literally so it cannot shrink back.
+
+`handle` / `sourceHandle` / `targetHandle` get the plain `_FORBIDDEN_MANIFEST_KEYS`
+refusal `_clean_key_list` already gives the same identifier space. Stated honestly:
+**no live exploit runs through them today** — `agentNodeId` namespaces every handle
+(`agent:${handle}`, `use-canvas-persistence.ts:118`) and the ids are consumed
+through `new Map`. That is consistency and defence in depth, not a fix for a proven
+break, and the row above says so rather than claiming otherwise.
+
+Deliberate asymmetry, pinned by its own test: `nodeType` gets **no** dotted-segment
+refusal. It is a bare registry key, never traversed, so `a.__proto__.b` is simply an
+unregistered type name that the web's `undefined` → degrade branch handles
+correctly.
+
+Also in W12-1: `_build_canvas_recipe_part` now stores `dict(source_ref)` rather than
+the parsed input object itself. No live aliasing existed (`raw` is function-local),
+but a filter must not hand its caller a handle on the unfiltered input.
+
+**RED-check** (each guard removed individually, tests run, guard restored, tests
+re-run): `nodeType` unsafe-index refusal → 13 fail; `handle` refusal → 3 fail;
+connect-handle refusal → 6 fail; `dict(source_ref)` → 1 fail. The
+behaviour-preserving tests (real registry types round-trip byte-identically;
+`constructorNotes` / `prototypeBuilder` are accepted, proving exact-match not
+substring; a dotted `nodeType` still passes) stayed green throughout.
+
+### Fix 5 — two forcing-function gaps the W11-1 review flagged (W12-1)
+
+Neither was a defect; both were places where a *test* was weaker than the property
+it was trusted to protect.
+
+- `tests/test_container.py` — the "every exposure flag ON" test named its three
+  flags literally, so the realistic drift (add a capability behind a **new**
+  default-off `*_TOOL_ENABLED` flag, forget `MODEL_CALLABLE_CAPABILITY_RISK`) stayed
+  green and surfaced only as a runtime 500 on the first `POST /v1/chat/stream` after
+  that flag was flipped in production. The list is now **derived** from
+  `BaseAppSettings.model_fields`, so a new flag is exercised the day it is added,
+  and an undeclared capability raises `UndeclaredCapabilityError` at commit time. A
+  vacuity assertion fails the test loudly if discovery ever returns nothing.
+  **RED-check:** discovery re-hardcoded to the old three → 1 fail. Restored.
+- `test_module_import_runs_the_declared_tier_gate` reloads the live composition root
+  through a raising spy. `importlib.reload` re-executes into the **same** module
+  `__dict__` without clearing it, so the failed reload is safe only because the
+  raise lands before every function definition — which was line order, not a checked
+  property. It is now checked (`ast`-parse the module; the module-scope gate call
+  must precede every `def`/`class`), and the restore assertion compares the whole
+  post-restore attribute set instead of one callable.
+  **RED-check:** gate call moved below the definitions → 1 fail. Restored.
+
 ---
 
 ## 4. Prioritized fix list (not done here)
@@ -292,7 +404,7 @@ stayed green.
 |---|---|---|---|
 | **P1** | Extend the read-tier assertion to the **TS** side. `client-capability-registry.ts:43` states outright that all five client-invocable capabilities are `risk:"write"` and wired to real tRPC mutations; `BUILTIN_CAPABILITY_MANIFEST` carries many `write`/`exec` entries. `catalogue.ts:126-143` proves the pattern works (`readManifestEntry` throws **at module load** on `risk !== "read"`) — but nothing equivalent guards the *chat* client registry. Today the only thing keeping those five inert is the default-OFF flag from `26da8ea4`; a flag is a stronger guard than a comment, but weaker than a load-time refusal. | The mirror of Finding A on the side that actually **has** write capabilities | small |
 | **P2** | Give the confirm-card path a **server-side** arg re-read, not just disclosure. `26da8ea4` made args visible and validated; path 7 shows the strictly stronger design (model supplies a ref, server re-reads the row). Migrate the binding transport to a ref before it is ever un-flagged. | Removes model-authored args from a write path entirely | medium |
-| **P3** | Add a lint/test that any **new** `emit_*` part builder filters `_FORBIDDEN_MANIFEST_KEYS` — all four canvas builders now do, on both key and value positions; the fifth will be written by someone who has not read this file. Finding C is the proof this is needed: the guard was already the local convention and three fields still shipped without it. | Findings B/C recur by default | small |
+| **P3** | Add a lint/test that any **new** `emit_*` part builder filters `_FORBIDDEN_MANIFEST_KEYS`. As of W12-1 all four canvas builders filter **every** model-authored field they carry — key positions, dotted-path positions, and the two plain-index value positions (`nodeType`, `handle`); the fifth builder will be written by someone who has not read this file. Findings C and D are the proof this is needed: the guard was already the local convention, and it still shipped incomplete **twice** — three fields in W11-1, two more in W12-1, each time found by executing the builder rather than reading it. | Findings B/C/D recur by default | small |
 | **P3b** | Mirror `nodeDataSchema`'s remaining refinements in the emitter as they are added, or extract ONE shared contract. Two independent implementations of "what may be in `node.data`" (Python emitter, TS persist boundary) is the structure that produced Finding C. | Divergence is the bug generator | medium |
 | **P4** | Decide the `emit_canvas_node` vs registry-`canvas.addNode` divergence (carried from `NESTED-ARGS-ANALYSIS.md` §4 risk 2) — two roads to one effect, one confirm-gated and one not. | Permanent divergence otherwise | medium |
 | **P5** | `sns_inbound.py` returns 200 on any exception, so a failed ingest silently and permanently loses the email. Not injection, but the same "no enforcement behind the claim" shape, and it is the durable-worker track's stated fix. | Data loss | (Track 3a) |
@@ -316,17 +428,26 @@ weaker — treat a row without a test as a claim, not a fact.
 The codebase's defensive posture is genuinely strong — SSRF double-checks, a
 server-re-read confirm design, an opaque-origin CSP jail, a query-only procedure
 allowlist, an enum-gated MCP surface, EXTRACTED-tier writes that really do require a
-human, and untrusted-data labels on every injected context block. All three findings
+human, and untrusted-data labels on every injected context block. All four findings
 are of the *documented-but-unchecked* kind, which is exactly the class the
 predecessor bug taught us to hunt: not missing defenses, but defenses that exist only
 as sentences.
 
-Finding C is the sharpest version of the lesson, because this document produced it:
-a sweep that reads code will classify a builder by the guard it *mostly* has. Only
-executing it showed which fields were actually covered. Likewise, the guards added
-by Findings A and B were themselves held in place by nothing until the review deleted
-their call sites and watched every suite stay green — so each call site now has a
-test that goes red without it.
+Findings C and D are the sharpest version of the lesson, because this document
+produced both: a sweep that reads code will classify a builder by the guard it
+*mostly* has. Only executing it showed which fields were actually covered — and it
+took **two** hostile reviews of the *same function* to reach every field, because
+each sweep re-checked the fields it was already thinking about. Likewise, the guards
+added by Findings A and B were themselves held in place by nothing until the review
+deleted their call sites and watched every suite stay green — so each call site now
+has a test that goes red without it.
 
-All three are now sentences with code behind them, and every guard has a
+All four are now sentences with code behind them, and every guard has a
 remove-it-and-watch-it-fail check recorded above.
+
+One claim in this document is deliberately **not** upgraded to ENFORCED: the handle
+fields are refused for consistency, and the honest statement is that nothing
+downstream was broken by them (`agentNodeId` namespaces every handle). Where the
+evidence is "no live vector found", this file says that rather than borrowing the
+stronger word from the field next to it. That borrowing is what produced Findings C
+and D.
