@@ -163,6 +163,12 @@ from app.domain.ports.source_ledger_repository import SourceLedgerEntry
 from app.domain.ports.tool_executor import ToolExecutionResult
 from app.domain.services.chat_model_registry import ChatModel, get_model
 from app.domain.services.chat_provider_router import ChatModelNotFoundError, ChatProviderRouter
+from app.domain.services.chat_turn_cap import (
+    CHAT_TURN_CAP_MESSAGE,
+    MONTHLY_CHAT_TURNS_BREACHED_CAP,
+    as_known_tier,
+    decide_chat_turn_cap,
+)
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker, estimate_prompt_tokens
 from app.domain.services.tool_envelope_gate import validate_tool_envelope
 
@@ -171,8 +177,10 @@ if TYPE_CHECKING:
 
     from app.domain.ports.chat_context_edge_repository import ChatContextEdgeRepository
     from app.domain.ports.chat_provider import ChatDelta, ChatProvider
+    from app.domain.ports.chat_turn_usage_repository import ChatTurnUsageRepository
     from app.domain.ports.email_repository import EmailRepository
     from app.domain.ports.source_ledger_repository import SourceLedgerRepository
+    from app.domain.ports.tier_resolver import UserTierResolver
     from app.domain.ports.tool_executor import ToolExecutor
 
 logger = structlog.get_logger(__name__)
@@ -354,6 +362,8 @@ class RunChatTurn:
         email_repository: EmailRepository | None = None,
         source_ledger: SourceLedgerRepository | None = None,
         context_edges: ChatContextEdgeRepository | None = None,
+        user_tiers: UserTierResolver | None = None,
+        chat_turn_usage: ChatTurnUsageRepository | None = None,
     ) -> None:
         self._messages = messages
         self._runs = runs
@@ -415,6 +425,18 @@ class RunChatTurn:
         # _email_repository/_knowledge_graph's existing thread/cluster
         # injection -- it never depends on thread linkage (RESEARCH Pattern 3).
         self._context_edges = context_edges
+        # vLAUNCH W5-1 (ASSUMPTIONS A7): the monthlyChatTurns cap gate's two
+        # collaborators -- the listener-side ENFORCEMENT mirror of
+        # packages/api-client/src/router/chat/turn-cap.ts (which gates
+        # browser-locus turns only; this gates the server-locus chat path,
+        # run(), the one that inserts the role='user' row the shared meter
+        # counts). Additive defaults (mirror widget_interactions above): None
+        # leaves the gate structurally OFF for every existing test/caller; the
+        # composition root wires BOTH in production -- unflagged, chat path
+        # only, mail ingest untouched. Policy + message live in
+        # app.domain.services.chat_turn_cap; see _chat_turn_cap_rejection.
+        self._user_tiers = user_tiers
+        self._chat_turn_usage = chat_turn_usage
 
     async def run(
         self,
@@ -429,7 +451,10 @@ class RunChatTurn:
 
         Persists the user message first (next turn_index) regardless of the
         pre-turn cost decision — only the assistant call is withheld on BLOCK
-        (fail-closed, D-21).
+        (fail-closed, D-21). The ONE exception is the monthlyChatTurns cap
+        gate (vLAUNCH W5-1, `_chat_turn_cap_rejection`): a FREE-tier user
+        at/over the monthly allowance is rejected BEFORE the user row is
+        written (the rejected send must not itself consume a metered turn).
 
         `importer_ids` (chat-context fix): the caller's OWNED importer set,
         resolved from the verified user id at the transport (chat_stream.py).
@@ -445,6 +470,17 @@ class RunChatTurn:
         if model is None:
             raise ChatModelNotFoundError(model_id)
         provider = self._router.select(model_id)
+
+        # vLAUNCH W5-1: the monthlyChatTurns cap gate — MUST run BEFORE the
+        # user message row is written (mirror of turn-cap.ts's "AFTER
+        # ownership/authn checks and BEFORE any turn row" contract; ownership
+        # was already asserted at the transport, chat_stream.py). Rejection
+        # reuses the pre-turn BLOCK mechanism the cost breaker established
+        # below: ONE un-persisted terminal event, then return.
+        rejection = await self._chat_turn_cap_rejection(conversation_id)
+        if rejection is not None:
+            yield rejection
+            return
 
         history = await self._messages.list_active_context(conversation_id)
         is_first_turn = len(history) == 0
@@ -618,6 +654,58 @@ class RunChatTurn:
             version=1,
         ):
             yield event
+
+    async def _chat_turn_cap_rejection(self, conversation_id: str) -> ChatRunEvent | None:
+        """The monthlyChatTurns pre-insert gate — MIRROR of enforceChatTurnCap (vLAUNCH W5-1).
+
+        Policy mirror of packages/api-client/src/router/chat/turn-cap.ts,
+        applied to the server-locus chat path ONLY (run(); regenerate/
+        continue_after_widget never insert a role='user' row, so they never
+        consume a turn and are not gated — matching the TS meter's unit).
+
+        Returns the ONE un-persisted rejection event to yield when the FREE
+        tier is at/over its cap (the same pre-turn BLOCK mechanism as the
+        cost breaker: chat_run_events.run_id is NOT NULL, so a turn rejected
+        before a run exists yields an in-memory event carrying the friendly
+        message in `data`), or None when the turn may proceed.
+
+        FAIL-OPEN on ANY owner/tier/count lookup failure — an outage must
+        never lock users out of chat; only the deliberate free-at-cap
+        decision blocks (turn-cap.ts's exact posture). Unwired collaborators
+        (either None) leave the gate structurally OFF. The user id is
+        SERVER-resolved from the conversation owner — never client input.
+        """
+        if self._user_tiers is None or self._chat_turn_usage is None:
+            return None
+        try:
+            owner_user_id = await self._conversations.owner_user_id(conversation_id)
+            if owner_user_id is None:
+                # The transport's ownership gate 404s a non-owned/absent
+                # conversation before run() starts, so an unresolvable owner
+                # here is an anomaly — fail open, never lock chat.
+                logger.warning("chat_turn_cap_owner_missing_failing_open", conversation_id=conversation_id)
+                return None
+            tier = as_known_tier(await self._user_tiers.tier_for_user(owner_user_id))
+            used = await self._chat_turn_usage.count_monthly_chat_turns_used(owner_user_id)
+            decision = decide_chat_turn_cap(tier, used)
+        except Exception:
+            # FAIL-OPEN for everyone (mirror of enforceChatTurnCap's catch).
+            logger.warning(
+                "chat_turn_cap_check_failed_failing_open", conversation_id=conversation_id, exc_info=True
+            )
+            return None
+        if decision.allowed:
+            if decision.over_limit:
+                # Paid tier at/over its finite cap — allowed by policy
+                # (PRO/POWER are never hard-blocked); logged for the meter.
+                logger.info("chat_turn_cap_over_limit_allowed", user_id=owner_user_id, tier=tier, used=used)
+            return None
+        # Server-side detail; the client only ever sees CHAT_TURN_CAP_MESSAGE.
+        logger.warning("chat_turn_cap_blocked", user_id=owner_user_id, tier=tier, used=used)
+        return ChatRunEvent(
+            type="cost_capped",
+            data={"breached_cap": MONTHLY_CHAT_TURNS_BREACHED_CAP, "message": CHAT_TURN_CAP_MESSAGE},
+        )
 
     def _build_tool_offer(self, model: ChatModel) -> tuple[dict[str, Any], ...]:
         """The tools offered to the provider for this turn (pure w.r.t. `model`).

@@ -44,6 +44,7 @@ from app.domain.ports.chat_repositories import (
     ChatMessageRepository,
     ChatRunRepository,
 )
+from app.domain.ports.chat_turn_usage_repository import ChatTurnUsageRepository
 from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository
@@ -53,6 +54,7 @@ from app.domain.ports.entity_instance_repository import EntityInstanceRepository
 from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.source_ledger_repository import SourceLedgerRepository
+from app.domain.ports.tier_resolver import UserTierResolver
 from app.domain.services.chat_provider_router import ChatProviderRouter
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker
 from app.infrastructure.llm.bedrock_chat_adapter import BedrockChatAdapter
@@ -108,6 +110,8 @@ def _provide_run_chat_turn(
     http_client: httpx.AsyncClient,
     source_ledger: SourceLedgerRepository,
     context_edges: ChatContextEdgeRepository,
+    user_tiers: UserTierResolver,
+    chat_turn_usage: ChatTurnUsageRepository,
 ) -> RunChatTurn:
     """Factory for RunChatTurn — the chat turn agent (SEAM-04, Phase 22-06/22-07/24-02).
 
@@ -343,6 +347,13 @@ def _provide_run_chat_turn(
         # any caller/test that doesn't pass it, structurally OFF (mirrors
         # source_ledger above). Never gated on thread linkage.
         context_edges=context_edges,
+        # vLAUNCH W5-1 (ASSUMPTIONS A7): the monthlyChatTurns cap gate's two
+        # reads (mirror of packages/api-client/src/router/chat/turn-cap.ts,
+        # server-locus chat path only). Both wired UNCONDITIONALLY -- the gate
+        # is unflagged; its additive-default None form exists only for
+        # tests/callers outside this composition root.
+        user_tiers=user_tiers,
+        chat_turn_usage=chat_turn_usage,
     )
 
 
