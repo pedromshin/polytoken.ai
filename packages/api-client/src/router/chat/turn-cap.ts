@@ -15,6 +15,11 @@
  *     unlimited, so it can never read over-limit at all.)
  *   - Unknown/absent subscription row → treated as `free` (the default tier,
  *     matching billingRouter.currentSubscription).
+ *   - A row whose `status` is not active/trialing (past_due, canceled,
+ *     inactive, …) confers NO paid tier for ENFORCEMENT (ASSUMPTIONS A11):
+ *     the gate narrows it to `free`, mirroring the listener's
+ *     tier_resolver.py guard exactly. Display paths
+ *     (billingRouter.currentSubscription) are deliberately untouched.
  *
  * ## Failure posture (enforceChatTurnCap)
  *   FAIL-OPEN on ANY db/lookup error — tier lookup or count alike. An outage
@@ -43,6 +48,29 @@ import {
 export const CHAT_TURN_CAP_MESSAGE =
   "You've used all of this month's included chat turns on the free plan. " +
   "Upgrade to keep chatting — your allowance resets at the start of next month (UTC).";
+
+/** Subscription statuses under which a paid tier is actually ENTITLED —
+ * mirrors the listener's chat-turn-cap guard (tier_resolver.py
+ * _ENTITLED_STATUSES) and @polytoken/billing's duplicate-active check. */
+const ENTITLED_STATUSES: ReadonlySet<string> = new Set(["active", "trialing"]);
+
+/**
+ * entitledTierFrom — narrow a subscriptions row (or its absence) to the tier
+ * the ENFORCEMENT gate honours (ASSUMPTIONS A11). Only an active/trialing row
+ * confers its paid tier; any other status — past_due, canceled, inactive, an
+ * unrecognized value — narrows to `free`, exactly as the listener mirror
+ * does. Pure and exported for direct unit testing.
+ */
+export function entitledTierFrom(
+  row:
+    | { readonly tier?: string | null; readonly status?: string | null }
+    | undefined,
+): Tier {
+  if (row === undefined) return "free";
+  return typeof row.status === "string" && ENTITLED_STATUSES.has(row.status)
+    ? asKnownTier(row.tier)
+    : "free";
+}
 
 export interface ChatTurnCapDecision {
   /** false ONLY for the free tier at/over its cap. */
@@ -95,13 +123,15 @@ export async function enforceChatTurnCap(
     // sequential version did.
     const [rows, used] = await Promise.all([
       db
-        .select({ tier: Subscriptions.tier })
+        .select({ tier: Subscriptions.tier, status: Subscriptions.status })
         .from(Subscriptions)
         .where(eq(Subscriptions.userId, userId))
         .limit(1),
       countMonthlyChatTurnsUsed(db, userId, now),
     ]);
-    const tier = asKnownTier(rows[0]?.tier);
+    // A11: the RAW tier column is not enough — a past_due/canceled pro row
+    // must enforce as free (the listener already does; both sides now agree).
+    const tier = entitledTierFrom(rows[0]);
     decision = decideChatTurnCap(tier, used);
 
     if (!decision.allowed) {

@@ -53,6 +53,7 @@ import {
   CHAT_TURN_CAP_MESSAGE,
   decideChatTurnCap,
   enforceChatTurnCap,
+  entitledTierFrom,
 } from "../turn-cap";
 
 const FREE_CAP = ENTITLEMENTS.free.monthlyChatTurns as number;
@@ -271,6 +272,33 @@ describe("asKnownTier", () => {
 });
 
 // ---------------------------------------------------------------------------
+// entitledTierFrom — ASSUMPTIONS A11: only active/trialing rows confer paid
+// (mirrors the listener's tier_resolver.py _ENTITLED_STATUSES guard).
+// ---------------------------------------------------------------------------
+
+describe("entitledTierFrom (A11 status-honouring tier read)", () => {
+  it("honours the paid tier only under active/trialing", () => {
+    expect(entitledTierFrom({ tier: "pro", status: "active" })).toBe("pro");
+    expect(entitledTierFrom({ tier: "pro", status: "trialing" })).toBe("pro");
+    expect(entitledTierFrom({ tier: "power", status: "active" })).toBe("power");
+  });
+
+  it("narrows every non-entitled status to free — past_due, canceled, inactive, unknown, absent", () => {
+    expect(entitledTierFrom({ tier: "pro", status: "past_due" })).toBe("free");
+    expect(entitledTierFrom({ tier: "pro", status: "canceled" })).toBe("free");
+    expect(entitledTierFrom({ tier: "power", status: "inactive" })).toBe("free");
+    expect(entitledTierFrom({ tier: "pro", status: "gibberish" })).toBe("free");
+    expect(entitledTierFrom({ tier: "pro", status: null })).toBe("free");
+    expect(entitledTierFrom({ tier: "pro" })).toBe("free");
+  });
+
+  it("absent row and unknown tier both read as free", () => {
+    expect(entitledTierFrom(undefined)).toBe("free");
+    expect(entitledTierFrom({ tier: "enterprise-gibberish", status: "active" })).toBe("free");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // enforceChatTurnCap — gate behavior over a fake db
 // ---------------------------------------------------------------------------
 
@@ -306,19 +334,52 @@ describe("enforceChatTurnCap — gate", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
-  it("Test 8: pro at cap → allowed with overLimit:true; power huge usage → overLimit:false", async () => {
-    const proDb = createFakeGateDb([[{ tier: "pro" }], [{ value: PRO_CAP }]]);
+  it("Test 8: ACTIVE pro at cap → allowed with overLimit:true; power huge usage → overLimit:false", async () => {
+    const proDb = createFakeGateDb([
+      [{ tier: "pro", status: "active" }],
+      [{ value: PRO_CAP }],
+    ]);
     await expect(
       enforceChatTurnCap(proDb as never, USER_A.id),
     ).resolves.toEqual({ overLimit: true });
 
     const powerDb = createFakeGateDb([
-      [{ tier: "power" }],
+      [{ tier: "power", status: "active" }],
       [{ value: 1_000_000 }],
     ]);
     await expect(
       enforceChatTurnCap(powerDb as never, USER_A.id),
     ).resolves.toEqual({ overLimit: false });
+  });
+
+  it("Test 8b (A11): past_due pro at the FREE cap → blocked as free (status narrows the tier)", async () => {
+    const db = createFakeGateDb([
+      [{ tier: "pro", status: "past_due" }],
+      [{ value: FREE_CAP }],
+    ]);
+    await expect(
+      enforceChatTurnCap(db as never, USER_A.id),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: CHAT_TURN_CAP_MESSAGE });
+  });
+
+  it("Test 8c (A11): ACTIVE pro under its own cap but over the free cap → never blocked", async () => {
+    const db = createFakeGateDb([
+      [{ tier: "pro", status: "active" }],
+      [{ value: FREE_CAP + 10 }],
+    ]);
+    await expect(enforceChatTurnCap(db as never, USER_A.id)).resolves.toEqual({
+      overLimit: false,
+    });
+  });
+
+  it("Test 8d (A11): trialing pro is honoured as paid (at cap → allowed, overLimit marker)", async () => {
+    const db = createFakeGateDb([
+      [{ tier: "pro", status: "trialing" }],
+      [{ value: PRO_CAP }],
+    ]);
+    await expect(enforceChatTurnCap(db as never, USER_A.id)).resolves.toEqual({
+      overLimit: true,
+    });
   });
 
   it("Test 9: db failure fails OPEN — tier lookup error and count error both allow the turn (logged)", async () => {
@@ -379,9 +440,12 @@ describe("chat.recordBrowserTurn — cap enforcement wiring", () => {
     expect(wasTransactionEntered()).toBe(true);
   });
 
-  it("Test 12: pro at cap → the turn persists and carries the overLimit marker", async () => {
+  it("Test 12: ACTIVE pro at cap → the turn persists and carries the overLimit marker", async () => {
     const { db } = createFakeMutationDb({
-      selectResults: [[{ tier: "pro" }], [{ value: PRO_CAP }]],
+      selectResults: [
+        [{ tier: "pro", status: "active" }],
+        [{ value: PRO_CAP }],
+      ],
       txSelectResults: [[{ turnIndex: 4 }]], // prior turns → next index 5
     });
     const caller = makeCaller(USER_A, db);
