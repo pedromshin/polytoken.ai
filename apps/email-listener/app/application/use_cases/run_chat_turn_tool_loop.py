@@ -70,6 +70,17 @@ _CODE_ISLAND_MAX_INPUTS = 16
 _CODE_ISLAND_MAX_COLUMNS = 64
 _CODE_ISLAND_MAX_SAMPLE_ROWS = 5
 _CODE_ISLAND_MAX_SELECTED = 32
+# W13-1: `intent` was the ONE model-authored text field on any canvas part with no
+# bound, while every sibling had one. This is PARITY, not a new bound: the value
+# reaches `codeIslands.create`, whose input is `intent: z.string().min(1).max(4096)`
+# (`packages/api-client/src/router/code-islands/index.ts:121`), and the web passes
+# `plan.intent` through with no re-cap of its own (`chat-canvas.tsx:1302,1306` —
+# unlike the recipe path, which defensively re-caps at
+# `agent-recipe-reconcile.ts:55`). An over-long intent therefore bounced off the zod
+# gate and the agent's island silently never materialized: an availability bug on a
+# fail-closed path with no visible signal. Truncation (not refusal) matches how
+# `_CANVAS_RECIPE_MAX_NAME_CHARS` treats `name` -- the island still lands.
+_CODE_ISLAND_MAX_INTENT_CHARS = 4096
 _FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
 
 # W12-1: the VALUE position of `canvas_add_node.nodeType`, which is NOT a key --
@@ -386,7 +397,13 @@ def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if _is_refused_canvas_node_data(data):
         return None
-    part: dict[str, Any] = {"type": "canvas_add_node", "handle": handle, "nodeType": node_type, "data": data}
+    # W13-1: COPIES, never the parsed input objects themselves -- the same rule
+    # W12-2 applied to `sourceRef` (a filter must not hand its caller a handle on
+    # the unfiltered input). These two were the remaining aliased fields, so all
+    # three model-authored subtrees now behave identically. Shallow, matching
+    # `dict(source_ref)`: the nested values are plain JSON already walked by
+    # `_has_forbidden_key_deep`. No live aliasing existed (`raw` is function-local).
+    part: dict[str, Any] = {"type": "canvas_add_node", "handle": handle, "nodeType": node_type, "data": dict(data)}
     # position is OPTIONAL -- the key is included ONLY when the model supplied a
     # position object (omitting it signals "auto-place" to the web, per the
     # frozen wire contract).
@@ -394,7 +411,7 @@ def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     if isinstance(position, dict):
         if _has_forbidden_key_deep(position):
             return None
-        part["position"] = position
+        part["position"] = dict(position)
     return part
 
 
@@ -486,19 +503,34 @@ def _clean_manifest_entry(entry: Any) -> dict[str, Any] | None:
     landed in the persisted part with no key filter and no depth cap. Offending
     rows are now dropped individually (the entry survives with its clean rows,
     mirroring how `_clean_key_list` drops bad keys rather than the whole list).
+
+    W13-1 closes the last two divergences inside this one function:
+
+    - `kind` is model-authored and was checked for `isinstance(str)` + non-empty
+      ONLY, two lines above the `columns` filter this docstring already justified
+      with "`columns` and `sample` are model-authored too". It now takes the same
+      `_FORBIDDEN_MANIFEST_KEYS` refusal `handle` took in W12-1, for the same
+      stated reason and with the same honesty: no live vector runs through it (the
+      web never reads `part.inputs` -- `collectAgentCodeIslandPlans` re-derives the
+      manifest from the LIVE canvas, and the TS `ToolInputManifestEntry` has no
+      `kind` member at all, `build-tool-flow.ts:54-59`). It is consistency, not a
+      fix for a proven break.
+    - `columns` filtered pollution but ACCEPTED the empty string, while
+      `_clean_key_list` -- same identifier space, same file -- dropped both. It now
+      IS `_clean_key_list`, so the two can never diverge again. Behaviour delta
+      beyond the empty-string drop: duplicate column names now collapse
+      (`_clean_key_list` dedupes). Column names come from object keys upstream and
+      are unique by construction; the dedupe is pinned by its own test.
     """
     if not isinstance(entry, dict):
         return None
     kind = entry.get("kind")
-    if not isinstance(kind, str) or not kind:
+    if not isinstance(kind, str) or not kind or kind in _FORBIDDEN_MANIFEST_KEYS:
         return None
     cleaned: dict[str, Any] = {"kind": kind}
     columns = entry.get("columns")
     if isinstance(columns, list):
-        cols = [c for c in columns if isinstance(c, str) and c not in _FORBIDDEN_MANIFEST_KEYS][
-            :_CODE_ISLAND_MAX_COLUMNS
-        ]
-        cleaned["columns"] = cols
+        cleaned["columns"] = _clean_key_list(columns, _CODE_ISLAND_MAX_COLUMNS)
     row_count = entry.get("rowCount")
     # bool is an int subclass -- exclude it explicitly so True/False never poses as a count.
     if isinstance(row_count, int) and not isinstance(row_count, bool) and row_count >= 0:
@@ -537,9 +569,19 @@ def _build_canvas_code_island_part(raw: dict[str, Any]) -> dict[str, Any] | None
     dataset. The FROZEN shape (the web half of Plan 76-04 is written against it):
 
         {"type","intent","inputs","inputBindings","selectedNodeKeys"}
+
+    W13-1: `intent` is TRUNCATED to `_CODE_ISLAND_MAX_INTENT_CHARS` (see that
+    constant for why this is parity with the tRPC bound, not a new one). A
+    whitespace-only remainder fails the part closed the same way an empty intent
+    already did -- the web would only have fallen back to its auto-intent, but the
+    tRPC gate rejects `""`, so emitting it is the silent-failure path this cap
+    exists to remove.
     """
     intent = raw.get("intent")
     if not isinstance(intent, str) or not intent:
+        return None
+    intent = intent[:_CODE_ISLAND_MAX_INTENT_CHARS].rstrip()
+    if not intent:
         return None
     selected = _clean_key_list(raw.get("selectedNodeKeys"), _CODE_ISLAND_MAX_SELECTED)
     if not selected:
@@ -576,12 +618,20 @@ def _build_canvas_recipe_part(raw: dict[str, Any]) -> dict[str, Any] | None:
     shape (the web reconcile is written against it):
 
         {"type","name","nodeKeys","edgeKeys"[, "sourceRef"]}
+
+    W13-1: `name` takes the `_FORBIDDEN_MANIFEST_KEYS` refusal its sibling
+    `nodeKeys`/`edgeKeys` already took via `_clean_key_list` -- the lane's stated
+    reason for filtering `handle` ("same identifier space, filter it for
+    consistency") applies verbatim here, and W12-1 did not apply it. The check runs
+    AFTER strip/cap, so `"  __proto__  "` cannot walk past it. Honest status, same
+    as `handle`: no live vector -- the web's by-name dedupe reads the value through
+    a `Set` (`agent-recipe-reconcile.ts:126,148`), never an object index.
     """
     name = raw.get("name")
     if not isinstance(name, str):
         return None
     name = name.strip()[:_CANVAS_RECIPE_MAX_NAME_CHARS].rstrip()
-    if not name:
+    if not name or name in _FORBIDDEN_MANIFEST_KEYS:
         return None
     node_keys = _clean_key_list(raw.get("nodeKeys"), _CANVAS_RECIPE_MAX_NODE_KEYS)
     if not node_keys:

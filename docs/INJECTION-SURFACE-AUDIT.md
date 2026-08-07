@@ -1,14 +1,17 @@
 # Untrusted content → privileged sink: a systematic audit
 
-**Lane:** W9-1 (vLAUNCH Wave 0.9), amended by W11-1 (Wave 0.11)
+**Lane:** W9-1 (vLAUNCH Wave 0.9), amended by W11-1 (0.11), W12-1 (0.12) and W13-1 (0.13)
 **Date:** 2026-08-07
 **Worst class found:** `DEPENDS-ON-COOPERATION`
 **Predecessor:** `docs/NESTED-ARGS-ANALYSIS.md` — the one path found and closed the
 night before (`26da8ea4`). This document is the systematic sweep for the rest.
-**Amendment:** the W9-1 draft was hostile-reviewed and three of its claims were
-refuted. W11-1 closed the gaps and corrected the prose — see §2.1 for what was
-wrong and §3 Fix 3 for what changed. Rows marked "corrected/added in W11-1" were
-re-derived by executing the builder, not by reading it.
+**Amendment:** this file has shipped a false completeness claim about the four
+canvas emitters in **three consecutive revisions** (§2.1 items 2, 4 and 5). Each was
+refuted by one command against the committed tree, and each was "fixed" by rewriting
+a sentence. W13-1 stops writing sentences: **§1.2b** is a per-field table that
+`apps/email-listener/tests/application/test_canvas_emitter_field_coverage.py` checks
+against **executed** builder behaviour, cell for cell — including the rows that say a
+field is *not* filtered. A fourth false claim now fails the suite instead of shipping.
 
 ---
 
@@ -58,11 +61,112 @@ attacker-influenced data, not trusted input.
 | 6 | model → `emit_ui_spec` → persisted spec → **`capability` key → live tRPC mutation** | **ENFORCED** (as of `26da8ea4`) | Default-OFF kill switch `capability-binding-boundary.tsx:181`; args required + disclosed; boundary `parseArgs`-validates before offering Approve. This was the DEPENDS-ON-COOPERATION path found the night before. |
 | 7 | model → `emit_confirm_action` → `PromoteEdgeUseCase` (a real write) | **ENFORCED** — the reference design | The model supplies **only** `{kind, id}`; the server re-reads the live row and builds the declaration itself (`run_chat_turn_confirm_action.py:82-115, 153-192`). Tool schema `additionalProperties:false` **plus** an independent `parse_confirm_action_call` re-validation. Every unavailable case collapses to one generic string so an id-probe cannot distinguish tenant-mismatch from nonexistent (`:64-69`). Submit-time: staleness → live tier re-check vs frozen `tierSnapshot` → CAS → dispatch keyed on the **stored** declaration, never client data (`submit_widget_interaction.py:10-49, 175-192`). |
 | 8 | web-search result → `source_capture` confirm → knowledge node/edge write | **ENFORCED** | Payload comes from the server-re-read persisted result, never model free text (`run_chat_turn_confirm_action.py:36-39`); URL keyed through `uuid5` before touching a uuid column; human confirm required; reject writes nothing (`confirm_action_dispatch.py:229-291`). |
-| 9 | model → `emit_canvas_node` → `canvas_add_node` part → canvas node | **DEPENDS-ON-COOPERATION → now ENFORCED on `data`, `position` (W9-1) and `nodeType`, `handle` (W12-1)** | `data` was accepted as any dict, unbounded depth, **no pollution-key filter** — while three sibling builders in the same file *do* filter `_FORBIDDEN_MANIFEST_KEYS` and cap sizes, and the tRPC persist boundary rejects the same keys at any depth (`canvas-schema.ts:88-100`). Closed in W9-1 — see Fix 2. **W12-1 correction:** that left `nodeType`/`handle` unfiltered, so the row's flat ENFORCED was too broad; `nodeType` in particular defeated the CANVAS-03 unknown-type degrade (see Fix 4). Now every field on this part is filtered. Flag-dark throughout (`CANVAS_EMIT_TOOL_ENABLED=False`, `settings.py:202`). |
-| 10 | model → `emit_canvas_connect` → dotted `sourcePath`/`targetKey` | **DEPENDS-ON-COOPERATION → now ENFORCED** | Emitter accepted any non-empty string; the web walks these as paths into node data, and `canvas-schema.ts:113-125` refuses pollution **segments** at the persist boundary. **Closed this lane** — see Fix 2. |
-| 11 | model → `emit_code_island` → island manifest | **DEPENDS-ON-COOPERATION → now ENFORCED** | **Row corrected in W11-1** — the original classification was wrong on its stated evidence (see §2.1). `_clean_key_list` / `_clean_input_bindings` / `_clean_manifest_entry` *did* filter `_FORBIDDEN_MANIFEST_KEYS` on the **key** positions, but three model-authored **value** positions were unfiltered: `inputBindings.<k>.sourcePath` (checked only for `isinstance(str)` + non-empty, though the web walks it as a dotted path — `canvas-store.ts:65-69` via `build-tool-flow.ts:199`), `inputs.<k>.sample` rows (copied verbatim), and `inputs.<k>.columns` entries. **Closed in W11-1** — see Fix 3. |
-| 12 | model → `emit_canvas_recipe` → `canvas_recipe` part | **DEPENDS-ON-COOPERATION → now ENFORCED** | **Row added in W11-1** — the fourth canvas emitter, missed by the original sweep. `_build_canvas_recipe_part`'s `sourceRef` filter was a TOP-LEVEL-only dict comprehension, so `{"meta": {"__proto__": {...}}}` was persisted verbatim: the shallow version of the bug Fix 2 closed on the sibling builders. **Closed in W11-1** — see Fix 3. |
+| 9 | model → `emit_canvas_node` → `canvas_add_node` part → canvas node | **DEPENDS-ON-COOPERATION → ENFORCED per the §1.2b rows for `emit_canvas_node`** | `data` was accepted as any dict, unbounded depth, **no pollution-key filter** — while three sibling builders in the same file *do* filter `_FORBIDDEN_MANIFEST_KEYS` and cap sizes, and the tRPC persist boundary rejects the same keys at any depth (`canvas-schema.ts:88-100`). Closed in W9-1 — see Fix 2. **W12-1 correction:** that left `nodeType`/`handle` unfiltered, so the row's flat ENFORCED was too broad; `nodeType` in particular defeated the CANVAS-03 unknown-type degrade (see Fix 4). **W13-1:** this cell no longer states a scope of its own — §1.2b does, per field, checked by test. Flag-dark throughout (`CANVAS_EMIT_TOOL_ENABLED=False`, `settings.py:202`). |
+| 10 | model → `emit_canvas_connect` → dotted `sourcePath`/`targetKey` | **DEPENDS-ON-COOPERATION → ENFORCED per the §1.2b rows for `emit_canvas_connect`** | Emitter accepted any non-empty string; the web walks these as paths into node data, and `canvas-schema.ts:113-125` refuses pollution **segments** at the persist boundary. Closed in W9-1 (Fix 2); the two handle fields closed in W12-1 (Fix 4). This is the one canvas builder no revision has had to reopen, but it states its scope through §1.2b like the others rather than on its own authority. |
+| 11 | model → `emit_code_island` → island manifest | **DEPENDS-ON-COOPERATION → ENFORCED per the §1.2b rows for `emit_code_island`, except `intent` (bounded, not filtered)** | **Row corrected in W11-1** — the original classification was wrong on its stated evidence (see §2.1). `_clean_key_list` / `_clean_input_bindings` / `_clean_manifest_entry` *did* filter `_FORBIDDEN_MANIFEST_KEYS` on the **key** positions, but three model-authored **value** positions were unfiltered: `inputBindings.<k>.sourcePath` (checked only for `isinstance(str)` + non-empty, though the web walks it as a dotted path — `canvas-store.ts:65-69` via `build-tool-flow.ts:199`), `inputs.<k>.sample` rows (copied verbatim), and `inputs.<k>.columns` entries. Fixed in W11-1 (Fix 3) — but the flat "now ENFORCED" this cell then carried was **itself** the shape it exists to name: `inputs.<k>.kind` was still `isinstance(str)` + non-empty, and `intent` had no bound at all. **W13-1** closes both and replaces the flat word with the per-field table — see Fix 6. |
+| 12 | model → `emit_canvas_recipe` → `canvas_recipe` part | **DEPENDS-ON-COOPERATION → ENFORCED per the §1.2b rows for `emit_canvas_recipe`, except `edgeKeys` (bounded, list contents filtered, the field itself optional)** | **Row added in W11-1** — the fourth canvas emitter, missed by the original sweep. `_build_canvas_recipe_part`'s `sourceRef` filter was a TOP-LEVEL-only dict comprehension, so `{"meta": {"__proto__": {...}}}` was persisted verbatim: the shallow version of the bug Fix 2 closed on the sibling builders. Fixed in W11-1 (Fix 3); `sourceRef` stopped aliasing its input in W12-1 (Fix 4); the recipe `name` — the one remaining identifier-space field with no pollution filter — closed in **W13-1**, see Fix 6. |
 | 13 | agent-authored node data → persisted canvas layout | **ENFORCED** | `CanvasSnapshotSchema` — `.strict()` everywhere, `hasForbiddenKeyDeep` on `node.data` and `sharedState`, `hasForbiddenPathSegment` on edge paths, `spec`/`root` banned from layout rows, node/edge/shared-state **count** caps (`canvas-schema.ts:84-164`). Note the size caps are `MAX_CANVAS_NODES`/`MAX_CANVAS_EDGES` plus a serialized-size bound on `sharedState` **only** — there is no depth or size cap on `node.data`. |
+
+### 1.2b Per-field coverage of the four canvas emitters (W13-1)
+
+Rows 9–12 above are *paths*. This is the *field* table they refer to — the thing the
+last three revisions of this file each tried to summarise in one sentence and each
+got wrong. It is generated from, and checked against, the declared rows in
+`apps/email-listener/tests/application/test_canvas_emitter_field_coverage.py`.
+
+**How to read it.** `Field` is the path inside the emitted message part; `<k>` is a
+model-authored map key, `[]` a list element. `Content filter` is what the guard
+**rejects**, and `NONE` means exactly that — no content filter, only the type /
+non-empty check. `Bound` is the size/count cap. `Enforcing line` is a line of
+`apps/email-listener/app/application/use_cases/run_chat_turn_tool_loop.py`.
+
+**What holds it true.** Six tests, all in that one file:
+
+- `test_derived_field_set_matches_the_declared_rows` executes each builder and walks
+  the part it returns; a model-authored field that reaches a persisted part without a
+  row here fails the suite. This is the check whose absence let three revisions each
+  forget a different field.
+- `test_every_canvas_builder_appears_in_the_coverage_table` reads the live
+  `_CANVAS_PART_BUILDERS` dispatch table; a *fifth* emit tool with no rows fails the
+  suite. W9-1's miss was a whole builder, not a field, so both omissions are gated.
+- `test_declared_coverage_matches_executed_behaviour` fires one hostile probe per
+  row and asserts the exact outcome the row claims. The `NONE` rows are probed too,
+  so "not filtered" is a *proven* statement — and adding a filter without updating
+  the table goes red as loudly as removing one.
+- `test_declared_bounds_match_the_module_constants` — every number in a `Bound` cell
+  must be the live constant's value.
+- `test_every_citation_points_at_the_line_it_names` — `L<n>` must **be** line n and
+  sit inside the named function, so a citation cannot rot into fiction as the file
+  moves.
+- `test_document_table_matches_the_declared_coverage` — the table below must equal
+  those rows cell for cell, in order.
+
+**The honest limit on that guarantee:** `.github/workflows/ci-email-listener.yml` is
+path-filtered to `apps/email-listener/**`, so a change to *this document alone* does
+not trigger CI. The suite gates every change to the emitters and every local
+`uv run pytest` — which is where all three divergences actually came from — but it is
+not a gate on the document in isolation.
+
+<!-- CANVAS-FIELD-COVERAGE:BEGIN -->
+| Tool | Field | Content filter | Bound | Enforcing line |
+|---|---|---|---|---|
+| `emit_canvas_node` | `type` | n/a -- server-authored literal | -- | L406 -- `"type": "canvas_add_node"` |
+| `emit_canvas_node` | `handle` | refuses part -- pollution key | -- | L392 -- `handle in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_node` | `nodeType` | refuses part -- unsafe object index | -- | L394 -- `_is_unsafe_object_index_value(node_type)` |
+| `emit_canvas_node` | `data` | refuses part -- spec/root at top level | -- | L352 -- `key in data for key in _CANVAS_NODE_DATA_RESERVED_KEYS` |
+| `emit_canvas_node` | `data` | refuses part -- pollution key at any depth | depth <= 12 | L354 -- `return _has_forbidden_key_deep(data)` |
+| `emit_canvas_node` | `position` | refuses part -- pollution key at any depth | depth <= 12 | L412 -- `if _has_forbidden_key_deep(position):` |
+| `emit_canvas_connect` | `type` | n/a -- server-authored literal | -- | L431 -- `"type": "canvas_connect"` |
+| `emit_canvas_connect` | `sourceHandle` | refuses part -- pollution key | -- | L437 -- `part["sourceHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_connect` | `targetHandle` | refuses part -- pollution key | -- | L437 -- `part["targetHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_connect` | `sourcePath` | refuses part -- pollution segment | -- | L439 -- `_has_forbidden_path_segment(part["sourcePath"])` |
+| `emit_canvas_connect` | `targetKey` | refuses part -- pollution segment | -- | L439 -- `_has_forbidden_path_segment(part["targetKey"])` |
+| `emit_code_island` | `type` | n/a -- server-authored literal | -- | L596 -- `"type": "canvas_code_island"` |
+| `emit_code_island` | `intent` | NONE | <= 4096 chars | L583 -- `intent = intent[:_CODE_ISLAND_MAX_INTENT_CHARS].rstrip()` |
+| `emit_code_island` | `selectedNodeKeys` | refuses part -- empty survivor set | <= 32 keys | L587 -- `if not selected:` |
+| `emit_code_island` | `selectedNodeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputBindings` | refuses part -- empty survivor set | <= 16 entries | L590 -- `if not bindings:` |
+| `emit_code_island` | `inputBindings.<k>` | drops entry -- pollution key | -- | L476 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputBindings.<k>.sourceNodeKey` | drops entry -- pollution key | -- | L484 -- `if source_node_key in _FORBIDDEN_MANIFEST_KEYS:` |
+| `emit_code_island` | `inputBindings.<k>.sourcePath` | drops entry -- pollution segment | -- | L488 -- `if _has_forbidden_path_segment(source_path):` |
+| `emit_code_island` | `inputs` | refuses part -- empty survivor set | <= 16 entries | L593 -- `if not inputs:` |
+| `emit_code_island` | `inputs.<k>` | drops entry -- pollution key | -- | L550 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputs.<k>.kind` | drops entry -- pollution key | -- | L528 -- `kind in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputs.<k>.columns` | omits field -- non-list | <= 64 keys | L532 -- `if isinstance(columns, list):` |
+| `emit_code_island` | `inputs.<k>.columns[]` | drops element -- pollution key | -- | L533 -- `cleaned["columns"] = _clean_key_list(columns, _CODE_ISLAND_MAX_COLUMNS)` |
+| `emit_code_island` | `inputs.<k>.rowCount` | omits field -- non-int, bool, or negative | -- | L536 -- `isinstance(row_count, int) and not isinstance(row_count, bool) and row_count >= 0` |
+| `emit_code_island` | `inputs.<k>.sample` | omits field -- non-list | <= 5 rows | L539 -- `if isinstance(sample, list):` |
+| `emit_code_island` | `inputs.<k>.sample[]` | drops element -- pollution key at any depth | depth <= 12 | L540 -- `row for row in sample if not _has_forbidden_key_deep(row)` |
+| `emit_canvas_recipe` | `type` | n/a -- server-authored literal | -- | L641 -- `"type": "canvas_recipe"` |
+| `emit_canvas_recipe` | `name` | refuses part -- pollution key (checked after strip/cap) | <= 120 chars | L634 -- `if not name or name in _FORBIDDEN_MANIFEST_KEYS:` |
+| `emit_canvas_recipe` | `nodeKeys` | refuses part -- empty survivor set | <= 32 keys | L637 -- `if not node_keys:` |
+| `emit_canvas_recipe` | `nodeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_recipe` | `edgeKeys` | NONE | <= 64 keys | L639 -- `edge_keys = _clean_key_list(raw.get("edgeKeys"), _CANVAS_RECIPE_MAX_EDGE_KEYS)` |
+| `emit_canvas_recipe` | `edgeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_recipe` | `sourceRef` | omits field -- pollution key at any depth | <= 2048 serialized chars, depth <= 12 | L649 -- `and not _has_forbidden_key_deep(source_ref)` |
+<!-- CANVAS-FIELD-COVERAGE:END -->
+
+**What the table says is NOT covered, stated plainly rather than glossed:**
+
+- **`intent` has no content filter** — only the 4096-char bound. It is free prose the
+  model writes for the code generator, not an identifier or an index, and the web
+  consumes it as a string (`agent-code-island-reconcile.ts` trims it and passes it to
+  `codeIslands.create`). The bound is parity with that mutation's
+  `intent: z.string().min(1).max(4096)`, not a new invention.
+- **`edgeKeys` may legitimately be empty**, so unlike `nodeKeys` / `selectedNodeKeys`
+  an all-rejected list does not fail the part closed; the surviving list is simply
+  empty. Its *elements* are filtered (next row).
+- **No length cap on `handle`, `nodeType`, `sourceHandle`, `targetHandle`,
+  `sourcePath` or `targetKey`, and no serialized-size cap on `data`.** The tRPC
+  persist boundary has none either (`canvas-schema.ts` bounds node/edge *counts* and
+  `sharedState` size, not these), so this is a known, shared gap, not an emitter
+  oversight. `_CANVAS_DATA_MAX_DEPTH` bounds `data`'s *nesting* only.
+- **`handle` / `sourceHandle` / `targetHandle` / `name` are filtered with no proven
+  live vector.** See Fix 4 and Fix 6 — consistency and defence in depth, said as
+  such.
+- The filters are **exact string membership**, not normalization-aware, with one
+  exception: `name` is checked *after* `strip()` and the 120-char cap, so
+  `"  __proto__  "` is refused. That asymmetry is pinned by its row's probe.
 
 ### 1.3 Generated-code execution (the `exec` tier)
 
@@ -100,11 +204,14 @@ attacker-influenced data, not trusted input.
 
 ## 2. What was actually wrong
 
-Four findings, all the same shape: **a real containment property that no code
+Five findings, all the same shape: **a real containment property that no code
 checked.** Finding C and the first three corrections marked §2.1 come from the
 hostile review of this document's own first draft; Finding D and correction 4 come
-from the hostile review of the revision that shipped Finding C's fix — see §2.1
-before trusting any row above.
+from the hostile review of the revision that shipped Finding C's fix; Finding E and
+correction 5 from the hostile review of the revision that shipped Finding D's fix.
+Note where that chain ends up: findings A–D are about *code* that claimed more than
+it enforced, and Finding E is about *this document* doing the same thing, three times
+running. See §2.1 before trusting any row above.
 
 ### Finding A — the read-only tool tier was documented, not enforced (path 1)
 
@@ -180,11 +287,48 @@ classified by the guard it MOSTLY has**, and two consecutive sweeps of the *same
 function* each stopped at the fields they had already been thinking about. Closed in
 Fix 4.
 
+### Finding E — the claim itself was the defect (W13-1)
+
+The W12-1 revision fixed Finding D in code and then wrote, in §4 P3: *"As of W12-1 all
+four canvas builders filter **every** model-authored field they carry — key
+positions, dotted-path positions, and the two plain-index value positions."* One
+command against that committed tree:
+
+```
+build_canvas_part("emit_code_island",
+  '{"intent":"x","selectedNodeKeys":["n1"],
+    "inputBindings":{"t":{"sourceNodeKey":"n1","sourcePath":"data.rows"}},
+    "inputs":{"k":{"kind":"__proto__"}}}')
+-> {... "inputs": {"k": {"kind": "__proto__"}} ...}
+
+build_canvas_part("emit_canvas_recipe", '{"name":"__proto__","nodeKeys":["n1"]}')
+-> {"type":"canvas_recipe","name":"__proto__","nodeKeys":["n1"],"edgeKeys":[]}
+```
+
+`kind` sat two lines above the `columns` filter whose own docstring said "`columns`
+and `sample` are model-authored too" — and forgot that `kind` is as well. `name` sat
+in the same builder as the `nodeKeys`/`edgeKeys` list its sibling filter cleans.
+W12-1's stated reason for filtering `handle` ("same identifier space as
+`_clean_key_list`, so filter it for consistency even with no live vector") applied
+verbatim to both, and was not applied to either.
+
+Two other divergences of the same family were open in that tree and are closed with
+it: `intent` was the only model-authored text field on any canvas part with **no**
+bound (the `codeIslands.create` zod gate bounds it at 4096, so an over-long intent
+made the agent's island silently never materialize — availability, not pollution),
+and `columns` accepted the empty string where `_clean_key_list` — same identifier
+space, same file — dropped it.
+
+But the *finding* is not those three fields. It is that a document whose entire
+subject is "a containment claim with nothing enforcing it" had, for three revisions,
+a containment claim with nothing enforcing it. The fix is §1.2b and its test file, not
+a better sentence — see Fix 6.
+
 ### 2.1 — corrections to this document's first draft
 
 The first draft of this file shipped three claims that its own hostile review
-refuted, and the W11-1 revision shipped a fourth. They are corrected in place above;
-recorded here so the corrections are not silently absorbed:
+refuted; the W11-1 revision shipped a fourth and the W12-1 revision a fifth. They are
+corrected in place above; recorded here so the corrections are not silently absorbed:
 
 1. **"Fails closed at startup" (Fix 1) was false.** The assertion sat inside a
    dishka `Scope.APP` factory, which resolves lazily — the lifespan resolves
@@ -212,6 +356,16 @@ recorded here so the corrections are not silently absorbed:
    filtered — the lane's own Finding-C lesson (a builder classified by the guard it
    MOSTLY has) recurring one row over. **Closed in W12-1** — see Fix 4. Row 9 now
    states which fields are covered rather than asserting the row as a whole.
+5. **"As of W12-1 all four canvas builders filter **every** model-authored field they
+   carry" (W12-1 §4 P3) was false** — the *third consecutive* revision of this file
+   to ship a false completeness claim, and false about the very fix it was
+   documenting. Refuted by execution against the W12-1 tree:
+   `inputs.<k>.kind = "__proto__"` and a recipe `name = "__proto__"` both round-trip
+   verbatim (see Finding E). Note the pattern across items 2, 4 and 5: each
+   correction was a *broader* sentence than the one it replaced, and each was refuted
+   by one command. **Closed in W13-1** by deleting the sentence and replacing it with
+   §1.2b's per-field table plus the test that regenerates and re-proves it — see
+   Fix 6.
 
 ---
 
@@ -219,7 +373,7 @@ recorded here so the corrections are not silently absorbed:
 
 All TDD, all RED-checked (guard temporarily removed → the new tests fail → restored).
 Fixes 1–2 shipped in W9-1; Fix 3 and the amendments to Fix 1 shipped in W11-1;
-Fixes 4–5 shipped in W12-1.
+Fixes 4–5 shipped in W12-1; Fix 6 shipped in W13-1.
 
 ### Fix 1 — the read-tier gate (Finding A), amended in W11-1
 
@@ -396,6 +550,77 @@ it was trusted to protect.
   post-restore attribute set instead of one callable.
   **RED-check:** gate call moved below the definitions → 1 fail. Restored.
 
+### Fix 6 — the table, and the test that makes the document unable to lie (Finding E, W13-1)
+
+The three fields first, because they are cheap and they remove the inconsistency the
+finding named. All in `run_chat_turn_tool_loop.py`:
+
+- `_clean_manifest_entry` — `kind` takes the `_FORBIDDEN_MANIFEST_KEYS` refusal
+  `handle` took in W12-1, with the same honesty: **no live vector**. The web never
+  reads `part.inputs` at all — `collectAgentCodeIslandPlans` re-derives the manifest
+  from the user's own live canvas (`agent-code-island-reconcile.ts`), and the TS
+  `ToolInputManifestEntry` is `{label?, nodeType?, fields?, rowCount?}`
+  (`build-tool-flow.ts:54-59`) — it has no `kind`, `columns` or `sample` member. This
+  is consistency, not a fix for a proven break.
+- `_clean_manifest_entry` — `columns` no longer has its own hand-rolled filter; it
+  **is** `_clean_key_list` now, so the two cannot diverge again. Deltas: the empty
+  string is dropped (it was accepted), and duplicates collapse.
+- `_build_canvas_recipe_part` — `name` takes the same refusal, checked **after**
+  strip/cap so `"  __proto__  "` cannot walk past it. Again no live vector: the web's
+  by-name dedupe reads the value through a `Set` (`agent-recipe-reconcile.ts:126,148`),
+  never an object index.
+- `_build_canvas_code_island_part` — `intent` is truncated to
+  `_CODE_ISLAND_MAX_INTENT_CHARS = 4096`, **parity** with `codeIslands.create`'s
+  `intent: z.string().min(1).max(4096)`, which the web feeds without a re-cap of its
+  own (`chat-canvas.tsx:1302,1306`; contrast `agent-recipe-reconcile.ts:55`, which
+  does re-cap the recipe name). Truncation, not refusal — the island still lands.
+- `_build_canvas_add_node_part` — `data` and `position` are stored as `dict(...)`
+  copies, finishing what W12-2 started on `sourceRef`. All three model-authored
+  subtrees now behave identically; no live aliasing existed in any of them (`raw` is
+  function-local).
+
+Then the part that actually closes the finding —
+`tests/application/test_canvas_emitter_field_coverage.py`, 34 declared rows and five
+tests over them (listed in §1.2b). The load-bearing one is
+`test_derived_field_set_matches_the_declared_rows`: it **executes** each builder,
+walks the part that comes back, and fails if any field in it has no row. That is the
+check whose absence let W9-1 miss a whole builder, W11-1 miss two fields and W12-1
+miss two more — each sweep re-examined the fields it was already thinking about, and
+nothing made it enumerate.
+
+Two deliberate choices worth stating:
+
+- The `NONE` rows (`intent`, `edgeKeys`) are probed like every other row. "Not
+  filtered" is therefore a checked assertion, not an unexamined blank — the failure
+  mode of the last review's redaction test (a guard whose test only covers the case
+  where it cannot fail) does not repeat here.
+- The `Enforcing line` cells are verified as *line numbers*: `L392` must be line 392
+  and must contain the quoted snippet and sit inside the named function. Citations
+  rot silently otherwise, and this file's citations are its whole evidentiary value.
+
+**RED-checks.** Each guard removed individually, the **whole** listener suite run,
+guard restored, suite re-run green. Counts are `FAILED` lines, verbatim:
+
+| Guard removed | Failures | Which |
+|---|---|---|
+| `kind in _FORBIDDEN_MANIFEST_KEYS` | 3 | the row's probe, the row's citation, `test_manifest_entry_with_a_pollution_kind_is_dropped` |
+| `name in _FORBIDDEN_MANIFEST_KEYS` | 3 | the row's probe, the row's citation, `test_recipe_name_refuses_a_pollution_key_after_trimming` |
+| `columns` reverted to the hand-rolled comprehension | 2 | the row's citation, `test_manifest_columns_drop_empty_strings_and_duplicates` |
+| the `intent` truncation (3 lines deleted) | 13 | 3 intent tests + **10 citation rows below the deletion**, because every `L<n>` after it shifted — the line-drift check doing exactly its job |
+| `dict(data)` → `data` | 1 | `test_build_canvas_add_node_part_does_not_alias_the_parsed_data_or_position` |
+
+And the two checks that matter most, because they RED the *forcing functions*
+themselves rather than a guard:
+
+- Added a new model-authored field (`"note": raw.get("note")`) to
+  `_build_canvas_recipe_part` → `test_derived_field_set_matches_the_declared_rows`
+  failed with `carried but undocumented: ['note']`.
+- Registered a fifth builder (`"emit_canvas_sticky"`) in `_CANVAS_PART_BUILDERS` →
+  `test_every_canvas_builder_appears_in_the_coverage_table` failed with
+  `dispatched but undocumented: ['emit_canvas_sticky']`.
+
+Those two are the failures W9-1, W11-1 and W12-1 each needed and did not have.
+
 ---
 
 ## 4. Prioritized fix list (not done here)
@@ -404,7 +629,7 @@ it was trusted to protect.
 |---|---|---|---|
 | **P1** | Extend the read-tier assertion to the **TS** side. `client-capability-registry.ts:43` states outright that all five client-invocable capabilities are `risk:"write"` and wired to real tRPC mutations; `BUILTIN_CAPABILITY_MANIFEST` carries many `write`/`exec` entries. `catalogue.ts:126-143` proves the pattern works (`readManifestEntry` throws **at module load** on `risk !== "read"`) — but nothing equivalent guards the *chat* client registry. Today the only thing keeping those five inert is the default-OFF flag from `26da8ea4`; a flag is a stronger guard than a comment, but weaker than a load-time refusal. | The mirror of Finding A on the side that actually **has** write capabilities | small |
 | **P2** | Give the confirm-card path a **server-side** arg re-read, not just disclosure. `26da8ea4` made args visible and validated; path 7 shows the strictly stronger design (model supplies a ref, server re-reads the row). Migrate the binding transport to a ref before it is ever un-flagged. | Removes model-authored args from a write path entirely | medium |
-| **P3** | Add a lint/test that any **new** `emit_*` part builder filters `_FORBIDDEN_MANIFEST_KEYS`. As of W12-1 all four canvas builders filter **every** model-authored field they carry — key positions, dotted-path positions, and the two plain-index value positions (`nodeType`, `handle`); the fifth builder will be written by someone who has not read this file. Findings C and D are the proof this is needed: the guard was already the local convention, and it still shipped incomplete **twice** — three fields in W11-1, two more in W12-1, each time found by executing the builder rather than reading it. | Findings B/C/D recur by default | small |
+| ~~P3~~ | **DONE in W13-1.** Was: "add a lint/test that any new `emit_*` part builder filters `_FORBIDDEN_MANIFEST_KEYS`". §1.2b's suite now covers both halves of that: `test_every_canvas_builder_appears_in_the_coverage_table` reads the live `_CANVAS_PART_BUILDERS` dispatch table and fails on a tool with no declared rows (builder #5 cannot arrive silently), and `test_derived_field_set_matches_the_declared_rows` fails on a *field* with no row. What it does **not** do is judge whether a new row's declared coverage is *adequate* — it forces the author to state and prove what the guard does, not to have chosen a good guard. That judgement stays human. | Findings B/C/D/E recurred by default four times | — |
 | **P3b** | Mirror `nodeDataSchema`'s remaining refinements in the emitter as they are added, or extract ONE shared contract. Two independent implementations of "what may be in `node.data`" (Python emitter, TS persist boundary) is the structure that produced Finding C. | Divergence is the bug generator | medium |
 | **P4** | Decide the `emit_canvas_node` vs registry-`canvas.addNode` divergence (carried from `NESTED-ARGS-ANALYSIS.md` §4 risk 2) — two roads to one effect, one confirm-gated and one not. | Permanent divergence otherwise | medium |
 | **P5** | `sns_inbound.py` returns 200 on any exception, so a failed ingest silently and permanently loses the email. Not injection, but the same "no enforcement behind the claim" shape, and it is the durable-worker track's stated fix. | Data loss | (Track 3a) |
@@ -419,35 +644,50 @@ it was trusted to protect.
 25 paths traced. The first draft said 24 and claimed the sweep was complete; the
 review found a whole emitter (`emit_canvas_recipe`) missing from the table and one
 row classified on evidence that execution disproved, so that completeness claim was
-not earned. It is re-stated here with what actually backs it: rows 9–12 were each
-re-derived by **running** `build_canvas_part` against a hostile payload and reading
-the output, and every row in §1.2 now has a regression test behind its
-classification. The rest of the table remains reading-based evidence, which is
-weaker — treat a row without a test as a claim, not a fact.
+not earned. Here is what is actually backed, stated at the width the evidence
+supports: **rows 9–12 only.** Each was re-derived by **running** `build_canvas_part`
+against a hostile payload and reading the output, and as of W13-1 each field of each
+of those four builders has a §1.2b row with a probe behind it and a test that fails
+if a field appears without one. Rows 1–8 and 13–25 remain reading-based evidence,
+which is weaker; the earlier claim that *every* row in §1.2 had a regression test
+behind it was never verified in this lane and is withdrawn. Treat a row without a
+test as a claim, not a fact.
 
 The codebase's defensive posture is genuinely strong — SSRF double-checks, a
 server-re-read confirm design, an opaque-origin CSP jail, a query-only procedure
 allowlist, an enum-gated MCP surface, EXTRACTED-tier writes that really do require a
-human, and untrusted-data labels on every injected context block. All four findings
+human, and untrusted-data labels on every injected context block. All five findings
 are of the *documented-but-unchecked* kind, which is exactly the class the
 predecessor bug taught us to hunt: not missing defenses, but defenses that exist only
 as sentences.
 
-Findings C and D are the sharpest version of the lesson, because this document
-produced both: a sweep that reads code will classify a builder by the guard it
+Findings C, D and E are the sharpest version of the lesson, because this document
+produced all three: a sweep that reads code will classify a builder by the guard it
 *mostly* has. Only executing it showed which fields were actually covered — and it
-took **two** hostile reviews of the *same function* to reach every field, because
-each sweep re-checked the fields it was already thinking about. Likewise, the guards
-added by Findings A and B were themselves held in place by nothing until the review
-deleted their call sites and watched every suite stay green — so each call site now
-has a test that goes red without it.
+took **three** hostile reviews of the *same four functions* to reach every field,
+because each sweep re-checked the fields it was already thinking about. Likewise, the
+guards added by Findings A and B were themselves held in place by nothing until the
+review deleted their call sites and watched every suite stay green — so each call
+site now has a test that goes red without it.
 
-All four are now sentences with code behind them, and every guard has a
-remove-it-and-watch-it-fail check recorded above.
+Every guard this document claims has a remove-it-and-watch-it-fail check recorded
+above. As of W13-1 the *document* has one too: §1.2b was written out of the test's
+declared rows and is asserted against executed builder behaviour on every run, so the
+completeness claim this file kept getting wrong is no longer a claim — it is a table
+that fails the suite when it stops being true. (There is no automatic regeneration
+step: the test refuses a mismatch, it does not silently repair one.)
 
-One claim in this document is deliberately **not** upgraded to ENFORCED: the handle
-fields are refused for consistency, and the honest statement is that nothing
-downstream was broken by them (`agentNodeId` namespaces every handle). Where the
-evidence is "no live vector found", this file says that rather than borrowing the
-stronger word from the field next to it. That borrowing is what produced Findings C
-and D.
+Two things this file deliberately does **not** say:
+
+- The handle fields, the recipe `name` and the manifest `kind` are **not** upgraded
+  to "closed a live vector". They are refused for consistency, and the honest
+  statement is that nothing downstream was broken by them (`agentNodeId` namespaces
+  every handle; the recipe dedupe reads names through a `Set`; the web never reads
+  `part.inputs`). Where the evidence is "no live vector found", this file says that
+  rather than borrowing the stronger word from the field next to it. That borrowing
+  is what produced Findings C, D and E.
+- §1.2b's guarantee is **not** "the document cannot be wrong". It is narrower and
+  checkable: the coverage table cannot disagree with what the four builders do, and
+  no field of theirs can reach a persisted part unlisted. Every other row of this
+  audit is still reading-based evidence — treat a row without a test as a claim, not
+  a fact.

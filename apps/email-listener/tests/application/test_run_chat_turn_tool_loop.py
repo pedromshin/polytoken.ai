@@ -8,9 +8,11 @@ import pytest
 
 from app.application.use_cases.run_chat_turn_tool_loop import (
     _CANVAS_DATA_MAX_DEPTH,
+    _CODE_ISLAND_MAX_INTENT_CHARS,
     _UNSAFE_OBJECT_INDEX_KEYS,
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
+    _build_canvas_add_node_part,
     _build_canvas_recipe_part,
     build_canvas_part,
     build_synthetic_tool_result_message,
@@ -891,6 +893,121 @@ def test_build_canvas_recipe_part_does_not_alias_the_parsed_source_ref() -> None
 
     source_ref["query"] = "MUTATED"
     assert part["sourceRef"]["query"] == "from:billing"
+
+
+# ---------------------------------------------------------------------------
+# W13-1 — the last three unfiltered model-authored fields, and the last two
+# aliased subtrees. Per-field coverage of ALL four builders (and the test that
+# keeps docs/INJECTION-SURFACE-AUDIT.md §1.2b honest) lives in
+# tests/application/test_canvas_emitter_field_coverage.py; these are the named
+# regression + behaviour-preserving tests for the individual guards.
+# ---------------------------------------------------------------------------
+
+
+def _island_raw(**overrides: object) -> str:
+    """A minimal VALID emit_code_island payload, with fields overridden per test."""
+    payload: dict[str, object] = {
+        "intent": "chart the rows",
+        "selectedNodeKeys": ["n1"],
+        "inputBindings": {"t": {"sourceNodeKey": "n1", "sourcePath": "data.rows"}},
+        "inputs": {"t": {"kind": "table"}},
+    }
+    payload.update(overrides)
+    return json.dumps(payload)
+
+
+@pytest.mark.unit
+def test_code_island_intent_is_truncated_to_the_trpc_bound() -> None:
+    """An over-long intent is CUT, not refused — the island still materializes.
+
+    Before this the part carried the model's full string and `codeIslands.create`
+    (`intent: z.string().min(1).max(4096)`) rejected it, so the agent's island
+    silently never appeared. Availability, not pollution.
+    """
+    part = build_canvas_part("emit_code_island", _island_raw(intent="z" * 100_000))
+    assert part is not None
+    assert len(part["intent"]) == _CODE_ISLAND_MAX_INTENT_CHARS
+
+
+@pytest.mark.unit
+def test_code_island_intent_under_the_cap_is_untouched() -> None:
+    """Behaviour-preserving: an ordinary intent round-trips byte-identically."""
+    part = build_canvas_part("emit_code_island", _island_raw(intent="  chart the weekly rows  "))
+    assert part is not None
+    assert part["intent"] == "  chart the weekly rows"
+
+
+@pytest.mark.unit
+def test_code_island_intent_of_only_whitespace_fails_the_part_closed() -> None:
+    """`" " * n` would emit `""` after the cap's rstrip — which the tRPC min(1) rejects."""
+    assert build_canvas_part("emit_code_island", _island_raw(intent="    ")) is None
+
+
+@pytest.mark.unit
+def test_manifest_entry_with_a_pollution_kind_is_dropped() -> None:
+    """`kind` is model-authored and sat two lines above the `columns` filter that said so."""
+    raw = _island_raw(
+        inputs={"bad": {"kind": "__proto__"}, "ok": {"kind": "table"}},
+        inputBindings={
+            "bad": {"sourceNodeKey": "n1", "sourcePath": "data.rows"},
+            "ok": {"sourceNodeKey": "n1", "sourcePath": "data.cols"},
+        },
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert "bad" not in part["inputs"]
+    assert part["inputs"]["ok"] == {"kind": "table"}
+
+
+@pytest.mark.unit
+def test_manifest_entry_keeps_an_ordinary_kind() -> None:
+    """Behaviour-preserving: exact membership, so `constructorless` is NOT a pollution key."""
+    part = build_canvas_part("emit_code_island", _island_raw(inputs={"t": {"kind": "constructorless"}}))
+    assert part is not None
+    assert part["inputs"]["t"]["kind"] == "constructorless"
+
+
+@pytest.mark.unit
+def test_manifest_columns_drop_empty_strings_and_duplicates() -> None:
+    """`columns` IS `_clean_key_list` now — same identifier space, same rules, one function."""
+    raw = _island_raw(inputs={"t": {"kind": "table", "columns": ["", "a", "a", "__proto__", "b"]}})
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputs"]["t"]["columns"] == ["a", "b"]
+
+
+@pytest.mark.unit
+def test_recipe_name_refuses_a_pollution_key_after_trimming() -> None:
+    """The check runs AFTER strip/cap, so padding cannot walk a pollution name past it."""
+    assert build_canvas_part("emit_canvas_recipe", json.dumps({"name": "   __proto__   ", "nodeKeys": ["n1"]})) is None
+
+
+@pytest.mark.unit
+def test_recipe_name_keeps_a_name_that_merely_contains_a_pollution_word() -> None:
+    """Behaviour-preserving: exact membership, not substring — a real name survives."""
+    raw = json.dumps({"name": "__proto__ audit digest", "nodeKeys": ["n1"]})
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert part["name"] == "__proto__ audit digest"
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_does_not_alias_the_parsed_data_or_position() -> None:
+    """Finishes W12-2 on the two subtrees it left aliased; same rule, same reason."""
+    data = {"label": "Q3"}
+    position = {"x": 1, "y": 2}
+    part = _build_canvas_add_node_part({"handle": "h", "nodeType": "spreadsheet", "data": data, "position": position})
+
+    assert part is not None
+    assert part["data"] == data
+    assert part["data"] is not data
+    assert part["position"] == position
+    assert part["position"] is not position
+
+    data["label"] = "MUTATED"
+    position["x"] = 999
+    assert part["data"]["label"] == "Q3"
+    assert part["position"]["x"] == 1
 
 
 # ---------------------------------------------------------------------------
