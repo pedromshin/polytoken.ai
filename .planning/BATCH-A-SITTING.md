@@ -11,19 +11,35 @@
   (`/reload-plugins` doesn't exist in the VSCode env — fresh session is the mechanism) AND the
   `.claude/settings.local.json` allowlist (which may clear several classifier blocks below).
 
-## 1 · Staging DB repair (2 min, from repo root)
+## 1 · Staging DB repair — ✅ **DONE 2026-08-07**
 ```
-node scripts/staging-repair.mjs --yes
-npm run db:migrate:staging
+node scripts/staging-repair.mjs --yes     # "61 rows recorded / Nothing pending"
+npm run db:migrate:staging                # green, 44 tables
 ```
-Second command must finish green with nothing pending. (Dry-run verified ×2; prod-ref refusal armed;
-installs graphile_worker schema on staging as part of the run.)
+**Independently verified read-only afterwards** — staging is ALL GREEN: `graphile_worker` schema
+present (5 tables), `public.enqueue_job(text,jsonb,integer,text)` exists, **all 7 allowlist
+identifiers** present (`ingest_inbound_email`, `deep_research`, `assemble_morning_board`,
+`dispatch_morning_boards`, `cascade_relabel`, `recompute_canvas_recipe`,
+`dispatch_recipe_recomputes`), journal reconciled 61/61.
+
+> ⚠️ **Correction to this step's old claim.** It said the repair "installs graphile_worker schema
+> as part of the run." It does not, on this path: `staging-repair.mjs` `process.exit(0)`s at
+> *"Nothing pending"* **before** the graphile check ever runs. Staging happened to already have the
+> schema, so the outcome was right by luck, not by mechanism. If you ever rebuild staging, install
+> the schema explicitly (`apps/worker/dist/install-schema.js`) — do not rely on the repair script.
 
 ## 2 · Prod migration 0061 (5 min)
-1. GitHub → repo Settings → Environments → **production** → add 3 secrets (values = your current
-   `.env.production`; format in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §3 — non-pooling URL needs
-   `?uselibpqcompat=true&sslmode=require`): `PROD_POSTGRES_URL_NON_POOLING`, `PROD_POSTGRES_URL`,
-   `PROD_SUPABASE_URL`.
+1. Publish the 3 secrets into the GitHub **Production** environment (values from your
+   `.env.production`; the pooler needs `?uselibpqcompat=true&sslmode=require` appended — the agent
+   is classifier-blocked from doing this, so it is scripted):
+   ```
+   pwsh -File scripts/set-prod-env-secrets.ps1          # dry run — shows what it would set
+   pwsh -File scripts/set-prod-env-secrets.ps1 -Apply   # writes PROD_POSTGRES_URL_NON_POOLING,
+                                                        # PROD_POSTGRES_URL, PROD_SUPABASE_URL
+   ```
+   It refuses any value lacking the prod project ref, pipes via stdin (never a command line), and
+   prints names/lengths only. **If the run reports a stale password later**, reset it in Supabase
+   and re-run with `-Apply` — the secrets are overwritten in place.
 2. **Schema first** (hard order — 0061 RAISEs without it), from repo root:
    `node apps/worker/dist/install-schema.js` with prod `GRAPHILE_WORKER_CONNECTION_STRING`/DB URL
    env (session-mode :5432 URL — see runsheet §CUT-04 in
