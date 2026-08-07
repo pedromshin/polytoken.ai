@@ -64,7 +64,32 @@ verified read-only `ALLOWLIST: 7/7`, `GRANT: service_role EXECUTE = YES`.
 and must NEVER be applied (0054 would downgrade the live allowlist to 4 identifiers). Full
 reasoning in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §3.
 
-## ⚠️ §3 BLOCKER FOUND 2026-08-07 — staging ECS runs **desiredCount = 0**
+## ✅ §3 STAGING LEG DONE 2026-08-07 — the durable worker is LIVE on staging
+Sequence executed: staging scaled 0→1 (Pedro) → `terraform plan` re-verified after CI's
+out-of-band task-def revision (still **exactly** the 3 allowed changes) → apply → service stable.
+Live state: task def `…-staging:4`, containers `email-listener` (essential, **HEALTHY**) and
+`email-worker` (essential=false, RUNNING) on a shared 256/512 task; ALB health **HTTP 200**.
+Worker log: `Worker connected and looking for jobs... (task names: 'ingest_inbound_email',
+'assemble_morning_board', 'dispatch_morning_boards', 'cascade_relabel',
+'recompute_canvas_recipe', 'dispatch_recipe_recomputes')`.
+
+### 🔎 Two findings from the first roll — neither is a regression, both matter later
+1. **`deep_research` is in the DB allowlist but the worker does NOT register it.** `enqueue_job`
+   accepts 7 identifiers; the worker registered **6**. Anything that enqueues `deep_research`
+   through the guarded seam would sit in the queue with no handler. Confirm it is listener-side
+   by design (likely) or add the task — before anything starts enqueueing it.
+2. **Cron is DISABLED:** `Failed to read crontab file '/app/crontab'; cron is disabled`. Harmless
+   today (`MORNING_BOARD_ENABLED=false`, `RECIPE_RECOMPUTE_ENABLED=false`), but
+   `dispatch_morning_boards` and `dispatch_recipe_recomputes` are **cron-fired fan-outs** — when
+   those flags flip, they will never fire until the image ships a crontab. Flipping the flags
+   without fixing this yields a silent no-op, not an error.
+
+### ⚠️ Remember to scale staging back down when the rehearsal is finished
+```
+aws ecs update-service --cluster nauta-services-email-listener --service nauta-services-email-listener-staging --desired-count 0 --region us-east-1
+```
+
+## ⚠️ §3 context — staging ECS normally runs **desiredCount = 0**
 `aws ecs describe-services` → staging `desired:0 running:0` (prod `desired:1 running:1`). That is
 the documented cost optimisation, and it has two consequences the runsheet does not account for:
 1. **The staging deploy workflow can never go green.** Its smoke test curls the staging ALB and
