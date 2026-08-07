@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Mapping
+from types import MappingProxyType
 
 import httpx
 from dishka import Provider
@@ -24,6 +25,8 @@ from supabase import Client
 
 from app.application.capabilities.registry import (
     CapabilityRegistry,
+    Risk,
+    assert_declared_model_callable_read_only,
     assert_model_callable_read_only,
     define_capability,
 )
@@ -34,7 +37,10 @@ from app.application.use_cases.confirm_action_dispatch import (
     UnsupportedConfirmActionHandler,
 )
 from app.application.use_cases.promote_edge import PromoteEdgeUseCase
-from app.application.use_cases.research.deep_research import define_research_capability
+from app.application.use_cases.research.deep_research import (
+    DEEP_RESEARCH_TOOL_NAME,
+    define_research_capability,
+)
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.run_chat_turn_confirm_action import (
     SUGGESTION_KIND_EDGE_TIER_PROMOTION,
@@ -76,23 +82,59 @@ from app.infrastructure.supabase.entity_resolution_repository import SupabaseEnt
 from app.infrastructure.supabase.knowledge_graph_repository import SupabaseKnowledgeGraphRepository
 from app.infrastructure.tools.duckduckgo_search_provider import DuckDuckGoSearchProvider
 from app.infrastructure.tools.lookup_entity_executor import (
+    LOOKUP_ENTITY_TOOL_NAME,
     LookupEntityExecutor,
     build_lookup_entity_tool,
 )
 from app.infrastructure.tools.search_emails_executor import (
+    SEARCH_EMAILS_TOOL_NAME,
     SearchEmailsExecutor,
     build_search_emails_tool,
 )
 from app.infrastructure.tools.search_knowledge_executor import (
+    SEARCH_KNOWLEDGE_TOOL_NAME,
     SearchKnowledgeExecutor,
     build_search_knowledge_tool,
 )
 from app.infrastructure.tools.web_search_executor import (
+    WEB_SEARCH_TOOL_NAME,
     WebSearchExecutor,
     build_web_search_tool,
     fetch_page_via_httpx,
 )
 from app.settings import get_settings
+
+# ---------------------------------------------------------------------------
+# W9-1 read-tier gate, import-time half
+# ---------------------------------------------------------------------------
+# Every capability declared below is projected straight into the model's tool
+# offer and awaited BY NAME in run_chat_turn_server_rounds.py with no risk check
+# at the call site -- and the model's tool choice is influenced by content an
+# attacker can author (inbound mail bodies, web_search / deep_research page
+# text). "They are all read" used to be a comment in registry.py.
+#
+# This table is that claim as data, and the call below is what enforces it. It
+# runs at MODULE IMPORT: app/main.py:97 builds the ASGI app at module scope,
+# app/main.py:12 imports app.container, and app/container.py:19-21 imports this
+# module -- so a declared write/exec tier raises while uvicorn is importing the
+# app, before a port is bound and before /health can answer. (This is the shape
+# apps/mcp-server/src/catalogue.ts already uses on the TS side: readManifestEntry
+# throws at module load rather than at first call.)
+#
+# The BUILT registry is checked separately, against this table, inside
+# _provide_run_chat_turn -- see the comment at that call site for what that half
+# does and does not cover.
+MODEL_CALLABLE_CAPABILITY_RISK: Mapping[str, Risk] = MappingProxyType(
+    {
+        LOOKUP_ENTITY_TOOL_NAME: "read",
+        SEARCH_EMAILS_TOOL_NAME: "read",
+        SEARCH_KNOWLEDGE_TOOL_NAME: "read",
+        WEB_SEARCH_TOOL_NAME: "read",
+        DEEP_RESEARCH_TOOL_NAME: "read",
+    }
+)
+
+assert_declared_model_callable_read_only(MODEL_CALLABLE_CAPABILITY_RISK)
 
 
 def _provide_run_chat_turn(
@@ -300,18 +342,24 @@ def _provide_run_chat_turn(
             ),
         ]
     )
-    # W9-1 (untrusted-content -> privileged-sink audit): the ENFORCED read-tier
-    # gate. Every capability above is projected straight into the model's tool
-    # offer and awaited by name in run_chat_turn_server_rounds.py with no risk
-    # check at the call site -- and the model's tool choice is influenced by
-    # content an attacker can author (inbound mail bodies, web_search /
-    # deep_research page text). "They are all read" used to be a comment in
-    # registry.py; this call is what makes it true. A write/exec capability
-    # added here now fails CLOSED at startup instead of silently becoming a
-    # directly-injectable sink -- it must arrive with a confirm gate instead
-    # (the emit_confirm_action shape: model supplies a ref, server re-reads it,
-    # human approves).
-    assert_model_callable_read_only(chat_capabilities)
+    # W9-1 read-tier gate, wiring-time half. This checks the REAL risk values on
+    # the BUILT capabilities, and that they agree with the import-time table
+    # above (an undeclared id, or one whose real risk differs from the declared
+    # one, raises -- otherwise the table could drift and the import-time gate
+    # would be checking a fiction).
+    #
+    # TIMING, precisely: this factory is bound at dishka Scope.APP
+    # (register() below, container.py), and dishka instantiates lazily -- the
+    # lifespan resolves nothing, so this first runs on container.get(RunChatTurn),
+    # i.e. the first POST /v1/chat/stream. It is NOT a startup check; the startup
+    # check is assert_declared_model_callable_read_only at module scope above.
+    # What this half guarantees is that no non-read executor is ever reachable
+    # from the loop: RunChatTurn is never constructed if one is present.
+    #
+    # A write/exec capability must arrive with a confirm gate instead (the
+    # emit_confirm_action shape: model supplies a ref, server re-reads it, human
+    # approves), registered somewhere these assertions do not cover.
+    assert_model_callable_read_only(chat_capabilities, declared=MODEL_CALLABLE_CAPABILITY_RISK)
     return RunChatTurn(
         messages=messages,
         runs=runs,

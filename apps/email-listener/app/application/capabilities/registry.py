@@ -48,14 +48,29 @@ an attacker can author (inbound email bodies/subjects, `web_search` /
 COOPERATION, not enforcement. What actually makes that dispatch safe is that
 every capability reachable from it is `risk="read"`.
 
-`assert_model_callable_read_only(registry)` turns that from a documented
-property into a checked one: the composition root calls it on the chat registry
-and a `risk="write"`/`"exec"` capability added to the model-callable set now
-fails CLOSED at wiring time instead of quietly becoming an injection sink. A
-write-tier tool is not forbidden forever -- it must arrive WITH a confirm gate
-(the `emit_confirm_action` shape: the model supplies only a reference, the
-server re-reads it, a human approves) and be registered somewhere this
-assertion does not cover.
+Two functions turn that from a documented property into a checked one, and they
+run at DIFFERENT times -- the distinction matters, so it is spelled out rather
+than rounded off to "fails closed at startup":
+
+- `assert_declared_model_callable_read_only(declared)` reads a plain
+  `{capability_id: risk}` table and refuses a non-`read` tier. The composition
+  root calls it at MODULE SCOPE, so it runs when `app.main` imports
+  `app.container` -- i.e. while uvicorn is importing the ASGI app, before any
+  port is bound and before `/health` can answer. This is the import-time
+  refusal `apps/mcp-server/src/catalogue.ts` (`readManifestEntry`) already uses
+  on the TS side.
+- `assert_model_callable_read_only(registry, declared=...)` checks the BUILT
+  registry -- the real `risk` values on the real capabilities -- and, when
+  `declared` is supplied, that the built set and the declared table agree. It
+  runs inside the dishka `Scope.APP` factory, which resolves lazily: in
+  production that is the first `POST /v1/chat/stream`, NOT process start.
+
+Together: a declared write/exec tier kills the process at import; a capability
+whose real risk contradicts (or is missing from) the declared table fails the
+first chat turn closed. A write-tier tool is not forbidden forever -- it must
+arrive WITH a confirm gate (the `emit_confirm_action` shape: the model supplies
+only a reference, the server re-reads it, a human approves) and be registered
+somewhere these assertions do not cover.
 
 ## Fails closed (REG-04 / INV-5)
 
@@ -107,6 +122,24 @@ class NonReadCapabilityError(ValueError):
             "reached through a confirm gate (server re-read + human approval), never through the "
             "model's own tool choice -- untrusted content (email bodies, web/research results) "
             "influences that choice."
+        )
+        self.capability_id = capability_id
+        self.risk = risk
+
+
+class UndeclaredCapabilityError(ValueError):
+    """A built model-callable capability the import-time tier table does not cover (W9-1).
+
+    Raised by `assert_model_callable_read_only(registry, declared=...)`. Without
+    this check the declared table could drift away from the registry it claims to
+    describe, and the import-time gate would be checking a fiction.
+    """
+
+    def __init__(self, *, capability_id: str, risk: str) -> None:
+        super().__init__(
+            f"[capabilities] capability {capability_id!r} (risk={risk!r}) is offered to the model but is "
+            "absent from the declared model-callable tier table, or declares a different risk there. Add "
+            "it to that table (composition root) so the import-time read-tier gate covers it."
         )
         self.capability_id = capability_id
         self.risk = risk
@@ -271,7 +304,28 @@ class CapabilityRegistry:
 _READ_RISK: Risk = "read"
 
 
-def assert_model_callable_read_only(registry: CapabilityRegistry) -> None:
+def assert_declared_model_callable_read_only(declared: Mapping[str, Risk]) -> None:
+    """Refuse a DECLARED `{capability_id: risk}` model-callable table that is not all-`read` (W9-1).
+
+    The import-time half of the gate. It takes plain data -- no executors, no DI,
+    no I/O -- specifically so the composition root can call it at MODULE SCOPE and
+    have it run while the ASGI app is being imported, before uvicorn binds a port
+    and before `/health` can answer. Mirrors `apps/mcp-server/src/catalogue.ts`'s
+    `readManifestEntry`, which throws at module load for the same reason.
+
+    Raises `NonReadCapabilityError` naming the first non-`read` entry in
+    declaration order; returns None for an all-read (or empty) table.
+    """
+    for capability_id, risk in declared.items():
+        if risk != _READ_RISK:
+            raise NonReadCapabilityError(capability_id=capability_id, risk=risk)
+
+
+def assert_model_callable_read_only(
+    registry: CapabilityRegistry,
+    *,
+    declared: Mapping[str, Risk] | None = None,
+) -> None:
     """Refuse a registry whose capabilities are not ALL `risk="read"` (W9-1).
 
     Call this on any registry projected straight into the model's tool offer
@@ -279,6 +333,18 @@ def assert_model_callable_read_only(registry: CapabilityRegistry) -> None:
     can reach it. Raises `NonReadCapabilityError` naming the FIRST offender in
     declaration order; returns None for an all-read (or empty) registry, so it
     is a no-op for every registry shipping today.
+
+    Timing: this reads a BUILT registry, so at the composition root it runs
+    whenever that registry is built. In production the chat registry is built
+    inside a dishka `Scope.APP` factory, which resolves lazily -- on the first
+    chat turn, not at process start. `assert_declared_model_callable_read_only`
+    is the half that runs at import; see the module docstring.
+
+    `declared` (optional) is that import-time table. When supplied, every
+    capability in the registry must also appear there with the SAME risk, or
+    `UndeclaredCapabilityError` is raised -- which is what keeps the table an
+    accurate description of the real model-callable set rather than a second,
+    drifting source of truth.
 
     This is the enforcement half of INV-4: `risk` is data, and this is the code
     that reads it for the one decision that cannot be left to prose. Reads the
@@ -288,6 +354,8 @@ def assert_model_callable_read_only(registry: CapabilityRegistry) -> None:
     for entry in registry.list():
         if entry.risk != _READ_RISK:
             raise NonReadCapabilityError(capability_id=entry.id, risk=entry.risk)
+        if declared is not None and declared.get(entry.id) != entry.risk:
+            raise UndeclaredCapabilityError(capability_id=entry.id, risk=entry.risk)
 
 
 __all__ = [
@@ -300,7 +368,9 @@ __all__ = [
     "DuplicateCapabilityError",
     "NonReadCapabilityError",
     "Risk",
+    "UndeclaredCapabilityError",
     "UnknownCapabilityError",
+    "assert_declared_model_callable_read_only",
     "assert_model_callable_read_only",
     "define_capability",
 ]
