@@ -115,6 +115,24 @@ function sleep(ms: number): Promise<void> {
 }
 
 /**
+ * Single construction for both clients this helper mints (service_role admin
+ * + anon), so downstream parameter types derive from THIS call shape via
+ * `ReturnType<typeof createSeedClient>`. Typing them as the bare
+ * `ReturnType<typeof createClient>` broke on a supabase-js bump: that is the
+ * generic's DEFAULT instantiation, which stopped being assignable from real
+ * `createClient(url, key, options)` calls. The return type is deliberately
+ * inferred — pinning the `SupabaseClient<...>` generic arity is exactly the
+ * version-fragile thing this avoids.
+ */
+function createSeedClient(supabaseUrl: string, key: string) {
+  return createClient(supabaseUrl, key, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+type SeedSupabaseClient = ReturnType<typeof createSeedClient>;
+
+/**
  * mintSession — mints a magiclink + verifyOtp session, retrying on the
  * transient cross-worker invalidation race documented above. Each attempt
  * mints a FRESH link (a stale token_hash from a prior attempt is never
@@ -122,8 +140,8 @@ function sleep(ms: number): Promise<void> {
  * desynchronize rather than re-colliding on the next attempt.
  */
 async function mintSession(
-  admin: ReturnType<typeof createClient>,
-  anonClient: ReturnType<typeof createClient>,
+  admin: SeedSupabaseClient,
+  anonClient: SeedSupabaseClient,
   email: string,
 ): Promise<Session> {
   let lastError = "no session returned";
@@ -169,9 +187,7 @@ export async function seedAuthenticatedContext(
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createSeedClient(supabaseUrl, serviceRoleKey);
 
   // 1. Idempotently ensure the seed user exists — plan 49-01's preflight
   //    script normally already seeded it; never create a second user.
@@ -190,9 +206,7 @@ export async function seedAuthenticatedContext(
   //    access/refresh token pair (never a password, never a browser).
   //    Retries on the documented cross-worker magic-link invalidation race
   //    (see MAX_MINT_ATTEMPTS's doc comment above).
-  const anonClient = createClient(supabaseUrl, anonKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const anonClient = createSeedClient(supabaseUrl, anonKey);
   const session: Session = await mintSession(admin, anonClient, email);
 
   // 3. Build the EXACT @supabase/ssr cookie encoding (base64url,

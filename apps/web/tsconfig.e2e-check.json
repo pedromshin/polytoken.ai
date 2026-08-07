@@ -1,0 +1,12 @@
+{
+  // Typecheck gate for the Playwright e2e specs + helpers, which the app tsconfig deliberately
+  // EXCLUDES (they never enter the Next build). Run from apps/web:
+  //   npx tsc -p tsconfig.e2e-check.json
+  // No emit (inherited noEmit) — only tsconfig.e2e-check.tsbuildinfo is written (gitignored via
+  // the root *.tsbuildinfo rule). Imported app modules (e.g. ~/app/chat/_canvas/*) are pulled in
+  // transitively and typechecked too. NEVER wire this into `next build` or playwright configs —
+  // it is a standalone assertion that the e2e sources compile.
+  "extends": "./tsconfig.json",
+  "include": ["e2e/**/*.ts", "playwright.config.ts", "next-env.d.ts"],
+  "exclude": ["node_modules"]
+}
