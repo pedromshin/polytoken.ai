@@ -15,8 +15,9 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
+import structlog
 from postgrest.types import CountMethod
 
 from app.domain.ports.chat_repositories import ChatMessage, ChatMessageRole, ChatMessageStatus
@@ -25,7 +26,21 @@ from app.domain.services.chat_turn_cap import start_of_current_utc_month
 if TYPE_CHECKING:
     from supabase import Client
 
+logger = structlog.get_logger(__name__)
+
 _TABLE = "chat_messages"
+
+# THE dead-cap marker (vLAUNCH W9-3). count_monthly_chat_turns_used is this
+# codebase's first PostgREST `!inner` embed: if the embed ever stops resolving
+# (relationship not exposed by the schema cache, column renamed, RLS/grant
+# change) PostgREST answers 400 and this method raises — at which point
+# RunChatTurn's cap gate FAILS OPEN by design, so the free-tier cap is silently
+# dead while every suite stays green. The gate's own
+# `chat_turn_cap_check_failed_failing_open` warning cannot say WHICH read
+# failed: it wraps an asyncio.gather over the tier lookup AND this count, so a
+# broken embed is indistinguishable from a tier-resolver blip. This marker is
+# emitted at the source, names the query, and is the one string to alert on.
+CHAT_TURN_USAGE_COUNT_FAILED_EVENT: Final = "chat_turn_usage_count_query_failed"
 
 
 def _to_row(
@@ -154,21 +169,44 @@ class SupabaseChatMessageRepository:
         filter). PROPAGATES exceptions like every other method here — and a
         response missing its count RAISES too (the RunChatTurn gate fails
         open on the raise) rather than masquerading as a real count of 0.
+
+        BOTH raising paths first emit CHAT_TURN_USAGE_COUNT_FAILED_EVENT with
+        a `reason` — see that constant: the raise alone is invisible once the
+        gate fails open, so the marker is what makes a dead cap detectable.
+        The exception still PROPAGATES unchanged (log-and-reraise; the port's
+        contract and the gate's fail-open posture are untouched).
         """
         moment = now if now is not None else datetime.now(UTC)
         month_start = start_of_current_utc_month(moment)
-        result = await asyncio.to_thread(
-            lambda: (
-                self._client.table(_TABLE)
-                .select("id, chat_conversations!inner(user_id)", count=CountMethod.exact, head=True)
-                .eq("chat_conversations.user_id", user_id)
-                .eq("role", "user")
-                .eq("is_active", True)
-                .gte("created_at", month_start.isoformat())
-                .execute()
+        try:
+            result = await asyncio.to_thread(
+                lambda: (
+                    self._client.table(_TABLE)
+                    .select("id, chat_conversations!inner(user_id)", count=CountMethod.exact, head=True)
+                    .eq("chat_conversations.user_id", user_id)
+                    .eq("role", "user")
+                    .eq("is_active", True)
+                    .gte("created_at", month_start.isoformat())
+                    .execute()
+                )
             )
-        )
+        except Exception:
+            # A 400 here means the `!inner` embed itself stopped resolving —
+            # the cap is dead until this is fixed. Log loudly, then re-raise.
+            logger.exception(
+                CHAT_TURN_USAGE_COUNT_FAILED_EVENT,
+                reason="query_error",
+                user_id=user_id,
+                month_start=month_start.isoformat(),
+            )
+            raise
         if result.count is None:
+            logger.error(
+                CHAT_TURN_USAGE_COUNT_FAILED_EVENT,
+                reason="missing_exact_count",
+                user_id=user_id,
+                month_start=month_start.isoformat(),
+            )
             msg = "count_monthly_chat_turns_used: PostgREST returned no exact count (head=True)"
             raise RuntimeError(msg)
         return int(result.count)
