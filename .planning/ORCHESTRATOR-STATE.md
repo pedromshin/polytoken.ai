@@ -63,7 +63,29 @@
   **required** arg disclosure on the card, and `parseArgs` fail-closed before approve.
   Analysis + correction banner: `docs/NESTED-ARGS-ANALYSIS.md`. Recorded as **A14**.
   (Lane stall #1 was the Fable 5 model limit — session switched to Opus, relaunched once.)
-- 🔁 **Wave 0.9 IN FLIGHT (findings-derived, the recorded queue is EMPTY):** generalizing
+- 🔁 **Wave 0.9 LANDED — 1 of 3 lanes merged, 2 blocked on HIGHs (the review did its job).**
+  Merged: **live-Postgres cap-count proof** (`5dcdfb0b`) — an env-gated integration test that
+  actually exercises the `!inner` embed against real PostgREST, plus a
+  `chat_turn_usage_count_query_failed` marker at the raising source (the gate fails OPEN, so a
+  dead cap is otherwise invisible). Driver-corrected on merge (`85e6bb9d`): the lane's comment
+  claimed the gate's warning "cannot say WHICH read failed" and that a broken embed is
+  "indistinguishable" from a tier blip — **the reviewer refuted that empirically** (the gate logs
+  `exc_info` and `format_exc_info` is wired ahead of `JSONRenderer`, so the traceback names the
+  query). Corrected to the true claim (no *stable, structured, alertable* signal) — the same
+  false-load-bearing-claim class as 0.8b, caught pre-merge this time. Also made the only
+  auth.user-creating test's cleanup failure-tolerant. FULL listener gates green (coverage 92%).
+  **Blocked, NOT merged:** `lane/w9-injection-audit` (3 HIGH — chiefly "fails closed at startup"
+  is false: the read-only-tier guard sits in a dishka `Scope.APP` factory, so it runs lazily, and
+  deleting its only call site reddens nothing) and `lane/w9-flag-gate` (2 HIGH — the gate is
+  derived on the field axis but hardcoded on the class axis, and the web census misses two real
+  `process.env` read shapes, so two documented guarantees are false). Both HIGH sets are the
+  standing-lesson shape again: **an unenforced safety claim**.
+- 🔁 **Wave 0.11 IN FLIGHT (`wf_5323d32a-28a`, 6 lanes):** the two HIGH-fix lanes above (each
+  building ON TOP of its W9 branch, each guard required to ship a RED-check), plus the four
+  post-gate kits that stalled as 0.10 — `verify-wave1.mjs`, `verify-cutover.mjs`, the close kit
+  (`collect-wedge-evidence` / `fill-wedge-baseline` / `check-close-readiness`), and
+  `merge-wave.mjs` driver tooling. All kits are verify-only, prod-write-refusing, `--apply`-gated.
+- 🔁 **Wave 0.9 scope (findings-derived, the recorded queue is EMPTY):** generalizing
   last night's security class — (a) untrusted-content→privileged-sink audit across the whole
   product (`docs/INJECTION-SURFACE-AUDIT.md`, every path classified ENFORCED /
   DEPENDS-ON-MODEL-COOPERATION / UNGUARDED with contained guards where cheap), (b) a
