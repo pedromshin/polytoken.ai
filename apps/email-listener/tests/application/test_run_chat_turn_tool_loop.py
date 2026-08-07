@@ -7,8 +7,11 @@ import json
 import pytest
 
 from app.application.use_cases.run_chat_turn_tool_loop import (
+    _CANVAS_DATA_MAX_DEPTH,
+    _UNSAFE_OBJECT_INDEX_KEYS,
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
+    _build_canvas_recipe_part,
     build_canvas_part,
     build_synthetic_tool_result_message,
     build_tool_invocation_part,
@@ -187,6 +190,273 @@ def test_build_canvas_part_fail_closed_on_missing_required_fields() -> None:
 @pytest.mark.unit
 def test_build_canvas_part_unknown_tool_name_returns_none() -> None:
     assert build_canvas_part("emit_ui_spec", '{"handle": "x", "nodeType": "chat", "data": {}}') is None
+
+
+# ---------------------------------------------------------------------------
+# W9-1 — prototype-pollution parity with the sibling builders + the TS boundary
+#
+# `_clean_key_list` / `_clean_input_bindings` (code-island) already filter
+# _FORBIDDEN_MANIFEST_KEYS on their KEY positions, and the tRPC persist boundary
+# rejects the same keys at any depth (canvas-schema.ts `hasForbiddenKeyDeep`).
+# `canvas_add_node`'s free-form `data` and `canvas_connect`'s dotted paths had no
+# such filter at all -- model-authored, and the model reads untrusted email /
+# web-search content. These assert the emitter now fails closed too.
+#
+# W11-1 correction: W9-1 claimed these were the ONLY unfiltered canvas-part
+# fields. Executing the other two builders disproved that -- see the W11-1 block
+# further down for the three VALUE positions it missed.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_add_node_part_rejects_top_level_pollution_key(key: str) -> None:
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": {key: {"polluted": True}}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_nested_pollution_key() -> None:
+    """The key is reachable at ANY depth, including inside a list."""
+    nested = '{"handle": "x", "nodeType": "chat", "data": {"a": {"b": {"__proto__": {"z": 1}}}}}'
+    assert build_canvas_part("emit_canvas_node", nested) is None
+
+    in_list = '{"handle": "x", "nodeType": "chat", "data": {"rows": [{"ok": 1}, {"constructor": {}}]}}'
+    assert build_canvas_part("emit_canvas_node", in_list) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_pollution_key_in_position() -> None:
+    raw = '{"handle": "x", "nodeType": "chat", "data": {}, "position": {"x": 1, "y": 2, "__proto__": {}}}'
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_data_nested_past_the_depth_cap() -> None:
+    """An unbounded blob is refused rather than persisted verbatim into JSONB."""
+    nested: dict[str, object] = {}
+    for _ in range(40):
+        nested = {"a": nested}
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": nested})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_still_accepts_ordinary_nested_data() -> None:
+    """Behaviour-preserving: a normal nested payload is unaffected."""
+    raw = '{"handle": "sheet", "nodeType": "spreadsheet", "data": {"rows": [{"a": 1}], "meta": {"n": {"deep": 2}}}}'
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part == {
+        "type": "canvas_add_node",
+        "handle": "sheet",
+        "nodeType": "spreadsheet",
+        "data": {"rows": [{"a": 1}], "meta": {"n": {"deep": 2}}},
+    }
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field", ["sourcePath", "targetKey"])
+def test_build_canvas_connect_part_rejects_a_pollution_path_segment(field: str) -> None:
+    """Mirrors canvas-schema.ts `hasForbiddenPathSegment` on the emitting side."""
+    fields = {"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data", "targetKey": "input"}
+    fields[field] = "data.__proto__.x"
+    assert build_canvas_part("emit_canvas_connect", json.dumps(fields)) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_connect_part_still_accepts_ordinary_dotted_paths() -> None:
+    raw = '{"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data.rows.0", "targetKey": "input"}'
+    part = build_canvas_part("emit_canvas_connect", raw)
+    assert part is not None
+    assert part["sourcePath"] == "data.rows.0"
+
+
+# ---------------------------------------------------------------------------
+# W11-1 — the gaps the W9-1 review found by EXECUTING the builders
+#
+# Review HIGH #3: `emit_code_island` was classified ENFORCED, but
+# `inputBindings.<key>.sourcePath` was checked only for `isinstance(str) and
+# non-empty` -- the identically-named field on the sibling `canvas_connect`
+# builder refuses pollution segments -- and `inputs.<key>.sample` rows were
+# copied verbatim with no key filter and no depth cap.
+# Review NOTE #5: `canvas_add_node` did not mirror canvas-schema.ts's D-05
+# `spec`/`root` refusal, so an emitted node could render and then fail EVERY
+# save. `_CANVAS_DATA_MAX_DEPTH` is a NEW bound (no downstream equivalent), so
+# its exact boundary is pinned here rather than asserted in a comment.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["spec", "root"])
+def test_build_canvas_add_node_part_rejects_reserved_layout_keys(key: str) -> None:
+    """Parity with canvas-schema.ts `nodeDataSchema`'s D-05 refinement."""
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": {key: {"anything": 1}}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_allows_reserved_key_names_below_the_top_level() -> None:
+    """Behaviour-preserving: the TS refinement is `!("spec" in data)` -- TOP-LEVEL only."""
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": {"meta": {"spec": 1, "root": 2}}})
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part is not None
+    assert part["data"] == {"meta": {"spec": 1, "root": 2}}
+
+
+@pytest.mark.unit
+def test_canvas_data_depth_cap_boundary_is_exact() -> None:
+    """Pins _CANVAS_DATA_MAX_DEPTH: 12 levels accepted, 13 refused."""
+
+    def _chain(levels: int) -> str:
+        nested: dict[str, object] = {}
+        for _ in range(levels):
+            nested = {"a": nested}
+        return json.dumps({"handle": "x", "nodeType": "chat", "data": nested})
+
+    assert build_canvas_part("emit_canvas_node", _chain(_CANVAS_DATA_MAX_DEPTH)) is not None
+    assert build_canvas_part("emit_canvas_node", _chain(_CANVAS_DATA_MAX_DEPTH + 1)) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("bad_path", ["data.__proto__.polluted", "constructor", "a.prototype.b"])
+def test_build_code_island_part_drops_a_binding_with_a_pollution_path_segment(bad_path: str) -> None:
+    """The binding is dropped; with no clean binding left the whole part fails closed."""
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": bad_path}},
+            "inputs": {"rows": {"kind": "table"}},
+        }
+    )
+    assert build_canvas_part("emit_code_island", raw) is None
+
+
+@pytest.mark.unit
+def test_build_code_island_part_keeps_the_clean_binding_beside_a_polluted_one() -> None:
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {
+                "rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows"},
+                "evil": {"sourceNodeKey": "agent:sheet", "sourcePath": "data.__proto__.x"},
+            },
+            "inputs": {"rows": {"kind": "table"}, "evil": {"kind": "table"}},
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputBindings"] == {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows"}}
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["__proto__", "constructor", "prototype"])
+def test_build_code_island_part_drops_a_binding_with_a_pollution_source_node_key(key: str) -> None:
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": key, "sourcePath": "published.rows"}},
+            "inputs": {"rows": {"kind": "table"}},
+        }
+    )
+    assert build_canvas_part("emit_code_island", raw) is None
+
+
+@pytest.mark.unit
+def test_build_code_island_part_drops_polluted_sample_rows() -> None:
+    """Sample rows were persisted VERBATIM -- pollution keys at any depth are now dropped."""
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows"}},
+            "inputs": {
+                "rows": {
+                    "kind": "table",
+                    "sample": [
+                        {"__proto__": {"polluted": True}},
+                        {"a": {"b": {"constructor": {}}}},
+                        {"ok": 1},
+                    ],
+                }
+            },
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputs"]["rows"]["sample"] == [{"ok": 1}]
+
+
+@pytest.mark.unit
+def test_build_code_island_part_drops_over_deep_sample_rows() -> None:
+    nested: dict[str, object] = {}
+    for _ in range(_CANVAS_DATA_MAX_DEPTH + 5):
+        nested = {"a": nested}
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows"}},
+            "inputs": {"rows": {"kind": "table", "sample": [nested, {"ok": 1}]}},
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputs"]["rows"]["sample"] == [{"ok": 1}]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["__proto__", "constructor", "prototype"])
+def test_build_code_island_part_drops_pollution_column_names(key: str) -> None:
+    """Columns become object keys downstream -- filtered exactly as _clean_key_list filters."""
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows"}},
+            "inputs": {"rows": {"kind": "table", "columns": ["a", key, "b"]}},
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part is not None
+    assert part["inputs"]["rows"]["columns"] == ["a", "b"]
+
+
+@pytest.mark.unit
+def test_build_code_island_part_still_accepts_ordinary_bindings_columns_and_samples() -> None:
+    """Behaviour-preserving: an ordinary island payload is unaffected by all of the above."""
+    raw = json.dumps(
+        {
+            "intent": "chart it",
+            "selectedNodeKeys": ["agent:sheet"],
+            "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows.0"}},
+            "inputs": {
+                "rows": {
+                    "kind": "table",
+                    "columns": ["id", "amount"],
+                    "rowCount": 2,
+                    "sample": [{"id": 1, "nested": {"deep": {"deeper": "ok"}}}],
+                }
+            },
+        }
+    )
+    part = build_canvas_part("emit_code_island", raw)
+    assert part == {
+        "type": "canvas_code_island",
+        "intent": "chart it",
+        "inputs": {
+            "rows": {
+                "kind": "table",
+                "columns": ["id", "amount"],
+                "rowCount": 2,
+                "sample": [{"id": 1, "nested": {"deep": {"deeper": "ok"}}}],
+            }
+        },
+        "inputBindings": {"rows": {"sourceNodeKey": "agent:sheet", "sourcePath": "published.rows.0"}},
+        "selectedNodeKeys": ["agent:sheet"],
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -412,8 +682,13 @@ def test_build_canvas_recipe_part_source_ref_passes_through_when_small_and_clean
 
 
 @pytest.mark.unit
-def test_build_canvas_recipe_part_drops_pollution_keys_inside_source_ref() -> None:
-    """Top-level __proto__/constructor/prototype keys never reach the stored part."""
+def test_build_canvas_recipe_part_omits_source_ref_with_top_level_pollution_keys() -> None:
+    """W11-1: a polluted sourceRef is OMITTED wholesale, not stripped down to its clean keys.
+
+    Before W11-1 the field was rebuilt from the survivors of a top-level
+    comprehension. It is optional, so fail-closed-to-omission is the cheaper and
+    more consistent posture (it already behaves that way when over the size cap).
+    """
     raw = json.dumps(
         {
             "name": "R",
@@ -428,7 +703,36 @@ def test_build_canvas_recipe_part_drops_pollution_keys_inside_source_ref() -> No
     )
     part = build_canvas_part("emit_canvas_recipe", raw)
     assert part is not None
-    assert part["sourceRef"] == {"kind": "gmail_query"}
+    assert "sourceRef" not in part
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_recipe_part_omits_source_ref_with_nested_pollution_key(key: str) -> None:
+    """W11-1 (review NOTE #4): the filter used to be TOP-LEVEL ONLY.
+
+    `{"meta": {"__proto__": {...}}}` was persisted verbatim -- the shallow version
+    of the bug W9-1 fixed on the sibling canvas builders. Now checked at any depth.
+    """
+    raw = json.dumps({"name": "R", "nodeKeys": ["n1"], "sourceRef": {"meta": {key: {"x": 1}}}})
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert "sourceRef" not in part
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_still_accepts_a_clean_nested_source_ref() -> None:
+    """Behaviour-preserving: an ordinary nested sourceRef rides through untouched."""
+    raw = json.dumps(
+        {
+            "name": "R",
+            "nodeKeys": ["n1"],
+            "sourceRef": {"kind": "gmail_query", "meta": {"query": {"from": "billing@x.com"}}},
+        }
+    )
+    part = build_canvas_part("emit_canvas_recipe", raw)
+    assert part is not None
+    assert part["sourceRef"] == {"kind": "gmail_query", "meta": {"query": {"from": "billing@x.com"}}}
 
 
 @pytest.mark.unit
@@ -469,6 +773,124 @@ def test_build_canvas_recipe_part_fail_closed() -> None:
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": []}') is None
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": [1, "", null]}') is None
     assert build_canvas_part("emit_canvas_recipe", '{"name": "R", "nodeKeys": ["__proto__"]}') is None
+
+
+# ---------------------------------------------------------------------------
+# W12-1 — the `nodeType` / `handle` VALUE positions on `canvas_add_node`
+#
+# W11-1's doc claimed "all four canvas builders now filter, on both key and value
+# positions". That was false one row over: `nodeType` and `handle` still carried
+# only `isinstance(str) and non-empty`. `nodeType` is the live one -- the web does
+# `NODE_TYPE_REGISTRY[nodeType]` on a plain object literal
+# (`node-type-registry.ts:218-224`) and degrades to UnknownNodeTypePlaceholder
+# ONLY on `undefined` (CANVAS-03), so every inherited `Object.prototype` member
+# name defeats the degrade and `nodeTypes[node.type]` hands React Flow a
+# prototype method instead of a component. `canvas-schema.ts:105` types it
+# `z.string().min(1)`, so the persist boundary does not catch it either.
+#
+# These pin the FULL enumerated set, not just the three `_FORBIDDEN_MANIFEST_KEYS`
+# -- covering only those would leave `toString`/`valueOf`/`hasOwnProperty` live.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("node_type", sorted(_UNSAFE_OBJECT_INDEX_KEYS))
+def test_build_canvas_add_node_part_rejects_a_prototype_member_node_type(node_type: str) -> None:
+    """Every name that survives a plain-object index is refused, not just __proto__."""
+    raw = json.dumps({"handle": "x", "nodeType": node_type, "data": {"ok": 1}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_unsafe_object_index_keys_covers_every_object_prototype_member() -> None:
+    """The enumerated set is EXACTLY `Object.getOwnPropertyNames(Object.prototype)` + the pollution keys.
+
+    Pinned literally so a future edit cannot quietly shrink the set back to the
+    three `_FORBIDDEN_MANIFEST_KEYS` (which would cover 2 of the 12 names that
+    actually read back non-undefined off a JS object literal).
+    """
+    assert {
+        "constructor",
+        "__defineGetter__",
+        "__defineSetter__",
+        "hasOwnProperty",
+        "__lookupGetter__",
+        "__lookupSetter__",
+        "isPrototypeOf",
+        "propertyIsEnumerable",
+        "toString",
+        "valueOf",
+        "__proto__",
+        "toLocaleString",
+        "prototype",
+    } == _UNSAFE_OBJECT_INDEX_KEYS
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("handle", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_add_node_part_rejects_a_pollution_handle(handle: str) -> None:
+    """`handle` gets the same refusal `_clean_key_list` gives the same identifier space."""
+    raw = json.dumps({"handle": handle, "nodeType": "chat", "data": {"ok": 1}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field", ["sourceHandle", "targetHandle"])
+@pytest.mark.parametrize("bad", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_connect_part_rejects_a_pollution_handle(field: str, bad: str) -> None:
+    fields = {"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data.x", "targetKey": "input"}
+    fields[field] = bad
+    assert build_canvas_part("emit_canvas_connect", json.dumps(fields)) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_still_accepts_ordinary_node_types_and_handles() -> None:
+    """Behaviour-preserving: real registry types and handles round-trip byte-identically.
+
+    `constructorNotes` / `prototypeBuilder` prove the refusal is an EXACT match on
+    the name, never a substring sweep that would break legitimate types.
+    """
+    for node_type in ("chat", "spreadsheet", "code-island", "constructorNotes", "prototypeBuilder"):
+        raw = json.dumps({"handle": "sheet-1", "nodeType": node_type, "data": {"ok": 1}})
+        assert build_canvas_part("emit_canvas_node", raw) == {
+            "type": "canvas_add_node",
+            "handle": "sheet-1",
+            "nodeType": node_type,
+            "data": {"ok": 1},
+        }
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_allows_a_dotted_node_type() -> None:
+    """`nodeType` is a bare registry key, never a traversed path — no segment filter applies.
+
+    Pins the deliberate asymmetry with `sourcePath`/`targetKey`: `a.__proto__.b`
+    is not a lookup primitive here, it is simply an unregistered type name, and
+    the web's `undefined` -> degrade branch handles it correctly.
+    """
+    raw = json.dumps({"handle": "x", "nodeType": "a.__proto__.b", "data": {"ok": 1}})
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part is not None
+    assert part["nodeType"] == "a.__proto__.b"
+
+
+# ---------------------------------------------------------------------------
+# W12-2 — the recipe `sourceRef` is COPIED, not aliased
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_build_canvas_recipe_part_does_not_alias_the_parsed_source_ref() -> None:
+    """The emitted part must not share identity with the model-authored input object."""
+    source_ref = {"kind": "gmail_query", "query": "from:billing"}
+    part = _build_canvas_recipe_part({"name": "R", "nodeKeys": ["n1"], "sourceRef": source_ref})
+
+    assert part is not None
+    assert part["sourceRef"] == source_ref
+    assert part["sourceRef"] is not source_ref
+
+    source_ref["query"] = "MUTATED"
+    assert part["sourceRef"]["query"] == "from:billing"
 
 
 # ---------------------------------------------------------------------------

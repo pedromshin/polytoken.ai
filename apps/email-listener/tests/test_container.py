@@ -2,20 +2,33 @@
 
 from __future__ import annotations
 
+import ast
 import asyncio
+import importlib
+import inspect
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.application.capabilities import registry as capability_registry
+from app.application.capabilities.registry import (
+    NonReadCapabilityError,
+    UndeclaredCapabilityError,
+    define_capability,
+)
 from app.application.use_cases.cascade_correction import CascadeCorrectionUseCase
 from app.application.use_cases.confirm_action_dispatch import SourceCaptureHandler
 from app.application.use_cases.curate_entity_merge import ConfirmMergeUseCase
 from app.application.use_cases.ingest_inbound_email import IngestInboundEmailUseCase
 from app.application.use_cases.propose_regions import ProposeRegionsUseCase
-from app.application.use_cases.research.deep_research import DeepResearchToolExecutor
+from app.application.use_cases.research.deep_research import (
+    DEEP_RESEARCH_TOOL_NAME,
+    DeepResearchToolExecutor,
+)
 from app.application.use_cases.run_chat_turn import RunChatTurn
 from app.application.use_cases.submit_widget_interaction import SubmitWidgetInteraction
 from app.application.use_cases.suggest_entity_types import SuggestEntityTypesUseCase
+from app.composition import chat_turn_providers
 from app.container import create_container
 from app.domain.ports.attachment_repository import AttachmentRepository
 from app.domain.ports.attachment_storage import AttachmentStorage
@@ -45,7 +58,7 @@ from app.infrastructure.supabase.extraction_repository import SupabaseExtraction
 from app.infrastructure.supabase.raw_email_backfill_store import SupabaseRawEmailBackfillStore
 from app.infrastructure.tools.search_knowledge_executor import SearchKnowledgeExecutor
 from app.infrastructure.tools.web_search_executor import WebSearchExecutor
-from app.settings import get_settings
+from app.settings import BaseAppSettings, get_settings
 
 _PATCH_TARGET = "app.container.get_supabase_client"
 _PATCH_ANTHROPIC = "app.container.get_anthropic_client"
@@ -457,6 +470,218 @@ class TestCanvasEmitExposureGate:
             assert self._offered_canvas_names(run_chat_turn) == set()
         finally:
             get_settings.cache_clear()
+
+
+def _model_callable_exposure_flags() -> set[str]:
+    """Every `*_TOOL_ENABLED` boolean on the settings model (W12-3).
+
+    Derived, not hand-listed: `_provide_run_chat_turn` gates each optional
+    model-callable capability behind a settings flag following that naming
+    convention, so reading them off `BaseAppSettings.model_fields` keeps the
+    read-tier forcing function covering capabilities that do not exist yet.
+    """
+    return {
+        name
+        for name, field in BaseAppSettings.model_fields.items()
+        if name.endswith("_TOOL_ENABLED") and field.annotation is bool
+    }
+
+
+def _module_scope_gate_precedes_every_definition(module) -> bool:
+    """True when the import-time gate call runs before any def/class in `module` (W12-4).
+
+    `test_module_import_runs_the_declared_tier_gate` reloads the live composition
+    root through a raising spy. `importlib.reload` re-executes into the SAME
+    module `__dict__` without clearing it, so a failed reload leaves the module
+    half-re-executed — safe ONLY because the raise lands before every function
+    definition, i.e. before anything a later test could observe in a torn state.
+    That was an accident of line order; this makes it a checked property.
+    """
+    tree = ast.parse(inspect.getsource(module))
+    gate_line = next(
+        (
+            node.lineno
+            for node in tree.body
+            if isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id == "assert_declared_model_callable_read_only"
+        ),
+        None,
+    )
+    if gate_line is None:
+        return False
+    definition_lines = [
+        node.lineno
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+    ]
+    return all(gate_line < line for line in definition_lines)
+
+
+class TestModelCallableReadTierGate:
+    """W11-1: the W9-1 read-tier gate's CALL SITES, not just its functions.
+
+    The W9-1 review deleted `assert_model_callable_read_only(...)` from
+    `_provide_run_chat_turn` and every suite stayed green — the lane had
+    reproduced its own diagnosed failure mode one level up (a guard held in
+    place by nothing but a comment). These tests fail if either call site is
+    removed:
+
+      - `test_container_refuses_*` resolve `RunChatTurn` through the REAL
+        dishka container with a stubbed capability injected, so they exercise
+        the wiring-time call, not the helper in isolation.
+      - `test_module_import_runs_the_declared_tier_gate` re-imports the
+        composition module with the import-time helper spied, so it fails if
+        the module-scope call disappears.
+
+    Registry-level unit coverage lives in
+    `app/application/capabilities/__tests__/test_registry.py`; this class only
+    proves the production wiring actually invokes it.
+    """
+
+    @staticmethod
+    def _stub_capability(*, capability_id: str, risk: str):
+        """A capability standing in for `deep_research`, at an arbitrary risk tier."""
+        return define_capability(
+            executor=MagicMock(),
+            tool_def={"name": capability_id, "description": "stub", "input_schema": {"type": "object"}},
+            risk=risk,  # type: ignore[arg-type]
+            cost="cheap",
+        )
+
+    def _resolve_with_stub_research_capability(self, monkeypatch: pytest.MonkeyPatch, capability) -> RunChatTurn:
+        monkeypatch.setenv("RESEARCH_TOOL_ENABLED", "true")
+        get_settings.cache_clear()
+        try:
+            with (
+                _patched_container(),
+                patch.object(chat_turn_providers, "define_research_capability", return_value=capability),
+            ):
+                container = create_container()
+                return asyncio.run(container.get(RunChatTurn))
+        finally:
+            get_settings.cache_clear()
+
+    @pytest.mark.parametrize("risk", ["write", "exec"])
+    def test_container_refuses_a_non_read_chat_capability(self, monkeypatch: pytest.MonkeyPatch, risk: str) -> None:
+        """A write/exec capability in the model-callable set => RunChatTurn is never built."""
+        capability = self._stub_capability(capability_id=DEEP_RESEARCH_TOOL_NAME, risk=risk)
+
+        with pytest.raises(NonReadCapabilityError) as excinfo:
+            self._resolve_with_stub_research_capability(monkeypatch, capability)
+
+        assert excinfo.value.capability_id == DEEP_RESEARCH_TOOL_NAME
+        assert excinfo.value.risk == risk
+
+    def test_container_refuses_a_capability_missing_from_the_declared_table(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A read capability nobody declared still fails: the import-time table must stay accurate."""
+        capability = self._stub_capability(capability_id="totally_new_tool", risk="read")
+
+        with pytest.raises(UndeclaredCapabilityError) as excinfo:
+            self._resolve_with_stub_research_capability(monkeypatch, capability)
+
+        assert excinfo.value.capability_id == "totally_new_tool"
+
+    def test_container_resolves_the_real_all_read_chat_registry(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Behaviour-preserving: with every exposure flag ON the real set resolves unchanged.
+
+        Also pins the declared table to reality — it must name EXACTLY the tools
+        the container offers the model, so it can never quietly describe a
+        smaller set than the one the loop can dispatch.
+
+        W12-3: the flag list is DISCOVERED from `Settings`, not hand-written. The
+        forcing function this test provides used to name three flags literally, so
+        the realistic drift — add a capability behind a NEW default-off
+        `*_TOOL_ENABLED` flag and forget the declared table — stayed green here and
+        surfaced only as a runtime 500 on the first `POST /v1/chat/stream` after
+        that flag was flipped in production. Discovering the flags means a new one
+        is turned on by this test the day it is added, so an undeclared capability
+        raises `UndeclaredCapabilityError` at commit time instead.
+        """
+        exposure_flags = _model_callable_exposure_flags()
+        # If this ever empties, the loop below turns nothing on and the test
+        # degrades to a tautology — fail loudly rather than pass vacuously.
+        assert exposure_flags >= {
+            "SEARCH_KNOWLEDGE_TOOL_ENABLED",
+            "WEB_SEARCH_TOOL_ENABLED",
+            "RESEARCH_TOOL_ENABLED",
+        }
+        for flag in exposure_flags:
+            monkeypatch.setenv(flag, "true")
+        get_settings.cache_clear()
+        try:
+            with _patched_container():
+                container = create_container()
+                run_chat_turn = asyncio.run(container.get(RunChatTurn))
+
+            assert set(run_chat_turn._tool_executors) == set(chat_turn_providers.MODEL_CALLABLE_CAPABILITY_RISK)
+            assert set(run_chat_turn._server_tool_defs) == set(chat_turn_providers.MODEL_CALLABLE_CAPABILITY_RISK)
+        finally:
+            get_settings.cache_clear()
+
+    def test_exposure_flag_discovery_is_derived_not_hand_listed(self) -> None:
+        """W12-3: the discovered set is strictly wider than the three flags it replaced.
+
+        `CANVAS_EMIT_TOOL_ENABLED` is the proof — it exists, it follows the
+        convention, and no hand-written list in this file ever named it. Re-hardcode
+        `_model_callable_exposure_flags` back to a literal three-flag set and this
+        goes RED.
+        """
+        flags = _model_callable_exposure_flags()
+        hand_listed = {"SEARCH_KNOWLEDGE_TOOL_ENABLED", "WEB_SEARCH_TOOL_ENABLED", "RESEARCH_TOOL_ENABLED"}
+
+        assert flags > hand_listed
+        assert "CANVAS_EMIT_TOOL_ENABLED" in flags
+
+    def test_declared_table_is_all_read(self) -> None:
+        assert set(chat_turn_providers.MODEL_CALLABLE_CAPABILITY_RISK.values()) == {"read"}
+
+    def test_module_import_runs_the_declared_tier_gate(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The module-scope call site is load-bearing.
+
+        Re-importing the composition module must re-run the import-time gate over
+        the declared table. The spy raises, so the reload fails — exactly what a
+        declared write/exec tier would do to `uvicorn app.main:app` at boot
+        (app/main.py builds the ASGI app at module scope and imports
+        app.container, which imports this module).
+        """
+        seen: list[dict[str, str]] = []
+        names_before = set(vars(chat_turn_providers))
+
+        def _spy(declared) -> None:
+            seen.append(dict(declared))
+            raise NonReadCapabilityError(capability_id="send_email", risk="write")
+
+        try:
+            monkeypatch.setattr(capability_registry, "assert_declared_model_callable_read_only", _spy)
+            with pytest.raises(NonReadCapabilityError):
+                importlib.reload(chat_turn_providers)
+        finally:
+            monkeypatch.undo()
+            importlib.reload(chat_turn_providers)
+
+        assert seen, "the composition module never called the import-time read-tier gate"
+        assert set(seen[0]) == set(chat_turn_providers.MODEL_CALLABLE_CAPABILITY_RISK)
+        # W12-4: the restore actually restored. `reload` re-executes into the SAME
+        # module dict without clearing it, so a half-failed reload can leave this
+        # module torn for every LATER test in the process — assert the whole
+        # attribute set came back, not just one callable.
+        assert set(vars(chat_turn_providers)) == names_before
+        assert callable(chat_turn_providers.register)
+        assert callable(chat_turn_providers._provide_run_chat_turn)
+
+    def test_import_time_gate_runs_before_any_definition_in_the_composition_module(self) -> None:
+        """W12-4: the property that makes the reload above safe is CHECKED, not assumed.
+
+        Move the module-scope `assert_declared_model_callable_read_only(...)` call
+        below any `def`/`class` in `chat_turn_providers` and this fails — because
+        at that point a failed reload would leave the composition root
+        half-re-executed for the rest of the pytest process.
+        """
+        assert _module_scope_gate_precedes_every_definition(chat_turn_providers)
 
 
 class TestSourceCaptureDispatchWiring:
