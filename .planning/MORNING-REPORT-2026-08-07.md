@@ -49,6 +49,19 @@ boundary). It stays a draft task for your sitting.
    posture and A12 widget-path policy are the two real decisions).
 3. **Decision sheet §C** — SES paste + Legal/MoR confirm.
 
+## Addendum — Wave 0.8 (after the first report was written)
+- ✅ **Upsell banner shipped** (`040f4d45`, web 2287 tests / 175 files green, CI watched): the
+  last billing-map debt ("no upgrade prompts outside /billing") is closed — a quiet ink notice
+  above the composer at ≥80% of a finite chat-turn allowance, dismissible, fail-quiet, power
+  tier never sees it. Recorded **A13**: it reads the *display* tier, not A11's status-narrowed
+  enforcement tier (a lapsed pro gets no warning before the block) — one shared helper away if
+  you want it changed.
+- ⏳ **Capability nested-args lane: STALL #1 → relaunched.** The first attempt was killed by the
+  **Fable 5 usage limit** (a model-budget stall, not a code failure). The session was switched
+  to Opus and the lane relaunched once, investigation-first. If it stalls again it stops for
+  good and lands in your lap as a decision, per the two-strikes rule.
+- Everything else in this report stands; the Pedro-gated list is unchanged.
+
 ## Token spend (subagents, whole night)
 ~7.4M across 5 workflows (Wave 0 1.48M · reviews ~3.1M · 0.5 1.38M · 0.65 1.06M · 0.7 1.34M)
 plus driver-session usage. 63 subagents, zero unresolved errors, 2 lanes blocked-and-resolved,

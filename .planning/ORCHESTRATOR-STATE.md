@@ -45,6 +45,15 @@
 - 🔥 **Incident RESOLVED zero-loss:** worktree junction sweep deleted 1265 tracked files from
   the main tree; `git restore .` + `npm install` + full re-gates recovered everything.
   **WORKTREE JUNCTION LAW** added to VLAUNCH-WAVE-PLAN §4.
+- ✅ **Wave 0.8 (`040f4d45`): approaching-cap upsell banner** — quiet ink notice above the
+  composer at ≥80% of a FINITE monthlyChatTurns entitlement (numbers read from
+  `@polytoken/billing`, power never shows), `/billing` link, session-latched dismiss,
+  fail-quiet on loading/error. Closes the last "zero upgrade prompts outside /billing" debt.
+  Web suite 2287/175 files green. Banner uses the DISPLAY tier, not A11's enforcement tier —
+  recorded as **A13**.
+- 🔁 **Wave 0.8b IN FLIGHT:** capability nested-args seam (investigation-first,
+  build-only-if-contained). Its first attempt died on the **Fable 5 model limit** (stall #1,
+  not a code failure) — session switched to Opus and the lane was relaunched once.
 - 🌅 **Morning report: `.planning/MORNING-REPORT-2026-08-07.md`** — Pedro starts there.
 
 ### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up
