@@ -183,7 +183,11 @@ foreach ($c in $changes) {
 
 Write-Host "`n--- zero-churn gate ---"
 if ($changes.Count -eq 0) {
-  Step '4 zero-churn gate' 'NOOP' 'plan shows no changes (secret ARN not wired yet?)'
+  # "No changes" means one of two very different things — say which, rather than guessing.
+  $wired = (Test-Path $TfVars) -and ((Get-Content $TfVars -Raw) -match 'worker_db_url_secret_arn_staging\s*=\s*"arn:')
+  $why = if ($wired) { 'ARN is wired — infrastructure already matches, nothing left to apply' }
+         else { 'secret ARN not wired yet, so the worker container is not in the plan' }
+  Step '4 zero-churn gate' 'NOOP' "plan shows no changes ($why)"
 } else {
   foreach ($c in $changes) { Write-Host ("    {0,-14} {1}" -f ($c.change.actions -join ','), $c.address) }
   if ($violations.Count -gt 0) {
@@ -284,11 +288,18 @@ if ([string]::IsNullOrWhiteSpace($StripeSecretKey)) {
       # `update` is the correct verb. Value goes over stdin, never a command line.
       $existing = (& $VercelCmd env ls production 2>&1 | Out-String)
       $verb = if ($existing -match 'STRIPE_SECRET_KEY') { 'update' } else { 'add' }
-      $StripeSecretKey | & $VercelCmd env $verb STRIPE_SECRET_KEY production --force 2>&1 | Out-Null
+      # Non-interactive mode needs --yes (NOT --force, which this CLI does not accept here).
+      # Value rides stdin so it never enters a command line or process listing.
+      # Output is CAPTURED, not discarded — swallowing it hid the real error once already.
+      $vout = ($StripeSecretKey | & $VercelCmd env $verb STRIPE_SECRET_KEY production --yes 2>&1 | Out-String)
       $ok = ($LASTEXITCODE -eq 0)
     } finally { Pop-Location }
     if ($ok) { Step '6 vercel stripe' 'OK' "STRIPE_SECRET_KEY $verb`d — REDEPLOY web for it to take effect" }
-    else { Step '6 vercel stripe' 'FAIL' "vercel env $verb exited $LASTEXITCODE" }
+    else {
+      Step '6 vercel stripe' 'FAIL' "vercel env $verb exited $LASTEXITCODE"
+      # Print the CLI's own diagnosis; it is usually precise about what it wants.
+      ($vout -split "`n") | Where-Object { $_.Trim() } | Select-Object -Last 12 | ForEach-Object { Write-Host "      $_" }
+    }
   }
 }
 
