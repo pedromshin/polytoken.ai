@@ -40,12 +40,23 @@ identifiers** present (`ingest_inbound_email`, `deep_research`, `assemble_mornin
    It refuses any value lacking the prod project ref, pipes via stdin (never a command line), and
    prints names/lengths only. **If the run reports a stale password later**, reset it in Supabase
    and re-run with `-Apply` — the secrets are overwritten in place.
-2. **Schema first** (hard order — 0061 RAISEs without it), from repo root:
-   `node apps/worker/dist/install-schema.js` with prod `GRAPHILE_WORKER_CONNECTION_STRING`/DB URL
-   env (session-mode :5432 URL — see runsheet §CUT-04 in
-   [milestones/vlaunch-prep/0a-runsheet-pack.md](milestones/vlaunch-prep/0a-runsheet-pack.md)).
-3. Actions → `deploy-migrate-prod.yml` → Run workflow → `confirm=MIGRATE-PROD`. Applies 0061,
-   re-verifies 0058–0060.
+   ✅ **DONE 2026-08-07** — all three set on `pedromshin/polytoken.ai` env `Production`
+   (both DB URLs went in with `compat=True`; `PROD_SUPABASE_URL` is the plain project URL).
+2. **Schema first** (hard order — 0061 RAISEs without it):
+   ```
+   pwsh -File scripts/prod-graphile-preflight.ps1           # read-only: is the schema there?
+   pwsh -File scripts/prod-graphile-preflight.ps1 -Apply    # install it (idempotent)
+   ```
+   > ⚠️ The old instruction here (`node apps/worker/dist/install-schema.js`) would have failed
+   > on the first command — **that dist did not exist**; nothing builds `@polytoken/worker` in
+   > the local flow. It is built now, and the script checks for it and refuses with the build
+   > command if it is ever missing again. The script also enforces the session-mode `:5432`
+   > requirement (transaction mode silently breaks LISTEN/NOTIFY) and appends the pooler compat
+   > query string.
+3. Dispatch the migration — applies 0061, re-verifies 0058–0060:
+   ```
+   gh workflow run deploy-migrate-prod.yml -f confirm=MIGRATE-PROD
+   ```
 
 ## 3 · Worker enable, staging leg (15 min — runsheet has every command)
 Follow [milestones/vlaunch-prep/0a-runsheet-pack.md](milestones/vlaunch-prep/0a-runsheet-pack.md)
