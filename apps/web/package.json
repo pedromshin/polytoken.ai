@@ -10,7 +10,7 @@
     "build": "next build",
     "build:local": "dotenv -e ../../.env.local -v NEXT_DIST_DIR=.next-verify -- next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.e2e-check.json",
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
