@@ -37,8 +37,15 @@
   every merge: listener 2190 · api-client 831 · web 2267 (174 files) · billing 31 · worker.
 - 🟢 **LIVE on this deploy:** the listener cap mirror (free 200/mo enforced on BOTH chat
   paths w/ friendly copy + draft restore; paid never blocked, over-limit toast).
-- 📋 Queue (recorded, next waves): A12 widget-path policy · run_chat_turn extraction ·
-  test-double consolidation ×3 · jsonlStreamConsumer swap · workflow composite action.
+- ✅ **Wave 0.7 queue burn SHIPPED** (`b8401780`): run_chat_turn 1905→1236 (AST-verified
+  carves), test-double consolidation ×3, jsonlStreamConsumer swap, WebLLM draft-restore
+  parity, worker-image composite action (+ paths-filter fix). Queue is EMPTY except
+  Pedro-gated policy calls (A12 widget path, A4/BILL-05 legal pack — lane safety-blocked,
+  correctly).
+- 🔥 **Incident RESOLVED zero-loss:** worktree junction sweep deleted 1265 tracked files from
+  the main tree; `git restore .` + `npm install` + full re-gates recovered everything.
+  **WORKTREE JUNCTION LAW** added to VLAUNCH-WAVE-PLAN §4.
+- 🌅 **Morning report: `.planning/MORNING-REPORT-2026-08-07.md`** — Pedro starts there.
 
 ### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up
 - ✅ **Harness DECISION recorded** (`.planning/decisions/2026-08-07-HARNESS-LOCK.md`, Pedro,

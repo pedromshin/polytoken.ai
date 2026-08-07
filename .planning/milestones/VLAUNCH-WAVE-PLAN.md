@@ -144,6 +144,16 @@ WEDG-01 `CASCADE_CORRECTION_ENABLED` flip + verify worker drains `cascade_relabe
 
 **PROCESS RAILS:** CPF-live is scheduled exactly once (Phase 81 / WEDG-02) — strike it from Phase-80 lists. Every secret pasted into any session goes on the PEDRO-CHECKLIST §0 rotation list — prefer scoped allow-rules over pastes. Worktree lanes rebase onto main before merge and never merge while the other writer session's files are still dirty in the main tree.
 
+**⚠️ WORKTREE JUNCTION LAW (added 2026-08-07 after a live incident):** a lane worktree needing
+node_modules resolution must create junctions pointing INSIDE ITS OWN worktree
+(`worktree\node_modules\@polytoken\<pkg> -> worktree\packages\<pkg>`), NEVER at the main
+checkout — npm's workspace links under the main `node_modules` point back into `packages/*`,
+so a recursive delete that follows a main-pointing junction eats the real source tree (1265
+tracked files were deleted this way and restored from git). Cleanup rule: `git worktree
+remove --force` first; for leftovers, delete reparse points individually (PowerShell
+`-Attributes ReparsePoint` → `.Delete()`), THEN remove the directory. NEVER `rm -rf` a
+worktree directory that may contain junctions.
+
 ---
 
 # APPENDIX: raw surface maps (4 read-only mapper agents)
