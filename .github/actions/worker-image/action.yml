@@ -1,0 +1,64 @@
+# Worker image pipeline (Track 3a, docs/DURABLE-WORKER-RUNBOOK.md §P4) — the ONE
+# definition of the worker build → scan → gated-push sequence, consumed by BOTH
+# .github/workflows/deploy-email-listener.yml (prod, tag :latest) and
+# .github/workflows/deploy-email-listener-staging.yml (staging, tag :staging).
+# Change it here once; never re-inline these steps into a workflow.
+#
+# Posture (IDENTICAL in prod and staging): the worker image is ALWAYS built +
+# scanned (ship-dark gate: a broken worker Dockerfile reds the deploy the moment
+# it lands, not on cutover day); ONLY the ECR push is gated. Composite actions
+# cannot read the `vars` context, so the caller evaluates its push-gate
+# expression (vars.WORKER_DEPLOY_ENABLED == 'true') and passes the result in as
+# `push-when`.
+name: Worker image (build, scan, gated push)
+description: >-
+  Builds the worker Docker image, blocks on a CRITICAL/HIGH Trivy scan, and
+  pushes to ECR only when the caller's push-gate expression evaluated to true.
+
+inputs:
+  registry:
+    description: ECR registry hostname (from the caller's amazon-ecr-login step output).
+    required: true
+  ecr-repository:
+    description: ECR repository name for the worker image.
+    required: true
+  image-tag:
+    description: "Image tag: latest (prod) or staging."
+    required: true
+  push-when:
+    description: >-
+      Caller-evaluated push-gate expression result. The push step runs only when
+      this is the string 'true'; build and scan run regardless.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Build worker image
+      shell: bash
+      run: |
+        docker build \
+          -f apps/worker/Dockerfile \
+          -t ${{ inputs.registry }}/${{ inputs.ecr-repository }}:${{ inputs.image-tag }} \
+          .
+
+    - name: Trivy scan worker (CRITICAL/HIGH blocks)
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ inputs.registry }}/${{ inputs.ecr-repository }}:${{ inputs.image-tag }}
+        format: table
+        exit-code: "1"
+        severity: CRITICAL,HIGH
+        ignore-unfixed: true
+
+    # Infra-gated (same repo-variable pattern as the smoke test): callers flip the
+    # GitHub Actions repo variable WORKER_DEPLOY_ENABLED to true only after the
+    # runbook's P4 Terraform is applied — ECR repo created, the deploy role's
+    # EcrPush statement widened to it (iam.tf), and the worker container
+    # (essential = false) added to the task definition (ecs.tf). Until then a push
+    # would fail against a nonexistent repo and needlessly redden listener
+    # deploys. This is the ONLY step the gate skips — build/scan above always run.
+    - name: Push worker image
+      if: inputs.push-when == 'true'
+      shell: bash
+      run: docker push ${{ inputs.registry }}/${{ inputs.ecr-repository }}:${{ inputs.image-tag }}

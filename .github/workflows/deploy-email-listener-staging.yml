@@ -93,16 +93,6 @@ jobs:
             -t ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG \
             .
 
-      # The worker image is ALWAYS built + scanned (ship-dark gate: a broken worker
-      # Dockerfile blocks the deploy the moment it lands, not on cutover day), but
-      # only PUSHED once the Track 3a P4 infra exists — see the push step below.
-      - name: Build worker image
-        run: |
-          docker build \
-            -f apps/worker/Dockerfile \
-            -t ${{ steps.ecr.outputs.registry }}/$WORKER_ECR_REPOSITORY:$IMAGE_TAG \
-            .
-
       - name: Trivy scan (CRITICAL/HIGH blocks)
         uses: aquasecurity/trivy-action@master
         with:
@@ -112,28 +102,23 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
 
-      - name: Trivy scan worker (CRITICAL/HIGH blocks)
-        uses: aquasecurity/trivy-action@master
+      # Worker build → scan → gated push: ONE composite action shared verbatim with
+      # the production workflow — .github/actions/worker-image/action.yml. Build+scan
+      # ALWAYS run (ship-dark gate: a broken worker Dockerfile reds STAGING first
+      # instead of merging green on dev and redding production); ONLY the ECR push is
+      # gated on the WORKER_DEPLOY_ENABLED repo variable, IDENTICAL to production's
+      # gate. Composite actions cannot read `vars`, so the gate expression is
+      # evaluated here and its result passed in.
+      - name: Worker image (build, scan, gated push)
+        uses: ./.github/actions/worker-image
         with:
-          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.WORKER_ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
-          format: table
-          exit-code: "1"
-          severity: CRITICAL,HIGH
-          ignore-unfixed: true
+          registry: ${{ steps.ecr.outputs.registry }}
+          ecr-repository: ${{ env.WORKER_ECR_REPOSITORY }}
+          image-tag: ${{ env.IMAGE_TAG }}
+          push-when: ${{ vars.WORKER_DEPLOY_ENABLED == 'true' }}
 
       - name: Push image
         run: docker push ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
-
-      # Infra-gated (same repo-variable pattern as the smoke test, IDENTICAL to production's
-      # step-level gate): set the GitHub Actions repo variable WORKER_DEPLOY_ENABLED=true only
-      # after the runbook's P4 Terraform is applied — ECR repo $WORKER_ECR_REPOSITORY created,
-      # the deploy role's EcrPush statement widened to it (iam.tf), and the worker container
-      # (essential = false) added to the task definition (ecs.tf). Until then a push would fail
-      # against a nonexistent repo and needlessly redden listener deploys. This is the ONLY
-      # worker step that gate skips — test/build/scan above always run.
-      - name: Push worker image
-        if: vars.WORKER_DEPLOY_ENABLED == 'true'
-        run: docker push ${{ steps.ecr.outputs.registry }}/$WORKER_ECR_REPOSITORY:$IMAGE_TAG
 
       # One force-new-deployment re-pulls every mutable-tag image in the task def —
       # once the worker container exists there (runbook §P4), this single step rolls
