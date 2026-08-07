@@ -63,6 +63,14 @@
   **required** arg disclosure on the card, and `parseArgs` fail-closed before approve.
   Analysis + correction banner: `docs/NESTED-ARGS-ANALYSIS.md`. Recorded as **A14**.
   (Lane stall #1 was the Fable 5 model limit — session switched to Opus, relaunched once.)
+- 🔁 **Wave 0.9 IN FLIGHT (findings-derived, the recorded queue is EMPTY):** generalizing
+  last night's security class — (a) untrusted-content→privileged-sink audit across the whole
+  product (`docs/INJECTION-SURFACE-AUDIT.md`, every path classified ENFORCED /
+  DEPENDS-ON-MODEL-COOPERATION / UNGUARDED with contained guards where cheap), (b) a
+  **flag-posture exposure gate** that enumerates flags from their real source so adding or
+  flipping one to ON reddens CI (the "believed dark, nothing enforced it" bug class made
+  mechanically impossible), (c) the env-gated live-Postgres proof for the chat-turn cap
+  count's `!inner` embed (today it fails OPEN — a dead cap would be invisible).
 - 🌅 **Morning report: `.planning/MORNING-REPORT-2026-08-07.md`** — Pedro starts there.
 
 ### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up
