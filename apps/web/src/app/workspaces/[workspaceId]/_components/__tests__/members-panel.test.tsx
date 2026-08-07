@@ -10,6 +10,9 @@
  *   4. CALLS changeRole / removeMember — a non-owner row's controls invoke the
  *      right mutation with { workspaceId, userId, role? }.
  *   5. A NON-ADMIN SEES READ-ONLY — no add form, no per-row controls.
+ *   6. ADD-MEMBER IS SEARCH-AND-PICK (W65) — below 3 chars the searchUsers
+ *      query stays DISABLED (hint shown, no results); at 3+ results render;
+ *      picking one populates the add so submit sends the PICKED user id.
  *
  * `~/trpc/react` is mocked; the caller's own role is fed via the
  * `workspaces.list` row for the workspace under test.
@@ -40,8 +43,18 @@ interface MemberRow {
   createdAt: string;
 }
 
+interface UserSearchRow {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+
 let listData: WsRow[] = [];
 let membersData: MemberRow[] = [];
+let searchData: UserSearchRow[] = [];
+
+/** Every searchUsers.useQuery call: its input + whether it was enabled. */
+let searchCalls: Array<{ input: { query: string }; enabled: boolean }> = [];
 
 const addMemberMutate = vi.fn();
 const changeRoleMutate = vi.fn();
@@ -63,6 +76,19 @@ vi.mock("~/trpc/react", () => ({
       },
       members: {
         useQuery: () => ({ data: membersData, isPending: false, isError: false, error: null }),
+      },
+      searchUsers: {
+        useQuery: (
+          input: { query: string },
+          opts?: { enabled?: boolean },
+        ) => {
+          const enabled = opts?.enabled !== false;
+          searchCalls.push({ input, enabled });
+          // Mirrors react-query v5: a disabled query has no data and is pending.
+          return enabled
+            ? { data: searchData, isPending: false, isError: false, error: null }
+            : { data: undefined, isPending: true, isError: false, error: null };
+        },
       },
       addMember: {
         useMutation: () => ({ mutate: addMemberMutate, isPending: false }),
@@ -103,6 +129,15 @@ function setSelectValue(select: HTMLSelectElement, value: string): void {
   select.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+function setInputValue(input: HTMLInputElement, value: string): void {
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value",
+  )!.set!;
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
 const OWNER_ID = "00000000-0000-0000-0000-00000000000a";
 const MEMBER_ID = "00000000-0000-0000-0000-00000000000b";
 
@@ -121,6 +156,8 @@ function callerIs(role: Role): void {
 beforeEach(() => {
   listData = [];
   membersData = [];
+  searchData = [];
+  searchCalls = [];
   addMemberMutate.mockClear();
   changeRoleMutate.mockClear();
   removeMemberMutate.mockClear();
@@ -224,7 +261,7 @@ describe("MembersPanel — RBAC surfacing", () => {
 
     // No add-member form.
     expect(
-      container.querySelector('form[aria-label="Add member by user ID"]'),
+      container.querySelector('form[aria-label="Add member"]'),
     ).toBeNull();
     // No role selects at all (owner + member rows both static).
     expect(container.querySelectorAll("select")).toHaveLength(0);
@@ -257,5 +294,158 @@ describe("MembersPanel — RBAC surfacing", () => {
       b.textContent?.includes("Leave workspace"),
     );
     expect(ownerLeave).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// W65 — add-member search-and-pick
+// ---------------------------------------------------------------------------
+
+const ALICE: UserSearchRow = {
+  id: "00000000-0000-0000-0000-00000000000c",
+  email: "alice@example.com",
+  name: "Alice Doe",
+};
+const BOB: UserSearchRow = {
+  id: "00000000-0000-0000-0000-00000000000d",
+  email: "bob@example.com",
+  name: null,
+};
+
+function searchInput(): HTMLInputElement {
+  const el = container.querySelector<HTMLInputElement>("#add-member-search");
+  expect(el).not.toBeNull();
+  return el!;
+}
+
+async function typeQuery(value: string): Promise<void> {
+  await act(async () => {
+    setInputValue(searchInput(), value);
+  });
+}
+
+describe("AddMemberForm — search and pick (W65)", () => {
+  it("below 3 chars: the search query stays DISABLED, a hint shows, no results render", async () => {
+    callerIs("admin");
+    seedRoster();
+    searchData = [ALICE];
+    await mount();
+
+    await typeQuery("al");
+
+    // Every hook render so far must have kept the query disabled.
+    expect(searchCalls.length).toBeGreaterThan(0);
+    expect(searchCalls.every((c) => !c.enabled)).toBe(true);
+
+    expect(container.textContent).toContain("Type at least 3 characters");
+    expect(
+      container.querySelector('ul[aria-label="User search results"]'),
+    ).toBeNull();
+    // Add stays disarmed with nothing picked.
+    const add = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "Add",
+    )!;
+    expect(add.disabled).toBe(true);
+  });
+
+  it("at 3+ chars: the query is enabled with the trimmed term and results render", async () => {
+    callerIs("admin");
+    seedRoster();
+    searchData = [ALICE, BOB];
+    await mount();
+
+    await typeQuery("  ali ");
+
+    const last = searchCalls[searchCalls.length - 1]!;
+    expect(last.enabled).toBe(true);
+    expect(last.input).toEqual({ query: "ali" });
+
+    const list = container.querySelector('ul[aria-label="User search results"]');
+    expect(list).not.toBeNull();
+    expect(list!.textContent).toContain("alice@example.com");
+    expect(list!.textContent).toContain("Alice Doe");
+    expect(list!.textContent).toContain("bob@example.com");
+  });
+
+  it("an empty result set says so instead of leaving a dead surface", async () => {
+    callerIs("admin");
+    seedRoster();
+    searchData = [];
+    await mount();
+
+    await typeQuery("zzz");
+
+    expect(container.textContent).toContain("No users match");
+    expect(
+      container.querySelector('ul[aria-label="User search results"]'),
+    ).toBeNull();
+  });
+
+  it("picking a result populates the add — submit sends the PICKED user id", async () => {
+    callerIs("admin");
+    seedRoster();
+    searchData = [ALICE, BOB];
+    await mount();
+
+    await typeQuery("ali");
+
+    const list = container.querySelector('ul[aria-label="User search results"]')!;
+    const aliceBtn = Array.from(list.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("alice@example.com"),
+    )!;
+    expect(aliceBtn).toBeDefined();
+    await act(async () => {
+      aliceBtn.click();
+    });
+
+    // The input is replaced by the selection (clearable), results collapse.
+    expect(container.querySelector("#add-member-search")).toBeNull();
+    expect(
+      container.querySelector('button[aria-label="Clear selected user"]'),
+    ).not.toBeNull();
+    expect(
+      container.querySelector('ul[aria-label="User search results"]'),
+    ).toBeNull();
+
+    const form = container.querySelector<HTMLFormElement>(
+      'form[aria-label="Add member"]',
+    )!;
+    await act(async () => {
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    expect(addMemberMutate).toHaveBeenCalledTimes(1);
+    expect(addMemberMutate).toHaveBeenCalledWith({
+      workspaceId: WS_ID,
+      userId: ALICE.id,
+      role: "member",
+    });
+  });
+
+  it("clearing the pick returns to an empty search input, disarming Add", async () => {
+    callerIs("admin");
+    seedRoster();
+    searchData = [ALICE];
+    await mount();
+
+    await typeQuery("ali");
+    const list = container.querySelector('ul[aria-label="User search results"]')!;
+    await act(async () => {
+      list.querySelector("button")!.click();
+    });
+
+    const clear = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Clear selected user"]',
+    )!;
+    await act(async () => {
+      clear.click();
+    });
+
+    expect(searchInput().value).toBe("");
+    const add = Array.from(container.querySelectorAll("button")).find(
+      (b) => b.textContent === "Add",
+    )!;
+    expect(add.disabled).toBe(true);
+    expect(addMemberMutate).not.toHaveBeenCalled();
   });
 });
