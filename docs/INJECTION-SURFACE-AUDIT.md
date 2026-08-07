@@ -686,8 +686,22 @@ Two things this file deliberately does **not** say:
   `part.inputs`). Where the evidence is "no live vector found", this file says that
   rather than borrowing the stronger word from the field next to it. That borrowing
   is what produced Findings C, D and E.
-- §1.2b's guarantee is **not** "the document cannot be wrong". It is narrower and
-  checkable: the coverage table cannot disagree with what the four builders do, and
-  no field of theirs can reach a persisted part unlisted. Every other row of this
-  audit is still reading-based evidence — treat a row without a test as a claim, not
-  a fact.
+- §1.2b's guarantee is **not** "the document cannot be wrong", and it is **not** "no
+  field can reach a persisted part unlisted". State it exactly, because four
+  consecutive revisions of this file overstated it by one notch each time:
+
+  > For every field the coverage suite's fixtures actually cause a builder to emit,
+  > the declared table must agree with what the builder does, or the suite reds.
+
+  **Known blind spot, stated rather than discovered by a fifth reviewer:** a field
+  emitted only on a branch the fixtures do not take is invisible to the derived set.
+  The forcing function compares *declared rows* against *observed emissions*; an
+  unobserved emission is in neither, so it passes silently. Adding a conditionally
+  emitted field therefore does **not** red this suite by itself — the author must
+  still add the row and a fixture that reaches the branch.
+- The pattern worth carrying out of this file: each revision closed the last false
+  claim and made a slightly weaker one, which read as caution but was still an
+  assertion about ground not covered. The claim above is the first one bounded by
+  what the code mechanically checks, with the uncovered part named in the same
+  breath. Every other row of this audit is reading-based evidence — treat a row
+  without a test as a claim, not a fact.
