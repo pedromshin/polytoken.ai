@@ -101,17 +101,23 @@ $dbSeg = ([System.Uri]$secretValue).AbsolutePath.TrimStart('/')
 if ($dbSeg -notmatch '^[A-Za-z0-9_]+$') { throw "ABORT: malformed database segment '$dbSeg' — query string leaked into the path." }
 
 $secretArn = $null
-$found = aws secretsmanager describe-secret --region $Region --secret-id $SecretName --query ARN --output text 2>$null
+$describeArgs = @('secretsmanager', 'describe-secret', '--region', $Region, '--secret-id', $SecretName, '--query', 'ARN', '--output', 'text')
+$found = (& aws @describeArgs 2>$null)
 if ($LASTEXITCODE -eq 0 -and $found -and $found -ne 'None') {
   $secretArn = $found.Trim()
   Step '2 secretsmanager' 'SKIP' "exists ($($secretArn.Split(':')[-1]))"
 } elseif (-not $Apply) {
   Step '2 secretsmanager' 'WOULD' "create-secret $SecretName (session-mode, len=$($secretValue.Length))"
 } else {
-  $secretArn = (aws secretsmanager create-secret --region $Region `
-      --name $SecretName `
-      --description 'Session-mode (non-pooling, port 5432) Postgres URL for graphile-worker LISTEN/NOTIFY - staging. NEVER a transaction-pooled (6543) URL.' `
-      --secret-string $secretValue --query ARN --output text 2>&1)
+  $createArgs = @(
+    'secretsmanager', 'create-secret',
+    '--region', $Region,
+    '--name', $SecretName,
+    '--description', 'Session-mode (non-pooling, port 5432) Postgres URL for graphile-worker LISTEN/NOTIFY - staging. NEVER a transaction-pooled (6543) URL.',
+    '--secret-string', $secretValue,
+    '--query', 'ARN', '--output', 'text'
+  )
+  $secretArn = (& aws @createArgs 2>&1)
   if ($LASTEXITCODE -ne 0) { Step '2 secretsmanager' 'FAIL' 'create-secret failed'; throw 'step 2 failed' }
   $secretArn = $secretArn.Trim()
   Step '2 secretsmanager' 'OK' "created ($($secretArn.Split(':')[-1]))"
@@ -143,11 +149,16 @@ if (-not $secretArn) {
 # ---------------------------------------------------------------------------------------
 # 4. terraform plan + AUTOMATED ZERO-CHURN GATE (CUT-05.4)
 # ---------------------------------------------------------------------------------------
+# NOTE: native args are SPLATTED from an array, never written inline. PowerShell's inline
+# native-argument parsing mangles `-out=...`-style flags here and terraform rejects the result
+# with "Too many command line arguments". Splatting passes them through verbatim.
 Push-Location $TfDir
 try {
-  terraform plan -input=false -lock-timeout=120s -out=cut05.tfplan -no-color | Out-Null
+  $planArgs = @('plan', '-input=false', '-lock-timeout=120s', '-out=cut05.tfplan', '-no-color')
+  & terraform @planArgs | Out-Null
   if ($LASTEXITCODE -ne 0) { Step '4 terraform plan' 'FAIL' "plan exit $LASTEXITCODE"; throw 'plan failed' }
-  $planJson = terraform show -json cut05.tfplan | ConvertFrom-Json
+  $showArgs = @('show', '-json', 'cut05.tfplan')
+  $planJson = (& terraform @showArgs) | ConvertFrom-Json
 } finally { Pop-Location }
 
 $changes = @($planJson.resource_changes | Where-Object { $_.change.actions -notcontains 'no-op' })
@@ -196,13 +207,15 @@ if ($changes.Count -eq 0) {
 } else {
   Push-Location $TfDir
   try {
-    terraform apply -input=false -lock-timeout=120s -no-color cut05.tfplan
+    $applyArgs = @('apply', '-input=false', '-lock-timeout=120s', '-no-color', 'cut05.tfplan')
+    & terraform @applyArgs
     if ($LASTEXITCODE -ne 0) { Step '5 terraform apply' 'FAIL' "apply exit $LASTEXITCODE"; throw 'apply failed' }
   } finally { Pop-Location }
   Step '5 terraform apply' 'OK' 'applied'
 
   Write-Host "`nWaiting for the staging service to stabilise (watch for OOM on the first roll)..."
-  aws ecs wait services-stable --cluster $Cluster --services $Service --region $Region
+  $waitArgs = @('ecs', 'wait', 'services-stable', '--cluster', $Cluster, '--services', $Service, '--region', $Region)
+  & aws @waitArgs
   if ($LASTEXITCODE -eq 0) { Step '5 services-stable' 'OK' 'staging service stable' }
   else { Step '5 services-stable' 'FAIL' 'did NOT stabilise — check ECS events + task memory' }
 }
