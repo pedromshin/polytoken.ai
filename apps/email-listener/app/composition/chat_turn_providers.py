@@ -22,7 +22,11 @@ import httpx
 from dishka import Provider
 from supabase import Client
 
-from app.application.capabilities.registry import CapabilityRegistry, define_capability
+from app.application.capabilities.registry import (
+    CapabilityRegistry,
+    assert_model_callable_read_only,
+    define_capability,
+)
 from app.application.use_cases.confirm_action_dispatch import (
     ConfirmActionHandler,
     KnowledgeEdgeTierPromotionHandler,
@@ -296,6 +300,18 @@ def _provide_run_chat_turn(
             ),
         ]
     )
+    # W9-1 (untrusted-content -> privileged-sink audit): the ENFORCED read-tier
+    # gate. Every capability above is projected straight into the model's tool
+    # offer and awaited by name in run_chat_turn_server_rounds.py with no risk
+    # check at the call site -- and the model's tool choice is influenced by
+    # content an attacker can author (inbound mail bodies, web_search /
+    # deep_research page text). "They are all read" used to be a comment in
+    # registry.py; this call is what makes it true. A write/exec capability
+    # added here now fails CLOSED at startup instead of silently becoming a
+    # directly-injectable sink -- it must arrive with a confirm gate instead
+    # (the emit_confirm_action shape: model supplies a ref, server re-reads it,
+    # human approves).
+    assert_model_callable_read_only(chat_capabilities)
     return RunChatTurn(
         messages=messages,
         runs=runs,

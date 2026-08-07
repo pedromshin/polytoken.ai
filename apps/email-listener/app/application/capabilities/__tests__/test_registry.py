@@ -25,7 +25,9 @@ from app.application.capabilities.registry import (
     CapabilityManifestEntry,
     CapabilityRegistry,
     DuplicateCapabilityError,
+    NonReadCapabilityError,
     UnknownCapabilityError,
+    assert_model_callable_read_only,
     define_capability,
 )
 from app.domain.ports.tool_executor import ToolExecutionResult
@@ -208,3 +210,56 @@ def test_list_projects_metadata_with_no_executable_coupling() -> None:
     )
     # No executable coupling on the outward projection.
     assert not any(hasattr(entry, "executor") for entry in manifest)
+
+
+# --- assert_model_callable_read_only (W9-1: the ENFORCED read-tier gate) -----
+#
+# The chat tool loop awaits `registry.executors()[tool_name]` for whatever tool
+# the model names (run_chat_turn_server_rounds.py:218) with NO risk check, and
+# the model's tool choice is influenced by untrusted content (email bodies,
+# web_search / deep_research page text). The ONLY thing making that safe today
+# is that every chat capability is risk="read" -- a fact this module's header
+# merely ASSERTED IN PROSE until this guard existed.
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_passes_for_an_all_read_registry() -> None:
+    """Behaviour-preserving: today's all-read chat registry passes unchanged."""
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("web_search", risk="read")])
+
+    assert_model_callable_read_only(registry)  # must not raise
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("risk", ["write", "exec"])
+def test_assert_model_callable_read_only_refuses_a_non_read_capability(risk: str) -> None:
+    """A write/exec capability in the model-callable set FAILS CLOSED at wiring time."""
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("send_email", risk=risk)])
+
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_model_callable_read_only(registry)
+
+    assert excinfo.value.capability_id == "send_email"
+    assert excinfo.value.risk == risk
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_reports_the_first_offender_in_declaration_order() -> None:
+    registry = CapabilityRegistry(
+        [
+            _capability("lookup_entity", risk="read"),
+            _capability("delete_everything", risk="exec"),
+            _capability("send_email", risk="write"),
+        ]
+    )
+
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_model_callable_read_only(registry)
+
+    assert excinfo.value.capability_id == "delete_everything"
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_accepts_an_empty_registry() -> None:
+    """A registry with no capabilities is vacuously read-only (every flag off)."""
+    assert_model_callable_read_only(CapabilityRegistry([]))  # must not raise
