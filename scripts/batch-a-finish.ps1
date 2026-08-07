@@ -249,23 +249,53 @@ if ($changes.Count -eq 0) {
 # ---------------------------------------------------------------------------------------
 # 6. Vercel Stripe env (§4) — only with a key you minted in the dashboard
 # ---------------------------------------------------------------------------------------
+# NOTE: call vercel.cmd EXPLICITLY. `vercel` on this machine resolves to vercel.ps1, a
+# PowerShell script that collapses splatted arguments into one token ("env ls" arrives as a
+# single arg and the CLI rejects it as a directory). The .cmd shim passes them through.
+$VercelCmd = Join-Path $env:APPDATA 'npm\vercel.cmd'
+
 if ([string]::IsNullOrWhiteSpace($StripeSecretKey)) {
   Step '6 vercel stripe' 'SKIP' 'no -StripeSecretKey passed'
 } elseif (-not $StripeSecretKey.StartsWith('rk_') -and -not $StripeSecretKey.StartsWith('sk_')) {
-  Step '6 vercel stripe' 'FAIL' 'key does not look like rk_/sk_ — refusing'
-} elseif (-not $Apply) {
-  Step '6 vercel stripe' 'WOULD' 'vercel env add STRIPE_SECRET_KEY + BILLING_ENABLED (production)'
+  Step '6 vercel stripe' 'FAIL' 'key is neither rk_ nor sk_ — refusing'
+} elseif (-not (Test-Path $VercelCmd)) {
+  Step '6 vercel stripe' 'FAIL' "vercel.cmd not found at $VercelCmd"
 } else {
-  Push-Location $RepoRoot
+  # VALIDATE THE KEY BEFORE PUBLISHING IT. A dead or under-scoped key silently breaks
+  # checkout at the worst possible moment; one read-only call proves it now.
+  $probe = $null
   try {
-    $StripeSecretKey | vercel env add STRIPE_SECRET_KEY production --force 2>&1 | Out-Null
-    $ok1 = ($LASTEXITCODE -eq 0)
-    'true' | vercel env add BILLING_ENABLED production --force 2>&1 | Out-Null
-    $ok2 = ($LASTEXITCODE -eq 0)
-  } finally { Pop-Location }
-  if ($ok1 -and $ok2) { Step '6 vercel stripe' 'OK' 'both set — redeploy web to pick them up' }
-  else { Step '6 vercel stripe' 'FAIL' "STRIPE_SECRET_KEY=$ok1 BILLING_ENABLED=$ok2" }
+    $probe = Invoke-RestMethod -Uri 'https://api.stripe.com/v1/products?limit=1' -Method Get `
+      -Headers @{ Authorization = "Bearer $StripeSecretKey" } -ErrorAction Stop
+  } catch {
+    Step '6 stripe key check' 'FAIL' "Stripe rejected the key: $($_.Exception.Message)"
+    $probe = $null
+  }
+  if ($null -eq $probe) {
+    Step '6 vercel stripe' 'REFUSE' 'key failed live validation — not publishing it'
+  } elseif (-not $Apply) {
+    Step '6 stripe key check' 'PASS' "key valid (products readable: $($probe.data.Count))"
+    Step '6 vercel stripe' 'WOULD' 'set STRIPE_SECRET_KEY (production)'
+  } else {
+    Step '6 stripe key check' 'PASS' "key valid (products readable: $($probe.data.Count))"
+    Push-Location $RepoRoot
+    try {
+      # Both vars ALREADY EXIST on this project (set 2026-08-06), so `add` would fail —
+      # `update` is the correct verb. Value goes over stdin, never a command line.
+      $existing = (& $VercelCmd env ls production 2>&1 | Out-String)
+      $verb = if ($existing -match 'STRIPE_SECRET_KEY') { 'update' } else { 'add' }
+      $StripeSecretKey | & $VercelCmd env $verb STRIPE_SECRET_KEY production --force 2>&1 | Out-Null
+      $ok = ($LASTEXITCODE -eq 0)
+    } finally { Pop-Location }
+    if ($ok) { Step '6 vercel stripe' 'OK' "STRIPE_SECRET_KEY $verb`d — REDEPLOY web for it to take effect" }
+    else { Step '6 vercel stripe' 'FAIL' "vercel env $verb exited $LASTEXITCODE" }
+  }
 }
+
+# BILLING_ENABLED is deliberately NOT touched here. It already exists on the project, and
+# flipping it is what makes pricing publicly live — the BILL-05 boundary (ASSUMPTIONS A4),
+# which is explicitly NOT assumable. Set it yourself when the legal pack is settled:
+#   'true' | & "$env:APPDATA\npm\vercel.cmd" env update BILLING_ENABLED production --force
 
 # ---------------------------------------------------------------------------------------
 Write-Host "`n=== summary ==="
