@@ -47,9 +47,17 @@ foreach ($line in Get-Content $EnvFile) {
 
 $base = $map['POSTGRES_URL_NON_POOLING']
 if ([string]::IsNullOrWhiteSpace($base)) { throw 'ABORT: POSTGRES_URL_NON_POOLING absent from .env.production' }
-if ($base -notlike "*$ProdRef*") { throw 'ABORT: URL does not carry the prod project ref. Refusing.' }
-if ($base -notlike '*:5432*') { throw 'ABORT: expected the SESSION-mode pooler (:5432). Transaction mode (:6543) breaks LISTEN/NOTIFY.' }
-$url = if ($base -like '*uselibpqcompat*') { $base } else { $sep = if ($base -like '*?*') { '&' } else { '?' }; "$base$sep$Compat" }
+if (-not $base.Contains($ProdRef)) { throw 'ABORT: URL does not carry the prod project ref. Refusing.' }
+if (-not $base.Contains(':5432')) { throw 'ABORT: expected the SESSION-mode pooler (:5432). Transaction mode (:6543) breaks LISTEN/NOTIFY.' }
+# NOTE: .Contains, NEVER -like '*?*' — PowerShell's -like treats '?' as a single-character
+# WILDCARD, so '*?*' is true for every non-empty string. That bug appended the compat query
+# with '&' instead of '?', and the driver read it as part of the database name.
+$url = if ($base.Contains('uselibpqcompat')) { $base } else { $sep = if ($base.Contains('?')) { '&' } else { '?' }; "$base$sep$Compat" }
+
+# Prove the assembled URL is well-formed before we ever connect.
+$parsed = [System.Uri]$url
+$dbName = $parsed.AbsolutePath.TrimStart('/')
+if ($dbName -notmatch '^[A-Za-z0-9_]+$') { throw "ABORT: malformed database segment '$dbName' — the query string leaked into the path." }
 
 # --- read-only status probe (no writes, introspection only) -----------------------------
 $probe = Join-Path ([System.IO.Path]::GetTempPath()) 'prod-graphile-status.mjs'

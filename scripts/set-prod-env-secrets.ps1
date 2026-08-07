@@ -44,9 +44,22 @@ foreach ($line in Get-Content $EnvFile) {
 
 function Add-Compat([string]$u) {
   if ([string]::IsNullOrWhiteSpace($u)) { return $u }
-  if ($u -like '*uselibpqcompat*') { return $u }
-  $sep = if ($u -like '*?*') { '&' } else { '?' }
+  if ($u.Contains('uselibpqcompat')) { return $u }
+  # NOTE: use .Contains, NEVER -like '*?*'. In PowerShell `-like` treats '?' as a
+  # single-character WILDCARD, so '*?*' matches every non-empty string — that bug
+  # appended '&uselibpqcompat=...' with no '?', and the driver then read the whole
+  # query string as part of the database name ("postgres&uselibpqcompat=true&...").
+  $sep = if ($u.Contains('?')) { '&' } else { '?' }
   return "$u$sep$Compat"
+}
+
+# Fail fast if the assembled URL is not a well-formed postgres URI whose path is a bare
+# database name — this is the assertion that would have caught the wildcard bug at source.
+function Assert-WellFormed([string]$name, [string]$u) {
+  if ($u -notmatch '^postgres(ql)?://') { throw "ABORT: $name is not a postgres:// URL." }
+  $uri = [System.Uri]$u
+  $db = $uri.AbsolutePath.TrimStart('/')
+  if ($db -notmatch '^[A-Za-z0-9_]+$') { throw "ABORT: $name has a malformed database segment '$db' (query string leaked into the path?)." }
 }
 
 # NEXT_PUBLIC_SUPABASE_URL is the project URL; PROD_SUPABASE_URL wants the same value.
@@ -64,10 +77,11 @@ foreach ($t in $targets) {
   $name = $t.Name; $value = $t.Value; $expect = $t.Expect
 
   if ([string]::IsNullOrWhiteSpace($value)) { "SKIP  $name  — source value empty in .env.production"; $failures++; continue }
-  if ($value -notlike "*$ProdRef*")         { "SKIP  $name  — value does not carry the prod project ref"; $failures++; continue }
-  if ($value -notlike "*$expect*")          { "SKIP  $name  — expected marker '$expect' not found"; $failures++; continue }
+  if (-not $value.Contains($ProdRef))       { "SKIP  $name  — value does not carry the prod project ref"; $failures++; continue }
+  if (-not $value.Contains($expect))        { "SKIP  $name  — expected marker '$expect' not found"; $failures++; continue }
+  if ($name -ne 'PROD_SUPABASE_URL')        { Assert-WellFormed $name $value }
 
-  $shape = "len=$($value.Length) compat=$([bool]($value -like '*uselibpqcompat*'))"
+  $shape = "len=$($value.Length) compat=$($value.Contains('uselibpqcompat'))"
   if (-not $Apply) { "WOULD-SET  $name  ($shape)"; continue }
 
   $value | gh secret set $name --env $EnvName --repo $Repo
