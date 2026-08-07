@@ -17,11 +17,12 @@ import { formatRelativeTime } from "../../chat/_canvas/format-relative-time";
  * returns `[{ id, title, createdAt, updatedAt }]` newest-first (by updatedAt),
  * omitting the heavy columns/rows jsonb.
  *
- * ⚠ ROWS ARE NON-NAVIGATING CARDS, by design. A table today only opens as a
- * canvas `spreadsheet` node — there is no standalone table-viewer route to link
- * to. Rather than invent a dead `/spreadsheets/[id]` route, each row is an
- * informative card (title + relative updatedAt). The missing viewer is recorded
- * as a followup, not papered over with a broken link.
+ * Each row is a single-click open: the whole row is the link to
+ * `/spreadsheets/[id]` (interaction-economy — the primary action of the
+ * surface is reachable in one click from arrival, the /documents registry
+ * idiom verbatim). The viewer route renders the same read-only grid the
+ * canvas `spreadsheet` node mounts; the canvas remains the place a table is
+ * MADE, this is where a stored one is re-opened.
  *
  * The empty state TEACHES the next action (taste contract) rather than showing a
  * bare "no tables" — a table is created by the agent on the canvas, so it points
@@ -94,28 +95,29 @@ export function SpreadsheetsList(): React.ReactElement {
       {items.map((table) => {
         const iso = toIso(table.updatedAt);
         return (
-          <li
-            key={table.id}
-            data-slot="spreadsheet-row"
-            className="flex items-center gap-3 rounded-md border border-rule bg-bright px-4 py-3"
-          >
-            <Table2
-              className="h-4 w-4 shrink-0 text-muted-foreground"
-              aria-hidden
-              strokeWidth={1.5}
-            />
-            <span
-              className="min-w-0 flex-1 truncate font-serif text-sm text-ink"
-              data-evidence
+          <li key={table.id} data-slot="spreadsheet-row">
+            <Link
+              href={`/spreadsheets/${table.id}`}
+              className="group flex items-center gap-3 rounded-md border border-rule bg-bright px-4 py-3 transition-colors hover:border-ink"
             >
-              {table.title}
-            </span>
-            <time
-              className="tabular shrink-0 text-2xs text-muted-foreground"
-              dateTime={iso}
-            >
-              {formatRelativeTime(iso)}
-            </time>
+              <Table2
+                className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-ink"
+                aria-hidden
+                strokeWidth={1.5}
+              />
+              <span
+                className="min-w-0 flex-1 truncate font-serif text-sm text-ink"
+                data-evidence
+              >
+                {table.title}
+              </span>
+              <time
+                className="tabular shrink-0 text-2xs text-muted-foreground"
+                dateTime={iso}
+              >
+                {formatRelativeTime(iso)}
+              </time>
+            </Link>
           </li>
         );
       })}
