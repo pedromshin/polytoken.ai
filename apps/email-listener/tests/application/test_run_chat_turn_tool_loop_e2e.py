@@ -856,7 +856,7 @@ async def test_server_tool_execution_exception_becomes_error_result_loop_continu
 @pytest.mark.asyncio
 async def test_server_tool_execution_timeout_becomes_error_result(monkeypatch: pytest.MonkeyPatch) -> None:
     """asyncio.wait_for's TimeoutError never escapes the loop -- becomes an is_error result."""
-    monkeypatch.setattr("app.application.use_cases.run_chat_turn._TOOL_EXECUTION_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("app.application.use_cases.run_chat_turn_server_rounds._TOOL_EXECUTION_TIMEOUT_SECONDS", 0.01)
     provider = _MultiRoundFakeChatProvider(
         rounds=[
             [
@@ -1057,7 +1057,7 @@ async def test_round_cap_exhaustion_appends_visible_text_and_completes() -> None
 @pytest.mark.asyncio
 async def test_round_cap_exhaustion_bounded_even_with_asyncio_timeout_stub(monkeypatch: pytest.MonkeyPatch) -> None:
     """Sanity: the exhaustion bound holds even when the per-tool timeout is tiny (no interaction bug)."""
-    monkeypatch.setattr("app.application.use_cases.run_chat_turn._TOOL_EXECUTION_TIMEOUT_SECONDS", 5.0)
+    monkeypatch.setattr("app.application.use_cases.run_chat_turn_server_rounds._TOOL_EXECUTION_TIMEOUT_SECONDS", 5.0)
     always_tool_round = [
         ToolCallDelta(tool_name="echo", id="tool-x", partial_json="{}"),
         StreamEnd(stop_reason="tool_use"),

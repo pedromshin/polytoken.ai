@@ -44,7 +44,7 @@ reload. `regenerate()`/`continue_after_widget()` never call it.
 Phase 40-01 (CONF-01): `emit_confirm_action` extends the same
 interactive_widget_tools seam (widgetKind "confirm_action"), but unlike the
 other three widget tools its finalization is NOT purely parse-driven —
-`_finalize_confirm_action` (async, `self`-bound) re-reads the live
+`_finalize_confirm_action` (async, run_chat_turn_confirm_finalize.py) re-reads the live
 `knowledge_node_edges` row the model's `suggestionRef.id` names before
 building the frozen confirm/reject declaration, failing into visible text
 when the suggestion is gone/inactive/cross-tenant/wrong-tier or the call
@@ -61,6 +61,17 @@ it used to define inline live under `app.application.use_cases.chat.*`
 context, linked-context resolution, source-capture web_search lookup) and are
 re-exported here under their old names — zero external import paths changed.
 
+W7-1 carve (vLAUNCH): four more cohesive units moved VERBATIM into sibling
+modules, instance collaborators becoming explicit keyword parameters —
+run_chat_turn_cap_gate.py (the monthlyChatTurns pre-insert gate),
+run_chat_turn_stream_guard.py (mid-stream terminal/cost guard + the
+one-round delta pump), run_chat_turn_server_rounds.py (the server-tool
+round executor + round tuning constants), and
+run_chat_turn_confirm_finalize.py (emit_confirm_action live-re-read
+finalization). This class remains the orchestrating use case: entrypoints,
+the round state machine (`_execute_turn`/`_advance_round`), and every
+terminal persistence path.
+
 Architecture contract (lint-imports): imports only domain ports/services and
 standard library / structlog — no infrastructure at module level (mirrors
 generate_ui_spec.py's "Application does not import infrastructure" contract).
@@ -69,11 +80,9 @@ generate_ui_spec.py's "Application does not import infrastructure" contract).
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import json
 import uuid
 from dataclasses import dataclass, replace
-from decimal import Decimal
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, cast
 
@@ -122,29 +131,23 @@ from app.application.use_cases.chat.turn_state import (
     _flush_text_buffer,
     _TurnState,
 )
-from app.application.use_cases.run_chat_turn_confirm_action import (
-    CONFIRM_ACTION_UNAVAILABLE_TEXT,
-    EMIT_CONFIRM_ACTION_TOOL_NAME,
-    SUGGESTION_KIND_SOURCE_CAPTURE,
-    build_confirm_action_declaration,
-    build_source_capture_declaration,
-    parse_confirm_action_call,
-    parse_source_capture_result_id,
+from app.application.use_cases.run_chat_turn_cap_gate import _chat_turn_cap_gate
+from app.application.use_cases.run_chat_turn_confirm_finalize import _finalize_confirm_action
+from app.application.use_cases.run_chat_turn_server_rounds import (
+    _MAX_TOOL_ROUNDS,
+    _TOOL_ENVELOPE_INVALID_TEXT,
+    _run_server_tool_round,
+)
+from app.application.use_cases.run_chat_turn_stream_guard import (
+    _MidStreamTerminalError,
+    _stream_round_deltas,
 )
 from app.application.use_cases.run_chat_turn_tool_loop import (
-    FINAL_ROUND_NUDGE_TEXT,
-    MAX_SERVER_CALLS_PER_ROUND,
-    PARALLEL_CALL_OVERFLOW_TEXT,
     PARSE_FAILURE_TEXT,
     ROUND_CAP_EXHAUSTED_TEXT,
-    build_synthetic_tool_results_message,
-    build_tool_invocation_part,
-    build_tool_invocation_result_part,
-    cap_tool_output,
     classify_tool_dispatch,
 )
 from app.application.use_cases.run_chat_turn_widgets import build_create_pending_kwargs
-from app.domain.ports.chat_provider import StreamEnd, TextDelta, ToolResultDelta, UsageDelta
 from app.domain.ports.chat_repositories import (
     ChatConversationRepository,
     ChatMessage,
@@ -159,24 +162,16 @@ from app.domain.ports.chat_repositories import (
 from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.cost_ledger_repository import CostLedgerRepository, UsageEvent
 from app.domain.ports.knowledge_graph_repository import KnowledgeGraphRepository
-from app.domain.ports.source_ledger_repository import SourceLedgerEntry
-from app.domain.ports.tool_executor import ToolExecutionResult
 from app.domain.services.chat_model_registry import ChatModel, get_model
 from app.domain.services.chat_provider_router import ChatModelNotFoundError, ChatProviderRouter
-from app.domain.services.chat_turn_cap import (
-    CHAT_TURN_CAP_MESSAGE,
-    MONTHLY_CHAT_TURNS_BREACHED_CAP,
-    as_known_tier,
-    decide_chat_turn_cap,
-)
+from app.domain.services.chat_turn_cap import MONTHLY_CHAT_TURNS_BREACHED_CAP
 from app.domain.services.cost_circuit_breaker import CostCircuitBreaker, estimate_prompt_tokens
-from app.domain.services.tool_envelope_gate import validate_tool_envelope
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, AsyncIterator, Mapping, Sequence
+    from collections.abc import AsyncIterator, Mapping, Sequence
 
     from app.domain.ports.chat_context_edge_repository import ChatContextEdgeRepository
-    from app.domain.ports.chat_provider import ChatDelta, ChatProvider
+    from app.domain.ports.chat_provider import ChatProvider
     from app.domain.ports.chat_turn_usage_repository import ChatTurnUsageRepository
     from app.domain.ports.email_repository import EmailRepository
     from app.domain.ports.source_ledger_repository import SourceLedgerRepository
@@ -199,6 +194,7 @@ __all__ = [
     "_PANEL_TITLE_FIELD_CHARS",
     "_SYSTEM_PROMPT",
     "_TITLE_SNIPPET_MAX_LEN",
+    "_TOOL_ENVELOPE_INVALID_TEXT",
     "_TOOL_RESULT_HARDENING_LINE",
     "_WEB_SEARCH_TOOL_NAME",
     "KnowledgeMemoryInjection",
@@ -225,72 +221,6 @@ __all__ = [
 # SEAM-04: one agent, one run per turn today.
 _AGENT_ID = "chat-agent-v1"
 
-# Phase 56-02 (RCNV-01): the ledger-eligible tool allowlist -- only a tool
-# name in this frozenset ever triggers a `chat_source_ledger` auto-collect
-# write. Starts as exactly the one already-gated web_search tool (A4:
-# gating is inherited transitively from WEB_SEARCH_TOOL_ENABLED -- the hook
-# only ever fires for an already-gated tool, no separate settings flag).
-_LEDGER_ELIGIBLE_TOOL_NAMES = frozenset({_WEB_SEARCH_TOOL_NAME})
-
-# Phase 34-03 (LOOP-01): bounded mid-turn server-tool round loop. A round is
-# one "model calls a server tool -> executor runs -> result fed back" cycle
-# inside the SAME _execute_turn call/run (no new ChatRun per round, SEAM-04).
-# At most _MAX_TOOL_ROUNDS executor.execute() calls happen per turn -- a
-# request for a 5th server tool call after the cap is exhaustion (LOOP-03),
-# never a 5th execution.
-_MAX_TOOL_ROUNDS = 4
-# Per-tool execution ceiling (T-34-01) -- a timeout never raises out of the
-# loop, it becomes an is_error ToolExecutionResult instead.
-_TOOL_EXECUTION_TIMEOUT_SECONDS = 10.0
-# Phase 69 (RSRCH-01): deep_research is a bounded multi-round agentic loop
-# (several LLM steps + web-search rounds), not a lookup -- the flat 10s
-# ceiling above would kill every real run mid-plan. Per-tool override,
-# consulted at the one dispatch point in _run_server_tool_round; every other
-# tool keeps the flat default. This is only the stalled-run backstop -- the
-# loop's own ResearchBudget (token ceiling + round cap, deep_research.py) is
-# the real cost gate, and it aborts fail-closed long before this fires on a
-# healthy run.
-_TOOL_TIMEOUT_OVERRIDES: dict[str, float] = {"deep_research": 600.0}
-_TOOL_TIMEOUT_TEXT = "Tool execution timed out."
-_TOOL_EXECUTION_ERROR_TEXT = "Tool execution failed."
-
-# Phase 38 (QUAR-01): the ONE wiring point's fail-closed replacement text --
-# an executor output that fails validate_tool_envelope() is swapped for this
-# generic, safe text (never the raw poisoned content) and marked is_error.
-_TOOL_ENVELOPE_INVALID_TEXT = "That tool result didn't pass a safety check, so I discarded it."
-
-
-@dataclass(frozen=True)
-class _ChatTurnCapGateOutcome:
-    """Outcome of the pre-insert monthlyChatTurns gate (vLAUNCH W5-1 / W6-L).
-
-    `rejection` is the ONE un-persisted 'cost_capped' event to yield (FREE
-    tier at/over cap), or None when the turn may proceed. `over_limit` is
-    True ONLY for an ALLOWED paid tier at/over its finite cap — run() threads
-    it through _execute_turn so the terminal 'completed' event surfaces the
-    marker additively (existing clients ignore unknown fields). A fail-open /
-    unwired / blocked outcome always carries over_limit=False (a blocked
-    turn never reaches 'completed', so the marker would be meaningless).
-    """
-
-    rejection: ChatRunEvent | None
-    over_limit: bool
-
-
-@dataclass(frozen=True)
-class _ServerRoundResult:
-    """Outcome of one server-tool round (Phase 34-03, LOOP-01) — see `_run_server_tool_round`.
-
-    provider_messages is None exactly when the post-round breaker re-check
-    (T-34-01) trips — the caller must terminate the turn `cost_capped`.
-    Otherwise it carries the NEXT round's provider_messages and the caller
-    increments round_count and continues streaming in the SAME run.
-    """
-
-    state: _TurnState
-    events: tuple[ChatRunEvent, ...]
-    provider_messages: list[dict[str, Any]] | None
-
 
 @dataclass(frozen=True)
 class _RoundAdvance:
@@ -315,21 +245,6 @@ class _RoundAdvance:
     events: tuple[ChatRunEvent, ...]
     outcome: Literal["break", "terminal", "continue"]
     provider_messages: list[dict[str, Any]]
-
-
-class _MidStreamTerminalError(Exception):
-    """Internal control-flow signal (Phase 34-03) — never escapes `_execute_turn`.
-
-    Raised by `_stream_round_deltas` the instant `_terminal_status_for` flags
-    a status (StreamEnd error / mid-stream cost_capped) — the caller catches
-    it to persist the partial + terminate via `_terminate` (D-15/D-19/D-21:
-    the accumulated state at the moment of the terminal is never dropped).
-    """
-
-    def __init__(self, status: ChatMessageStatus, state: _TurnState) -> None:
-        super().__init__(status)
-        self.status = status
-        self.state = state
 
 
 def _latest_user_text(history: Sequence[ChatMessage]) -> str:
@@ -496,7 +411,12 @@ class RunChatTurn:
         # below: ONE un-persisted terminal event, then return. An ALLOWED
         # paid tier at/over its finite cap carries over_limit through to the
         # terminal 'completed' event (W6-L, additive).
-        cap_gate = await self._chat_turn_cap_gate(conversation_id)
+        cap_gate = await _chat_turn_cap_gate(
+            conversation_id=conversation_id,
+            conversations=self._conversations,
+            user_tiers=self._user_tiers,
+            chat_turn_usage=self._chat_turn_usage,
+        )
         if cap_gate.rejection is not None:
             yield cap_gate.rejection
             return
@@ -674,72 +594,6 @@ class RunChatTurn:
             version=1,
         ):
             yield event
-
-    async def _chat_turn_cap_gate(self, conversation_id: str) -> _ChatTurnCapGateOutcome:
-        """The monthlyChatTurns pre-insert gate — MIRROR of enforceChatTurnCap (vLAUNCH W5-1).
-
-        Policy mirror of packages/api-client/src/router/chat/turn-cap.ts,
-        applied to the server-locus chat path ONLY (run(); regenerate/
-        continue_after_widget never insert a role='user' row, so they never
-        consume a turn and are not gated — matching the TS meter's unit).
-
-        The outcome carries the ONE un-persisted rejection event to yield when
-        the FREE tier is at/over its cap (the same pre-turn BLOCK mechanism as
-        the cost breaker: chat_run_events.run_id is NOT NULL, so a turn
-        rejected before a run exists yields an in-memory event carrying the
-        friendly message in `data`), or rejection=None when the turn may
-        proceed — plus the over_limit marker for an ALLOWED paid tier at/over
-        its finite cap (W6-L: threaded to the terminal 'completed' event, no
-        longer log-only).
-
-        FAIL-OPEN on ANY owner/tier/count lookup failure — an outage must
-        never lock users out of chat; only the deliberate free-at-cap
-        decision blocks (turn-cap.ts's exact posture). Unwired collaborators
-        (either None) leave the gate structurally OFF. The user id is
-        SERVER-resolved from the conversation owner — never client input.
-        """
-        if self._user_tiers is None or self._chat_turn_usage is None:
-            return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
-        try:
-            owner_user_id = await self._conversations.owner_user_id(conversation_id)
-            if owner_user_id is None:
-                # The transport's ownership gate 404s a non-owned/absent
-                # conversation before run() starts, so an unresolvable owner
-                # here is an anomaly — fail open, never lock chat.
-                logger.warning("chat_turn_cap_owner_missing_failing_open", conversation_id=conversation_id)
-                return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
-            # W6-L: the tier and count reads are independent — run them
-            # concurrently (one round-trip of latency, not two). gather sits
-            # INSIDE the same fail-open try, so the degradation is identical:
-            # ANY exception from either read -> fail open, logged below.
-            raw_tier, used = await asyncio.gather(
-                self._user_tiers.tier_for_user(owner_user_id),
-                self._chat_turn_usage.count_monthly_chat_turns_used(owner_user_id),
-            )
-            tier = as_known_tier(raw_tier)
-            decision = decide_chat_turn_cap(tier, used)
-        except Exception:
-            # FAIL-OPEN for everyone (mirror of enforceChatTurnCap's catch).
-            logger.warning(
-                "chat_turn_cap_check_failed_failing_open", conversation_id=conversation_id, exc_info=True
-            )
-            return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
-        if decision.allowed:
-            if decision.over_limit:
-                # Paid tier at/over its finite cap — allowed by policy
-                # (PRO/POWER are never hard-blocked); logged for the meter
-                # AND surfaced on the terminal 'completed' event (W6-L).
-                logger.info("chat_turn_cap_over_limit_allowed", user_id=owner_user_id, tier=tier, used=used)
-            return _ChatTurnCapGateOutcome(rejection=None, over_limit=decision.over_limit)
-        # Server-side detail; the client only ever sees CHAT_TURN_CAP_MESSAGE.
-        logger.warning("chat_turn_cap_blocked", user_id=owner_user_id, tier=tier, used=used)
-        return _ChatTurnCapGateOutcome(
-            rejection=ChatRunEvent(
-                type="cost_capped",
-                data={"breached_cap": MONTHLY_CHAT_TURNS_BREACHED_CAP, "message": CHAT_TURN_CAP_MESSAGE},
-            ),
-            over_limit=False,
-        )
 
     def _build_tool_offer(self, model: ChatModel) -> tuple[dict[str, Any], ...]:
         """The tools offered to the provider for this turn (pure w.r.t. `model`).
@@ -969,8 +823,10 @@ class RunChatTurn:
             # branch below (D-15) -- an awaited-coroutine boundary would lose
             # it, since a coroutine that raises never reaches its `return`.
             try:
-                async for updated_state, event in self._stream_round_deltas(
+                async for updated_state, event in _stream_round_deltas(
                     run=run,
+                    runs=self._runs,
+                    breaker=self._breaker,
                     provider=provider,
                     model=model,
                     model_id=model_id,
@@ -980,6 +836,8 @@ class RunChatTurn:
                     state=state,
                     round_start_output_tokens=round_start_output_tokens,
                     round_start_text_len=round_start_text_len,
+                    server_tool_names=self._server_tool_names,
+                    max_output_tokens=self._max_output_tokens,
                 ):
                     state = updated_state
                     if event is not None:
@@ -1099,13 +957,17 @@ class RunChatTurn:
         pending_tool_id before reaching this path, so this is a no-op there.
 
         Phase 40-01 (CONF-01): `_finalize_confirm_action` runs FIRST — it is
-        the only site with both `self` (repository access, for the live edge
+        the only site with both repository access (for the live edge
         re-read) and `importer_id`. It EAGERLY clears pending_tool_* on every
         branch, so the subsequent `_finalize_pending_tool(state)` call below
         is provably a no-op for an emit_confirm_action call either way.
         """
-        state, confirm_action_event = await self._finalize_confirm_action(
-            state, importer_id=importer_id, conversation_id=conversation_id
+        state, confirm_action_event = await _finalize_confirm_action(
+            state,
+            importer_id=importer_id,
+            conversation_id=conversation_id,
+            knowledge_graph=self._knowledge_graph,
+            messages=self._messages,
         )
         if confirm_action_event is not None:
             yield await self._emit(run.id, confirm_action_event[0], confirm_action_event[1])
@@ -1137,219 +999,6 @@ class RunChatTurn:
 
         title = _title_snippet(user_text) if is_first_turn else None
         await self._conversations.touch(conversation_id=conversation_id, model_id=model_id, title=title)
-
-    async def _finalize_confirm_action(
-        self, state: _TurnState, *, importer_id: str, conversation_id: str
-    ) -> tuple[_TurnState, tuple[ChatRunEventType, dict[str, Any]] | None]:
-        """Finalize a still-pending emit_confirm_action call via a LIVE re-read (CONF-01/CLUS-04).
-
-        No-op (`state, None`) unless the pending tool is emit_confirm_action —
-        every other pending tool name falls through unchanged to the caller's
-        subsequent `_finalize_pending_tool(state)` call.
-
-        Clears pending_tool_* EAGERLY on every branch below (parse-fail,
-        edge-unavailable, success) — this is what makes it safe to run this
-        live-I/O check from `_finalize_turn_completed` (the only async site
-        with `self`) while `_finalize_pending_tool` itself stays pure: by the
-        time that pure function runs next, pending_tool_id is already None,
-        so it is provably a no-op for this tool.
-
-        A malformed call (T-40-04) never reaches ANY live lookup — parsing
-        happens first for both suggestion kinds. `source_capture` (Phase
-        54-03) branches into `_finalize_source_capture`, which re-reads a
-        persisted web_search result instead of a `knowledge_node_edges` row.
-        For `knowledge_edge_tier_promotion`: edge-not-found, cross-importer,
-        inactive, and wrong-tier all collapse into the SAME
-        CONFIRM_ACTION_UNAVAILABLE_TEXT (T-40-02) — a probing model/user
-        cannot distinguish "wrong tenant" from "already resolved" from
-        "doesn't exist". A DB error during the lookup is caught and treated
-        identically to edge-unavailable (fail-closed, never crashes the turn).
-        """
-        if state.pending_tool_name != EMIT_CONFIRM_ACTION_TOOL_NAME or state.pending_tool_id is None:
-            return state, None
-
-        tool_id = state.pending_tool_id
-        raw_json = state.pending_tool_json
-        cleared = replace(state, pending_tool_name=None, pending_tool_id=None, pending_tool_json="")
-
-        parsed = parse_confirm_action_call(raw_json)
-        if parsed is None:
-            logger.warning("confirm_action_tool_call_parse_failed", tool_id=tool_id)
-            return replace(cleared, parts=(*cleared.parts, {"type": "text", "text": PARSE_FAILURE_TEXT})), None
-
-        if parsed["kind"] == SUGGESTION_KIND_SOURCE_CAPTURE:
-            return await self._finalize_source_capture(
-                cleared, tool_id=tool_id, parsed=parsed, importer_id=importer_id, conversation_id=conversation_id
-            )
-
-        edge: dict[str, object] | None = None
-        if self._knowledge_graph is not None:
-            try:
-                edge = await self._knowledge_graph.find_edge_by_id(parsed["id"])
-            except Exception:  # fail-closed, never crash the turn on a DB hiccup
-                logger.warning("confirm_action_edge_lookup_failed", tool_id=tool_id, suggestion_id=parsed["id"])
-                edge = None
-
-        edge_valid = (
-            edge is not None
-            and edge.get("importer_id") == importer_id
-            and bool(edge.get("is_active"))
-            and edge.get("tier") in ("INFERRED", "AMBIGUOUS")
-        )
-        if not edge_valid:
-            logger.warning("confirm_action_edge_unavailable", tool_id=tool_id, suggestion_id=parsed["id"])
-            return (
-                replace(cleared, parts=(*cleared.parts, {"type": "text", "text": CONFIRM_ACTION_UNAVAILABLE_TEXT})),
-                None,
-            )
-
-        assert edge is not None  # narrows for mypy -- edge_valid already proved this
-        declaration = build_confirm_action_declaration(
-            kind=parsed["kind"],
-            suggestion_id=parsed["id"],
-            edge=edge,
-            rationale=parsed["rationale"],
-        )
-        widget_part = {
-            "type": "interactive_widget",
-            "interactionId": str(uuid.uuid4()),
-            "widgetKind": "confirm_action",
-            "declaration": declaration,
-        }
-        finalized = replace(cleared, parts=(*cleared.parts, widget_part))
-        return finalized, (
-            "tool_result",
-            {"tool_name": EMIT_CONFIRM_ACTION_TOOL_NAME, "id": tool_id, "interactionId": widget_part["interactionId"]},
-        )
-
-    async def _finalize_source_capture(
-        self,
-        cleared: _TurnState,
-        *,
-        tool_id: str,
-        parsed: dict[str, Any],
-        importer_id: str,
-        conversation_id: str,
-    ) -> tuple[_TurnState, tuple[ChatRunEventType, dict[str, Any]] | None]:
-        """Re-read a web_search result server-side by its {toolUseId}:{index} id (Phase 54-03, T-54-03-01).
-
-        Never trusts model-authored title/url/snippet text — only the id (a
-        lookup key into a server-recorded tool_invocation_result part) comes
-        from the model. The CURRENT turn's accumulated parts are scanned
-        FIRST — the designed flow is search-then-propose in ONE turn, and at
-        finalize time this turn's assistant message is not yet persisted
-        (found live 2026-07-12: the history-only lookup made every same-turn
-        capture collapse into 'unavailable', deadlocking CLUS-04 — prior-turn
-        refs are impossible too, since replay stand-ins omit tool ids).
-        Persisted history remains the fallback. A malformed id, an
-        unresolvable toolUseId, an out-of-range index, or a foreign
-        (cross-conversation) result all collapse into the SAME
-        CONFIRM_ACTION_UNAVAILABLE_TEXT (T-54-03-03 — no leak of which case).
-        `retrievedAt` is stamped fresh at THIS re-read (server time, never
-        model-supplied).
-        """
-        source: dict[str, object] | None = None
-        ref = parse_source_capture_result_id(parsed["id"])
-        if ref is not None:
-            tool_use_id, index = ref
-            source = _find_web_search_result_in_parts(cleared.parts, tool_use_id=tool_use_id, index=index)
-            if source is None:
-                try:
-                    history = await self._messages.list_active_context(conversation_id)
-                except Exception:  # fail-closed, never crash the turn on a DB hiccup
-                    logger.warning("confirm_action_source_capture_lookup_failed", tool_id=tool_id)
-                    history = []
-                source = _find_web_search_result(history, tool_use_id=tool_use_id, index=index)
-            if source is None:
-                # Models mistranscribe opaque tool ids (observed live
-                # 2026-07-12: 'toolu_01...' fabricated for the real
-                # 'toolu_bdrk_01...'). The id is only a lookup key — content
-                # is still re-read server-side, and the user still sees the
-                # exact url/title in the confirm widget before anything is
-                # written (suggest-only gate) — so fall back to resolving
-                # `index` against THIS turn's own web_search results
-                # (most recent first). Cross-conversation reads stay
-                # impossible; no same-turn search means still-unavailable.
-                source = _find_latest_web_search_result_by_index(cleared.parts, index=index)
-                if source is not None:
-                    logger.warning(
-                        "confirm_action_source_capture_id_fallback",
-                        tool_id=tool_id,
-                        suggestion_id=parsed["id"],
-                    )
-
-        if source is None:
-            logger.warning("confirm_action_source_capture_unavailable", tool_id=tool_id, suggestion_id=parsed["id"])
-            return (
-                replace(cleared, parts=(*cleared.parts, {"type": "text", "text": CONFIRM_ACTION_UNAVAILABLE_TEXT})),
-                None,
-            )
-
-        declaration = build_source_capture_declaration(
-            suggestion_id=parsed["id"],
-            source=source,
-            rationale=parsed["rationale"],
-            importer_id=importer_id,
-        )
-        widget_part = {
-            "type": "interactive_widget",
-            "interactionId": str(uuid.uuid4()),
-            "widgetKind": "confirm_action",
-            "declaration": declaration,
-        }
-        finalized = replace(cleared, parts=(*cleared.parts, widget_part))
-        return finalized, (
-            "tool_result",
-            {"tool_name": EMIT_CONFIRM_ACTION_TOOL_NAME, "id": tool_id, "interactionId": widget_part["interactionId"]},
-        )
-
-    def _terminal_status_for(
-        self,
-        delta: ChatDelta,
-        *,
-        model: ChatModel,
-        state: _TurnState,
-        round_start_output_tokens: int,
-        round_start_text_len: int,
-    ) -> ChatMessageStatus | None:
-        """Return the terminal status this delta forces, or None to keep streaming.
-
-        A StreamEnd(error) always fails the turn (D-19). A TextDelta/UsageDelta
-        that pushes the (estimated, then real) running cost past should_abort's
-        threshold cost-caps the turn mid-stream (D-21). Once the per-turn
-        check clears, the SAME delta is also checked against the COST-05
-        round-scoped cap (`should_abort_round`) — either trip cost-caps the
-        turn, mid-round, before the round's own streaming even finishes.
-        """
-        if isinstance(delta, StreamEnd) and delta.stop_reason == "error":
-            return "failed"
-        if isinstance(delta, TextDelta):
-            estimated_cost = self._estimated_cost_so_far(model=model, state=state)
-            if self._breaker.should_abort(estimated_cost):
-                return "cost_capped"
-            round_cost = self._estimated_round_cost_so_far(
-                model=model,
-                state=state,
-                round_start_output_tokens=round_start_output_tokens,
-                round_start_text_len=round_start_text_len,
-            )
-            if self._breaker.should_abort_round(round_cost):
-                return "cost_capped"
-        elif isinstance(delta, UsageDelta):
-            real_cost = self._breaker.estimate_turn_cost(
-                model=model, prompt_tokens_est=state.input_tokens, max_output_tokens=state.output_tokens
-            )
-            if self._breaker.should_abort(real_cost):
-                return "cost_capped"
-            round_cost = self._estimated_round_cost_so_far(
-                model=model,
-                state=state,
-                round_start_output_tokens=round_start_output_tokens,
-                round_start_text_len=round_start_text_len,
-            )
-            if self._breaker.should_abort_round(round_cost):
-                return "cost_capped"
-        return None
 
     async def _terminate(
         self,
@@ -1463,101 +1112,9 @@ class RunChatTurn:
         )
         await self._runs.finish_run(run_id=run.id, status=run_status)
 
-    def _estimated_cost_so_far(self, *, model: ChatModel, state: _TurnState) -> Decimal:
-        """Cheap running-cost ESTIMATE from accumulated output length (mid-stream abort signal).
-
-        Real cost is always recorded post-turn from actual captured usage
-        (D-22); this heuristic exists solely to decide whether to keep
-        streaming, mirroring the pre-turn estimate's own heuristic contract.
-        """
-        tokens_so_far = estimate_prompt_tokens(len(_accumulated_text_for_estimate(state)))
-        return self._breaker.estimate_turn_cost(model=model, prompt_tokens_est=0, max_output_tokens=tokens_so_far)
-
-    def _estimated_round_cost_so_far(
-        self,
-        *,
-        model: ChatModel,
-        state: _TurnState,
-        round_start_output_tokens: int,
-        round_start_text_len: int,
-    ) -> Decimal:
-        """COST-05 round-scoped cost ESTIMATE, scoped to output produced SINCE the round began.
-
-        Mirrors `_estimated_cost_so_far`'s heuristic exactly, but diffs
-        against the round's own baseline instead of the whole turn — takes
-        the LARGER of the mid-stream text-length estimate and the real
-        per-round token delta, whichever is available at the call site.
-        """
-        text_len_delta = max(0, len(_accumulated_text_for_estimate(state)) - round_start_text_len)
-        token_delta = max(0, state.output_tokens - round_start_output_tokens)
-        tokens_so_far = max(estimate_prompt_tokens(text_len_delta), token_delta)
-        return self._breaker.estimate_turn_cost(model=model, prompt_tokens_est=0, max_output_tokens=tokens_so_far)
-
     async def _emit(self, run_id: str, event_type: ChatRunEventType, data: dict[str, Any]) -> ChatRunEvent:
         """Persist one run event (append-only) and return it for the caller to yield."""
         return await self._runs.append_event(run_id=run_id, event_type=event_type, data=data)
-
-    async def _stream_round_deltas(
-        self,
-        *,
-        run: ChatRun,
-        provider: ChatProvider,
-        model: ChatModel,
-        model_id: str,
-        provider_messages: list[dict[str, Any]],
-        tools: tuple[dict[str, Any], ...],
-        system_prompt: str,
-        state: _TurnState,
-        round_start_output_tokens: int,
-        round_start_text_len: int,
-    ) -> AsyncIterator[tuple[_TurnState, ChatRunEvent | None]]:
-        """Stream ONE round's deltas, yielding (updated_state, event_or_none) pairs.
-
-        Always yields at least once per delta processed — even when
-        `_apply_delta` produces no run event (e.g. UsageDelta) — so the
-        caller's `state` is never stale between yields. Raises
-        `_MidStreamTerminalError` (never escapes `_execute_turn`) the instant
-        `_terminal_status_for` flags a status; the caller persists + terminates.
-
-        Phase 38 (QUAR-01, T-38-04): `system_prompt` is computed ONCE per turn
-        by `_execute_turn` (`_system_prompt_for`) and passed down here instead
-        of referencing the module constant `_SYSTEM_PROMPT` directly — it
-        carries the tool-result hardening line only on a tool-round-eligible
-        turn.
-        """
-        # Cast: ChatProvider.stream() is typed AsyncIterator[ChatDelta] on the Protocol
-        # (deliberately loose so a future non-generator implementation stays valid),
-        # but every real adapter (BedrockChatAdapter/OpenRouterChatAdapter) IS an
-        # `async def ...: yield ...` generator — aclosing() needs the narrower
-        # AsyncGenerator type to guarantee .aclose().
-        raw_stream = cast(
-            "AsyncGenerator[ChatDelta, None]",
-            provider.stream(
-                model_id=model_id,
-                system=system_prompt,
-                messages=provider_messages,
-                tools=tools,
-                max_tokens=self._max_output_tokens,
-            ),
-        )
-        async with contextlib.aclosing(raw_stream) as delta_stream:
-            async for delta in delta_stream:
-                state, events = _apply_delta(delta, state, server_tool_names=self._server_tool_names)
-                if events:
-                    for event_type, event_data in events:
-                        yield state, await self._emit(run.id, event_type, event_data)
-                else:
-                    yield state, None
-
-                terminal_status = self._terminal_status_for(
-                    delta,
-                    model=model,
-                    state=state,
-                    round_start_output_tokens=round_start_output_tokens,
-                    round_start_text_len=round_start_text_len,
-                )
-                if terminal_status is not None:
-                    raise _MidStreamTerminalError(terminal_status, state)
 
     async def _advance_round(
         self,
@@ -1633,8 +1190,12 @@ class RunChatTurn:
                 return _RoundAdvance(state=state, events=(), outcome="break", provider_messages=provider_messages)
             calls.append({"name": queued["name"], "id": queued["id"], "arguments": arguments})
 
-        round_result = await self._run_server_tool_round(
+        round_result = await _run_server_tool_round(
             run=run,
+            runs=self._runs,
+            breaker=self._breaker,
+            tool_executors=self._tool_executors,
+            source_ledger=self._source_ledger,
             state=state,
             model=model,
             calls=calls,
@@ -1673,233 +1234,3 @@ class RunChatTurn:
             outcome="terminal",
             provider_messages=provider_messages,
         )
-
-    async def _write_source_ledger_entries(
-        self,
-        *,
-        conversation_id: str,
-        importer_id: str,
-        tool_name: str,
-        tool_use_id: str,
-        content: str,
-    ) -> None:
-        """Fail-open ledger write (Phase 56-02, RCNV-01) — never raises past the tool round.
-
-        Parses the ALREADY-quarantined+bounded envelope (post `validate_tool_envelope` +
-        `cap_tool_output`) `{"mode": "web_search", "results": [{"title","url","snippet"}, ...]}`,
-        builds one `SourceLedgerEntry` per result carrying a url (urlless entries are skipped,
-        `result_index` is the enumeration position), and upserts them via `insert_entries` when
-        non-empty. Zero writes to the confirm-ceremony knowledge graph — this is a separate
-        candidate pool (999.19), never the `SourceCaptureHandler` path.
-
-        A malformed/unparseable envelope, or ANY failure from `insert_entries` (e.g. the
-        chat_source_ledger table not yet applied to this environment), logs a warning and
-        returns — mirrors `_list_captured_sources`/`_resolve_thread_id`'s exact fail-open
-        idiom (T-56-02-01: never block the model's turn, never raise a 500).
-        """
-        if self._source_ledger is None:
-            return
-        try:
-            envelope = json.loads(content)
-            results = envelope.get("results", []) if isinstance(envelope, dict) else []
-            entries = [
-                SourceLedgerEntry(
-                    conversation_id=conversation_id,
-                    importer_id=importer_id,
-                    tool_name=tool_name,
-                    tool_use_id=tool_use_id,
-                    result_index=index,
-                    url=str(result["url"]),
-                    title=str(result.get("title") or result["url"]),
-                    snippet=str(result.get("snippet")) if result.get("snippet") else None,
-                )
-                for index, result in enumerate(results)
-                if isinstance(result, dict) and result.get("url")
-            ]
-            if entries:
-                await self._source_ledger.insert_entries(entries)
-        except Exception:  # never raise past the tool round (fail-open, T-56-02-01)
-            logger.warning("source_ledger_write_failed", tool_use_id=tool_use_id, tool_name=tool_name)
-
-    async def _run_server_tool_round(
-        self,
-        *,
-        run: ChatRun,
-        state: _TurnState,
-        model: ChatModel,
-        calls: list[dict[str, Any]],
-        this_round_lead_parts: list[dict[str, Any]],
-        provider_messages: list[dict[str, Any]],
-        round_start_output_tokens: int,
-        round_start_text_len: int,
-        importer_id: str,
-        is_last_round: bool = False,
-    ) -> _ServerRoundResult:
-        """Execute one server-tool round (Phase 34-03, LOOP-01): dispatch, cap, feed back.
-
-        `calls` is EVERY server-tool call the model emitted in this response
-        ({"name", "id", "arguments"} each, in emission order) — the API
-        contract requires one tool_result per tool_use in the SAME next user
-        message. Calls beyond MAX_SERVER_CALLS_PER_ROUND are not executed but
-        still get an is_error tool_result (bounded work, protocol intact).
-
-        `is_last_round`: this round consumed the tool budget — the fed-back
-        user message gains a trailing FINAL_ROUND_NUDGE_TEXT text block
-        (paired with the final stream offering no server tools) so the model
-        spends its last stream answering instead of asking for another lookup.
-
-        A per-tool timeout (`asyncio.wait_for`, ~10s, T-34-01) or ANY raised
-        exception NEVER escapes this method — both become an `is_error`
-        `ToolExecutionResult` (port contract, `tool_executor.py`). The
-        `tool_invocation`/`tool_invocation_result` parts and the `tool_call`/
-        `tool_result` run events are always recorded, whatever the outcome.
-        """
-        events: list[ChatRunEvent] = []
-        results: list[ToolExecutionResult] = []
-        for call_index, call in enumerate(calls):
-            tool_name: str = call["name"]
-            tool_id: str = call["id"]
-            arguments: dict[str, Any] = call["arguments"]
-            invocation_part = build_tool_invocation_part(tool_name, tool_id, arguments)
-            state = replace(state, parts=(*state.parts, invocation_part))
-            events.append(
-                await self._emit(run.id, "tool_call", {"tool_name": tool_name, "id": tool_id, "arguments": arguments})
-            )
-            # Phase 39 (TUI-01): non-persisted SSE mirror frame -- constructed
-            # DIRECTLY (never routed through self._emit/self._runs.append_event),
-            # id/run_id/seq stay at their dataclass defaults (None). Deliberately
-            # omits `arguments` (see 39-UI-SPEC.md's SSE / Part Contract).
-            events.append(ChatRunEvent(type="server_tool_call", data={"tool_name": tool_name, "id": tool_id}))
-
-            if call_index >= MAX_SERVER_CALLS_PER_ROUND:
-                logger.warning("server_tool_call_overflow_skipped", tool_id=tool_id, tool_name=tool_name)
-                result = ToolExecutionResult(tool_use_id=tool_id, content=PARALLEL_CALL_OVERFLOW_TEXT, is_error=True)
-            else:
-                executor = self._tool_executors[tool_name]
-                try:
-                    result = await asyncio.wait_for(
-                        executor.execute(name=tool_name, arguments=arguments, importer_id=importer_id),
-                        timeout=_TOOL_TIMEOUT_OVERRIDES.get(tool_name, _TOOL_EXECUTION_TIMEOUT_SECONDS),
-                    )
-                except TimeoutError:
-                    logger.warning("server_tool_execution_timed_out", tool_id=tool_id, tool_name=tool_name)
-                    result = ToolExecutionResult(tool_use_id=tool_id, content=_TOOL_TIMEOUT_TEXT, is_error=True)
-                except Exception:  # an executor MUST NEVER raise out of the loop (port contract)
-                    logger.warning("server_tool_execution_failed", tool_id=tool_id, tool_name=tool_name)
-                    result = ToolExecutionResult(tool_use_id=tool_id, content=_TOOL_EXECUTION_ERROR_TEXT, is_error=True)
-
-            # Phase 38 (QUAR-01): the ONE wiring point in the round loop -- every
-            # registered executor's non-error output is validated against the
-            # structural envelope contract BEFORE it can enter provider_messages
-            # or a persisted part. The existing timeout/exception is_error
-            # results above are deliberately left untouched -- their content is
-            # already a pre-vetted safe string, not JSON from an executor.
-            if result.is_error is False:
-                gate = validate_tool_envelope(result.content)
-                if gate.ok is False:
-                    logger.warning(
-                        "tool_envelope_gate_rejected", tool_id=tool_id, tool_name=tool_name, reason=gate.reason
-                    )
-                    result = ToolExecutionResult(
-                        tool_use_id=tool_id, content=_TOOL_ENVELOPE_INVALID_TEXT, is_error=True
-                    )
-
-            # T-34-04 defense-in-depth / protocol correctness: the fed-back native
-            # tool_result block's tool_use_id MUST match the tool_use block's id
-            # exactly (Anthropic/Bedrock correlation contract) -- the ToolExecutor
-            # port's execute() signature doesn't even receive tool_use_id as an
-            # input, so an executor's own result.tool_use_id is NEVER trusted for
-            # this; always overridden with the id the model actually streamed.
-            result = replace(result, tool_use_id=tool_id, content=cap_tool_output(result.content))
-            results.append(result)
-
-            # Phase 56-02 (RCNV-01): fail-open auto-collect write, fires ONLY for an
-            # already-gated, non-error, ledger-eligible tool result -- never raises,
-            # never blocks the round (see _write_source_ledger_entries).
-            if (
-                self._source_ledger is not None
-                and result.is_error is False
-                and tool_name in _LEDGER_ELIGIBLE_TOOL_NAMES
-            ):
-                await self._write_source_ledger_entries(
-                    conversation_id=run.conversation_id,
-                    importer_id=importer_id,
-                    tool_name=tool_name,
-                    tool_use_id=tool_id,
-                    content=result.content,
-                )
-
-            result_part = build_tool_invocation_result_part(result, tool_name)
-            state = replace(state, parts=(*state.parts, result_part))
-            # ToolResultDelta (chat_provider.py) — modeled, never emitted until now
-            # (LOOP-01): its fields feed the persisted tool_result run event.
-            tool_result_delta = ToolResultDelta(
-                tool_use_id=result.tool_use_id, content=result.content, is_error=result.is_error
-            )
-            events.append(
-                await self._emit(
-                    run.id,
-                    "tool_result",
-                    {
-                        "tool_name": tool_name,
-                        "id": tool_id,
-                        "content": tool_result_delta.content,
-                        "isError": tool_result_delta.is_error,
-                    },
-                )
-            )
-            # Phase 39 (TUI-01): non-persisted SSE mirror frame, same convention
-            # as the server_tool_call mirror above -- identical `data` shape to
-            # the persisted tool_result event (byte-identical mirror, per
-            # 39-UI-SPEC.md), so the client can build the SAME
-            # tool_invocation_result part client-side without a "flash" on
-            # terminal chat.getHistory refetch.
-            events.append(
-                ChatRunEvent(
-                    type="server_tool_result",
-                    data={
-                        "tool_name": tool_name,
-                        "id": tool_id,
-                        "content": tool_result_delta.content,
-                        "isError": tool_result_delta.is_error,
-                    },
-                )
-            )
-
-        # T-34-01: a round is the same spend commitment as continuing to
-        # stream — re-check the breaker at the round boundary. COST-05
-        # (Phase 35): ALSO re-check the round-scoped ceiling here — either
-        # the per-turn OR the per-round cap tripping aborts the turn.
-        if self._breaker.should_abort(
-            self._estimated_cost_so_far(model=model, state=state)
-        ) or self._breaker.should_abort_round(
-            self._estimated_round_cost_so_far(
-                model=model,
-                state=state,
-                round_start_output_tokens=round_start_output_tokens,
-                round_start_text_len=round_start_text_len,
-            )
-        ):
-            return _ServerRoundResult(state=state, events=tuple(events), provider_messages=None)
-
-        tool_use_blocks = [
-            {"type": "tool_use", "id": call["id"], "name": call["name"], "input": call["arguments"]} for call in calls
-        ]
-        # this_round_lead_parts are CANONICAL parts (text | genui_spec |
-        # interactive_widget ...), not Anthropic content blocks — a genui_spec
-        # finalized before this server-tool call in the same stream would 400
-        # the next round ("Input tag 'genui_spec' ... does not match") if
-        # replayed raw. Same conversion as history replay.
-        lead_blocks = _provider_content_blocks(this_round_lead_parts)
-        results_message = build_synthetic_tool_results_message(results)
-        if is_last_round:
-            results_message = {
-                **results_message,
-                "content": [*results_message["content"], {"type": "text", "text": FINAL_ROUND_NUDGE_TEXT}],
-            }
-        next_provider_messages = [
-            *provider_messages,
-            {"role": "assistant", "content": [*lead_blocks, *tool_use_blocks]},
-            results_message,
-        ]
-        return _ServerRoundResult(state=state, events=tuple(events), provider_messages=next_provider_messages)
