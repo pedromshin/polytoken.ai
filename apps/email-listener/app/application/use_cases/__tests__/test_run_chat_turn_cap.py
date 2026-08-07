@@ -385,6 +385,50 @@ async def test_unknown_tier_is_treated_as_free_and_blocked_at_cap() -> None:
 
 
 # ---------------------------------------------------------------------------
+# W6-L: an ALLOWED paid tier at/over its finite cap surfaces over_limit on the
+# terminal 'completed' event (additive — the data stays {} otherwise)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_paid_over_cap_completed_event_carries_the_over_limit_marker() -> None:
+    provider = FakeChatProvider()
+    use_case, messages = _make_use_case(
+        provider=provider,
+        user_tiers=FakeUserTierResolver("pro"),
+        chat_turn_usage=FakeChatTurnUsageRepository(used=2_000),
+    )
+
+    events = await _run_events(use_case)
+
+    completed = events[-1]
+    assert completed.type == "completed"
+    assert completed.data["over_limit"] is True
+    assert completed.data["breached_cap"] == "monthly_chat_turns"
+    # Still ALLOWED — the marker never blocks the paid turn.
+    assert [m.role for m in messages.messages] == ["user", "assistant"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_under_cap_completed_event_omits_the_over_limit_fields() -> None:
+    provider = FakeChatProvider()
+    use_case, _messages = _make_use_case(
+        provider=provider,
+        user_tiers=FakeUserTierResolver("pro"),
+        chat_turn_usage=FakeChatTurnUsageRepository(used=42),
+    )
+
+    events = await _run_events(use_case)
+
+    completed = events[-1]
+    assert completed.type == "completed"
+    # Additive contract: a normal turn's completed data stays byte-identical.
+    assert completed.data == {}
+
+
+# ---------------------------------------------------------------------------
 # Failure posture: FAIL OPEN on any lookup error (mirror of enforceChatTurnCap)
 # ---------------------------------------------------------------------------
 
