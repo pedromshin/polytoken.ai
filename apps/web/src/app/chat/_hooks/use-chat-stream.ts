@@ -229,6 +229,12 @@ export interface UseChatStreamOptions {
 export interface UseChatStreamResult {
   readonly state: StreamState;
   readonly parts: readonly MessagePart[];
+  /** The server's user-facing message for a monthly-chat-turns cap block
+   * (listener cap mirror, ASSUMPTIONS A7) — non-null only after a
+   * `cost_capped` event whose data carries breached_cap='monthly_chat_turns'
+   * plus a message. The generic daily-cost cap keeps its hardcoded card copy;
+   * this rides alongside so CostCapBlockedCard can say the right thing. */
+  readonly capMessage: string | null;
   readonly send: (
     userText: string,
     modelId: string,
@@ -274,6 +280,23 @@ const CHAT_RUN_EVENT_TYPES: ReadonlySet<string> = new Set<ChatRunEventType>([
 const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set<StreamTerminalState>(
   ["completed", "stopped", "failed", "cost_capped", "interrupted"],
 );
+
+/**
+ * capMessageFromEvent — extracts the user-facing monthly-turns cap message
+ * from a `cost_capped` event, or null. The listener's chat-turn-cap mirror
+ * sends `data: { breached_cap: "monthly_chat_turns", message: <friendly> }`
+ * (run_chat_turn.py); every other cost_capped shape (daily cost breaker's
+ * per-turn/daily caps) returns null so the card keeps its cost-cap copy.
+ * Pure and exported for direct unit testing (untrusted stream input — never
+ * throws, never trusts types).
+ */
+export function capMessageFromEvent(event: ChatRunEvent): string | null {
+  if (event.type !== "cost_capped") return null;
+  const breached = event.data["breached_cap"];
+  const message = event.data["message"];
+  if (breached !== "monthly_chat_turns") return null;
+  return typeof message === "string" && message.length > 0 ? message : null;
+}
 
 /** Phase 73 (LCAN-01) — the flag-gated listener tools whose finalized parts
  * (`canvas_add_node` / `canvas_connect`) are CANVAS-only intent, not transcript
@@ -553,6 +576,7 @@ export function useChatStream({
 }: UseChatStreamOptions): UseChatStreamResult {
   const [state, setState] = useState<StreamState>("idle");
   const [parts, setParts] = useState<readonly MessagePart[]>([]);
+  const [capMessage, setCapMessage] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -573,6 +597,7 @@ export function useChatStream({
       abortControllerRef.current = controller;
       setParts([]);
       setState("streaming");
+      setCapMessage(null);
 
       let acc: ChatStreamAccumulator = { parts: [], state: "streaming" };
 
@@ -614,6 +639,8 @@ export function useChatStream({
             acc = applyRunEvent(acc, event);
             setParts(acc.parts);
             setState(acc.state);
+            const eventCapMessage = capMessageFromEvent(event);
+            if (eventCapMessage !== null) setCapMessage(eventCapMessage);
           }
         }
 
@@ -700,5 +727,5 @@ export function useChatStream({
     abortControllerRef.current?.abort();
   }, []);
 
-  return { state, parts, send, regenerate, submitWidget, stop };
+  return { state, parts, capMessage, send, regenerate, submitWidget, stop };
 }

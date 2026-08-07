@@ -26,7 +26,14 @@ import { AlertTriangle } from "lucide-react";
  * A card that cannot be dismissed is not the same claim as a button that cannot
  * be taken back.
  */
-export function CostCapBlockedCard(): React.ReactElement {
+export function CostCapBlockedCard({
+  message,
+}: {
+  /** Server-supplied copy for a monthly-turns cap block (the listener cap
+   * mirror rides it on the cost_capped event as data.message). When absent,
+   * the card keeps its original daily-cost-cap copy byte-identical. */
+  readonly message?: string;
+} = {}): React.ReactElement {
   return (
     <div
       role="alert"
@@ -35,12 +42,13 @@ export function CostCapBlockedCard(): React.ReactElement {
       <div className="flex items-center gap-2">
         <AlertTriangle className="size-4 shrink-0 text-ink" aria-hidden />
         <span className="text-sm font-semibold text-ink">
-          This turn would exceed today&apos;s cost limit.
+          {message ?? "This turn would exceed today's cost limit."}
         </span>
       </div>
       <p className="pl-6 text-xs text-muted-foreground">
-        Ask an admin to raise the cap in settings — there&apos;s no in-app
-        override.
+        {message !== undefined
+          ? "See Billing for your plan's allowance."
+          : "Ask an admin to raise the cap in settings — there's no in-app override."}
       </p>
     </div>
   );

@@ -244,6 +244,10 @@ export interface MessageTurnProps {
   /** Terminal status for a settled assistant turn — undefined for a user
    * turn or a still-streaming/completed-with-no-marker assistant turn. */
   readonly status?: TurnStatus;
+  /** Server copy for a monthly-turns pre-turn cap block — forwarded to
+   * CostCapBlockedCard so it renders the upgrade message rather than the
+   * daily-cost copy. Meaningful only with status 'cost_capped_pre_turn'. */
+  readonly capMessage?: string;
   /** Sibling message ids for this turn's regenerate group, version order
    * (D-16) — omitted/length<=1 hides SiblingNav. */
   readonly siblings?: readonly string[];
@@ -314,6 +318,7 @@ export function MessageTurn({
   regenerateDisabled = false,
   onNavigateSibling,
   widgets,
+  capMessage,
 }: MessageTurnProps): React.ReactElement {
   const isUser = role === "user";
   const isAssistant = role === "assistant";
@@ -366,7 +371,7 @@ export function MessageTurn({
     // user-bubble-class.ts).
     <div className={isUser ? `self-end ${USER_BUBBLE_CLASS}` : "w-full min-w-0"}>
       {isCostCapBlocked ? (
-        <CostCapBlockedCard />
+        <CostCapBlockedCard message={capMessage} />
       ) : isFailed ? (
         <InlineErrorCard onRetry={onRegenerate ?? (() => {})} />
       ) : (

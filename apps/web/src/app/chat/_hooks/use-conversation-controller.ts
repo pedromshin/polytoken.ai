@@ -735,6 +735,13 @@ export function useConversationController({
       role: "assistant",
       parts: activeStreamParts,
       status: liveStatus,
+      // The listener's monthly-turns cap block rides its own message on the
+      // cost_capped event (breached_cap='monthly_chat_turns') — thread it so
+      // CostCapBlockedCard renders the upgrade copy, not the daily-cost copy.
+      capMessage:
+        liveStatus === "cost_capped_pre_turn" && chatStream.capMessage !== null
+          ? chatStream.capMessage
+          : undefined,
       // A "completed" live turn's real message id isn't known client-side
       // until chat.getHistory catches up (server-generated UUID) — offering
       // regenerate here would resend the user's text instead of regenerating

@@ -29,6 +29,10 @@ export interface MessageListItem {
   readonly parts: readonly MessagePart[];
   /** Terminal status for a settled assistant turn (CHAT-05, D-15/D-19/D-21). */
   readonly status?: TurnStatus;
+  /** Server-supplied copy for a monthly-turns pre-turn cap block (listener
+   * cap mirror) — CostCapBlockedCard renders it instead of the daily-cost
+   * copy. Only ever set alongside status 'cost_capped_pre_turn'. */
+  readonly capMessage?: string;
   /** Sibling message ids for this turn's regenerate group, version order
    * (D-16) — length<=1 hides SiblingNav. Assistant turns only. */
   readonly siblings?: readonly string[];
@@ -162,6 +166,7 @@ export function MessageList({
               parts={turn.parts}
               isStreamingTurn={turn.id === streamingTurnId}
               status={turn.status}
+              capMessage={turn.capMessage}
               siblings={turn.siblings}
               activeSiblingIndex={turn.activeSiblingIndex}
               regenerateDisabled={regenerateDisabled}
