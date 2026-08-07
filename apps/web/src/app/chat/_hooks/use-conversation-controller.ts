@@ -15,13 +15,14 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { toast } from "sonner";
 
 import { api } from "~/trpc/react";
 
 import { invalidateOnChatTerminal } from "./chat-terminal-invalidation";
 import {
   capBlockPresentationFor,
+  notifyBrowserTurnCapBlocked,
+  useBlockedDraftHolder,
   useDraftRestore,
   useOverAllowanceNotice,
   type DraftRestoreRequest,
@@ -505,13 +506,16 @@ export function useConversationController({
             ? (error as { data?: { code?: string } }).data?.code
             : undefined;
         if (code === "FORBIDDEN" && error instanceof Error && error.message.length > 0) {
-          toast.error(error.message);
+          // W7-4 parity with the server-path block card: the reply cannot
+          // persist (that IS the block), but the TYPED text is recoverable —
+          // the toast's "Restore draft" feeds the same channel the card uses.
+          notifyBrowserTurnCapBlocked(error.message, text, requestDraftRestore);
         }
       }
 
       handleTerminal();
     },
-    [webllm, historyRows, conversationId, modelId, recordBrowserTurn, handleTerminal, notifyOverAllowance],
+    [webllm, historyRows, conversationId, modelId, recordBrowserTurn, handleTerminal, notifyOverAllowance, requestDraftRestore],
   );
 
   const handleSubmit = useCallback(
@@ -626,6 +630,22 @@ export function useConversationController({
   // the server-locus path.
   const isPreTurnCostBlock =
     activeStreamState === "cost_capped" && activeStreamParts.length === 0;
+  // W7-4 durability: snapshot the destroyed draft into a single state slot
+  // the moment the block lands — the card's Restore must keep working while
+  // the card is visible, even after a later regenerate/widget submit clears
+  // pendingComposerDraftRef (single-slot semantics: turn-cap-notices.ts).
+  const { heldDraft, noteDraftRestored } = useBlockedDraftHolder(
+    isPreTurnCostBlock,
+    pendingComposerDraftRef.current,
+  );
+  const handleRestoreDraft = useCallback(
+    (text: string) => {
+      // Claimed — the slot drops silently on the next action.
+      noteDraftRestored(text);
+      requestDraftRestore(text);
+    },
+    [noteDraftRestored, requestDraftRestore],
+  );
   // A pre-turn block never inserts a chat_messages row at all, so history
   // can never "catch up" to it — it stays visible until the next action
   // replaces it. Every other terminal outcome DOES insert a row (D-15), so
@@ -666,7 +686,9 @@ export function useConversationController({
       ...capBlockPresentationFor({
         isPreTurnCapBlock: liveStatus === "cost_capped_pre_turn",
         capNotice: chatStream.capNotice,
-        lostDraftText: pendingComposerDraftRef.current,
+        // The durability slot, NOT the mutable ref (W7-4): the ref may have
+        // been cleared by a later action while the card is still visible.
+        lostDraftText: heldDraft,
       }),
       // A "completed" live turn's real message id isn't known client-side
       // until chat.getHistory catches up (server-generated UUID) — offering
@@ -758,7 +780,7 @@ export function useConversationController({
     handleRegenerate,
     handleLiveRetry,
     draftRestore,
-    handleRestoreDraft: requestDraftRestore,
+    handleRestoreDraft,
     handleNavigateSibling,
     handleSelectBrowserModel,
     onRegenerateTurn,

@@ -15,12 +15,29 @@
  *
  *   useDraftRestore — seq-keyed restore requests (same text twice still
  *     re-applies), empty text ignored.
+ *
+ *   notifyBrowserTurnCapBlocked (W7-4) — the browser locus' FORBIDDEN cap
+ *     rejection toast carries a one-click "Restore draft" action feeding the
+ *     same restore channel; no action when there is no draft to restore.
+ *
+ *   useBlockedDraftHolder (W7-4) — the SINGLE-SLOT durability holder: the
+ *     draft survives later pending-ref clears while the card is visible;
+ *     an unclaimed draft drops with only a console.warn when the card
+ *     leaves; no draft history is kept.
  */
 
 import * as React from "react";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+  type MockInstance,
+} from "vitest";
 
 vi.mock("sonner", () => ({
   toast: Object.assign(vi.fn(), {
@@ -36,8 +53,10 @@ import { toast } from "sonner";
 import { Composer } from "../../_components/composer";
 import {
   capBlockPresentationFor,
+  notifyBrowserTurnCapBlocked,
   notifyOverAllowanceOnce,
   OVER_ALLOWANCE_TOAST_MESSAGE,
+  useBlockedDraftHolder,
   useDraftRestore,
   useOverAllowanceNotice,
   type DraftRestoreRequest,
@@ -394,5 +413,159 @@ describe("Composer applies a draft-restore request", () => {
         .click();
     });
     expect(textarea!.value).toBe("my lost draft");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// notifyBrowserTurnCapBlocked — browser-locus draft parity (W7-4 item 1):
+// recordBrowserTurn's FORBIDDEN has no block card (the turn rendered), so the
+// error toast itself carries the one-click restore.
+// ---------------------------------------------------------------------------
+
+describe("notifyBrowserTurnCapBlocked (browser-locus cap rejection)", () => {
+  beforeEach(() => {
+    vi.mocked(toast.error).mockClear();
+  });
+
+  it("toasts the server's message with a 'Restore draft' action that feeds the restore channel", () => {
+    const requestDraftRestore = vi.fn();
+
+    notifyBrowserTurnCapBlocked("Cap hit.", "my typed text", requestDraftRestore);
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(toast.error).toHaveBeenCalledWith(
+      "Cap hit.",
+      expect.objectContaining({
+        action: expect.objectContaining({ label: "Restore draft" }),
+      }),
+    );
+
+    const options = vi.mocked(toast.error).mock.calls[0]?.[1] as
+      | { action?: { label: string; onClick: () => void } }
+      | undefined;
+    options?.action?.onClick();
+    expect(requestDraftRestore).toHaveBeenCalledTimes(1);
+    expect(requestDraftRestore).toHaveBeenCalledWith("my typed text");
+  });
+
+  it("empty draft text — plain error toast, NO Restore action (nothing to restore)", () => {
+    notifyBrowserTurnCapBlocked("Cap hit.", "", vi.fn());
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[1]).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useBlockedDraftHolder — single-slot durability (W7-4 item 2): the card's
+// Restore keeps working while the card is visible, even after a later action
+// clears the controller's pending-draft ref.
+// ---------------------------------------------------------------------------
+
+interface BlockedDraftHandle {
+  readonly heldDraft: string | null;
+  readonly noteDraftRestored: (text: string) => void;
+}
+
+function BlockedDraftHarness({
+  isPreTurnCapBlock,
+  pendingDraft,
+  stateRef,
+}: {
+  readonly isPreTurnCapBlock: boolean;
+  readonly pendingDraft: string | null;
+  readonly stateRef: { current: BlockedDraftHandle | null };
+}): null {
+  stateRef.current = useBlockedDraftHolder(isPreTurnCapBlock, pendingDraft);
+  return null;
+}
+
+describe("useBlockedDraftHolder (single-slot blocked-draft durability)", () => {
+  let warnSpy: MockInstance;
+
+  beforeEach(() => {
+    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    warnSpy.mockRestore();
+  });
+
+  async function mountHolder(): Promise<{
+    stateRef: { current: BlockedDraftHandle | null };
+    rerender: (block: boolean, draft: string | null) => Promise<void>;
+  }> {
+    const stateRef: { current: BlockedDraftHandle | null } = { current: null };
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    containers.push(container);
+    const root = createRoot(container);
+    roots.push(root);
+    const rerender = async (
+      block: boolean,
+      draft: string | null,
+    ): Promise<void> => {
+      await act(async () => {
+        root.render(
+          <BlockedDraftHarness
+            isPreTurnCapBlock={block}
+            pendingDraft={draft}
+            stateRef={stateRef}
+          />,
+        );
+      });
+    };
+    return { stateRef, rerender };
+  }
+
+  it("captures the draft when the block lands and KEEPS it after a later action clears the pending ref", async () => {
+    const { stateRef, rerender } = await mountHolder();
+    await rerender(false, null);
+    expect(stateRef.current?.heldDraft).toBeNull();
+
+    await rerender(true, "my draft");
+    expect(stateRef.current?.heldDraft).toBe("my draft");
+
+    // Regenerate/widget submit nulls pendingComposerDraftRef while the card
+    // is still visible — the slot, not the ref, is the card's holder now.
+    await rerender(true, null);
+    expect(stateRef.current?.heldDraft).toBe("my draft");
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("empties when the card leaves — an unclaimed draft is dropped with ONLY a console.warn (no history)", async () => {
+    const { stateRef, rerender } = await mountHolder();
+    await rerender(true, "unclaimed");
+    await rerender(false, null);
+
+    expect(stateRef.current?.heldDraft).toBeNull();
+    expect(warnSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("a draft claimed via noteDraftRestored drops silently (normal restore-then-resend flow)", async () => {
+    const { stateRef, rerender } = await mountHolder();
+    await rerender(true, "claimed");
+    stateRef.current?.noteDraftRestored("claimed");
+    await rerender(false, null);
+
+    expect(stateRef.current?.heldDraft).toBeNull();
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("a draft-less block (blocked regenerate/widget continuation) holds nothing and never warns", async () => {
+    const { stateRef, rerender } = await mountHolder();
+    await rerender(true, null);
+    expect(stateRef.current?.heldDraft).toBeNull();
+    await rerender(false, null);
+    expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it("a NEW block captures its OWN draft — single slot, the previous draft was dropped, never queued", async () => {
+    const { stateRef, rerender } = await mountHolder();
+    await rerender(true, "first");
+    await rerender(false, null); // "first" dropped (warned)
+    await rerender(true, "second");
+
+    expect(stateRef.current?.heldDraft).toBe("second");
   });
 });
