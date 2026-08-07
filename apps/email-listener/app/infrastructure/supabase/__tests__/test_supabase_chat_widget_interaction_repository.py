@@ -11,11 +11,11 @@ and when a strictly-newer turn exists, False otherwise.
 from __future__ import annotations
 
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
 from app.domain.ports.chat_widget_interaction_repository import WidgetInteraction
+from app.infrastructure.supabase.__tests__._postgrest_mocks import make_client, make_table
 from app.infrastructure.supabase.supabase_chat_widget_interaction_repository import (
     SupabaseChatWidgetInteractionRepository,
 )
@@ -32,33 +32,8 @@ _SCHEMA: dict[str, Any] = {
 }
 
 
-def _make_table(*, execute_data: Any = None, execute_sequence: list[Any] | None = None) -> MagicMock:
-    """Chainable fluent-builder mock — every filter/select method returns itself.
-
-    Pass either a single `execute_data` (repeated on every .execute() call) or
-    an `execute_sequence` of return values consumed in order across multiple
-    .execute() calls (needed for is_stale's two sequential queries).
-    """
-    table = MagicMock()
-    table.insert.return_value = table
-    table.select.return_value = table
-    table.update.return_value = table
-    table.eq.return_value = table
-    table.gt.return_value = table
-    table.order.return_value = table
-    table.desc.return_value = table
-    table.limit.return_value = table
-    if execute_sequence is not None:
-        table.execute.side_effect = [MagicMock(data=d) for d in execute_sequence]
-    else:
-        table.execute.return_value = MagicMock(data=execute_data)
-    return table
-
-
-def _make_client(tables: dict[str, MagicMock]) -> MagicMock:
-    client = MagicMock()
-    client.table.side_effect = lambda name: tables[name]
-    return client
+# The chainable table/client mocks live in _postgrest_mocks.py (shared with
+# test_supabase_chat_turn_usage_count.py).
 
 
 def _interaction_row(**overrides: Any) -> dict[str, Any]:
@@ -96,8 +71,8 @@ def _interaction() -> WidgetInteraction:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_create_pending_inserts_row_with_pending_state() -> None:
-    widget_table = _make_table(execute_data=[_interaction_row()])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[_interaction_row()])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     interaction = await repo.create_pending(
@@ -120,8 +95,8 @@ async def test_create_pending_inserts_row_with_pending_state() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_returns_none_when_missing() -> None:
-    widget_table = _make_table(execute_data=[])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.get("missing-id")
@@ -132,8 +107,8 @@ async def test_get_returns_none_when_missing() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_returns_row_from_any_conversation() -> None:
-    widget_table = _make_table(execute_data=[_interaction_row(conversation_id="other-conv")])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[_interaction_row(conversation_id="other-conv")])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.get("int-1")
@@ -145,8 +120,8 @@ async def test_get_returns_row_from_any_conversation() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_try_submit_cas_update_carries_id_and_pending_predicate() -> None:
-    widget_table = _make_table(execute_data=[_interaction_row(state="submitted", submitted_value={"choice": "a"})])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[_interaction_row(state="submitted", submitted_value={"choice": "a"})])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.try_submit("int-1", {"choice": "a"})
@@ -165,8 +140,8 @@ async def test_try_submit_cas_update_carries_id_and_pending_predicate() -> None:
 async def test_try_submit_returns_false_on_zero_rows_matched() -> None:
     """Second submit of an already-submitted row: the eq("state","pending") predicate
     matches zero rows — the DB-level double-submit lock (D-11)."""
-    widget_table = _make_table(execute_data=[])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.try_submit("int-1", {"choice": "a"})
@@ -177,8 +152,8 @@ async def test_try_submit_returns_false_on_zero_rows_matched() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_is_stale_true_when_emitting_message_inactive() -> None:
-    messages_table = _make_table(execute_sequence=[[{"is_active": False}]])
-    client = _make_client({"chat_messages": messages_table})
+    messages_table = make_table(execute_sequence=[[{"is_active": False}]])
+    client = make_client({"chat_messages": messages_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.is_stale(_interaction())
@@ -189,13 +164,13 @@ async def test_is_stale_true_when_emitting_message_inactive() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_is_stale_true_when_newer_turn_exists() -> None:
-    messages_table = _make_table(
+    messages_table = make_table(
         execute_sequence=[
             [{"is_active": True}],
             [{"id": "msg-2"}],
         ]
     )
-    client = _make_client({"chat_messages": messages_table})
+    client = make_client({"chat_messages": messages_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.is_stale(_interaction())
@@ -206,13 +181,13 @@ async def test_is_stale_true_when_newer_turn_exists() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_is_stale_false_when_active_and_no_newer_turn() -> None:
-    messages_table = _make_table(
+    messages_table = make_table(
         execute_sequence=[
             [{"is_active": True}],
             [],
         ]
     )
-    client = _make_client({"chat_messages": messages_table})
+    client = make_client({"chat_messages": messages_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     result = await repo.is_stale(_interaction())
@@ -225,10 +200,10 @@ async def test_is_stale_false_when_active_and_no_newer_turn() -> None:
 async def test_supersede_pending_updates_every_pending_row_in_conversation() -> None:
     """Phase 24-04 (D-02): the conditional UPDATE carries BOTH eq("conversation_id", ...) AND
     eq("state", "pending") — mirrors try_submit's own CAS idiom."""
-    widget_table = _make_table(
+    widget_table = make_table(
         execute_data=[_interaction_row(state="superseded"), _interaction_row(id="int-2", state="superseded")]
     )
-    client = _make_client({"chat_widget_interactions": widget_table})
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     count = await repo.supersede_pending("conv-1")
@@ -244,8 +219,8 @@ async def test_supersede_pending_updates_every_pending_row_in_conversation() -> 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_supersede_pending_returns_zero_when_no_pending_rows() -> None:
-    widget_table = _make_table(execute_data=[])
-    client = _make_client({"chat_widget_interactions": widget_table})
+    widget_table = make_table(execute_data=[])
+    client = make_client({"chat_widget_interactions": widget_table})
     repo = SupabaseChatWidgetInteractionRepository(client=client)
 
     count = await repo.supersede_pending("conv-1")

@@ -35,70 +35,18 @@ vi.mock("drizzle-orm", async () => {
   };
 });
 
-import { appRouter } from "../../../root";
+import {
+  createFakeDb,
+  createThrowingDb,
+  makeCaller,
+} from "../../__tests__/support/fake-drizzle";
 
 const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
 
-type FakeRow = Record<string, unknown>;
-
-/**
- * A thenable chain mimicking the subset of drizzle's builder that `usage`
- * calls: select().from().innerJoin().where(), awaited. Every chain method
- * returns the same object; the terminal `.then()` resolves to `rows`.
- */
-function createThenableChain(rows: ReadonlyArray<FakeRow>) {
-  const chain = {
-    from() {
-      return chain;
-    },
-    innerJoin() {
-      return chain;
-    },
-    where() {
-      return chain;
-    },
-    groupBy() {
-      return chain;
-    },
-    then(
-      onFulfilled: (value: ReadonlyArray<FakeRow>) => unknown,
-      onRejected?: (reason: unknown) => unknown,
-    ) {
-      return Promise.resolve(rows).then(onFulfilled, onRejected);
-    },
-  };
-  return chain;
-}
-
-/**
- * `usage` runs two SELECTs in order (emails-today, then chat-turns-this-month).
- * `resultsQueue` hands each successive select() call its own seeded rows.
- */
-function createFakeDb(resultsQueue: Array<ReadonlyArray<FakeRow>>) {
-  return {
-    select() {
-      const rows = resultsQueue.shift() ?? [];
-      return createThenableChain(rows);
-    },
-  };
-}
-
-/** A db whose every SELECT throws — models a table absent pre-migration. */
-function createThrowingDb() {
-  return {
-    select() {
-      throw new Error("relation does not exist");
-    },
-  };
-}
-
-function makeCaller(user: { id: string } | null, db: unknown) {
-  return appRouter.createCaller({
-    db: db as never,
-    headers: new Headers(),
-    user,
-  });
-}
+// The thenable chain / fake dbs / makeCaller live in
+// ../../__tests__/support/fake-drizzle.ts (shared, W7-2). `usage` runs two
+// SELECTs in order (emails-today, then chat-turns-this-month) — the
+// queue-driven fake db hands each successive select() its own seeded rows.
 
 beforeEach(() => {
   eqCalls.length = 0;

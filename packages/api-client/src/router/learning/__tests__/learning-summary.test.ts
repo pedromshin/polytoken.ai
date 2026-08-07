@@ -34,43 +34,25 @@ vi.mock("drizzle-orm", async () => {
   };
 });
 
-import { appRouter } from "../../../root";
 import { deriveLearningSummary } from "../index";
+import {
+  createThenableChain,
+  createThrowingDb,
+  makeCaller,
+  type FakeRow,
+} from "../../__tests__/support/fake-drizzle";
 
 const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
 const USER_B = { id: "10000000-0000-0000-0000-00000000000b" };
-
-type FakeRow = Record<string, unknown>;
 
 interface TenantFixture {
   readonly typeCorrections: ReadonlyArray<FakeRow>;
   readonly propagations: ReadonlyArray<FakeRow>;
 }
 
-/**
- * A thenable chain mimicking the subset of drizzle's builder that `summary`
- * calls: select().from().innerJoin().where(), awaited.
- */
-function createThenableChain(resolveRows: () => ReadonlyArray<FakeRow>) {
-  const chain = {
-    from() {
-      return chain;
-    },
-    innerJoin() {
-      return chain;
-    },
-    where() {
-      return chain;
-    },
-    then(
-      onFulfilled: (value: ReadonlyArray<FakeRow>) => unknown,
-      onRejected?: (reason: unknown) => unknown,
-    ) {
-      return Promise.resolve(resolveRows()).then(onFulfilled, onRejected);
-    },
-  };
-  return chain;
-}
+// The thenable chain (resolveRows-callback form) / throwing db / makeCaller
+// live in ../../__tests__/support/fake-drizzle.ts (shared, W7-2); only the
+// tenant-keyed fake db remains below.
 
 /**
  * TENANT-KEYED fake db: each select resolves the fixture rows belonging to
@@ -95,23 +77,6 @@ function createTenantDb(fixtures: Record<string, TenantFixture>) {
       });
     },
   };
-}
-
-/** A db whose every SELECT throws — models a table absent pre-migration. */
-function createThrowingDb() {
-  return {
-    select() {
-      throw new Error("relation does not exist");
-    },
-  };
-}
-
-function makeCaller(user: { id: string } | null, db: unknown) {
-  return appRouter.createCaller({
-    db: db as never,
-    headers: new Headers(),
-    user,
-  });
 }
 
 const at = (iso: string): Date => new Date(iso);
