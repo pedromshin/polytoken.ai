@@ -200,8 +200,34 @@ if ($changes.Count -eq 0) {
 # ---------------------------------------------------------------------------------------
 # 5. terraform apply + first-roll stability watch (CUT-05.5)
 # ---------------------------------------------------------------------------------------
+# ⛔ ORDERING GATE — the image must exist BEFORE the task def references it.
+# ecs.tf:142-145: "The worker image must exist in ECR (:latest / :staging) BEFORE enabling,
+# or every task start fails on image pull — essential=false does NOT cover an unpullable
+# image." So an apply without the tag does not degrade gracefully; it takes the whole
+# staging task down, listener included.
+$imageOk = $true
+if ($changes.Count -gt 0) {
+  $tagArgs = @('ecr', 'list-images', '--region', $Region, '--repository-name', 'nauta-services-email-worker', '--query', 'imageIds[].imageTag', '--output', 'text')
+  $tags = (& aws @tagArgs 2>$null)
+  $imageOk = ($LASTEXITCODE -eq 0 -and $tags -and ($tags -split '\s+') -contains 'staging')
+  if ($imageOk) { Step '4b worker image' 'PASS' 'ECR carries the :staging tag' }
+  else {
+    Step '4b worker image' 'REFUSE' 'no :staging image in nauta-services-email-worker'
+    Write-Host "`nAPPLY BLOCKED — the plan adds a container referencing"
+    Write-Host "  nauta-services-email-worker:staging   which does NOT exist in ECR."
+    Write-Host "Per ecs.tf:142-145 an unpullable image fails EVERY task start; essential=false"
+    Write-Host "does not cover it, so this would take the staging listener down too."
+    Write-Host "`nBuild and push it first (WORKER_DEPLOY_ENABLED is set, so CI will):"
+    Write-Host "  gh workflow run deploy-email-listener-staging.yml"
+    Write-Host "then re-run this script."
+  }
+}
+
 if ($changes.Count -eq 0) {
   Step '5 terraform apply' 'SKIP' 'nothing to apply'
+} elseif (-not $imageOk) {
+  Step '5 terraform apply' 'REFUSE' 'worker image missing — see above'
+  exit 1
 } elseif (-not $ApplyTerraform) {
   Step '5 terraform apply' 'WOULD' 're-run with -ApplyTerraform (gate passed)'
 } else {
