@@ -64,6 +64,37 @@ verified read-only `ALLOWLIST: 7/7`, `GRANT: service_role EXECUTE = YES`.
 and must NEVER be applied (0054 would downgrade the live allowlist to 4 identifiers). Full
 reasoning in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §3.
 
+## ⚠️ §3 BLOCKER FOUND 2026-08-07 — staging ECS runs **desiredCount = 0**
+`aws ecs describe-services` → staging `desired:0 running:0` (prod `desired:1 running:1`). That is
+the documented cost optimisation, and it has two consequences the runsheet does not account for:
+1. **The staging deploy workflow can never go green.** Its smoke test curls the staging ALB and
+   gets **HTTP 503** because there are no targets. Run `31217076258` failed on that step ALONE —
+   build, Trivy scan, ECR push, ECS deploy and service-stability all passed. Not a regression.
+2. **The worker rehearsal cannot be OBSERVED at 0 tasks.** `terraform apply` is now unblocked (the
+   `:staging` image exists and the zero-churn gate passes), but applying registers a task def
+   nothing runs — CUT-05.5's "watch the first roll for OOM" and the enqueue→drain proof are both
+   meaningless until a task exists.
+
+**Decision (Pedro's — it costs money):** scale staging to 1 for the rehearsal window, then back:
+```
+aws ecs update-service --cluster nauta-services-email-listener \
+  --service nauta-services-email-listener-staging --desired-count 1 --region us-east-1
+#  ... run the rehearsal ...
+aws ecs update-service --cluster nauta-services-email-listener \
+  --service nauta-services-email-listener-staging --desired-count 0 --region us-east-1
+```
+One 256/512 Fargate task for an hour is cents. The alternative — skipping the staging rehearsal
+and going straight to prod — contradicts the vLAUNCH sequencing, in which Batch B runs only after
+a **green staging rehearsal**.
+
+### ✅ Worker image is IN ECR (2026-08-07)
+`nauta-services-email-worker` now carries `staging` + `latest`. The first attempt (run
+`31216362774`) was blocked by the **Trivy gate**: `js-yaml 4.3.0` via
+graphile-worker→cosmiconfig carried GHSA-5p4m-2wfm-xmqj (HIGH). Fixed by pinning
+`js-yaml@^4.3.1` as a direct worker dependency (a root `overrides` entry did **not** take on npm
+11.12.1); the tree dedupes to a single 4.3.1. The gate behaved correctly throughout — no image
+was pushed, so ECR stayed empty and the terraform apply refused for want of the tag.
+
 ## 3 · Worker enable, staging leg (15 min — runsheet has every command)
 Follow [milestones/vlaunch-prep/0a-runsheet-pack.md](milestones/vlaunch-prep/0a-runsheet-pack.md)
 §CUT-02 → §CUT-05, in order:
