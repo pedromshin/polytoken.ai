@@ -13,10 +13,19 @@
  * 23-03-PLAN.md Task 1's acceptance criteria).
  */
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { api } from "~/trpc/react";
+
+import { invalidateOnChatTerminal } from "./chat-terminal-invalidation";
+import {
+  capBlockPresentationFor,
+  useDraftRestore,
+  useOverAllowanceNotice,
+  type DraftRestoreRequest,
+} from "./turn-cap-notices";
 
 import type { MessageListItem } from "../_components/message-list";
 import type { TurnStatus } from "../_components/message-turn";
@@ -60,42 +69,6 @@ export function errorMessageForWidgetError(
     case undefined:
       return null;
   }
-}
-
-/**
- * Over-allowance marker (paid tiers): chat.recordBrowserTurn returns an
- * additive `overLimit: true` when a PRO/POWER user is at/over their finite
- * monthlyChatTurns cap — the turn still persists (paid tiers are never
- * hard-blocked; see turn-cap.ts), so this is informational, not an error.
- * Distinct from the FREE-tier cap block, which rejects with FORBIDDEN and is
- * surfaced by the catch branch's toast.error below.
- */
-export const OVER_ALLOWANCE_TOAST_MESSAGE =
-  "You're past this month's included chat turns. See Billing for your plan's allowance.";
-
-/**
- * notifyOverAllowanceOnce — shows the over-allowance toast AT MOST ONCE per
- * controller mount (the ref is the latch): every subsequent over-cap turn in
- * the same session would otherwise re-toast on every send. Extracted (like
- * errorMessageForWidgetError / invalidateOnChatTerminal above) so the
- * decide-and-latch behavior is unit-testable without mounting the full
- * controller/tRPC context. Mutating `alreadyNotifiedRef.current` is the
- * standard React ref idiom, not shared-data mutation.
- */
-export function notifyOverAllowanceOnce(
-  overLimit: boolean | undefined,
-  alreadyNotifiedRef: { current: boolean },
-): void {
-  if (overLimit !== true || alreadyNotifiedRef.current) return;
-  alreadyNotifiedRef.current = true;
-  toast.warning(OVER_ALLOWANCE_TOAST_MESSAGE, {
-    action: {
-      label: "Billing",
-      onClick: () => {
-        window.location.assign("/billing");
-      },
-    },
-  });
 }
 
 // ---------------------------------------------------------------------------
@@ -234,83 +207,6 @@ export function liveAnnouncementFor(state: StreamState): string {
   }
 }
 
-/**
- * ChatTerminalUtils / invalidateOnChatTerminal — the fetch-independent BIND-02
- * event-driven cache-invalidation orchestration for `handleTerminal` (RSKN-07,
- * todo 2026-07-09-knowledge-cache-invalidation-gap), extracted as a standalone
- * function (mirrors `knowledge-graph.tsx`'s own `promoteEdge` extraction) so
- * it is unit-testable without mounting the full controller/tRPC context.
- *
- * Before this: `handleTerminal` invalidated only `chat.*` — a chat-driven
- * promotion via the confirm_action widget's widget-submit continuation
- * (Phase 40) never touched `knowledge.*`, so a bound genui panel or
- * knowledge-preview node showed stale tier data for up to ~10s (staleTime)
- * after promoting.
- *
- * Fired unconditionally on every terminal turn (not gated to a widget-submit
- * continuation) — Claude's Discretion per the plan: the three knowledge.*
- * queries are the SAME cheap, staleTime-guarded tRPC queries already loaded
- * elsewhere (T-51-07-B), so a bounded refetch on every turn settle is simpler
- * than threading a "was this a promotion?" flag through the stream-terminal
- * callback, and never produces unbounded fan-out.
- *
- * CLUS-02/CLUS-06 (54-06): also invalidates `chat.clusterSummary` — a
- * widget-submit continuation turn that just confirmed a source_capture
- * (Phase 54-03) wrote a fresh knowledge_node_edges row targeting this
- * conversation; without this, `ThreadClusterIndicator`'s captured-source
- * count would show stale data for up to its own staleTime after capture.
- */
-export interface ChatTerminalUtils {
-  readonly chat: {
-    readonly getHistory: {
-      readonly invalidate: (input: { conversationId: string }) => void;
-    };
-    readonly sessionCost: {
-      readonly invalidate: (input: { conversationId: string }) => void;
-    };
-    readonly getWidgetInteractions: {
-      readonly invalidate: (input: { conversationId: string }) => void;
-    };
-    readonly clusterSummary: {
-      readonly invalidate: (input: { conversationId: string }) => void;
-    };
-  };
-  readonly knowledge: {
-    readonly byId: { readonly invalidate: () => void };
-    readonly graph: { readonly invalidate: () => void };
-    readonly expandNode: { readonly invalidate: () => void };
-  };
-}
-
-export function invalidateOnChatTerminal(
-  conversationId: string,
-  utils: ChatTerminalUtils,
-): void {
-  // Every terminal branch persists whatever streamed so far (D-15) — the
-  // persisted row is now authoritative, so replace the transient turns.
-  void utils.chat.getHistory.invalidate({ conversationId });
-  // A completed turn writes a new chat_cost_ledger row (22-06/22-07) — keep
-  // the session cost meter live (D-23) without a manual refresh.
-  void utils.chat.sessionCost.invalidate({ conversationId });
-  // A widget-submit continuation turn just settled — the pending widget is
-  // now `submitted` server-side (D-16); refetch so its locked state lands.
-  void utils.chat.getWidgetInteractions.invalidate({ conversationId });
-  // CLUS-02/CLUS-06 (54-06): a just-confirmed source_capture (or a new
-  // sibling chat attach) may have changed this conversation's cluster
-  // counts — refresh ThreadClusterIndicator's popover data on every
-  // terminal turn (same "cheap staleTime-guarded query" posture as the
-  // knowledge.* invalidations below).
-  void utils.chat.clusterSummary.invalidate({ conversationId });
-  // RSKN-07: extend the SAME BIND-02 invalidation contract knowledge-graph.tsx's
-  // promoteEdge already applies to the /knowledge page's promote button —
-  // a bound chat-canvas panel or knowledge-preview node shares the SAME
-  // browser-side QueryClient singleton, so invalidating here refetches it
-  // without navigating away from /chat first.
-  utils.knowledge.byId.invalidate();
-  utils.knowledge.graph.invalidate();
-  utils.knowledge.expandNode.invalidate();
-}
-
 export interface UseConversationControllerOptions {
   readonly conversationId: string;
   readonly modelId: string;
@@ -353,6 +249,12 @@ export interface ConversationController {
   readonly handleStop: () => void;
   readonly handleRegenerate: (assistantMessageId: string) => void;
   readonly handleLiveRetry: () => void;
+  /** One-click draft recovery for a pre-turn cap block (turn-cap-notices):
+   * the views thread `draftRestore` into the Composer and
+   * `handleRestoreDraft` into the MessageList (CostCapBlockedCard's
+   * "Restore draft" affordance calls it with the lost text). */
+  readonly draftRestore: DraftRestoreRequest | null;
+  readonly handleRestoreDraft: (text: string) => void;
   readonly handleNavigateSibling: (siblingMessageId: string) => void;
   readonly handleSelectBrowserModel: (modelId: string) => Promise<void>;
   /** MessageList's onRegenerate contract — routes the streaming pseudo-turn's
@@ -451,10 +353,11 @@ export function useConversationController({
   // ref, not `activeStreamState`, because that value is derived AFTER
   // handleSubmit is defined and would be a stale closure here.
   const sendInFlightRef = useRef(false);
-  // Once-per-mount latch for the paid-tier over-allowance toast
-  // (notifyOverAllowanceOnce) — an over-cap session would otherwise re-toast
-  // on every single turn.
-  const overAllowanceNotifiedRef = useRef(false);
+  // The composer text whose turn is CURRENTLY in flight, or null when the
+  // in-flight turn was not a composer send (regenerate / widget submit lose
+  // no draft). If the turn dies on the pre-turn cap block, THIS is the draft
+  // the CostCapBlockedCard offers to restore (turn-cap-notices).
+  const pendingComposerDraftRef = useRef<string | null>(null);
 
   const widgetInteractions: readonly WidgetInteractionRow[] = useMemo(
     () => widgetInteractionsData ?? [],
@@ -514,9 +417,24 @@ export function useConversationController({
     onWidgetRejected: handleWidgetRejected,
   });
 
+  // Turn-cap notices (extracted module, Wave 0.6): the one-per-mount
+  // over-allowance toast — the server locus reports via the terminal
+  // completed event's over_limit marker (watched inside the hook), the
+  // browser locus calls the returned notifier — and the draft-restore
+  // channel for the pre-turn cap block. `router.push` is injected so the
+  // Billing action navigates client-side (App Router idiom).
+  const router = useRouter();
+  const notifyOverAllowance = useOverAllowanceNotice(
+    chatStream.overLimit,
+    router.push,
+  );
+  const { draftRestore, requestDraftRestore } = useDraftRestore();
+
   const handleWidgetSubmit = useCallback(
     (interactionId: string, result: Readonly<Record<string, unknown>>) => {
       setInFlightWidget({ interactionId, status: "submitting" });
+      // A widget continuation carries no composer draft to lose.
+      pendingComposerDraftRef.current = null;
       historyCountAtStreamStartRef.current = (historyRows ?? []).length;
       chatStream.submitWidget(interactionId, result, modelId, modelSettings);
     },
@@ -574,8 +492,9 @@ export function useConversationController({
         });
         // Paid-tier over-cap marker (additive `overLimit` field): the turn
         // persisted fine, but the user is past their monthly allowance —
-        // surface it once per mount (never per-turn spam).
-        notifyOverAllowanceOnce(recorded.overLimit, overAllowanceNotifiedRef);
+        // surface it once per mount (never per-turn spam; same latch as the
+        // server locus' over_limit path — turn-cap-notices).
+        notifyOverAllowance(recorded.overLimit);
       } catch (error) {
         console.error("[useConversationController] recordBrowserTurn failed:", error);
         // The turn-cap gate rejects with FORBIDDEN carrying a user-facing message
@@ -592,7 +511,7 @@ export function useConversationController({
 
       handleTerminal();
     },
-    [webllm, historyRows, conversationId, modelId, recordBrowserTurn, handleTerminal],
+    [webllm, historyRows, conversationId, modelId, recordBrowserTurn, handleTerminal, notifyOverAllowance],
   );
 
   const handleSubmit = useCallback(
@@ -602,6 +521,9 @@ export function useConversationController({
       if (sendInFlightRef.current) return;
       sendInFlightRef.current = true;
       lastSentTextRef.current = text;
+      // A composer send is the one path whose text a pre-turn cap block
+      // would destroy — remember it so the block card can offer it back.
+      pendingComposerDraftRef.current = text;
       setOptimisticUserText(text);
       // D-02 (typing supersedes): every currently-pending widget is
       // optimistically marked superseded BEFORE the send starts — the
@@ -636,6 +558,8 @@ export function useConversationController({
       // A stale sibling override for this group would otherwise keep
       // pointing at a retired version once the new one lands.
       setSiblingOverrides({});
+      // A regenerate loses no composer draft.
+      pendingComposerDraftRef.current = null;
       setRegeneratingActiveId(assistantMessageId);
       historyCountAtStreamStartRef.current = (historyRows ?? []).length;
       chatStream.regenerate(assistantMessageId, modelId, modelSettings);
@@ -735,13 +659,15 @@ export function useConversationController({
       role: "assistant",
       parts: activeStreamParts,
       status: liveStatus,
-      // The listener's monthly-turns cap block rides its own message on the
-      // cost_capped event (breached_cap='monthly_chat_turns') — thread it so
-      // CostCapBlockedCard renders the upgrade copy, not the daily-cost copy.
-      capMessage:
-        liveStatus === "cost_capped_pre_turn" && chatStream.capMessage !== null
-          ? chatStream.capMessage
-          : undefined,
+      // Pre-turn cap block presentation (turn-cap-notices): the remedy
+      // discriminant + server copy from the stream's CapNotice, and the
+      // destroyed composer draft the card offers back — all absent on every
+      // other state (a mid-stream/daily-cost card stays byte-identical).
+      ...capBlockPresentationFor({
+        isPreTurnCapBlock: liveStatus === "cost_capped_pre_turn",
+        capNotice: chatStream.capNotice,
+        lostDraftText: pendingComposerDraftRef.current,
+      }),
       // A "completed" live turn's real message id isn't known client-side
       // until chat.getHistory catches up (server-generated UUID) — offering
       // regenerate here would resend the user's text instead of regenerating
@@ -831,6 +757,8 @@ export function useConversationController({
     handleStop,
     handleRegenerate,
     handleLiveRetry,
+    draftRestore,
+    handleRestoreDraft: requestDraftRestore,
     handleNavigateSibling,
     handleSelectBrowserModel,
     onRegenerateTurn,

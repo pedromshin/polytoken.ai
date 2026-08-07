@@ -3,7 +3,7 @@
  * (todo 2026-07-09-knowledge-cache-invalidation-gap).
  *
  * Exercises the standalone `invalidateOnChatTerminal` helper exported from
- * use-conversation-controller.ts (the same invalidation logic
+ * chat-terminal-invalidation.ts (the same invalidation logic
  * `handleTerminal` calls on every terminal turn) directly, with a mocked
  * utils object — mirrors the knowledge-graph-invalidate.test.tsx precedent
  * of testing the extracted orchestration function without mounting the full
@@ -22,7 +22,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   invalidateOnChatTerminal,
   type ChatTerminalUtils,
-} from "../use-conversation-controller";
+} from "../chat-terminal-invalidation";
 
 const CONVERSATION_ID = "conv-123";
 

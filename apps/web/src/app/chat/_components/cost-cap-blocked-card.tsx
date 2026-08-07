@@ -28,12 +28,28 @@ import { AlertTriangle } from "lucide-react";
  */
 export function CostCapBlockedCard({
   message,
+  capKind,
+  draftText,
+  onRestoreDraft,
 }: {
   /** Server-supplied copy for a monthly-turns cap block (the listener cap
-   * mirror rides it on the cost_capped event as data.message). When absent,
-   * the card keeps its original daily-cost-cap copy byte-identical. */
+   * mirror rides it on the cost_capped event as data.message). PRESENTATION
+   * only — the remedy line switches on `capKind`, never on this. When absent,
+   * the headline keeps its original daily-cost-cap copy byte-identical. */
   readonly message?: string;
-} = {}): React.ReactElement {
+  /** The remedy DISCRIMINANT (Wave 0.6): 'monthly_chat_turns' (read
+   * explicitly from the cost_capped event's breached_cap) routes the user to
+   * Billing; absent keeps the daily-cost admin remedy byte-identical. */
+  readonly capKind?: "monthly_chat_turns";
+  /** The composer text this pre-turn block destroyed (the optimistic bubble
+   * is dropped on terminal). Rendered back to the user with a one-click
+   * "Restore draft" affordance — absent when the blocked turn carried no
+   * draft (regenerate / widget continuation). */
+  readonly draftText?: string;
+  /** Puts `draftText` back into the Composer (threaded from the controller's
+   * draft-restore channel — turn-cap-notices.ts). */
+  readonly onRestoreDraft?: (text: string) => void;
+}): React.ReactElement {
   return (
     <div
       role="alert"
@@ -46,10 +62,29 @@ export function CostCapBlockedCard({
         </span>
       </div>
       <p className="pl-6 text-xs text-muted-foreground">
-        {message !== undefined
+        {capKind === "monthly_chat_turns"
           ? "See Billing for your plan's allowance."
           : "Ask an admin to raise the cap in settings — there's no in-app override."}
       </p>
+      {draftText !== undefined && (
+        <div className="pl-6">
+          {/* The message the block would otherwise have destroyed — shown so
+              nothing typed is ever lost, restorable in ONE click. Law 2: the
+              user's own words, quoted back — not polytoken's voice. */}
+          <p className="border-l-2 border-rule pl-2 text-xs whitespace-pre-wrap text-ink">
+            {draftText}
+          </p>
+          {onRestoreDraft !== undefined && (
+            <button
+              type="button"
+              className="mt-1 text-xs font-semibold text-ink underline underline-offset-2 hover:opacity-80 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ink"
+              onClick={() => onRestoreDraft(draftText)}
+            >
+              Restore draft
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

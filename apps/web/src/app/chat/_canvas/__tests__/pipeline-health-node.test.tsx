@@ -38,9 +38,9 @@ interface LearningQueryState {
     relabelsPerCorrection: number | null;
     stickRate: number | null;
   };
-  /** React Query v5 three-state status — the component's source of truth. */
+  /** React Query v5 three-state status — the component's source of truth
+   * (all three branches switch on it exclusively; isLoading is dead). */
   status: "pending" | "error" | "success";
-  isLoading: boolean;
   isError: boolean;
 }
 
@@ -54,7 +54,6 @@ let learningState: LearningQueryState = {
     stickRate: null,
   },
   status: "success",
-  isLoading: false,
   isError: false,
 };
 
@@ -144,7 +143,6 @@ beforeEach(() => {
       stickRate: null,
     },
     status: "success",
-    isLoading: false,
     isError: false,
   };
   global.fetch = vi.fn().mockResolvedValue({
@@ -195,7 +193,6 @@ describe("PipelineHealthNode — rendered contract with the learning section", (
         stickRate: 0.75,
       },
       status: "success",
-      isLoading: false,
       isError: false,
     };
 

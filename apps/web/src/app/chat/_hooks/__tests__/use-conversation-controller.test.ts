@@ -10,29 +10,15 @@
  *   toWebllmMessages — text-only content extraction (genui_spec parts
  *     dropped, D-08), active-sibling-only filter, turnIndex ordering.
  *
- *   notifyOverAllowanceOnce — the paid-tier over-cap marker
- *     (recordBrowserTurn's additive `overLimit: true`) surfaces ONE warning
- *     toast per mount linking Billing, never per-turn spam.
+ * (The over-allowance toast latch moved to turn-cap-notices.ts — see
+ * turn-cap-notices.test.ts.)
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("sonner", () => ({
-  toast: Object.assign(vi.fn(), {
-    error: vi.fn(),
-    info: vi.fn(),
-    success: vi.fn(),
-    warning: vi.fn(),
-  }),
-}));
-
-import { toast } from "sonner";
+import { describe, expect, it } from "vitest";
 
 import {
   errorMessageForWidgetError,
   groupTurnsFromHistory,
-  notifyOverAllowanceOnce,
-  OVER_ALLOWANCE_TOAST_MESSAGE,
   toWebllmMessages,
   type ChatHistoryRow,
 } from "../use-conversation-controller";
@@ -244,70 +230,3 @@ describe("errorMessageForWidgetError (24-05, 24-UI-SPEC.md Copywriting Contract)
   });
 });
 
-// ===========================================================================
-// notifyOverAllowanceOnce — the paid-tier over-cap marker consumer. Before
-// this, recordBrowserTurn's { overLimit } return was discarded by the
-// controller entirely, so a PRO user past their monthlyChatTurns allowance
-// saw nothing (the turn persists — paid tiers are never hard-blocked; the
-// FREE-tier FORBIDDEN block has its own toast.error in the catch path).
-// ===========================================================================
-
-describe("notifyOverAllowanceOnce (paid-tier over-cap marker)", () => {
-  beforeEach(() => {
-    vi.mocked(toast.warning).mockClear();
-  });
-
-  it("overLimit:true on a fresh mount — exactly ONE warning toast with a Billing action, and the latch sets", () => {
-    const latchRef = { current: false };
-
-    notifyOverAllowanceOnce(true, latchRef);
-
-    expect(toast.warning).toHaveBeenCalledTimes(1);
-    expect(toast.warning).toHaveBeenCalledWith(
-      OVER_ALLOWANCE_TOAST_MESSAGE,
-      expect.objectContaining({
-        action: expect.objectContaining({ label: "Billing" }),
-      }),
-    );
-    expect(latchRef.current).toBe(true);
-  });
-
-  it("a latched ref never re-toasts — once per mount, not per over-cap turn", () => {
-    const latchRef = { current: false };
-
-    notifyOverAllowanceOnce(true, latchRef);
-    notifyOverAllowanceOnce(true, latchRef);
-    notifyOverAllowanceOnce(true, latchRef);
-
-    expect(toast.warning).toHaveBeenCalledTimes(1);
-  });
-
-  it("overLimit false/undefined — no toast, latch stays open for a later over-cap turn", () => {
-    const latchRef = { current: false };
-
-    notifyOverAllowanceOnce(false, latchRef);
-    notifyOverAllowanceOnce(undefined, latchRef);
-
-    expect(toast.warning).not.toHaveBeenCalled();
-    expect(latchRef.current).toBe(false);
-  });
-
-  it("the Billing action navigates to /billing", () => {
-    // Stub navigation — jsdom throws on real location assignment (same
-    // convention as delete-account.test.tsx).
-    const assign = vi.fn();
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { assign },
-    });
-
-    notifyOverAllowanceOnce(true, { current: false });
-
-    const options = vi.mocked(toast.warning).mock.calls[0]?.[1] as
-      | { action?: { label: string; onClick: () => void } }
-      | undefined;
-    options?.action?.onClick();
-
-    expect(assign).toHaveBeenCalledWith("/billing");
-  });
-});

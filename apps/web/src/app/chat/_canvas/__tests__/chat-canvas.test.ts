@@ -31,6 +31,8 @@ function baseController(overrides: Partial<ConversationController>): Conversatio
     handleStop: () => undefined,
     handleRegenerate: () => undefined,
     handleLiveRetry: () => undefined,
+    draftRestore: null,
+    handleRestoreDraft: () => undefined,
     handleNavigateSibling: () => undefined,
     handleSelectBrowserModel: async () => undefined,
     onRegenerateTurn: () => undefined,

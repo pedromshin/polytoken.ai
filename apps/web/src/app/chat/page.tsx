@@ -239,6 +239,7 @@ function ConversationView({
                 onNavigateSibling={controller.handleNavigateSibling}
                 onRegenerate={controller.onRegenerateTurn}
                 widgets={controller.widgets}
+                onRestoreDraft={controller.handleRestoreDraft}
               />
               <GeneratingIndicator state={controller.activeStreamState} />
               <Composer
@@ -246,6 +247,7 @@ function ConversationView({
                 onSubmit={controller.handleSubmit}
                 onStop={controller.handleStop}
                 conversationId={conversationId}
+                restoreDraft={controller.draftRestore}
               />
             </div>
           </TranscriptPanelHost>
