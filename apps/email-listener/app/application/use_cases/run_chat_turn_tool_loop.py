@@ -72,6 +72,12 @@ _CODE_ISLAND_MAX_SAMPLE_ROWS = 5
 _CODE_ISLAND_MAX_SELECTED = 32
 _FORBIDDEN_MANIFEST_KEYS = frozenset({"__proto__", "constructor", "prototype"})
 
+# W9-1: nesting cap for the model-authored `canvas_add_node` payload. Deep
+# enough that no legitimate node payload is affected, shallow enough that an
+# agent cannot smuggle an unbounded blob into a JSONB message part (and that
+# the recursive pollution-key walk over it is itself bounded).
+_CANVAS_DATA_MAX_DEPTH = 12
+
 # Recipe caps for emit_canvas_recipe's `canvas_recipe` part (Phase 73C-R3) —
 # re-enforced HERE server-side exactly like the code-island caps above (the
 # tool's input_schema only GUIDES the model; the part builder is the real
@@ -215,8 +221,49 @@ def build_canvas_part(tool_name: str, raw_json: str) -> dict[str, Any] | None:
     return builder(raw) if builder is not None else None
 
 
+def _has_forbidden_key_deep(value: Any, *, depth: int = 0) -> bool:
+    """True when a pollution key appears at ANY depth, or the structure is too deep (W9-1).
+
+    The emitting-side mirror of the tRPC persist boundary's `hasForbiddenKeyDeep`
+    (`packages/api-client/src/router/chat/canvas-schema.ts`) and of the sibling
+    code-island builders' `_FORBIDDEN_MANIFEST_KEYS` filter. Over-deep nesting
+    counts as forbidden so an agent cannot push an unbounded blob straight into
+    a JSONB part, and so this walk is itself bounded.
+    """
+    if depth > _CANVAS_DATA_MAX_DEPTH:
+        return True
+    if isinstance(value, dict):
+        return any(
+            (isinstance(key, str) and key in _FORBIDDEN_MANIFEST_KEYS)
+            or _has_forbidden_key_deep(item, depth=depth + 1)
+            for key, item in value.items()
+        )
+    if isinstance(value, list):
+        return any(_has_forbidden_key_deep(item, depth=depth + 1) for item in value)
+    return False
+
+
+def _has_forbidden_path_segment(path: str) -> bool:
+    """True when a dotted path contains a pollution segment (W9-1).
+
+    Emitting-side mirror of canvas-schema.ts's `hasForbiddenPathSegment`: the
+    web resolves `sourcePath`/`targetKey` as dotted paths into node data, so
+    `data.__proto__.x` is a traversal primitive, not a key name.
+    """
+    return any(segment in _FORBIDDEN_MANIFEST_KEYS for segment in path.split("."))
+
+
 def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
-    """Build the frozen `canvas_add_node` part; None (dropped) when malformed."""
+    """Build the frozen `canvas_add_node` part; None (dropped) when malformed.
+
+    `data` is free-form BY DESIGN (the node's payload, not a shape this tool
+    constrains) but it is MODEL-AUTHORED, and the model reads untrusted content
+    (mail bodies, web/research results). So the two properties the downstream
+    tRPC boundary already refuses -- pollution keys at any depth and unbounded
+    nesting -- are refused HERE too rather than persisted verbatim into JSONB
+    and rejected later at save time (W9-1: the sibling code-island builders
+    below already filtered these; `data`/`position` were the gap).
+    """
     handle = raw.get("handle")
     node_type = raw.get("nodeType")
     data = raw.get("data")
@@ -226,24 +273,35 @@ def _build_canvas_add_node_part(raw: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if not isinstance(data, dict):
         return None
+    if _has_forbidden_key_deep(data):
+        return None
     part: dict[str, Any] = {"type": "canvas_add_node", "handle": handle, "nodeType": node_type, "data": data}
     # position is OPTIONAL -- the key is included ONLY when the model supplied a
     # position object (omitting it signals "auto-place" to the web, per the
     # frozen wire contract).
     position = raw.get("position")
     if isinstance(position, dict):
+        if _has_forbidden_key_deep(position):
+            return None
         part["position"] = position
     return part
 
 
 def _build_canvas_connect_part(raw: dict[str, Any]) -> dict[str, Any] | None:
-    """Build the frozen `canvas_connect` part; None (dropped) when any field is missing/empty."""
+    """Build the frozen `canvas_connect` part; None (dropped) when any field is missing/empty.
+
+    `sourcePath`/`targetKey` are dotted paths the web walks into node data, so a
+    pollution segment is refused here exactly as canvas-schema.ts refuses it at
+    the persist boundary (W9-1).
+    """
     part: dict[str, Any] = {"type": "canvas_connect"}
     for key in ("sourceHandle", "targetHandle", "sourcePath", "targetKey"):
         value = raw.get(key)
         if not isinstance(value, str) or not value:
             return None
         part[key] = value
+    if _has_forbidden_path_segment(part["sourcePath"]) or _has_forbidden_path_segment(part["targetKey"]):
+        return None
     return part
 
 

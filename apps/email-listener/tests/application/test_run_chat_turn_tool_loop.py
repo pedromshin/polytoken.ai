@@ -190,6 +190,81 @@ def test_build_canvas_part_unknown_tool_name_returns_none() -> None:
 
 
 # ---------------------------------------------------------------------------
+# W9-1 — prototype-pollution parity with the sibling builders + the TS boundary
+#
+# `_clean_key_list` / `_clean_input_bindings` (code-island) already filter
+# _FORBIDDEN_MANIFEST_KEYS, and the tRPC persist boundary rejects the same keys
+# at any depth (canvas-schema.ts `hasForbiddenKeyDeep`). `canvas_add_node`'s
+# free-form `data` and `canvas_connect`'s dotted paths were the ONLY canvas-part
+# fields with no such filter -- model-authored, and the model reads untrusted
+# email / web-search content. These assert the emitter now fails closed too.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("key", ["__proto__", "constructor", "prototype"])
+def test_build_canvas_add_node_part_rejects_top_level_pollution_key(key: str) -> None:
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": {key: {"polluted": True}}})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_nested_pollution_key() -> None:
+    """The key is reachable at ANY depth, including inside a list."""
+    nested = '{"handle": "x", "nodeType": "chat", "data": {"a": {"b": {"__proto__": {"z": 1}}}}}'
+    assert build_canvas_part("emit_canvas_node", nested) is None
+
+    in_list = '{"handle": "x", "nodeType": "chat", "data": {"rows": [{"ok": 1}, {"constructor": {}}]}}'
+    assert build_canvas_part("emit_canvas_node", in_list) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_pollution_key_in_position() -> None:
+    raw = '{"handle": "x", "nodeType": "chat", "data": {}, "position": {"x": 1, "y": 2, "__proto__": {}}}'
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_rejects_data_nested_past_the_depth_cap() -> None:
+    """An unbounded blob is refused rather than persisted verbatim into JSONB."""
+    nested: dict[str, object] = {}
+    for _ in range(40):
+        nested = {"a": nested}
+    raw = json.dumps({"handle": "x", "nodeType": "chat", "data": nested})
+    assert build_canvas_part("emit_canvas_node", raw) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_add_node_part_still_accepts_ordinary_nested_data() -> None:
+    """Behaviour-preserving: a normal nested payload is unaffected."""
+    raw = '{"handle": "sheet", "nodeType": "spreadsheet", "data": {"rows": [{"a": 1}], "meta": {"n": {"deep": 2}}}}'
+    part = build_canvas_part("emit_canvas_node", raw)
+    assert part == {
+        "type": "canvas_add_node",
+        "handle": "sheet",
+        "nodeType": "spreadsheet",
+        "data": {"rows": [{"a": 1}], "meta": {"n": {"deep": 2}}},
+    }
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("field", ["sourcePath", "targetKey"])
+def test_build_canvas_connect_part_rejects_a_pollution_path_segment(field: str) -> None:
+    """Mirrors canvas-schema.ts `hasForbiddenPathSegment` on the emitting side."""
+    fields = {"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data", "targetKey": "input"}
+    fields[field] = "data.__proto__.x"
+    assert build_canvas_part("emit_canvas_connect", json.dumps(fields)) is None
+
+
+@pytest.mark.unit
+def test_build_canvas_connect_part_still_accepts_ordinary_dotted_paths() -> None:
+    raw = '{"sourceHandle": "a", "targetHandle": "b", "sourcePath": "data.rows.0", "targetKey": "input"}'
+    part = build_canvas_part("emit_canvas_connect", raw)
+    assert part is not None
+    assert part["sourcePath"] == "data.rows.0"
+
+
+# ---------------------------------------------------------------------------
 # build_canvas_part — canvas_code_island (Phase 76-05, BTAP-07 frozen contract)
 # ---------------------------------------------------------------------------
 
