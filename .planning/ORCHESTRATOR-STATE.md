@@ -13,6 +13,45 @@
 > milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
 > bullet + STATE.md Next Actions).
 
+### 🟢 2026-08-07 — BATCH A §1 + §2 DONE: THE DURABLE-INGEST DB SEAM IS LIVE ON PROD
+- ✅ **§1 staging repair — DONE + independently verified read-only.** `staging-repair.mjs --yes`
+  reported "61 rows recorded / Nothing pending"; `db:migrate:staging` green. A separate read-only
+  probe confirmed staging is ALL GREEN: `graphile_worker` present (5 tables), `public.enqueue_job`
+  present, **all 7 allowlist identifiers**, journal 61/61.
+  ⚠️ **Corrected claim:** the sitting doc said the repair "installs graphile_worker as part of the
+  run." It does not on that path — the script `exit(0)`s at *"Nothing pending"* BEFORE the graphile
+  check. Staging already had it; the outcome was right by luck, not mechanism.
+- ✅ **§2.1 the 3 `PROD_*` secrets are SET** on `pedromshin/polytoken.ai` env `Production`
+  (`scripts/set-prod-env-secrets.ps1`, user-run — the credential class is classifier-blocked for
+  the agent). 🐛 **Shipped-then-fixed bug worth remembering:** the first write produced MALFORMED
+  URLs. PowerShell's `-like '*?*'` is a WILDCARD match (`?` = any single char), so it is true for
+  every non-empty string; the compat suffix was joined with `&` and no `?`, and the driver read the
+  query string as the database name (`database "postgres&uselibpqcompat=true&..." does not exist`).
+  Both scripts now use `.Contains('?')` and ASSERT the assembled URL's database segment is a bare
+  identifier before connecting or publishing.
+- ✅ **§2.2 `graphile_worker` schema INSTALLED ON PROD** (`scripts/prod-graphile-preflight.ps1
+  -Apply`). ⚠️ The old instruction (`node apps/worker/dist/install-schema.js`) would have failed —
+  **that dist did not exist**; nothing in the local flow builds `@polytoken/worker`. Built now.
+- ✅ **§2.3 PROD MIGRATION RUN GREEN** — run `31213827515`, 38s, **success** ("Migrations
+  completed in 1371ms (44 tables)"). **Verified read-only afterwards: `ALLOWLIST: 7/7 present`,
+  `GRANT: service_role EXECUTE = YES`.** The durable-ingest DB seam is LIVE on prod.
+- 🔎 **The measured finding, and the correction to it.** Prod showed **58/61** with
+  `graphile_worker` and `enqueue_job` both ABSENT, pending = `0053` + `0054` + `0061`. First read:
+  "three pending, the workflow will apply all three in journal order." **That was wrong.** The run
+  applied **only 0061** (58→59) — drizzle's migrator applies migrations whose `folderMillis` is
+  NEWER than the last applied `created_at`, not "everything pending". Prod's last applied was 0060
+  (07-27), so 0053 (07-24) and 0054 (07-25) are skipped **permanently**; 0061 (08-06) ran.
+- ⛔ **PERMANENT STATE — prod reads `recorded=59/61` and that is CORRECT.** 0061 is a full
+  `CREATE OR REPLACE` of the same function with the complete 7-identifier allowlist + REVOKE/GRANT;
+  it supersedes 0053/0054 by replacement. **The danger is the "repair", not the gap:** 0054's body
+  installs a **FOUR**-identifier allowlist, so any journal-order pending-migration repair
+  (`scripts/staging-repair.mjs` is exactly that shape) would replace the live function and silently
+  break `cascade_relabel` / `recompute_canvas_recipe` / `dispatch_recipe_recomputes`.
+  `prod-graphile-preflight.ps1` now prints a DO-NOT-APPLY block and asserts the **live function's**
+  allowlist + grant rather than the journal count — journal is bookkeeping, the function is
+  behaviour. PEDRO-CHECKLIST §3 carries the full write-up.
+- ⏭️ **Next:** §3 worker staging leg → §4 Stripe durable key → §5 clicks.
+
 ### ✅ 2026-08-07 OVERNIGHT — WAVES 0.5/0.6/0.65 SHIPPED (`5d490259`, 24-commit push)
 - ✅ **Wave 0.5** (6 lanes): listener chat-turn-cap MIRROR (server-locus gate, pre-insert,
   fail-open), duplicate-createdAt fix, over-allowance toast, tier narrowing → billing,

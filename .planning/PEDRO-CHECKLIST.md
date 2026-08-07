@@ -67,14 +67,29 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
   is absent (it does *not* silently no-op), and that schema was never installed on prod. This is a
   **consistent** state, not a diverged one: 0053 pending ⟺ no `enqueue_job`. The previous wording
   here ("only 0061 is pending") was wrong.
-  **Correct sequence (hard-ordered):**
-  1. `pwsh -File scripts/prod-graphile-preflight.ps1 -Apply` — installs `graphile_worker`
-     (graphile-worker's own idempotent migrate).
-  2. `gh workflow run deploy-migrate-prod.yml -f confirm=MIGRATE-PROD` — applies 0053 → 0054 →
-     0061 in journal order, landing the same 7-identifier allowlist staging already carries.
-  3. Re-run the preflight read-only; expect `graphile_worker=PRESENT enqueue_job=PRESENT
-     recorded=61/61`.
-  The 3 `PROD_*` environment secrets this needs are **SET** (2026-08-07).
+  **✅ EXECUTED 2026-08-07 — prod is DONE and verified:**
+  1. `scripts/prod-graphile-preflight.ps1 -Apply` — `graphile_worker` installed on prod.
+  2. `gh workflow run deploy-migrate-prod.yml -f confirm=MIGRATE-PROD` — run `31213827515`,
+     38s, **success** ("Migrations completed in 1371ms (44 tables)").
+  3. Verified read-only: `graphile_worker=PRESENT enqueue_job=PRESENT` **`ALLOWLIST: 7/7`**
+     **`GRANT: service_role EXECUTE = YES`**.
+
+  ### ⛔ PERMANENT: prod reads `recorded=59/61` and that is CORRECT — never "fix" it
+  The run applied **only 0061**. Drizzle's migrator applies migrations whose `folderMillis` is
+  **newer than the last applied `created_at`** — it does not apply "everything pending". Prod's
+  last applied was `0060` (2026-07-27 16:47), so `0053` (07-24) and `0054` (07-25) are skipped
+  **forever**, while `0061` (08-06) ran. Prod's journal count will read 59/61 permanently.
+  That is harmless, because `0061` is a full `CREATE OR REPLACE` of the same function carrying
+  the complete 7-identifier allowlist plus the `REVOKE`/`GRANT` — it supersedes both by
+  replacement (its own header says so).
+  **The danger is the "repair", not the gap.** `0054`'s body installs a **FOUR**-identifier
+  allowlist. Any tool that applies pending migrations *in journal order* —
+  `scripts/staging-repair.mjs` does exactly that — would `CREATE OR REPLACE` the live function
+  back down and silently break `cascade_relabel`, `recompute_canvas_recipe` and
+  `dispatch_recipe_recomputes`. `staging-repair.mjs` already refuses any prod-ref URL; keep that
+  guard in anything similar. `prod-graphile-preflight.ps1` now prints an explicit DO-NOT-APPLY
+  block, and verifies the **live function's allowlist** rather than the journal count — the
+  journal is bookkeeping, the function is behaviour.
 - **✅ PROD MIGRATIONS APPLIED (2026-07-28 ~12:07 UTC).** `0057`→`0060` were applied to prod via the
   sanctioned `deploy-migrate-prod.yml` pipeline (run #7, `30357523559`, conclusion **success** — the
   migrator exits non-zero on any error incl. "already exists", so success ⟹ clean apply, no drift). Applied,

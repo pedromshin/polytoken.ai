@@ -53,10 +53,16 @@ identifiers** present (`ingest_inbound_email`, `deep_research`, `assemble_mornin
    > command if it is ever missing again. The script also enforces the session-mode `:5432`
    > requirement (transaction mode silently breaks LISTEN/NOTIFY) and appends the pooler compat
    > query string.
-3. Dispatch the migration — applies 0061, re-verifies 0058–0060:
+3. Dispatch the migration:
    ```
    gh workflow run deploy-migrate-prod.yml -f confirm=MIGRATE-PROD
    ```
+
+✅ **§2 COMPLETE 2026-08-07.** Secrets set · schema installed · run `31213827515` **success** ·
+verified read-only `ALLOWLIST: 7/7`, `GRANT: service_role EXECUTE = YES`.
+⛔ Prod reads `recorded=59/61` **permanently and correctly** — 0053/0054 are superseded by 0061
+and must NEVER be applied (0054 would downgrade the live allowlist to 4 identifiers). Full
+reasoning in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §3.
 
 ## 3 · Worker enable, staging leg (15 min — runsheet has every command)
 Follow [milestones/vlaunch-prep/0a-runsheet-pack.md](milestones/vlaunch-prep/0a-runsheet-pack.md)
