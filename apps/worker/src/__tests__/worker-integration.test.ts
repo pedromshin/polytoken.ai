@@ -12,59 +12,22 @@
  *  2. a route returning 500 leaves the job in the queue with attempts incremented (the retry
  *     contract graphile-worker gives us around the unchanged Python pipeline).
  */
-import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 
 import { makeWorkerUtils, runOnce, type TaskList, type WorkerUtils } from "graphile-worker";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
+import { readMigrationFiles, selectEnqueueJobStatement } from "../enqueue-migration";
+
 const CONNECTION = process.env.WORKER_TEST_DATABASE_URL;
 
-// The enqueue_job wrapper under test IS the migration: the CREATE OR REPLACE statement is read
-// at test setup from packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql (the
-// current widened allowlist — 0061 CREATE OR REPLACEs the 0054 wrapper), replacing the
-// hand-synced byte-copy that used to live here and could drift from the source of truth.
-// Of the migration's `--> statement-breakpoint`-separated statements only the CREATE OR
-// REPLACE FUNCTION is executed — exactly what the embedded copy contained: the DO-block
-// ordering guard is redundant after utils.migrate() installs the graphile_worker schema, and
-// the REVOKE/GRANT trailer targets a service_role this scratch cluster does not have (grant
-// posture is not what this seam test proves).
-const ENQUEUE_MIGRATION_RELATIVE_PATH =
-  "../../../../packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql";
-const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
-
-function loadEnqueueWrapperSql(): string {
-  const migrationPath = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)),
-    ENQUEUE_MIGRATION_RELATIVE_PATH,
-  );
-  let raw: string;
-  try {
-    raw = readFileSync(migrationPath, "utf8");
-  } catch (cause) {
-    throw new Error(
-      `worker-integration: enqueue_job migration not found at ${migrationPath} — if the ` +
-        "migration was renamed or superseded by a later enqueue_job allowlist migration, " +
-        "update ENQUEUE_MIGRATION_RELATIVE_PATH in this test.",
-      { cause },
-    );
-  }
-  const createStatement = raw
-    .split(STATEMENT_BREAKPOINT)
-    .map((statement) => statement.trim())
-    .find((statement) => statement.startsWith("CREATE OR REPLACE FUNCTION public.enqueue_job"));
-  if (createStatement === undefined) {
-    throw new Error(
-      'worker-integration: no "CREATE OR REPLACE FUNCTION public.enqueue_job" statement in ' +
-        `${migrationPath} — the migration's statement shape changed; update the selection in ` +
-        "loadEnqueueWrapperSql.",
-    );
-  }
-  return createStatement;
-}
+// The enqueue_job wrapper SQL is selected BY CONTENT from packages/db/migrations — the
+// highest-numbered *.sql containing the CREATE OR REPLACE — so a future migration that
+// replaces the wrapper is picked up automatically instead of this test silently validating
+// stale SQL. Selector logic: ../enqueue-migration (hermetic tests in enqueue-migration.test.ts).
+const MIGRATIONS_DIR = resolve(__dirname, "../../../../packages/db/migrations");
 
 interface StubServer {
   server: Server;
@@ -107,13 +70,11 @@ describe.skipIf(!CONNECTION)("graphile-worker → Python HTTP seam", () => {
   };
 
   beforeAll(async () => {
-    // Read inside beforeAll (not at module scope) so the hermetic default run — where the
-    // whole describe self-skips without WORKER_TEST_DATABASE_URL — never touches the file.
-    const enqueueWrapperSql = loadEnqueueWrapperSql();
+    const wrapper = selectEnqueueJobStatement(readMigrationFiles(MIGRATIONS_DIR));
     utils = await makeWorkerUtils({ connectionString: CONNECTION! });
     await utils.migrate();
     await utils.withPgClient(async (pg) => {
-      await pg.query(enqueueWrapperSql);
+      await pg.query(wrapper.sql);
       // graphile_worker.jobs is a (non-updatable) VIEW; the backing table is _private_jobs.
       await pg.query("DELETE FROM graphile_worker._private_jobs");
     });
@@ -160,7 +121,7 @@ describe.skipIf(!CONNECTION)("graphile-worker → Python HTTP seam", () => {
     expect(rows[0].last_error).toContain("500");
   });
 
-  // MORN-01 — the allowlist (0061 wrapper) accepts the morning-board identifiers; anything else still raises.
+  // MORN-01 — the allowlist (latest enqueue_job wrapper) accepts the morning-board identifiers; anything else still raises.
   it("accepts the morning-board identifiers and rejects an unknown one (MORN-01)", async () => {
     await utils.withPgClient((pg) =>
       pg.query("SELECT public.enqueue_job('assemble_morning_board', $1::jsonb, 8, 'morn:allow:1')", [
