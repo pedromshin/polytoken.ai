@@ -19,16 +19,26 @@ node scripts/verify-wave1.mjs --help
 | `0` | Every requested assertion passed | Start Wave 1 |
 | `1` | At least one assertion FAILED | Do not start Wave 1. Fix the FAIL, re-run |
 | `2` | A requested leg could not be evaluated (no credentials, no `postgres` driver, connect failure) | A human must look — nothing was proven for that leg |
-| `3` | Safety refusal — a connection string pointed at the wrong Supabase project | Fix the env var / env file. Nothing was connected to |
+| `3` | Safety refusal **and nothing was connected to** — a connection string pointed at the wrong Supabase project, or an argument was not recognised | Fix the env var / env file / typo. No database was contacted |
 
 `SKIP` rows never on their own mean "fine"; they mean "not proven". A run that ends
 `exit 2` has verified nothing about the database.
+
+Exit `3` means *nothing ran*. When one leg is refused but another leg **did** run
+and **did** fail, the run exits `1`, not `3` — the real failure wins, so a driver
+keying on the exit code cannot mis-triage a broken database as a config typo. A
+refusal never exits `0`.
+
+Unrecognised arguments are rejected with exit `3` and nothing runs. `--production`,
+`-prod` and friends used to be ignored, silently verifying **staging** and exiting
+`0` while the operator believed prod had been checked.
 
 ## Credentials
 
 Read-only, session-mode (`:5432`) connection strings. First match wins per leg;
 nothing is ever written to disk, and the password is masked in every line the
-script prints (including driver error text).
+script prints (including driver error text — see safety point 4 for the exact
+reach of that claim).
 
 | Leg | Source 1 (env var) | Source 2 (file, key `POSTGRES_URL_NON_POOLING`) |
 |-----|--------------------|--------------------------------------------------|
@@ -56,11 +66,22 @@ Against the Supabase pooler the URL needs `?uselibpqcompat=true&sslmode=require`
 | `enqueue_job not EXECUTE-able by PUBLIC` | 0061's `REVOKE ALL … FROM public` stuck | Any role could enqueue arbitrary allowlisted jobs. Re-apply the REVOKE |
 | `enqueue_job EXECUTE granted to service_role` | 0061's `GRANT … TO service_role` stuck (SKIPped when the DB has no `service_role`) | The app boundary cannot enqueue. Re-apply the GRANT |
 | `every journal entry recorded` *(staging only)* | All 61 journal entries have a matching hash row — the 2026-08-06 staging repair held | Staging drifted again. Re-run `node scripts/staging-repair.mjs` (dry run first), then `npm run db:migrate:staging` |
-| `recorded high-water not ahead of journal` *(staging only)* | The newest recorded `created_at` is not greater than the newest journal `when`. This is the *mechanism* of the 2026-08-06 freeze: drizzle applies only entries whose `when` exceeds the newest recorded `created_at`, so a stamp ahead of the journal silently skips every future migration | The next generated migration would be skipped without any error. Fix the offending row's `created_at` before generating anything new |
+| `recorded high-water not ahead of journal` **(both legs)** | The newest recorded `created_at` is not greater than the newest journal `when`. This is the *mechanism* of the 2026-08-06 freeze: drizzle applies only entries whose `when` exceeds the newest recorded `created_at`, so a stamp ahead of the journal silently skips every future migration | The next generated migration would be skipped without any error. Fix the offending row's `created_at` before generating anything new |
 
-On the PROD leg, full-journal coverage and the high-water number are printed as
-`INFO` rather than asserted — prod is not expected to carry every journal entry
-the way staging is after the repair.
+On the PROD leg, journal **coverage** is printed as `INFO` rather than asserted —
+prod is not expected to carry every journal entry the way staging is after the
+repair. That is the only thing the per-leg `requireFullJournal` policy governs.
+
+**The high-water assertion is NOT downgraded on prod.** It is
+environment-independent and never benign: a database merely *behind* the journal
+has `highWater <= journalTop` and passes, so the only way to fail it is to carry
+the freeze condition itself — on the one environment where migrations are
+hand-triggered (`deploy-migrate-prod.yml` with `confirm=MIGRATE-PROD`), i.e.
+exactly where a poisoned stamp arises. It was previously reported as `INFO` on
+prod, which meant the verifier printed the known-bad state and exited `0`.
+`migrationChecks()` now emits the row on every leg;
+`wave1-assertions.test.mjs` asserts it is present **and failing** under the prod
+policy, so re-gating it turns that test RED.
 
 ### Worker image (`WORKER`) — credential-free, repo-only
 
@@ -69,8 +90,8 @@ expectations agree with each other, then prints the command for a human.
 
 | Assertion | Proves | A FAIL means |
 |-----------|--------|--------------|
-| `terraform worker ECR repo name resolves` | `infrastructure/aws/ecr.tf` + the `var.project` default in `variables.tf` yield a concrete repository name | The terraform was restructured; the printed aws command below would be wrong |
-| `<env>: WORKER_ECR_REPOSITORY matches terraform` | The deploy workflow pushes to the repository terraform actually creates | CI would push to (or fail against) the wrong repo. Reconcile `.github/workflows/deploy-email-listener*.yml` with `ecr.tf` |
+| `terraform worker ECR repo name resolves` | `infrastructure/aws/ecr.tf` + the `var.project` default in `variables.tf` yield a concrete repository name. The block is parsed **bounded to its own resource**, so a restructured `ecr.tf` cannot make the parser adopt a neighbouring resource's name | The terraform was restructured; the printed aws command below would be wrong |
+| `<env>: WORKER_ECR_REPOSITORY matches terraform` | The deploy workflow pushes to the repository terraform actually creates. Both sides must be **non-empty** — two failed parses are not a match | CI would push to (or fail against) the wrong repo. Reconcile `.github/workflows/deploy-email-listener*.yml` with `ecr.tf` |
 | `<env>: image tag matches terraform locals` | The workflow's `IMAGE_TAG` equals the `image_tag` that env's task definition pulls (`locals.tf`) | ECS would pull a tag CI never pushes — a silent no-op deploy |
 | `<env>: ECR push gated on WORKER_DEPLOY_ENABLED` | The push step is still behind `vars.WORKER_DEPLOY_ENABLED == 'true'` (`.github/actions/worker-image/action.yml`) | The gate was removed; worker images now push unconditionally |
 
@@ -96,7 +117,7 @@ the running image is stale.
 
 | Assertion | Proves |
 |-----------|--------|
-| `no write statement in the SQL this script sends` | `findWriteSql()` re-reads `scripts/verify-wave1.mjs`, extracts the SQL it sends, and fails if any contains a write keyword |
+| `no write statement in the SQL this kit sends` | `findWriteSql()` re-reads `scripts/verify-wave1.mjs` **and every non-test module under `scripts/lib`** — enumerated from the directory by `auditedSourceFiles()`, so a new module cannot be silently excluded — extracts the SQL they send, and fails if any contains a write keyword |
 
 ## Safety posture — what is enforced, and where it stops
 
@@ -116,26 +137,48 @@ Claims here are worth only the code behind them, so each one names it.
    transaction or a SECURITY DEFINER function that writes; this script opens
    neither.
 3. **The read-only claim is checked, not narrated.** The `SELF` assertion above
-   fails the run if a write statement is ever added.
+   fails the run if a write statement is ever added, in the CLI **or** in any lib
+   module.
    *Stops at:* two call shapes (postgres.js tagged template, `sql.unsafe` with a
-   single-quoted literal) in `verify-wave1.mjs` only. SQL assembled from variables,
-   or moved into a lib module, would not be seen. To check by hand:
+   single-quoted literal). SQL assembled from variables at runtime would still not
+   be seen — the server-side read-only session (point 2) is the backstop, and
+   `wave1-assertions.test.mjs` pins that limitation so it stays disclosed rather
+   than drifting into a false claim. To check by hand:
    `grep -nEi "\b(insert|update|delete|create|drop|alter|truncate|grant|revoke)\b" scripts/verify-wave1.mjs scripts/lib/wave1-*.mjs`
-   As of this writing that returns exactly three lines, none of them SQL: a report
-   message about `REVOKE`, the `WRITE_KEYWORDS` regex itself, and a
-   `createHash(…).update(…)` call. Anything else is worth reading.
+   (test files excluded — their fixtures contain write SQL on purpose).
 4. **Credentials are never printed or persisted.** They come only from
    `process.env` or the env files the repo already uses. `maskUrl()` hides
    user+password wherever a connection string is printed, and `makeRedactor()`
-   strips the password and the full URL out of driver error text.
-   *Stops at:* the host is kept on purpose, so the project ref stays visible in the
-   output.
+   strips the password and the full URL out of driver error text — including a
+   password whose percent escape is invalid (`p%ssw0rd`), which used to make
+   `decodeURIComponent` throw and discard the parsed password with it.
+   *Stops at:* the host and query string are kept on purpose, so the project ref
+   and a missing `sslmode` stay visible. Query-parameter values whose key looks
+   sensitive (`pass`, `secret`, `token`, `key`, `credential`) are masked.
+
+## Tests — every guard above has one
+
+```
+npm run test:scripts        # node --test scripts/lib/*.test.mjs
+```
+
+Pure fixtures, no database and no network. Each test names the guard it protects;
+removing that guard turns it RED. Coverage is deliberately concentrated on the
+things that would otherwise be prose: the high-water assertion on **both** legs,
+the project-ref refusal, password redaction, argument rejection, the exit-code
+precedence, the non-empty worker predicates, the bounded terraform parse, and the
+`ok === true` rule that stops a truthy value from recording a PASS.
+
+Not yet wired into CI — `.github/workflows/` is out of scope for this lane, so the
+suite runs on demand via the script above. State that plainly rather than assume it.
 
 ## Files
 
 | Path | Role |
 |------|------|
-| `scripts/verify-wave1.mjs` | CLI: argument handling, credential resolution, guards, queries, reporting |
-| `scripts/lib/wave1-expectations.mjs` | Repo-derived expectations — journal + hashes, the 0061 allowlist, ECR/tag names. Pure, no DB |
-| `scripts/lib/wave1-assertions.mjs` | Pure comparisons (`compareMigrations`, `compareAllowlist`, `findWriteSql`) — kept out of the CLI so the FAIL paths can be exercised without a database |
+| `scripts/verify-wave1.mjs` | CLI: credential resolution, connection, queries, reporting |
+| `scripts/lib/wave1-cli.mjs` | Pure run decisions — `parseArgs`, `LEGS` (+ per-leg journal policy), `guardUrl`, `maskUrl`, `makeRedactor`, `decideExit`. No fs, no env, no DB |
+| `scripts/lib/wave1-expectations.mjs` | Repo-derived expectations — journal + hashes, the 0061 allowlist, ECR/tag names, the audited source list. No DB |
+| `scripts/lib/wave1-assertions.mjs` | Pure comparisons and the per-leg check rows (`compareMigrations`, `migrationChecks`, `workerChecks`, `compareAllowlist`, `findWriteSql`) — kept out of the CLI so the FAIL paths are exercised without a database |
 | `scripts/lib/wave1-report.mjs` | PASS/FAIL/SKIP/INFO recorder and table renderer |
+| `scripts/lib/*.test.mjs` | The suite above |

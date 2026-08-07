@@ -5,6 +5,9 @@
 // without a database: given a journal + the rows a DB reported, or an expected
 // allowlist + a live pg_get_functiondef body, the verdict is a pure function.
 // scripts/verify-wave1.mjs only turns these verdicts into report rows.
+//
+// That testability is USED, not merely claimed: wave1-assertions.test.mjs covers
+// every guard here, and each one goes RED when the guard is removed.
 
 /**
  * @typedef {{ tag: string, when: number, hash: string }} JournalMigration
@@ -13,6 +16,7 @@
  *             missing: string[], highWater: number, journalTop: number,
  *             highWaterAhead: boolean }} MigrationVerdict
  * @typedef {{ missing: string[], extra: string[], covered: boolean }} AllowlistVerdict
+ * @typedef {{ name: string, ok: boolean, detail: string }} Check
  */
 
 /**
@@ -41,6 +45,86 @@ export const compareMigrations = ({ journal, applied, requiredTags }) => {
     journalTop,
     highWaterAhead: highWater > journalTop,
   };
+};
+
+/**
+ * Turns a migration verdict into the rows one leg asserts, plus the rows it only
+ * reports as context.
+ *
+ * `requireFullJournal` gates EXACTLY ONE row: journal COVERAGE. Prod is not
+ * expected to carry every journal entry the way staging is after the 2026-08-06
+ * repair, so on prod that becomes an INFO.
+ *
+ * The high-water row is NOT gated. It is asserted on every leg, because it is
+ * environment-independent and never benign: a database merely BEHIND the journal
+ * has highWater <= journalTop and passes, while a database AHEAD of it silently
+ * skips every future migration — the exact condition that froze staging at 0036.
+ * Downgrading it on prod meant the verifier exited 0 on the known-bad state, on
+ * the one environment where migrations are hand-triggered.
+ *
+ * @param {{ journal: JournalMigration[], applied: AppliedRow[],
+ *           requiredTags: readonly string[], requireFullJournal: boolean }} input
+ * @returns {{ checks: readonly Check[], infos: readonly string[] }}
+ */
+export const migrationChecks = ({ journal, applied, requiredTags, requireFullJournal }) => {
+  const { recorded, missing, highWater, journalTop, highWaterAhead } = compareMigrations({ journal, applied, requiredTags });
+  const coverageText = `journal coverage: ${journal.length - missing.length}/${journal.length} recorded${missing.length ? ` (not recorded: ${missing.join(', ')})` : ''}`;
+  const checks = [
+    ...recorded.map((r) => ({
+      name: `${r.tag} recorded`,
+      ok: r.ok,
+      detail: r.hash ? `sha256 ${r.hash.slice(0, 12)}…` : 'tag absent from journal',
+    })),
+    {
+      name: 'recorded high-water not ahead of journal',
+      ok: !highWaterAhead,
+      detail: `high-water ${highWater} vs journal top ${journalTop}${highWaterAhead ? ' — the next generated migration would be SKIPPED by drizzle' : ''}`,
+    },
+  ];
+  if (requireFullJournal) {
+    checks.push({
+      name: 'every journal entry recorded',
+      ok: missing.length === 0,
+      detail: missing.length === 0 ? `${journal.length}/${journal.length}` : `missing: ${missing.join(', ')}`,
+    });
+  }
+  return Object.freeze({
+    checks: Object.freeze(checks.map((c) => Object.freeze(c))),
+    infos: Object.freeze(requireFullJournal ? [] : [coverageText]),
+  });
+};
+
+/**
+ * The repo-only worker-image rows.
+ *
+ * Every row carries a non-empty predicate: when a parse fails AND the workflow
+ * key is also absent, both sides are '' and a bare `===` would render a
+ * meaningless `(unset) vs ` row as PASS.
+ *
+ * @param {{ tfWorkerRepo: string, tfImageTags: Record<string, string>,
+ *           workflows: { env: string, file: string, repository: string, tag: string, pushGated: boolean }[] }} expectations
+ * @returns {readonly Check[]}
+ */
+export const workerChecks = ({ tfWorkerRepo, tfImageTags, workflows }) => {
+  /** @type {Check[]} */
+  const checks = [
+    { name: 'terraform worker ECR repo name resolves', ok: tfWorkerRepo !== '', detail: tfWorkerRepo || '(unparsed)' },
+  ];
+  for (const w of workflows) {
+    const tfTag = tfImageTags[w.env] ?? '';
+    checks.push({
+      name: `${w.env}: WORKER_ECR_REPOSITORY matches terraform`,
+      ok: w.repository === tfWorkerRepo && tfWorkerRepo !== '',
+      detail: `${w.repository || '(unset)'} vs ${tfWorkerRepo || '(unparsed)'}`,
+    });
+    checks.push({
+      name: `${w.env}: image tag matches terraform locals`,
+      ok: w.tag === tfTag && tfTag !== '',
+      detail: `${w.tag || '(unset)'} vs ${tfTag || '(unparsed)'}`,
+    });
+    checks.push({ name: `${w.env}: ECR push gated on WORKER_DEPLOY_ENABLED`, ok: w.pushGated === true, detail: w.file });
+  }
+  return Object.freeze(checks.map((c) => Object.freeze(c)));
 };
 
 /**

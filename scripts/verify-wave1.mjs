@@ -6,9 +6,11 @@
 //   · graphile_worker schema installed
 //   · public.enqueue_job exists, is SECURITY DEFINER, and its identifier
 //     allowlist matches the set the repo's 0061 migration declares
-//   · STAGING only: the journal high-water repair held (every journal entry
-//     recorded, and the recorded high-water is not ahead of the journal — the
-//     exact condition whose violation froze staging at 0036 on 2026-08-06)
+//   · the recorded high-water is not ahead of the journal — the exact condition
+//     whose violation froze staging at 0036 on 2026-08-06. Asserted on BOTH legs:
+//     a DB merely behind the journal passes it, so it is never benign
+//   · STAGING only: every journal entry recorded (the 2026-08-06 repair held).
+//     On prod that is an INFO — prod is not expected to carry every entry
 // Plus a credential-free WORKER IMAGE section that checks the repo's own ECR
 // expectations and PRINTS the aws CLI command for a human. It never calls aws.
 //
@@ -25,12 +27,14 @@
 //      a read-only session runs no further query. Caveat: this stops ordinary
 //      writes; it would not stop a deliberately read-write transaction or a
 //      SECURITY DEFINER function that writes. This script opens neither.
-//   3. auditOwnSql() re-reads this file, extracts the SQL it sends, and FAILs if
-//      any contains a write keyword — so the "read-only" property is checked, not
-//      asserted in prose. Caveat: findWriteSql() recognises two call shapes only
-//      (a postgres.js tagged template, and sql.unsafe with a single-quoted literal
-//      argument), in THIS file only. SQL assembled from variables, or sent from
-//      another module, would not be seen.
+//   3. auditOwnSql() re-reads this file AND every non-test module under
+//      scripts/lib (enumerated from the directory by auditedSourceFiles(), so a
+//      new module cannot be silently excluded), extracts the SQL they send, and
+//      FAILs if any contains a write keyword — so the "read-only" property is
+//      checked, not asserted in prose. Caveat: findWriteSql() recognises two call
+//      shapes only (a postgres.js tagged template, and sql.unsafe with a
+//      single-quoted literal argument). SQL assembled from variables at runtime
+//      would still not be seen; the server-side read-only session is the backstop.
 //   4. Credentials are read only from the env files the repo already uses or from
 //      process.env, never written anywhere. maskUrl() hides user+password wherever
 //      a connection string is printed, and makeRedactor() strips the password and
@@ -51,21 +55,28 @@
 //
 // EXIT CODES (the contract):
 //   0 every requested assertion passed
-//   1 at least one assertion FAILED — Wave 1 must not start
+//   1 at least one assertion FAILED — Wave 1 must not start. A refusal alongside
+//     a leg that DID run and fail lands here, not on 3
 //   2 a requested leg could not be evaluated (no credentials / no deps / connect
 //     failure) — a human must look
-//   3 safety refusal (a connection string pointed at the wrong project)
+//   3 safety refusal AND nothing was connected to (a connection string pointed at
+//     the wrong project), or an unrecognised argument
+//
+// TESTS: `npm run test:scripts` (node --test scripts/lib). Every guard named
+// above has a test that goes RED when the guard is removed.
 
 import { createRequire } from 'node:module';
 import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { compareAllowlist, compareMigrations, findWriteSql } from './lib/wave1-assertions.mjs';
+import { compareAllowlist, findWriteSql, migrationChecks, workerChecks } from './lib/wave1-assertions.mjs';
+import { EXIT, LEGS, decideExit, guardUrl, makeRedactor, maskUrl, parseArgs } from './lib/wave1-cli.mjs';
 import { createReport } from './lib/wave1-report.mjs';
 import {
   OBJECT_CHECKS,
   REQUIRED_MIGRATION_TAGS,
+  auditedSourceFiles,
   parseEnqueueAllowlist,
   readExpectedAllowlist,
   readJournalMigrations,
@@ -74,38 +85,17 @@ import {
 } from './lib/wave1-expectations.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-const STAGING_REF = 'fyfwkjvbcrmjqjysdyqw';
-const PROD_REF = 'dazyccjijdahxyciptkp';
-const EXIT = Object.freeze({ OK: 0, FAILED: 1, UNEVALUATED: 2, REFUSED: 3 });
 
-/** Per-leg credential resolution + project-ref guard. */
-const LEGS = Object.freeze({
-  staging: Object.freeze({
-    scope: 'STAGING',
-    envFile: '.env.staging',
-    envVar: 'STAGING_POSTGRES_URL_NON_POOLING',
-    requiredRef: STAGING_REF,
-    forbiddenRef: PROD_REF,
-  }),
-  prod: Object.freeze({
-    scope: 'PROD',
-    envFile: '.env.production',
-    envVar: 'PROD_POSTGRES_URL_NON_POOLING',
-    requiredRef: PROD_REF,
-    forbiddenRef: STAGING_REF,
-  }),
-});
-
-const argv = process.argv.slice(2);
-const wants = (flag) => argv.includes(flag);
-
+/** Prints the header comment block only — it stops at the first non-comment line. */
 const printUsage = () => {
-  const header = readFileSync(fileURLToPath(import.meta.url), 'utf8')
-    .split('\n')
-    .filter((l) => l.startsWith('//'))
-    .map((l) => l.replace(/^\/\/ ?/, ''))
-    .join('\n');
-  console.log(header);
+  const lines = readFileSync(fileURLToPath(import.meta.url), 'utf8').split(/\r?\n/);
+  const end = lines.findIndex((l) => !l.startsWith('//'));
+  console.log(
+    lines
+      .slice(0, end === -1 ? lines.length : end)
+      .map((l) => l.replace(/^\/\/ ?/, ''))
+      .join('\n'),
+  );
 };
 
 /** @param {string} path @returns {Record<string, string>} */
@@ -117,38 +107,6 @@ const parseEnvFile = (path) => {
     if (m) out[m[1]] = m[2].replace(/^"|"$/g, '');
   }
   return out;
-};
-
-/** Hides user + password; keeps the host so the project ref stays visible. */
-const maskUrl = (url) => {
-  try {
-    const u = new URL(url);
-    return `${u.protocol}//***:***@${u.host}${u.pathname}`;
-  } catch {
-    return '<unparseable connection string>';
-  }
-};
-
-/**
- * Builds an error-to-text function that strips this leg's password and full
- * connection string out of whatever the driver put in the message. Every place
- * this script prints driver error text goes through it.
- * @param {string} url @returns {(e: unknown) => string}
- */
-const makeRedactor = (url) => {
-  const secrets = (() => {
-    try {
-      const raw = new URL(url).password;
-      // Both forms: the driver may report the percent-encoded or decoded password.
-      return [raw, decodeURIComponent(raw)].filter((s) => s.length > 0);
-    } catch {
-      return [];
-    }
-  })();
-  return (e) => {
-    const text = String((e && /** @type {Error} */ (e).message) || e);
-    return [url, ...secrets].reduce((acc, secret) => acc.split(secret).join(secret === url ? maskUrl(url) : '***'), text);
-  };
 };
 
 /**
@@ -165,27 +123,23 @@ const resolveConnection = (leg) => {
   return { url, source: leg.envFile };
 };
 
-/** @returns {string | null} refusal reason, or null when the URL is safe for this leg */
-const guardUrl = (leg, url) => {
-  if (url.includes(leg.forbiddenRef)) return `connection string contains the ${leg.forbiddenRef === PROD_REF ? 'PROD' : 'STAGING'} project ref — refusing`;
-  if (!url.includes(leg.requiredRef)) return `connection string does not contain the expected project ref (${leg.requiredRef}) — refusing`;
-  return null;
-};
-
 // ---------------------------------------------------------------- self-audit
 
 /**
- * Asserts that none of the SQL this file sends writes. Enforcement, not
+ * Asserts that none of the SQL this kit sends writes. Enforcement, not
  * narration — see findWriteSql() for exactly what it can and cannot see.
  * @param {ReturnType<typeof createReport>} report
  */
 const auditOwnSql = (report) => {
-  const { literals, offenders } = findWriteSql(readFileSync(fileURLToPath(import.meta.url), 'utf8'));
+  const files = auditedSourceFiles(REPO);
+  const scanned = files.map((file) => ({ file, ...findWriteSql(readFileSync(file, 'utf8')) }));
+  const offenders = scanned.flatMap((s) => s.offenders.map((o) => `${basename(s.file)}: ${o}`));
+  const literals = scanned.reduce((n, s) => n + s.literals.length, 0);
   report.assert(
     'SELF',
-    'no write statement in the SQL this script sends',
+    'no write statement in the SQL this kit sends',
     offenders.length === 0,
-    offenders.length === 0 ? `${literals.length} SQL literals scanned, all read-only` : `offending: ${offenders.join(' | ')}`,
+    offenders.length === 0 ? `${literals} SQL literals across ${files.length} files, all read-only` : `offending: ${offenders.join(' | ')}`,
   );
 };
 
@@ -194,13 +148,7 @@ const auditOwnSql = (report) => {
 /** @param {ReturnType<typeof createReport>} report */
 const checkWorkerImage = (report) => {
   const expectations = readWorkerImageExpectations(REPO);
-  report.assert('WORKER', 'terraform worker ECR repo name resolves', expectations.tfWorkerRepo.length > 0, expectations.tfWorkerRepo);
-  for (const w of expectations.workflows) {
-    report.assert('WORKER', `${w.env}: WORKER_ECR_REPOSITORY matches terraform`, w.repository === expectations.tfWorkerRepo, `${w.repository || '(unset)'} vs ${expectations.tfWorkerRepo}`);
-    const tfTag = expectations.tfImageTags[w.env] ?? '';
-    report.assert('WORKER', `${w.env}: image tag matches terraform locals`, w.tag === tfTag && tfTag !== '', `${w.tag || '(unset)'} vs ${tfTag || '(unparsed)'}`);
-    report.assert('WORKER', `${w.env}: ECR push gated on WORKER_DEPLOY_ENABLED`, w.pushGated, w.file);
-  }
+  for (const c of workerChecks(expectations)) report.assert('WORKER', c.name, c.ok, c.detail);
   report.info('WORKER', 'the image itself is NOT checked here — this script never calls aws. Run:');
   for (const cmd of workerImageCommands(expectations)) report.info('WORKER', `  ${cmd}`);
   report.info('WORKER', '  (a "ImageNotFoundException" means CI has not pushed the worker image yet — flip the');
@@ -243,24 +191,14 @@ const fetchAppliedMigrations = async (sql, report, scope, safe) => {
   }
 };
 
+/**
+ * Reports one leg's migration rows. The leg's own `requireFullJournal` gates
+ * journal COVERAGE only — the high-water row is asserted on every leg.
+ */
 const verifyMigrations = (report, scope, journal, applied, requireFullJournal) => {
-  const verdict = compareMigrations({ journal, applied, requiredTags: REQUIRED_MIGRATION_TAGS });
-  for (const r of verdict.recorded) {
-    report.assert(scope, `${r.tag} recorded`, r.ok, r.hash ? `sha256 ${r.hash.slice(0, 12)}…` : 'tag absent from journal');
-  }
-  const { missing, highWater, journalTop, highWaterAhead } = verdict;
-  if (requireFullJournal) {
-    report.assert(scope, 'every journal entry recorded', missing.length === 0, missing.length === 0 ? `${journal.length}/${journal.length}` : `missing: ${missing.join(', ')}`);
-    report.assert(
-      scope,
-      'recorded high-water not ahead of journal',
-      !highWaterAhead,
-      `high-water ${highWater} vs journal top ${journalTop}${highWaterAhead ? ' — the next generated migration would be SKIPPED by drizzle' : ''}`,
-    );
-  } else {
-    report.info(scope, `journal coverage: ${journal.length - missing.length}/${journal.length} recorded${missing.length ? ` (not recorded: ${missing.join(', ')})` : ''}`);
-    report.info(scope, `recorded high-water ${highWater}; journal top ${journalTop}`);
-  }
+  const { checks, infos } = migrationChecks({ journal, applied, requiredTags: REQUIRED_MIGRATION_TAGS, requireFullJournal });
+  for (const c of checks) report.assert(scope, c.name, c.ok, c.detail);
+  for (const text of infos) report.info(scope, text);
 };
 
 const verifyObjects = async (sql, report, scope) => {
@@ -342,7 +280,7 @@ const runLeg = async (postgres, legKey, report, journal, expectedAllowlist) => {
     const [{ db }] = await sql`select current_database() as db`;
     report.assert(scope, 'read-only session established', true, `db=${db} via ${maskUrl(url)} (${source})`);
     const applied = await fetchAppliedMigrations(sql, report, scope, safe);
-    if (applied) verifyMigrations(report, scope, journal, applied, legKey === 'staging');
+    if (applied) verifyMigrations(report, scope, journal, applied, leg.requireFullJournal);
     await verifyObjects(sql, report, scope);
     await verifyGraphileSchema(sql, report, scope);
     await verifyEnqueueJob(sql, report, scope, expectedAllowlist);
@@ -366,20 +304,25 @@ const loadPostgres = (report) => {
 };
 
 const main = async () => {
-  if (wants('--help') || wants('-h')) {
+  const { help, runProd, runStaging, unknown } = parseArgs(process.argv.slice(2));
+  if (help) {
     printUsage();
     return EXIT.OK;
   }
+  // A typo'd flag used to fall through to the staging default and could exit 0
+  // while the operator believed prod had been checked. Refuse instead.
+  if (unknown.length > 0) {
+    console.error(`unrecognised argument(s): ${unknown.join(' ')}\nRun \`node scripts/verify-wave1.mjs --help\`.`);
+    return EXIT.REFUSED;
+  }
 
-  const runProd = wants('--prod');
-  const runStaging = wants('--staging') || !runProd;
   const report = createReport();
 
   console.log(`verify-wave1 — legs: ${[runStaging && 'staging', runProd && 'prod'].filter(Boolean).join(' + ') || 'none'} + worker (repo-only)\n`);
   auditOwnSql(report);
   checkWorkerImage(report);
 
-  /** @type {string[]} */
+  /** @type {import('./lib/wave1-cli.mjs').LegOutcome[]} */
   const outcomes = [];
   if (runStaging || runProd) {
     const journal = readJournalMigrations(REPO);
@@ -398,10 +341,7 @@ const main = async () => {
   console.log(`\n${report.render()}\n`);
   console.log(`PASS ${pass}   FAIL ${fail}   SKIP ${skip}`);
 
-  if (outcomes.includes('refused')) return EXIT.REFUSED;
-  if (report.hasFailure()) return EXIT.FAILED;
-  if (outcomes.includes('unevaluated')) return EXIT.UNEVALUATED;
-  return EXIT.OK;
+  return decideExit({ outcomes, hasFailure: report.hasFailure() });
 };
 
 const code = await main().catch((e) => {

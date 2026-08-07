@@ -10,7 +10,7 @@
 // Pure + read-only: no DB, no network, no env, no credentials.
 
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -38,6 +38,26 @@ export const REQUIRED_MIGRATION_TAGS = Object.freeze([
   '0060_rapid_red_skull',
   ALLOWLIST_MIGRATION_TAG,
 ]);
+
+/**
+ * Every source file the SELF read-only audit must scan: the CLI plus every
+ * non-test module under scripts/lib.
+ *
+ * ENUMERATED from the directory rather than listed, so a new lib module cannot
+ * be silently left out of the audit — which was the original blind spot ("SQL
+ * moved into a lib module would not be seen"). wave1-expectations.test.mjs
+ * asserts this set matches the directory.
+ *
+ * @param {string} repoRoot @returns {readonly string[]} absolute paths
+ */
+export const auditedSourceFiles = (repoRoot) => {
+  const libDir = join(repoRoot, 'scripts/lib');
+  const libs = readdirSync(libDir)
+    .filter((f) => f.endsWith('.mjs') && !f.endsWith('.test.mjs'))
+    .sort()
+    .map((f) => join(libDir, f));
+  return Object.freeze([join(repoRoot, 'scripts/verify-wave1.mjs'), ...libs]);
+};
 
 /** Strips `-- line comments` so parsers never match text inside a comment. */
 const stripSqlComments = (sql) => sql.replace(/--[^\n]*/g, '');
@@ -87,9 +107,27 @@ const parseProjectDefault = (tf) => {
   return m ? m[1] : '';
 };
 
+/**
+ * The BODY of one top-level terraform resource block, bounded by the closing
+ * brace in column 0 that `terraform fmt` guarantees for a top-level block.
+ *
+ * Bounding is the point: an unbounded `[\s\S]*?` lets a block that has lost the
+ * attribute you are looking for silently adopt a LATER resource's value, so a
+ * restructured ecr.tf would yield a confident, wrong repository name.
+ *
+ * @param {string} tf @param {string} type @param {string} name @returns {string} '' when absent
+ */
+export const extractResourceBlock = (tf, type, name) => {
+  const head = new RegExp(`^resource\\s+"${type}"\\s+"${name}"\\s*\\{[^\\S\\n]*$`, 'm').exec(tf);
+  if (!head) return '';
+  const rest = tf.slice(head.index + head[0].length);
+  const end = /^\}/m.exec(rest);
+  return end ? rest.slice(0, end.index) : rest;
+};
+
 /** @param {string} tf @returns {string} the raw `name =` of the email_worker ECR repo */
-const parseWorkerRepoExpr = (tf) => {
-  const m = /resource\s+"aws_ecr_repository"\s+"email_worker"\s*\{[\s\S]*?name\s*=\s*"([^"]+)"/.exec(tf);
+export const parseWorkerRepoExpr = (tf) => {
+  const m = /^\s*name\s*=\s*"([^"]+)"/m.exec(extractResourceBlock(tf, 'aws_ecr_repository', 'email_worker'));
   return m ? m[1] : '';
 };
 
