@@ -63,15 +63,40 @@ if ($dbName -notmatch '^[A-Za-z0-9_]+$') { throw "ABORT: malformed database segm
 $probe = Join-Path ([System.IO.Path]::GetTempPath()) 'prod-graphile-status.mjs'
 @'
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 const require = createRequire(process.env.REPO_PKG);
 const postgres = require('postgres');
+const MIG = join(process.env.REPO_ROOT, 'packages/db/migrations');
+const journal = JSON.parse(readFileSync(join(MIG, 'meta/_journal.json'), 'utf8'));
+const migrations = journal.entries.map((e) => ({
+  tag: e.tag,
+  hash: createHash('sha256').update(readFileSync(join(MIG, `${e.tag}.sql`))).digest('hex'),
+}));
+
 const sql = postgres(process.env.PROBE_URL, { prepare: false, max: 1, connect_timeout: 20, idle_timeout: 5 });
 try {
   const [{ db }] = await sql`select current_database() as db`;
   const [gw] = await sql`select 1 as p from pg_namespace where nspname = 'graphile_worker'`;
   const [enq] = await sql`select 1 as p from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname='public' and p.proname='enqueue_job'`;
-  const [{ n }] = await sql`select count(*)::int as n from drizzle.__drizzle_migrations`;
-  console.log(`STATUS db=${db} graphile_worker=${gw ? 'PRESENT' : 'ABSENT'} enqueue_job=${enq ? 'PRESENT' : 'ABSENT'} migrations_recorded=${n}`);
+  const applied = await sql`select hash from drizzle.__drizzle_migrations`;
+  const have = new Set(applied.map((r) => r.hash));
+  const pending = migrations.filter((m) => !have.has(m.hash));
+
+  console.log(`STATUS db=${db} graphile_worker=${gw ? 'PRESENT' : 'ABSENT'} enqueue_job=${enq ? 'PRESENT' : 'ABSENT'} recorded=${applied.length}/${migrations.length}`);
+  if (pending.length === 0) console.log('PENDING: none — prod matches the journal.');
+  else {
+    console.log(`PENDING (${pending.length}, journal order):`);
+    for (const m of pending) console.log(`  ${m.tag}`);
+  }
+  // The ordering fact that decides the whole sequence: 0053 RAISEs when the schema is
+  // absent, so if it is PENDING the schema must be installed before the migration runs;
+  // if it is APPLIED while enqueue_job is ABSENT, prod has diverged and needs a human.
+  const g = migrations.find((m) => m.tag.startsWith('0053'));
+  const g53pending = g ? !have.has(g.hash) : null;
+  console.log(`ORDERING: 0053=${g53pending === null ? 'not-in-journal' : g53pending ? 'PENDING' : 'APPLIED'} enqueue_job=${enq ? 'PRESENT' : 'ABSENT'}`);
+  if (g53pending === false && !enq) console.log('  ⚠ DIVERGENCE: 0053 is recorded as applied but its function does not exist. Do NOT dispatch; a human must reconcile.');
 } catch (e) {
   console.log('PROBE-FAIL ' + String(e && e.message ? e.message : e).slice(0, 200));
   process.exitCode = 1;
@@ -80,6 +105,7 @@ try {
 
 $env:PROBE_URL = $url
 $env:REPO_PKG = (Join-Path $RepoRoot 'package.json')
+$env:REPO_ROOT = $RepoRoot
 Push-Location $RepoRoot
 try { node $probe } finally { Pop-Location; $env:PROBE_URL = $null }
 $probeExit = $LASTEXITCODE
