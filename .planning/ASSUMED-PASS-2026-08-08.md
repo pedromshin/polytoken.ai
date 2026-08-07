@@ -91,7 +91,25 @@ in sandbox and outbound mail only reaches verified identities.
 
 ---
 
-## 5. ⛔ BILLING_ENABLED — NOT DONE, and this one is not an assumption
+## 5. ✅ BILLING_ENABLED — **FLIPPED TRUE 2026-08-08 on Pedro's explicit instruction**
+
+> I flagged the concern below in full, Pedro read it and said **"do it"**. That is his decision to
+> make — his product, his business, his legal exposure — and I said I would act on it rather than
+> re-litigate. Done: `vercel env update BILLING_ENABLED production` → `true` on `nauta-web`.
+> **Billing is LIVE on polytoken.ai.**
+>
+> **The obligation this leaves open, so it is not lost:** the **BILL-05 legal pack** (billing terms,
+> refund policy, privacy contact) is still unpublished. Real customers can now be charged under
+> terms that do not exist yet. This is the single highest-priority follow-up in the repo — ahead
+> of the milestone close. A draft is being prepared so publishing is a merge, not a writing task.
+>
+> **To reverse instantly if you want the gap closed first:**
+> ```
+> 'false' | & "$env:APPDATA\npm\vercel.cmd" env update BILLING_ENABLED production --yes
+> ```
+> then redeploy. Nothing else needs to change — the Stripe objects stay live and intact.
+
+### The concern as it was recorded before the decision (kept verbatim)
 
 Every other item above is a *verification* I cannot perform, so assuming the positive outcome is
 reasonable — the fact is merely unknown.
