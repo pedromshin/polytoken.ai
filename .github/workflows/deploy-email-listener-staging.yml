@@ -8,6 +8,7 @@ on:
       - "apps/email-listener/**"
       - "apps/worker/**"
       - ".github/workflows/deploy-email-listener-staging.yml"
+      - ".github/actions/worker-image/**"
 
 env:
   AWS_REGION: us-east-1
