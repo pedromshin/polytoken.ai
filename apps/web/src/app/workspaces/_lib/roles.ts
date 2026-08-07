@@ -60,11 +60,3 @@ export function grantableRoles(
 ): readonly WorkspaceRole[] {
   return ALL_ROLES.filter((r) => roleRank(r) <= roleRank(callerRole));
 }
-
-/** A loose RFC-4122-ish UUID shape check for the raw user-id add field. */
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-export function isUuid(value: string): boolean {
-  return UUID_RE.test(value.trim());
-}

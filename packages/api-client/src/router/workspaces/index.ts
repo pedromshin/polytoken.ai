@@ -45,6 +45,7 @@ import {
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import { assertAccessOrNotFound, assertRoleOrForbidden } from "../_ownership";
+import { searchUsers } from "./user-search";
 
 // ---------------------------------------------------------------------------
 // Shared input schemas
@@ -146,6 +147,13 @@ export const workspacesRouter = createTRPCRouter({
         .where(eq(WorkspaceMembers.workspaceId, input.workspaceId))
         .orderBy(desc(WorkspaceMembers.createdAt));
     }),
+
+  /**
+   * searchUsers — find candidate users for add-member by email prefix or
+   * name. Enumeration-bounded (min 3 chars, cap 10, minimal columns); the
+   * privileged act stays behind addMember's RBAC. Defined in ./user-search.
+   */
+  searchUsers,
 
   /**
    * addMember — invite/add a user at a role. RBAC: caller must be admin+; the

@@ -13,7 +13,6 @@ import {
   ALL_ROLES,
   canManageMembers,
   grantableRoles,
-  isUuid,
   ROLE_LABEL,
   type WorkspaceRole,
 } from "../../_lib/roles";
@@ -227,11 +226,23 @@ export function MembersPanel(props: {
   );
 }
 
+/** Mirrors USER_SEARCH_MIN_QUERY on `workspaces.searchUsers` (server-enforced). */
+const SEARCH_MIN_CHARS = 3;
+
+interface UserSearchRow {
+  id: string;
+  email: string | null;
+  name: string | null;
+}
+
 /**
- * AddMemberForm — add a member by RAW user UUID (there is no user-search
- * endpoint yet; "user search" is a followup). The id is validated for UUID
- * shape client-side before the mutation is allowed. Role options are capped at
- * the caller's own rank.
+ * AddMemberForm — search-and-pick (vLAUNCH W65; replaces the raw-UUID field).
+ *
+ * Type >= 3 characters → `workspaces.searchUsers` surfaces up to 10 candidate
+ * users (email + name; the server never returns more columns). Picking one
+ * swaps the input for the selection (with a clear control) and arms Add —
+ * one primary action, inline, no modal. Below the minimum the query never
+ * fires and the hint says why (states speak ink; chrome stays monochrome).
  */
 function AddMemberForm(props: {
   workspaceId: string;
@@ -242,69 +253,144 @@ function AddMemberForm(props: {
   const { workspaceId, callerRole } = props;
   const options = grantableRoles(callerRole);
 
-  const [userId, setUserId] = React.useState("");
+  const [query, setQuery] = React.useState("");
+  const [picked, setPicked] = React.useState<UserSearchRow | null>(null);
   const [role, setRole] = React.useState<WorkspaceRole>("member");
 
   const addMember = api.workspaces.addMember.useMutation({
     onError: (e) => props.onError(e.message),
     onSuccess: async () => {
       props.onError("");
-      setUserId("");
+      setQuery("");
+      setPicked(null);
       setRole("member");
       await props.onDone();
     },
   });
 
-  const trimmed = userId.trim();
-  const validId = isUuid(trimmed);
-  const canSubmit = validId && !addMember.isPending;
+  const trimmed = query.trim();
+  const searchEnabled = picked === null && trimmed.length >= SEARCH_MIN_CHARS;
+  const search = api.workspaces.searchUsers.useQuery(
+    { query: trimmed },
+    { enabled: searchEnabled },
+  );
+  const results: UserSearchRow[] = searchEnabled ? (search.data ?? []) : [];
+
+  const canSubmit = picked !== null && !addMember.isPending;
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (!canSubmit) return;
-    addMember.mutate({ workspaceId, userId: trimmed, role });
+    if (!canSubmit || picked === null) return;
+    addMember.mutate({ workspaceId, userId: picked.id, role });
   }
 
   return (
     <form
       onSubmit={onSubmit}
-      className="flex flex-col gap-2 rounded-md border border-rule bg-bright p-panel sm:flex-row sm:items-end"
-      aria-label="Add member by user ID"
+      className="flex flex-col gap-2 rounded-md border border-rule bg-bright p-panel"
+      aria-label="Add member"
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <label
-          htmlFor="add-member-id"
-          className="text-2xs font-medium text-muted-foreground"
-        >
-          Add member by user ID
-        </label>
-        <Input
-          id="add-member-id"
-          value={userId}
-          placeholder="00000000-0000-0000-0000-000000000000"
-          onChange={(e) => setUserId(e.target.value)}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <label
+            htmlFor="add-member-search"
+            className="text-2xs font-medium text-muted-foreground"
+          >
+            Add member
+          </label>
+          {picked === null ? (
+            <Input
+              id="add-member-search"
+              value={query}
+              placeholder="Search by email or name"
+              onChange={(e) => setQuery(e.target.value)}
+              disabled={addMember.isPending}
+              autoComplete="off"
+            />
+          ) : (
+            <div className="flex h-9 min-w-0 items-center gap-2 rounded-md border border-rule bg-bright px-3">
+              <span
+                className="min-w-0 flex-1 truncate text-sm text-ink"
+                title={picked.email ?? picked.id}
+              >
+                {picked.email ?? picked.name ?? picked.id}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0 text-muted-foreground hover:text-ink"
+                aria-label="Clear selected user"
+                disabled={addMember.isPending}
+                onClick={() => {
+                  setPicked(null);
+                  setQuery("");
+                }}
+              >
+                <X className="h-3.5 w-3.5" aria-hidden strokeWidth={1.5} />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <RoleSelect
+          value={role}
+          options={options}
           disabled={addMember.isPending}
-          aria-invalid={trimmed.length > 0 && !validId ? true : undefined}
-          className="tabular"
+          ariaLabel="Role for new member"
+          onChange={setRole}
         />
-        {trimmed.length > 0 && !validId ? (
-          <p className="text-2xs text-muted-foreground">
-            Enter a valid user UUID. (User search is coming later.)
-          </p>
-        ) : null}
+
+        <Button type="submit" disabled={!canSubmit}>
+          {addMember.isPending ? "Adding…" : "Add"}
+        </Button>
       </div>
 
-      <RoleSelect
-        value={role}
-        options={options}
-        disabled={addMember.isPending}
-        ariaLabel="Role for new member"
-        onChange={setRole}
-      />
+      {picked === null && trimmed.length > 0 && trimmed.length < SEARCH_MIN_CHARS ? (
+        <p className="text-2xs text-muted-foreground">
+          Type at least {SEARCH_MIN_CHARS} characters to search.
+        </p>
+      ) : null}
 
-      <Button type="submit" disabled={!canSubmit}>
-        {addMember.isPending ? "Adding…" : "Add"}
-      </Button>
+      {searchEnabled ? (
+        search.isPending ? (
+          <p className="text-2xs text-muted-foreground" aria-live="polite">
+            Searching…
+          </p>
+        ) : search.isError ? (
+          <p className="text-2xs text-ink" role="alert">
+            Search failed. {search.error.message}
+          </p>
+        ) : results.length === 0 ? (
+          <p className="text-2xs text-muted-foreground">
+            No users match “{trimmed}”.
+          </p>
+        ) : (
+          <ul
+            className="flex flex-col overflow-hidden rounded-md border border-rule"
+            aria-label="User search results"
+          >
+            {results.map((u) => (
+              <li key={u.id} className="border-b border-rule last:border-b-0">
+                <button
+                  type="button"
+                  className="flex w-full items-baseline gap-2 px-3 py-2 text-left hover:bg-shade"
+                  onClick={() => setPicked(u)}
+                >
+                  <span className="min-w-0 truncate text-sm text-ink">
+                    {u.email ?? u.id}
+                  </span>
+                  {u.name ? (
+                    <span className="shrink-0 text-2xs text-muted-foreground">
+                      {u.name}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : null}
     </form>
   );
 }
