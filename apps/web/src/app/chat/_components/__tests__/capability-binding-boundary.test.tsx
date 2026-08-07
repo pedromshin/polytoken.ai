@@ -22,7 +22,7 @@
 import * as React from "react";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import {
@@ -134,6 +134,13 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("extractCapabilityBinding", () => {
+  // The extraction is gated OFF by default (2026-08-07 security fix). These
+  // cases describe the ENABLED transport; the default-OFF posture has its own
+  // block below.
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED = "true";
+  });
+
   it("returns the SAME spec reference + null binding when no capability field (additive path)", () => {
     const spec = { v: 1, root: { type: "text", text: "hi" } } as const;
     const result = extractCapabilityBinding(spec);
@@ -164,10 +171,76 @@ describe("extractCapabilityBinding", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Kill switch (2026-08-07): the transport is REACHABLE — the listener persists
+// emit_ui_spec JSON verbatim and this extraction runs before the strict spec
+// parse — so an injected `capability` key must not reach a live confirm card
+// while no emitter exists. Default OFF is the security posture, not a nicety.
+// ---------------------------------------------------------------------------
+
+describe("extractCapabilityBinding — default-OFF kill switch", () => {
+  beforeEach(() => {
+    delete process.env.NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED;
+  });
+
+  it("binds NOTHING when the flag is unset, even for a perfectly valid binding", () => {
+    const spec = {
+      v: 1,
+      capability: { capabilityId: "fs.write", args: { path: "/notes.md" } },
+      root: { type: "text", text: "hi" },
+    };
+    const result = extractCapabilityBinding(spec);
+    expect(result.binding).toBeNull();
+    // Still stripped, so the accompanying panel renders under .strict().
+    expect("capability" in result.spec).toBe(false);
+  });
+
+  it("binds NOTHING for any non-'true' value (no truthy coercion on a security gate)", () => {
+    for (const value of ["1", "yes", "TRUE", ""]) {
+      process.env.NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED = value;
+      const result = extractCapabilityBinding({
+        v: 1,
+        capability: { capabilityId: "fs.write", args: { path: "/notes.md" } },
+      });
+      expect(result.binding).toBeNull();
+    }
+  });
+
+  it("leaves a capability-free spec on the byte-identical path (same reference)", () => {
+    const spec = { v: 1, root: { type: "text", text: "hi" } } as const;
+    expect(extractCapabilityBinding(spec).spec).toBe(spec);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // CapabilityBindingBoundary — mount + resolver invocation
 // ---------------------------------------------------------------------------
 
 describe("CapabilityBindingBoundary", () => {
+  it("DISCLOSES the arguments an approval would run with (a blind confirm is a rubber stamp)", async () => {
+    const container = await mount(
+      <CapabilityInvokerProvider value={invoker}>
+        <CapabilityBindingBoundary
+          binding={{ capabilityId: "fs.write", args: { path: "/notes.md" } }}
+        />
+      </CapabilityInvokerProvider>,
+    );
+    // The human must be able to read WHICH file before approving.
+    expect(container.textContent).toContain("path");
+    expect(container.textContent).toContain("/notes.md");
+  });
+
+  it("REFUSES (no approve control at all) when args fail the capability's own input schema", async () => {
+    const container = await mount(
+      <CapabilityInvokerProvider value={invoker}>
+        <CapabilityBindingBoundary
+          binding={{ capabilityId: "fs.write", args: { path: 42 } }}
+        />
+      </CapabilityInvokerProvider>,
+    );
+    expect(container.textContent).toContain("Refused");
+    expect(container.querySelector('[aria-label="Approve fs.write"]')).toBeNull();
+  });
+
   it("mounts the confirm card for a resolving write binding and runs approve through the resolver", async () => {
     const container = await mount(
       <CapabilityInvokerProvider value={invoker}>

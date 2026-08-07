@@ -52,9 +52,20 @@
  * `extractCapabilityBinding` is the ONLY change to the finalized-genui_spec
  * render path. A spec with no `capability` field returns the SAME spec object
  * reference and a null binding, so `MessageTurn`'s existing branch renders
- * byte-identically to before this wave. Nothing the agent emits today carries a
- * `capability` field (SpecRootSchema is `.strict()` and has no such key), so the
- * feature is inert until an emitter opts in.
+ * byte-identically to before this wave.
+ *
+ * ## Why this path is GATED, not merely un-emitted (2026-08-07 security fix)
+ *
+ * An earlier version of this header argued the feature was "inert until an
+ * emitter opts in" because `SpecRootSchema` is `.strict()`. That reasoning was
+ * wrong and the correction is load-bearing: the listener persists the
+ * `emit_ui_spec` tool JSON verbatim, and this extraction runs BEFORE the strict
+ * parse — it removes `capability` from the object the parse would have
+ * rejected. Nothing but the model's cooperation kept the key out, and the chat
+ * agent reads attacker-controlled text by design. The kill switch inside
+ * `extractCapabilityBinding` (`NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED`,
+ * default OFF) is what actually makes the claim true, and the confirm card now
+ * DISCLOSES the arguments an approval would run with.
  */
 
 import * as React from "react";
@@ -149,6 +160,27 @@ export function extractCapabilityBinding(
   }
 
   const { capability: rawBinding, ...rest } = spec;
+
+  // KILL SWITCH (default OFF) — the transport is reachable, so it is gated.
+  //
+  // The header above used to claim this path was inert because SpecRootSchema
+  // is `.strict()`. It is not: the listener stores the emit_ui_spec tool JSON
+  // VERBATIM (turn_state.py — "no validation/fallback, that gate is the web
+  // boundary"), and this extraction runs BEFORE the strict parse, stripping
+  // `capability` out of the spec the parse would have rejected. A Bedrock
+  // input_schema shapes GENERATION, it does not validate — the repo knows this
+  // (PARSE_FAILURE_TEXT exists precisely because models emit non-conforming
+  // JSON). Since the chat agent reads untrusted content by design (mail bodies,
+  // web-search results, deep research), an injected instruction to add a
+  // top-level `capability` key would reach a live confirm card.
+  //
+  // No emitter exists yet, so gating costs nothing today and makes the claim
+  // true by construction until an emitter is deliberately built (see
+  // NESTED-ARGS-ANALYSIS Stage 0). Literal property access is load-bearing —
+  // Next only inlines `process.env.NEXT_PUBLIC_*` written exactly this way.
+  if (process.env.NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED !== "true") {
+    return { binding: null, spec: rest };
+  }
   const parsed = CapabilityBindingSchema.safeParse(rawBinding);
   if (!parsed.success) {
     // Fail closed on shape: strip the bad field so the strict SpecRoot parse
@@ -213,6 +245,15 @@ export function CapabilityBindingBoundary({
 
   if (resolved === null || invoker === null) return null;
 
+  // Fail closed BEFORE offering an approve: args that do not satisfy the
+  // capability's own input schema can never become an approvable action. The
+  // resolver would reject them at invoke time anyway — surfacing it here means
+  // a human is never asked to authorize something that cannot legally run.
+  const argCheck = resolved.bound.parseArgs(binding.args);
+  if (!argCheck.ok) {
+    return <InvokeErrorRow message={`Refused: ${argCheck.error.message}`} />;
+  }
+
   const handleConfirm = async (): Promise<void> => {
     // The resolver's invoker: Zod-parse args → execute → Zod-parse output
     // (INV-1). Never throws for a validation/execute failure — those return a
@@ -229,6 +270,9 @@ export function CapabilityBindingBoundary({
     <>
       <CapabilityConfirmCard
         entry={resolved.entry}
+        // Disclosure is the gate: the human sees the exact arguments this
+        // approval would run with, not merely which capability.
+        args={binding.args}
         onConfirm={handleConfirm}
         onDismiss={() => {
           /* Withdrawn — the resolver is never touched. */

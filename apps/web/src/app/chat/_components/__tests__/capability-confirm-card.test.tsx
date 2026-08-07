@@ -69,7 +69,7 @@ describe("CapabilityConfirmCard", () => {
     const onConfirm = vi.fn();
     const onDismiss = vi.fn();
     const container = await mount(
-      <CapabilityConfirmCard entry={makeEntry("read")} onConfirm={onConfirm} onDismiss={onDismiss} />,
+      <CapabilityConfirmCard entry={makeEntry("read")} args={{ path: "/notes.md" }} onConfirm={onConfirm} onDismiss={onDismiss} />,
     );
     expect(container.firstChild).toBeNull();
     expect(onConfirm).not.toHaveBeenCalled();
@@ -78,7 +78,7 @@ describe("CapabilityConfirmCard", () => {
 
   it("renders the card for write risk: id, describe line, tier label, both controls, dashed register", async () => {
     const container = await mount(
-      <CapabilityConfirmCard entry={makeEntry("write")} onConfirm={vi.fn()} onDismiss={vi.fn()} />,
+      <CapabilityConfirmCard entry={makeEntry("write")} args={{ path: "/notes.md" }} onConfirm={vi.fn()} onDismiss={vi.fn()} />,
     );
 
     const card = container.querySelector('[role="group"]');
@@ -101,7 +101,7 @@ describe("CapabilityConfirmCard", () => {
 
   it("renders the card for exec risk with the exec tier label and the madder-fill approve", async () => {
     const container = await mount(
-      <CapabilityConfirmCard entry={makeEntry("exec")} onConfirm={vi.fn()} onDismiss={vi.fn()} />,
+      <CapabilityConfirmCard entry={makeEntry("exec")} args={{ path: "/notes.md" }} onConfirm={vi.fn()} onDismiss={vi.fn()} />,
     );
 
     expect(container.querySelector('[role="group"]')).not.toBeNull();
@@ -115,7 +115,7 @@ describe("CapabilityConfirmCard", () => {
     const onConfirm = vi.fn();
     const onDismiss = vi.fn();
     const container = await mount(
-      <CapabilityConfirmCard entry={makeEntry("write")} onConfirm={onConfirm} onDismiss={onDismiss} />,
+      <CapabilityConfirmCard entry={makeEntry("write")} args={{ path: "/notes.md" }} onConfirm={onConfirm} onDismiss={onDismiss} />,
     );
 
     const approve = approveButton(container)!;
@@ -140,7 +140,7 @@ describe("CapabilityConfirmCard", () => {
     const onConfirm = vi.fn();
     const onDismiss = vi.fn();
     const container = await mount(
-      <CapabilityConfirmCard entry={makeEntry("exec")} onConfirm={onConfirm} onDismiss={onDismiss} />,
+      <CapabilityConfirmCard entry={makeEntry("exec")} args={{ path: "/notes.md" }} onConfirm={onConfirm} onDismiss={onDismiss} />,
     );
 
     const dismiss = dismissButton(container)!;

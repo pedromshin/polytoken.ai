@@ -46,11 +46,37 @@ import { Button } from "@polytoken/ui/button";
 
 import { RISK_TIER } from "~/app/capabilities/_lib/capability-vocabulary";
 
+/**
+ * Render one argument value for human inspection. Strings show verbatim;
+ * everything else is JSON so an object/array argument cannot hide behind
+ * "[object Object]". Long values are truncated with an explicit marker — a
+ * clipped value must never LOOK complete to someone deciding on it.
+ */
+export function formatArgValue(value: unknown): string {
+  const text = typeof value === "string" ? value : JSON.stringify(value) ?? String(value);
+  return text.length > ARG_VALUE_MAX_CHARS
+    ? `${text.slice(0, ARG_VALUE_MAX_CHARS)}… (truncated)`
+    : text;
+}
+
+const ARG_VALUE_MAX_CHARS = 240;
+
 export interface CapabilityConfirmCardProps {
   /** The manifest projection of the capability the agent wants to invoke —
    * `id`/`describe`/`risk` are what a human needs to decide (INV-1's
    * "registry pointed outward" shape; nothing here can execute). */
   readonly entry: CapabilityManifestEntry;
+  /**
+   * The ARGUMENTS this approval would execute with — REQUIRED, deliberately.
+   *
+   * A confirm card that states only "canvas.removeNode / write" asks a human to
+   * authorize an invocation they cannot see: which node, in which conversation.
+   * That is a rubber stamp, not a decision, and the binding descriptor reaches
+   * this card from a spec the agent authored while reading untrusted content
+   * (mail bodies, web-search results). Disclosure is the gate's whole point, so
+   * the prop is required — a caller cannot forget to show what it is asking for.
+   */
+  readonly args: Readonly<Record<string, unknown>> | undefined;
   /** Executes the invocation. Called AT MOST ONCE, and only from an explicit
    * human approve — never on render, never after a dismiss. */
   readonly onConfirm: () => void | Promise<void>;
@@ -62,6 +88,7 @@ type Decision = "approved" | "dismissed";
 
 export function CapabilityConfirmCard({
   entry,
+  args,
   onConfirm,
   onDismiss,
 }: CapabilityConfirmCardProps): React.ReactElement | null {
@@ -93,6 +120,7 @@ export function CapabilityConfirmCard({
 
   const tier = RISK_TIER[entry.risk];
   const approved = decision === "approved";
+  const argEntries = Object.entries(args ?? {});
 
   return (
     <section
@@ -122,6 +150,22 @@ export function CapabilityConfirmCard({
 
       <p className="mt-0.5 max-w-[65ch] text-xs leading-relaxed text-faded">{entry.describe}</p>
       <p className="mt-0.5 text-2xs text-pencil">{tier.meaning}</p>
+
+      {/* WHAT it would do, not just WHICH capability. Chrome register: ink on a
+          rule, no hue — the args are evidence for the decision, and a decision
+          made blind is not a confirm. */}
+      <dl className="mt-2 border-t border-rule pt-2" aria-label="Arguments">
+        {argEntries.length === 0 ? (
+          <div className="text-2xs text-pencil">No arguments.</div>
+        ) : (
+          argEntries.map(([key, value]) => (
+            <div key={key} className="flex gap-2 text-2xs">
+              <dt className="shrink-0 text-pencil">{key}</dt>
+              <dd className="min-w-0 break-all text-ink">{formatArgValue(value)}</dd>
+            </div>
+          ))
+        )}
+      </dl>
 
       {!approved && (
         <div className="mt-3 flex items-center gap-2">
