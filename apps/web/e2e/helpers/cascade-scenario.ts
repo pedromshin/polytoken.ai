@@ -145,13 +145,19 @@ function isCascadeFlagDeclaredOn(): boolean {
 /**
  * Classify what the confirmMerge response says the cascade actually did. Body matching is
  * deliberately substring-tolerant (tRPC may batch and superjson-wrap the payload): a `"cascade"`
- * key holding an object means the listener ran the cascade; anything else on a 2xx means the
- * flag is (still) dark server-side. Never throws — the caller records the string.
+ * key holding an object means the listener ran the cascade. The app transport is
+ * httpBatchStreamLink, which commits HTTP 200 before any procedure resolves — a FAILED merge
+ * therefore arrives ok:true with a tRPC `"error"` envelope in the body, so the error check must
+ * run before anything on a 2xx may be classified as flag-dark. Never throws — the caller records
+ * the string.
  */
 function classifyCascadeFromBody(ok: boolean, status: number, body: string): string {
   if (!ok) return `merge request failed (HTTP ${status}) — optimistic repaint reverted`;
   if (/"cascade"\s*:\s*\{/.test(body)) {
     return "live — cascade summary present in confirmMerge response";
+  }
+  if (/"error"\s*:/.test(body)) {
+    return "failed — tRPC error envelope in streamed 200 response — optimistic repaint reverted";
   }
   return "dark — cascade null/absent in confirmMerge response (listener flag off)";
 }
