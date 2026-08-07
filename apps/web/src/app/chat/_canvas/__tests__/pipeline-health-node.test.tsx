@@ -38,6 +38,8 @@ interface LearningQueryState {
     relabelsPerCorrection: number | null;
     stickRate: number | null;
   };
+  /** React Query v5 three-state status — the component's source of truth. */
+  status: "pending" | "error" | "success";
   isLoading: boolean;
   isError: boolean;
 }
@@ -51,6 +53,7 @@ let learningState: LearningQueryState = {
     relabelsPerCorrection: null,
     stickRate: null,
   },
+  status: "success",
   isLoading: false,
   isError: false,
 };
@@ -140,6 +143,7 @@ beforeEach(() => {
       relabelsPerCorrection: null,
       stickRate: null,
     },
+    status: "success",
     isLoading: false,
     isError: false,
   };
@@ -190,6 +194,7 @@ describe("PipelineHealthNode — rendered contract with the learning section", (
         relabelsPerCorrection: 8,
         stickRate: 0.75,
       },
+      status: "success",
       isLoading: false,
       isError: false,
     };
