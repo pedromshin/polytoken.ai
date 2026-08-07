@@ -17,6 +17,7 @@
     "dev:down": "docker compose -f apps/email-listener/docker-compose.yaml down",
     "logs": "docker compose -f apps/email-listener/docker-compose.yaml logs -f email-listener",
     "test": "cd apps/email-listener && uv run pytest",
+    "test:scripts": "node --test \"scripts/lib/*.test.mjs\"",
     "lint": "cd apps/email-listener && uv run ruff check .",
     "lint:fix": "cd apps/email-listener && uv run ruff check --fix .",
     "format": "cd apps/email-listener && uv run ruff format --check .",
