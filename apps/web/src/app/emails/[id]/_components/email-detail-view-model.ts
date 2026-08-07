@@ -1,9 +1,11 @@
 /**
  * email-detail-view-model — the pure derivation layer between the raw
  * emails.detail component rows and the editor panels (LAYERS / INSPECTOR /
- * on-PDF controls). No React, no side effects: one function that maps the
- * fetched components + selection state to the exact view-model rows the
- * panels consume. Extracted verbatim from email-detail.tsx (800-line law);
+ * on-PDF controls). No React, no side effects: one per-derivation pure helper
+ * each (layers rows, confirm/deny ids, auto-detected ids, parent options,
+ * inspector selection, labels), composed by a thin deriveDetailViewModel that
+ * maps the fetched components + selection state to the exact view-model rows
+ * the panels consume. Extracted verbatim from email-detail.tsx (800-line law);
  * every derivation is behavior-identical.
  */
 
@@ -69,23 +71,26 @@ export interface DetailViewModel {
   readonly activeParentLabel: string;
 }
 
-export function deriveDetailViewModel({
-  components,
-  idToLabel,
-  fieldIdToLabel,
-  fieldIdToKey,
-  selectedIds,
-  activeParentId,
-}: DetailViewModelInput): DetailViewModel {
-  /** Resolve a component's mapped field slug (null when unmapped). */
-  function fieldKeyFor(entityTypeFieldId: string | null): string | null {
-    return entityTypeFieldId !== null
+/** Resolves a component's mapped field slug (null when unmapped). */
+type FieldKeyResolver = (entityTypeFieldId: string | null) => string | null;
+
+function makeFieldKeyResolver(
+  fieldIdToKey: ReadonlyMap<string, string>,
+): FieldKeyResolver {
+  return (entityTypeFieldId) =>
+    entityTypeFieldId !== null
       ? (fieldIdToKey.get(entityTypeFieldId) ?? null)
       : null;
-  }
+}
 
-  // ---- Derive view-model rows for LAYERS + INSPECTOR ----
-  const layersComponents: LayersComponent[] = components.map((c) => ({
+/** View-model rows for LAYERS + INSPECTOR. */
+function deriveLayersComponents(
+  components: readonly DetailComponent[],
+  idToLabel: ReadonlyMap<string, string>,
+  fieldIdToLabel: ReadonlyMap<string, string>,
+  fieldKeyFor: FieldKeyResolver,
+): LayersComponent[] {
+  return components.map((c) => ({
     id: c.id,
     sourceType: c.sourceType,
     role: (c.role ?? null) as ComponentRole,
@@ -107,13 +112,19 @@ export function deriveDetailViewModel({
         ? (fieldIdToLabel.get(c.entityTypeFieldId) ?? null)
         : null,
   }));
+}
 
-  // HIGH-1/D-16: FIELD boxes that carry a pending candidate value get the on-PDF
-  // inline ✓/✗. Confirmed/terminal boxes show no controls (UI-SPEC §Inline ✓/✗).
-  // Derived from the ALREADY-COMPUTED layers rows — `role` and `candidateValue`
-  // there are the same values a second getCandidateValue pass would recompute
-  // (pinned by the equality test in email-detail-view-model.test.ts).
-  const confirmDenyComponentIds: string[] = layersComponents
+/**
+ * HIGH-1/D-16: FIELD boxes that carry a pending candidate value get the on-PDF
+ * inline ✓/✗. Confirmed/terminal boxes show no controls (UI-SPEC §Inline ✓/✗).
+ * Derived from the ALREADY-COMPUTED layers rows — `role` and `candidateValue`
+ * there are the same values a second getCandidateValue pass would recompute
+ * (pinned by the equality test in email-detail-view-model.test.ts).
+ */
+function deriveConfirmDenyIds(
+  layersComponents: readonly LayersComponent[],
+): string[] {
+  return layersComponents
     .filter(
       (row) =>
         row.role === "field" &&
@@ -123,25 +134,26 @@ export function deriveDetailViewModel({
         row.candidateValue !== null,
     )
     .map((row) => row.id);
+}
 
-  // WR-05/D-18: boxes the AI auto-detected (origin marker) drive the canonical
-  // control's origin-aware deny + Undo affordance on the PDF.
-  const autoDetectedComponentIds: string[] = components
+/** WR-05/D-18: boxes the AI auto-detected (origin marker) drive the canonical
+ * control's origin-aware deny + Undo affordance on the PDF. */
+function deriveAutoDetectedIds(
+  components: readonly DetailComponent[],
+): string[] {
+  return components
     .filter((c) => isAutoDetectedOrigin(c.contentRaw))
     .map((c) => c.id);
+}
 
-  // Same-page ENTITY regions for the field-relationship parent picker (06-04).
-  const selectedId = selectedIds[0] ?? null;
-  const selectedComponent =
-    selectedId !== null
-      ? components.find((c) => c.id === selectedId)
-      : undefined;
-  const selectedPageIndex =
-    selectedComponent !== undefined
-      ? getLocationPageIndex(selectedComponent.location)
-      : null;
-
-  const parentOptions: ParentEntityOption[] = components
+/** Same-page ENTITY regions for the field-relationship parent picker (06-04). */
+function deriveParentOptions(
+  components: readonly DetailComponent[],
+  idToLabel: ReadonlyMap<string, string>,
+  selectedId: string | null,
+  selectedPageIndex: number | null,
+): ParentEntityOption[] {
+  return components
     .filter(
       (c) =>
         c.sourceType === "region" &&
@@ -163,86 +175,165 @@ export function deriveDetailViewModel({
         (c.entityTypeId !== null ? idToLabel.get(c.entityTypeId) : null) ??
         c.entityTypeLabel,
     }));
+}
 
-  // The candidate field children of the selected entity (Confirm All Fields).
-  const candidateFieldIds =
-    selectedComponent !== undefined && selectedComponent.role === "entity"
-      ? components
-          .filter(
-            (c) =>
-              c.role === "field" &&
-              c.parentComponentId === selectedComponent.id &&
-              c.extractionStatus !== "confirmed" &&
-              getCandidateValue(
-                c.extractedFields,
-                fieldKeyFor(c.entityTypeFieldId ?? null),
-              ) !== null,
-          )
-          .map((c) => c.id)
-      : [];
+/** The candidate field children of the selected entity (Confirm All Fields). */
+function deriveCandidateFieldIds(
+  components: readonly DetailComponent[],
+  selectedComponent: DetailComponent | undefined,
+  fieldKeyFor: FieldKeyResolver,
+): string[] {
+  if (selectedComponent === undefined || selectedComponent.role !== "entity") {
+    return [];
+  }
+  return components
+    .filter(
+      (c) =>
+        c.role === "field" &&
+        c.parentComponentId === selectedComponent.id &&
+        c.extractionStatus !== "confirmed" &&
+        getCandidateValue(
+          c.extractedFields,
+          fieldKeyFor(c.entityTypeFieldId ?? null),
+        ) !== null,
+    )
+    .map((c) => c.id);
+}
 
-  const inspectorSelected: InspectorComponent | null =
+/** The current selection (first selected id wins) and its page index. */
+interface DetailSelection {
+  readonly selectedId: string | null;
+  readonly selectedComponent: DetailComponent | undefined;
+  readonly selectedPageIndex: number | null;
+}
+
+function deriveSelection(
+  components: readonly DetailComponent[],
+  selectedIds: readonly string[],
+): DetailSelection {
+  const selectedId = selectedIds[0] ?? null;
+  const selectedComponent =
+    selectedId !== null
+      ? components.find((c) => c.id === selectedId)
+      : undefined;
+  const selectedPageIndex =
     selectedComponent !== undefined
-      ? {
-          id: selectedComponent.id,
-          role: (selectedComponent.role ?? null) as ComponentRole,
-          entityTypeId: selectedComponent.entityTypeId ?? null,
-          entityTypeFieldId: selectedComponent.entityTypeFieldId ?? null,
-          parentComponentId: selectedComponent.parentComponentId ?? null,
-          entityTypeLabel:
-            selectedComponent.entityTypeId !== null
-              ? (idToLabel.get(selectedComponent.entityTypeId) ??
-                selectedComponent.entityTypeLabel)
-              : selectedComponent.entityTypeLabel,
-          extractionStatus: selectedComponent.extractionStatus,
-          pageNumber:
-            (getLocationPageIndex(selectedComponent.location) ?? 0) + 1,
-          candidateValue: getCandidateValue(
-            selectedComponent.extractedFields,
-            fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
-          ),
-          candidateFieldKey: getCandidateFieldKey(
-            selectedComponent.extractedFields,
-            fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
-          ),
-          confidenceScore: toConfidence(selectedComponent.confidenceScore),
-          propertyLabel:
-            selectedComponent.entityTypeFieldId !== null
-              ? (fieldIdToLabel.get(selectedComponent.entityTypeFieldId) ??
-                null)
-              : null,
-          candidateFieldIds,
-        }
+      ? getLocationPageIndex(selectedComponent.location)
       : null;
+  return { selectedId, selectedComponent, selectedPageIndex };
+}
 
-  const inspectorEntityTypeLabel =
-    selectedComponent !== undefined && selectedComponent.entityTypeId !== null
-      ? (idToLabel.get(selectedComponent.entityTypeId) ?? null)
-      : null;
+/** The INSPECTOR's selected-component projection. */
+function deriveInspectorSelected(
+  selectedComponent: DetailComponent | undefined,
+  idToLabel: ReadonlyMap<string, string>,
+  fieldIdToLabel: ReadonlyMap<string, string>,
+  fieldKeyFor: FieldKeyResolver,
+  candidateFieldIds: string[],
+): InspectorComponent | null {
+  if (selectedComponent === undefined) return null;
+  return {
+    id: selectedComponent.id,
+    role: (selectedComponent.role ?? null) as ComponentRole,
+    entityTypeId: selectedComponent.entityTypeId ?? null,
+    entityTypeFieldId: selectedComponent.entityTypeFieldId ?? null,
+    parentComponentId: selectedComponent.parentComponentId ?? null,
+    entityTypeLabel:
+      selectedComponent.entityTypeId !== null
+        ? (idToLabel.get(selectedComponent.entityTypeId) ??
+          selectedComponent.entityTypeLabel)
+        : selectedComponent.entityTypeLabel,
+    extractionStatus: selectedComponent.extractionStatus,
+    pageNumber: (getLocationPageIndex(selectedComponent.location) ?? 0) + 1,
+    candidateValue: getCandidateValue(
+      selectedComponent.extractedFields,
+      fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
+    ),
+    candidateFieldKey: getCandidateFieldKey(
+      selectedComponent.extractedFields,
+      fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
+    ),
+    confidenceScore: toConfidence(selectedComponent.confidenceScore),
+    propertyLabel:
+      selectedComponent.entityTypeFieldId !== null
+        ? (fieldIdToLabel.get(selectedComponent.entityTypeFieldId) ?? null)
+        : null,
+    candidateFieldIds,
+  };
+}
 
-  // The active-parent entity label (D-10 banner).
+/** Entity-type label for the INSPECTOR header (resolved id only, no fallback). */
+function deriveInspectorEntityTypeLabel(
+  selectedComponent: DetailComponent | undefined,
+  idToLabel: ReadonlyMap<string, string>,
+): string | null {
+  return selectedComponent !== undefined &&
+    selectedComponent.entityTypeId !== null
+    ? (idToLabel.get(selectedComponent.entityTypeId) ?? null)
+    : null;
+}
+
+/** The active-parent entity label (D-10 banner). */
+function deriveActiveParentLabel(
+  components: readonly DetailComponent[],
+  activeParentId: string | null,
+  idToLabel: ReadonlyMap<string, string>,
+): string {
   const activeParentComponent =
     activeParentId !== null
       ? components.find((c) => c.id === activeParentId)
       : undefined;
-  const activeParentLabel =
-    activeParentComponent !== undefined
-      ? ((activeParentComponent.entityTypeId !== null
-          ? idToLabel.get(activeParentComponent.entityTypeId)
-          : null) ??
-        activeParentComponent.entityTypeLabel ??
-        "Entity")
-      : "";
+  return activeParentComponent !== undefined
+    ? ((activeParentComponent.entityTypeId !== null
+        ? idToLabel.get(activeParentComponent.entityTypeId)
+        : null) ??
+      activeParentComponent.entityTypeLabel ??
+      "Entity")
+    : "";
+}
+
+export function deriveDetailViewModel({
+  components,
+  idToLabel,
+  fieldIdToLabel,
+  fieldIdToKey,
+  selectedIds,
+  activeParentId,
+}: DetailViewModelInput): DetailViewModel {
+  const fieldKeyFor = makeFieldKeyResolver(fieldIdToKey);
+
+  const layersComponents = deriveLayersComponents(
+    components,
+    idToLabel,
+    fieldIdToLabel,
+    fieldKeyFor,
+  );
+
+  const { selectedId, selectedComponent, selectedPageIndex } = deriveSelection(
+    components,
+    selectedIds,
+  );
+  const candidateFieldIds = deriveCandidateFieldIds(
+    components,
+    selectedComponent,
+    fieldKeyFor,
+  );
 
   return {
     layersComponents,
-    confirmDenyComponentIds,
-    autoDetectedComponentIds,
+    confirmDenyComponentIds: deriveConfirmDenyIds(layersComponents),
+    autoDetectedComponentIds: deriveAutoDetectedIds(components),
     selectedId,
     selectedComponent,
-    parentOptions,
-    inspectorSelected,
-    inspectorEntityTypeLabel,
-    activeParentLabel,
+    parentOptions: deriveParentOptions(components, idToLabel, selectedId, selectedPageIndex),
+    inspectorSelected: deriveInspectorSelected(
+      selectedComponent,
+      idToLabel,
+      fieldIdToLabel,
+      fieldKeyFor,
+      candidateFieldIds,
+    ),
+    inspectorEntityTypeLabel: deriveInspectorEntityTypeLabel(selectedComponent, idToLabel),
+    activeParentLabel: deriveActiveParentLabel(components, activeParentId, idToLabel),
   };
 }

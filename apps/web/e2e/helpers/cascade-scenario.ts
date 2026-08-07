@@ -50,6 +50,8 @@ import path from "node:path";
 import { mkdir, writeFile } from "node:fs/promises";
 
 import { test, type BrowserContext, type Page } from "@playwright/test";
+import { jsonlStreamConsumer } from "@trpc/server/unstable-core-do-not-import";
+import SuperJSON, { type SuperJSONResult } from "superjson";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -146,47 +148,35 @@ function isCascadeFlagDeclaredOn(): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// confirmMerge stream classification — structural parse of the actual wire format
+// confirmMerge stream classification — via the INSTALLED tRPC jsonl consumer
 // ---------------------------------------------------------------------------
 //
 // The app transport is httpBatchStreamLink (src/trpc/react.tsx), whose response body is the
-// tRPC 11 "jsonl" batch stream (@trpc/server jsonlStreamProducer / @trpc/client
-// jsonlStreamConsumer, v11.8.0). The shape, read from the installed sources:
+// tRPC 11 "jsonl" batch stream (@trpc/server jsonlStreamProducer, v11.8.0). Rather than
+// hand-vendoring the wire decode, classification feeds the captured body through the SAME
+// `jsonlStreamConsumer` that @trpc/client's httpBatchStreamLink itself imports (from
+// `@trpc/server/unstable-core-do-not-import` — the one place it is exported), with the same
+// per-line SuperJSON `deserialize` the app's transformer applies. The consumer resolves the
+// head line to one cell per procedure IN BATCH ORDER (batch order = the comma-joined path list
+// in the request URL, `/api/trpc/a.b,c.d?batch=1`); each cell's async values arrive as
+// promises that reject — via our `formatError` — when the wire carries a rejected chunk.
 //
-//   line 1 (head):   { "<batchIndex>": <cell>, ... }   — one cell per procedure IN BATCH ORDER,
-//                    where batch order is the comma-joined path list in the request URL
-//                    (`/api/trpc/a.b,c.d?batch=1`).
-//   later lines:     [chunkId, promiseStatus, <cell-or-errorShape>]   — resolved async values.
-//   cell encoding (producer's `encode`):
-//                    [[]]                       → undefined
-//                    [[value]]                  → plain value
-//                    [[0], [null, type, id]]    → the value ITSELF is async (follow chunk id)
-//                    [[obj], [key, type, id]…]  → object whose `key`s are async (placeholder 0)
-//                    type: 0 = promise, 1 = async iterable; promiseStatus: 0 = fulfilled,
-//                    1 = rejected (payload is the formatError shape).
-//   Every line is additionally SuperJSON-serialized: { json: <chunk>, meta? }. Pings are bare
-//   spaces without a newline.
-//
-// The previous implementation substring-matched `"cascade":{` / `"error":` over the whole body,
-// which mislabels: a FAILED merge whose formatted error message embeds a cascade-shaped
-// substring classified "live", and a batched multi-procedure response classified from OTHER
-// procedures' payloads. This parse finds confirmMerge's OWN batch index from the request URL,
-// follows ITS chunk chain only, and classifies from ITS envelope. Anything that does not parse
-// as this wire format is reported "unclassifiable" with the raw body retained — never guessed.
+// Classification finds confirmMerge's OWN batch index from the request URL, awaits ITS slot's
+// envelope chain only (envelope → result → data, exactly the unwrap httpBatchStreamLink
+// performs), and classifies from that envelope — a batched multi-procedure response is never
+// classified from OTHER procedures' payloads, and a failed merge whose error message embeds a
+// cascade-shaped substring can never read "live". Anything the consumer cannot decode — a
+// throw, a rejection that is not a wire-level slot rejection, or a hang (bounded by
+// STREAM_DECODE_TIMEOUT_MS: the consumer never settles a slot whose chunk vanished) — is
+// reported "unclassifiable" with the raw body retained, never guessed.
 
 /** tRPC endpoint prefix in every procedure URL (src/trpc/react.tsx `getBaseUrl() + "/api/trpc"`). */
 const TRPC_ENDPOINT_PREFIX = "/api/trpc/";
 const CONFIRM_MERGE_PROCEDURE = "entities.confirmMerge";
 
-/** Wire constants mirrored from @trpc/server's stream/jsonl (deliberately unexported upstream —
- * the module is `unstable-core-do-not-import` — so they are pinned here with the shape doc). */
-const CHUNK_VALUE_TYPE_PROMISE = 0;
-const PROMISE_STATUS_FULFILLED = 0;
-const PROMISE_STATUS_REJECTED = 1;
-
-/** Guard against cyclic/adversarial chunk references; the real confirmMerge chain is 3 deep
- * (envelope promise → result promise → data promise). */
-const MAX_STREAM_DECODE_DEPTH = 8;
+/** Bound on the consumer decode: with the full captured body the stream settles immediately,
+ * so a slot still pending after this long means its chunk never arrived (consumer hang). */
+const STREAM_DECODE_TIMEOUT_MS = 5_000;
 
 /** Where the raw body lands (in RUN_DIR) when classification refuses to guess. */
 const RAW_BODY_FILENAME = "cascade-confirm-merge-body.raw.txt";
@@ -214,78 +204,35 @@ export function confirmMergeBatchIndex(url: string): number {
   }
 }
 
-/**
- * Unwrap one stream line's SuperJSON envelope. Classification reads the raw `json` skeleton
- * WITHOUT applying `meta`: meta re-hydrates value types (Date/undefined/bigint/…) and can never
- * add or remove the `error`/`result` keys nor turn a null cascade into an object — a
- * `cascade: undefined` serializes as json `null` plus a meta mark, which still reads as dark.
- */
-function unwrapSuperjsonLine(parsed: unknown): unknown {
-  return isPlainRecord(parsed) && "json" in parsed ? parsed["json"] : parsed;
+/** Thrown from our `formatError` when the wire stream carries a REJECTED chunk in the followed
+ * chain — the one rejection cause that means "the server formatted a tRPC error for this slot"
+ * (anything else rejecting the decode is a consumer/stream failure → unclassifiable). */
+class ConfirmMergeSlotRejectedError extends Error {
+  readonly errorShape: unknown;
+
+  constructor(errorShape: unknown) {
+    super("confirmMerge stream slot rejected");
+    this.name = "ConfirmMergeSlotRejectedError";
+    this.errorShape = errorShape;
+  }
 }
 
-type DecodedStreamValue =
-  | { readonly kind: "value"; readonly value: unknown }
-  | { readonly kind: "rejected"; readonly errorShape: unknown }
-  | { readonly kind: "opaque"; readonly reason: string };
-
-type StreamChunks = ReadonlyMap<number, readonly [status: number, payload: unknown]>;
-
-function resolveChunkRef(
-  ref: readonly unknown[],
-  chunks: StreamChunks,
-  depth: number,
-): DecodedStreamValue {
-  const type = ref[1];
-  const chunkId = ref[2];
-  if (type !== CHUNK_VALUE_TYPE_PROMISE || typeof chunkId !== "number") {
-    return { kind: "opaque", reason: "non-promise (async-iterable?) chunk on the followed chain" };
-  }
-  const chunk = chunks.get(chunkId);
-  if (chunk === undefined) {
-    return { kind: "opaque", reason: `stream ended before chunk ${chunkId} arrived` };
-  }
-  const [status, payload] = chunk;
-  if (status === PROMISE_STATUS_REJECTED) return { kind: "rejected", errorShape: payload };
-  if (status !== PROMISE_STATUS_FULFILLED) {
-    return { kind: "opaque", reason: `unknown promise status ${status} on chunk ${chunkId}` };
-  }
-  return decodeStreamCell(payload, chunks, depth + 1);
+/** The captured Playwright body is a complete string; the consumer wants the byte stream the
+ * fetch response would have been. */
+function streamFromBody(body: string): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller): void {
+      controller.enqueue(new TextEncoder().encode(body));
+      controller.close();
+    },
+  });
 }
 
-/** Statically decode one producer `encode()` cell (shapes documented in the block comment
- * above), following promise chunk references. A rejection anywhere on the followed chain
- * propagates as "rejected"; any shape outside the wire format propagates as "opaque". */
-function decodeStreamCell(encoded: unknown, chunks: StreamChunks, depth: number): DecodedStreamValue {
-  if (depth > MAX_STREAM_DECODE_DEPTH) {
-    return { kind: "opaque", reason: "chunk-reference chain deeper than the wire format produces" };
-  }
-  if (!Array.isArray(encoded) || encoded.length === 0 || !Array.isArray(encoded[0])) {
-    return { kind: "opaque", reason: "cell is not the [[value?], ...asyncRefs] wire shape" };
-  }
-  const headCell = encoded[0] as readonly unknown[];
-  const refs = encoded.slice(1) as readonly unknown[];
-
-  // [[0], [null, type, id]] — the cell's whole value is async; follow the chunk.
-  const wholeValueRef = refs.find((ref) => Array.isArray(ref) && ref[0] === null);
-  if (Array.isArray(wholeValueRef)) return resolveChunkRef(wholeValueRef, chunks, depth);
-
-  const base: unknown = headCell.length === 0 ? undefined : headCell[0];
-  if (refs.length === 0) return { kind: "value", value: base };
-  if (!isPlainRecord(base)) {
-    return { kind: "opaque", reason: "async refs attached to a non-object cell" };
-  }
-  let assembled: Record<string, unknown> = { ...base };
-  for (const ref of refs) {
-    if (!Array.isArray(ref) || typeof ref[0] !== "string") {
-      return { kind: "opaque", reason: "malformed async ref inside an object cell" };
-    }
-    const resolved = resolveChunkRef(ref, chunks, depth);
-    if (resolved.kind !== "value") return resolved;
-    assembled = { ...assembled, [ref[0]]: resolved.value };
-  }
-  return { kind: "value", value: assembled };
-}
+/** A decode either lands on a definite status line or on a reason to refuse classification —
+ * the caller turns the latter into "unclassifiable" with the raw body retained. */
+type EnvelopeClassification =
+  | { readonly status: string }
+  | { readonly unclassifiableReason: string };
 
 export interface CascadeClassification {
   /** One-line human classification, recorded verbatim in cascade-index.md. */
@@ -295,104 +242,75 @@ export interface CascadeClassification {
 }
 
 /**
- * Classify what the confirmMerge response says the cascade actually did, from confirmMerge's
- * OWN envelope inside the batch stream. httpBatchStreamLink commits HTTP 200 before any
- * procedure resolves, so a FAILED merge arrives ok:true with an `error` envelope (or a rejected
- * chunk) in confirmMerge's slot — which is why the parse is structural, per-slot, and never
- * substring-matches the body. Never throws — the caller records the strings.
- *
- * Exported (with confirmMergeBatchIndex) so the parse can be verified against bodies produced
- * by the REAL @trpc/server jsonlStreamProducer, outside a live Playwright run — both are pure.
+ * Run the installed jsonlStreamConsumer over the captured body and await confirmMerge's OWN
+ * batch slot down to its resolved envelope classification. Throws exactly what the consumer
+ * throws: a ConfirmMergeSlotRejectedError when the followed chain carries a wire-level
+ * rejected chunk, anything else when the stream itself is undecodable.
  */
-export function classifyCascadeFromStreamBody(
-  ok: boolean,
-  httpStatus: number,
-  url: string,
+async function decodeConfirmMergeSlot(
   body: string,
-): CascadeClassification {
-  if (!ok) {
-    return { status: `merge request failed (HTTP ${httpStatus}) — optimistic repaint reverted` };
-  }
-  const unclassifiable = (reason: string): CascadeClassification => ({
-    status: `unclassifiable — ${reason}`,
-    rawBodyToRetain: body,
-  });
-
-  const batchIndex = confirmMergeBatchIndex(url);
-  if (batchIndex < 0) {
-    return unclassifiable("response URL carries no entities.confirmMerge path segment");
-  }
-
-  // Line 1 is the head; later lines are chunks. Pings are bare spaces — trim absorbs them.
-  const lines = body
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (lines.length === 0) return unclassifiable("empty response body");
-
-  let head: unknown;
+  batchIndex: number,
+): Promise<EnvelopeClassification> {
+  const abortController = new AbortController();
   try {
-    head = unwrapSuperjsonLine(JSON.parse(lines[0]));
-  } catch {
-    return unclassifiable("head line is not JSON");
-  }
-  if (!isPlainRecord(head)) {
-    return unclassifiable("head line is not a jsonl batch-stream index→cell object");
-  }
-
-  const chunks = new Map<number, readonly [status: number, payload: unknown]>();
-  for (const line of lines.slice(1)) {
-    let parsed: unknown;
-    try {
-      parsed = unwrapSuperjsonLine(JSON.parse(line));
-    } catch {
-      continue; // an unrelated garbled line; if OUR chain needed it, the decode reports the gap
+    const [head] = await jsonlStreamConsumer<Record<string, unknown>>({
+      from: streamFromBody(body),
+      // Same per-line unwrap httpBatchStreamLink applies (the app transformer is SuperJSON —
+      // src/trpc/react.tsx). Meta re-hydration cannot flip a classification: it never adds or
+      // removes the `error`/`result` keys, and a `cascade: undefined` re-hydrates to a
+      // non-record, which still reads as dark.
+      deserialize: (data: unknown): unknown => SuperJSON.deserialize(data as SuperJSONResult),
+      formatError: ({ error }): Error => new ConfirmMergeSlotRejectedError(error),
+      abortController,
+    });
+    const slot = head[String(batchIndex)];
+    if (slot === undefined) {
+      return {
+        unclassifiableReason: `stream head has no cell at confirmMerge's batch index ${batchIndex}`,
+      };
     }
-    if (
-      Array.isArray(parsed) &&
-      parsed.length === 3 &&
-      typeof parsed[0] === "number" &&
-      typeof parsed[1] === "number" &&
-      !chunks.has(parsed[0])
-    ) {
-      chunks.set(parsed[0], [parsed[1], parsed[2]]);
+    // Sibling procedures' slots are never awaited by this classifier — swallow their potential
+    // rejections so a failed sibling cannot surface as an unhandled rejection in the harness.
+    for (const [key, value] of Object.entries(head)) {
+      if (key !== String(batchIndex)) void Promise.resolve(value).catch(() => undefined);
     }
+    return await classifyConfirmMergeSlot(slot);
+  } finally {
+    abortController.abort();
   }
+}
 
-  const cell = head[String(batchIndex)];
-  if (cell === undefined) {
-    return unclassifiable(`stream head has no cell at confirmMerge's batch index ${batchIndex}`);
+/**
+ * Await the slot's envelope chain — envelope → result → data, the exact unwrap
+ * httpBatchStreamLink performs on `head[key]` — and classify the resolved envelope. A wire
+ * rejection anywhere on the chain rejects with ConfirmMergeSlotRejectedError (our formatError).
+ */
+async function classifyConfirmMergeSlot(slot: unknown): Promise<EnvelopeClassification> {
+  const envelope = await Promise.resolve(slot);
+  if (!isPlainRecord(envelope)) {
+    return { unclassifiableReason: "confirmMerge's envelope is not an object" };
   }
-
-  const envelope = decodeStreamCell(cell, chunks, 0);
-  if (envelope.kind === "rejected") {
-    return {
-      status:
-        "failed — confirmMerge's stream slot rejected (formatted tRPC error) — " +
-        "optimistic repaint reverted",
-    };
-  }
-  if (envelope.kind === "opaque") return unclassifiable(envelope.reason);
-  if (!isPlainRecord(envelope.value)) {
-    return unclassifiable("confirmMerge's envelope is not an object");
-  }
-  if ("error" in envelope.value) {
+  if ("error" in envelope) {
     return {
       status:
         "failed — tRPC error envelope in confirmMerge's own batch slot — " +
         "optimistic repaint reverted",
     };
   }
-  const result = envelope.value["result"];
+  const result = await Promise.resolve(envelope["result"]);
   if (!isPlainRecord(result)) {
-    return unclassifiable("confirmMerge's envelope has neither error nor a result object");
+    return { unclassifiableReason: "confirmMerge's envelope has neither error nor a result object" };
   }
-  const output = result["data"];
+  const output = await Promise.resolve(result["data"]);
   if (!isPlainRecord(output)) {
-    return unclassifiable("confirmMerge's result carries no data object");
+    return { unclassifiableReason: "confirmMerge's result carries no data object" };
   }
-  // `output` is ConfirmMergeResponse (packages/api-client mutations.ts): the listener envelope
-  // { success, error?, data: { …, cascade? } | null } — cascade nests at output.data.cascade.
+  return classifyListenerOutput(output);
+}
+
+/** `output` is ConfirmMergeResponse (packages/api-client mutations.ts): the listener envelope
+ * { success, error?, data: { …, cascade? } | null } — cascade nests at output.data.cascade. */
+function classifyListenerOutput(output: Record<string, unknown>): EnvelopeClassification {
   if (output["success"] === false || typeof output["error"] === "string") {
     return {
       status:
@@ -408,6 +326,90 @@ export function classifyCascadeFromStreamBody(
   return {
     status: "dark — cascade null/absent in confirmMerge's own result envelope (listener flag off)",
   };
+}
+
+/** Bound the consumer: it never settles a slot whose chunk vanished mid-stream, so a decode
+ * still pending after STREAM_DECODE_TIMEOUT_MS resolves to an unclassifiable reason instead. */
+async function decodeWithTimeout(
+  body: string,
+  batchIndex: number,
+): Promise<EnvelopeClassification> {
+  const decode = decodeConfirmMergeSlot(body, batchIndex);
+  // If the timeout wins the race, a later decode rejection must not surface as unhandled.
+  void decode.catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<EnvelopeClassification>((resolve) => {
+    timer = setTimeout(
+      () =>
+        resolve({
+          unclassifiableReason:
+            `stream decode did not settle within ${STREAM_DECODE_TIMEOUT_MS}ms (consumer hang)`,
+        }),
+      STREAM_DECODE_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([decode, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** One line of prose for a consumer/stream failure (never a wire-level slot rejection — the
+ * caller handles that case first). The consumer rejects with `undefined` when the stream closes
+ * while a followed chunk is still pending, so that case gets its own honest wording. */
+function describeConsumerFailure(cause: unknown): string {
+  if (cause === undefined || cause === null) {
+    return "stream closed before confirmMerge's chunk chain resolved";
+  }
+  return toSingleLineNote(cause instanceof Error ? cause.message : String(cause), 200);
+}
+
+/**
+ * Classify what the confirmMerge response says the cascade actually did, from confirmMerge's
+ * OWN envelope inside the batch stream. httpBatchStreamLink commits HTTP 200 before any
+ * procedure resolves, so a FAILED merge arrives ok:true with an `error` envelope (or a rejected
+ * chunk) in confirmMerge's slot — which is why the decode is the real consumer, per-slot, and
+ * never substring-matches the body. Never throws — the caller records the strings.
+ *
+ * Exported (with confirmMergeBatchIndex) so the parse can be verified against bodies produced
+ * by the REAL @trpc/server jsonlStreamProducer, outside a live Playwright run.
+ */
+export async function classifyCascadeFromStreamBody(
+  ok: boolean,
+  httpStatus: number,
+  url: string,
+  body: string,
+): Promise<CascadeClassification> {
+  if (!ok) {
+    return { status: `merge request failed (HTTP ${httpStatus}) — optimistic repaint reverted` };
+  }
+  const unclassifiable = (reason: string): CascadeClassification => ({
+    status: `unclassifiable — ${reason}`,
+    rawBodyToRetain: body,
+  });
+
+  const batchIndex = confirmMergeBatchIndex(url);
+  if (batchIndex < 0) {
+    return unclassifiable("response URL carries no entities.confirmMerge path segment");
+  }
+  if (body.trim().length === 0) return unclassifiable("empty response body");
+
+  try {
+    const outcome = await decodeWithTimeout(body, batchIndex);
+    return "status" in outcome
+      ? { status: outcome.status }
+      : unclassifiable(outcome.unclassifiableReason);
+  } catch (cause) {
+    if (cause instanceof ConfirmMergeSlotRejectedError) {
+      return {
+        status:
+          "failed — confirmMerge's stream slot rejected (formatted tRPC error) — " +
+          "optimistic repaint reverted",
+      };
+    }
+    return unclassifiable(describeConsumerFailure(cause));
+  }
 }
 
 /** Playwright error text is multi-line and may carry ANSI color codes — both would corrupt the
@@ -631,7 +633,7 @@ export async function runCascadeScenario(harness: CascadeScenarioHarness): Promi
       let cascadeStatus = "unknown — no confirmMerge response observed within 30s";
       if (response !== null) {
         const body = await response.text().catch(() => "");
-        const classification = classifyCascadeFromStreamBody(
+        const classification = await classifyCascadeFromStreamBody(
           response.ok(),
           response.status(),
           response.url(),
