@@ -70,6 +70,18 @@
  *
  * Kept in a dedicated config (playwright.screenshot.config.ts) with a scoped testMatch so
  * `npm run test:e2e` (the assertion specs) never runs this capture spec, and vice versa.
+ *
+ * CASCADE / MERGE-REPAINT SCENARIO (vNEXT audit seam 7 — Phase 75, CPF-05/06). A SECOND test
+ * below photographs the merge-review surface (`/entities/review`, EN-02) — which had zero
+ * committed captures, the same blindness as 999.24's every prior instance — and, when the
+ * operator declares the cascade live, the confirm-merge repaint itself. It is a SCENARIO, not
+ * another axis: the merge click CONSUMES one real pending pair from the local dev DB per run,
+ * so pre-state frames are taken in both themes (camera work, free) but the click runs ONCE, on
+ * light/desktop, and only when `CASCADE_CORRECTION_ENABLED` is exported truthy for the run.
+ * Pre-flip (flag dark) or with no pending pair in the queue, the test SKIPS with a message
+ * after capturing what it can — it never reds the suite. The scenario's machinery lives in
+ * helpers/cascade-scenario.ts (this file stays under the 800-line law); the skip ladder and
+ * why the `[data-corrected]` highlight ring is recorded-never-assumed are documented there.
  */
 
 import { fileURLToPath } from "node:url";
@@ -78,6 +90,7 @@ import path from "node:path";
 
 import { test, type BrowserContext, type Page } from "@playwright/test";
 
+import { runCascadeScenario } from "./helpers/cascade-scenario";
 import { seedAuthenticatedContext } from "./helpers/seed-session";
 // Safe to import from app source: this module and its one dependency pull in `zod` and types
 // only — no React components — so Playwright's runner loads them without Next's pipeline. Taking
@@ -680,5 +693,58 @@ test.describe("screenshot review capture", () => {
     }
 
     await writeIndex(records, authSeeded);
+  });
+
+  /**
+   * Cascade / merge-repaint scenario (Phase 75, CPF-05/06 — vNEXT audit seam 7).
+   *
+   * Runs AFTER the main capture (declaration order; workers=1, fullyParallel=false), so the
+   * merge it may perform never mutates state the base surfaces are about to photograph. The
+   * scenario body — pre-state frames in both themes, the one-shot confirm-merge click, the
+   * `[data-corrected]` ring check and cascade-index.md — lives in helpers/cascade-scenario.ts;
+   * its skip ladder (no data / flag dark / redirect → SKIP with a message, never a red) is
+   * documented there. Only the two rungs that belong to THIS file's levers stay here:
+   * the T-50-01 local-target gate and the seeded session.
+   */
+  test("cascade scenario: merge-review pre-state, confirm-merge repaint + highlight ring if reachable", async ({
+    context,
+    baseURL,
+  }) => {
+    test.setTimeout(240_000);
+
+    const supabaseUrl = process.env.SUPABASE_URL ?? "";
+    const resolvedBaseURL = baseURL ?? "http://localhost:3000";
+    test.skip(
+      !isLocalTarget(resolvedBaseURL, supabaseUrl),
+      "cascade scenario skipped: non-local target — the confirm-merge click writes through " +
+        "entities.confirmMerge and only ever runs against the local seeded stack (T-50-01).",
+    );
+
+    await mkdir(RUN_DIR, { recursive: true });
+
+    // Seeding failure degrades to a skip, not a red: a broken local stack already fails the
+    // main capture test above — this scenario's own contract is that it never reds the suite.
+    const seeded = await seedAuthenticatedContext(context)
+      .then(() => true)
+      .catch(() => false);
+    test.skip(
+      !seeded,
+      "cascade scenario skipped: seeding the local session failed (the main capture test " +
+        "surfaces the underlying auth failure — this scenario never reds the suite over it).",
+    );
+
+    // The harness kit hands the scenario this file's OWN levers (theme pinning, settle,
+    // theme assertion, filenames, RUN_DIR) so the two capture paths can never drift apart.
+    await runCascadeScenario({
+      context,
+      runDir: RUN_DIR,
+      runTimestamp: RUN_TIMESTAMP,
+      openThemedPage,
+      assertThemeApplied,
+      settle,
+      describeSettle,
+      resolveAuthStatus,
+      buildFilename,
+    });
   });
 });
