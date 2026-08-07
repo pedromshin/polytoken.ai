@@ -20,18 +20,34 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const CONNECTION = process.env.WORKER_TEST_DATABASE_URL;
 
+// Byte-identical to the CREATE OR REPLACE body of
+// packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql (the current widened
+// allowlist). Keep in sync with the latest enqueue_job migration — it is the source of truth.
 const ENQUEUE_WRAPPER_SQL = `
 CREATE OR REPLACE FUNCTION public.enqueue_job(
-  p_identifier text, p_payload jsonb, p_max_attempts integer DEFAULT 8, p_job_key text DEFAULT NULL
-) RETURNS bigint LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, graphile_worker AS $$
+  p_identifier   text,
+  p_payload      jsonb,
+  p_max_attempts integer DEFAULT 8,
+  p_job_key      text    DEFAULT NULL
+) RETURNS bigint
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, graphile_worker
+AS $$
 DECLARE v_id bigint;
 BEGIN
   IF p_identifier NOT IN (
-    'ingest_inbound_email', 'deep_research', 'assemble_morning_board', 'dispatch_morning_boards'
-  ) THEN
+    'ingest_inbound_email',
+    'deep_research',
+    'assemble_morning_board',      -- Phase 74: per-user morning board assembly
+    'dispatch_morning_boards',     -- Phase 74: cron-fired per-user fan-out
+    'cascade_relabel',             -- Phase 75 (75-04): merge-cascade re-label fan-out
+    'recompute_canvas_recipe',     -- Phase 73 Wave C (LCAN-09): per-recipe durable recompute
+    'dispatch_recipe_recomputes'   -- Phase 73 Wave C (LCAN-09): cron-fired per-recipe fan-out
+  ) THEN   -- allowlist; extend per task
     RAISE EXCEPTION 'enqueue_job: unknown identifier %', p_identifier;
   END IF;
-  SELECT (graphile_worker.add_job(p_identifier, p_payload::json, max_attempts := p_max_attempts, job_key := p_job_key)).id INTO v_id;
+  SELECT (graphile_worker.add_job(
+    p_identifier, p_payload::json, max_attempts := p_max_attempts, job_key := p_job_key
+  )).id INTO v_id;
   RETURN v_id;
 END; $$;`;
 
@@ -126,7 +142,7 @@ describe.skipIf(!CONNECTION)("graphile-worker → Python HTTP seam", () => {
     expect(rows[0].last_error).toContain("500");
   });
 
-  // MORN-01 — the 0054 allowlist accepts the two new identifiers; anything else still raises.
+  // MORN-01 — the allowlist (0061 wrapper) accepts the morning-board identifiers; anything else still raises.
   it("accepts the morning-board identifiers and rejects an unknown one (MORN-01)", async () => {
     await utils.withPgClient((pg) =>
       pg.query("SELECT public.enqueue_job('assemble_morning_board', $1::jsonb, 8, 'morn:allow:1')", [

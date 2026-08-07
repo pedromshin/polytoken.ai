@@ -1,9 +1,10 @@
 /**
  * index.ts — the co-located graphile-worker entrypoint (Track 3a).
  *
- * Runs as the SECOND container in the existing ECS task (essential=false, sharing the listener
- * image via a command override — Part B / ecs.tf), so a worker crash can never take down the
- * SNS receiver. It LISTENs on the durable queue and drains jobs through `taskList`.
+ * Runs as the SECOND container in the existing ECS task (essential=false — ecs.tf) from its own
+ * DEDICATED image (apps/worker/Dockerfile → ECR nauta-services-email-worker; the listener image
+ * is Python-only), so a worker crash can never take down the SNS receiver. It LISTENs on the
+ * durable queue and drains jobs through `taskList`.
  */
 import { run } from "graphile-worker";
 
