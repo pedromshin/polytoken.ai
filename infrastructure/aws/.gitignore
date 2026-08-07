@@ -3,3 +3,4 @@ lambda/ses-forwarder.zip
 
 # Local drift-check variable values (not secrets, but machine-local)
 *.auto.tfvars
+cut05.tfplan
