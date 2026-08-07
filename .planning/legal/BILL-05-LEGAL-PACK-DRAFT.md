@@ -1,3 +1,30 @@
+# BILL-05 legal pack — SUPERSEDED 2026-08-08
+
+> ⛔ **This draft was largely unnecessary and two of its four "unanswered" questions were
+> already answered in the repo.** I wrote it without reading `apps/web/src/app/legal/`, which
+> already contained a terms page, a privacy page, a shared `LegalDoc` component and
+> `legal-entity.ts` naming the contracting entity.
+>
+> **What was actually already true:**
+> - **Entity (§0.2):** `Pedro Kyun Maschio Shin Consultoria em Tecnologia LTDA`, trading as
+>   Magnitude Tecnologia, **CNPJ 65.152.447/0001-21** — in `legal-entity.ts` since 2026-07-26.
+> - **Governing law (§0.3):** Brazil, stated in the terms' "Governing law" section.
+> - **Privacy contact (§0.4):** `privacy@polytoken.ai`, already used across `/legal/*`.
+> - The pages were **already linked** from the billing surface.
+>
+> **What was genuinely missing, and is now shipped:** the CDC art. 49 seven-day right of
+> withdrawal was only implied ("except where required by law") rather than stated, so the person
+> holding the right could not see it. `/legal/terms` now states it plainly, alongside an explicit
+> refund policy — which Stripe also expects to be reachable on a live account.
+>
+> **Still genuinely open (the one real §0 item):** the **merchant-of-record** posture. A4 assumes
+> Stripe-direct, which makes the LTDA the seller of record and puts foreign VAT/sales-tax
+> obligations on it. That is an accountant/lawyer question, not a code one.
+>
+> The original draft follows for its refund/privacy wording, which fed the shipped text.
+
+---
+
 # BILL-05 legal pack — DRAFT for Pedro's review
 
 > **Status: DRAFT. Not published. Not legal advice.**

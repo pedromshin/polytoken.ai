@@ -74,12 +74,39 @@ const SECTIONS: readonly LegalSection[] = [
     body: (
       <LegalList
         items={[
-          "Paid plans are billed monthly in advance through Stripe. Prices are shown at checkout.",
+          "Paid plans are billed monthly in advance through Stripe. Prices are shown at checkout, in US dollars, and exclude any taxes your own jurisdiction imposes.",
+          "Each plan includes a monthly allowance of chat turns, which resets at the start of each calendar month (UTC). Reaching a free-plan allowance pauses further chat turns until the reset or an upgrade; paid plans are not interrupted mid-cycle.",
           "You can cancel anytime from the billing portal; cancellation takes effect at the end of the current paid period, and you keep access until then.",
-          "Except where required by law, fees already paid are non-refundable, including for partial periods.",
+          "Outside the withdrawal right below, fees already paid are non-refundable, including for partial periods.",
           "We may change prices with reasonable advance notice; changes apply to your next renewal.",
+          "Card details are handled by Stripe and never reach our systems.",
         ]}
       />
+    ),
+  },
+  {
+    // CDC art. 49 gives Brazilian consumers a 7-day right of withdrawal on distance
+    // purchases. The clause above used to defer to it only as "except where required by
+    // law" — true, but invisible to the person who holds the right. Stating it plainly
+    // cannot reduce it, and Stripe expects a reachable refund policy on live accounts.
+    heading: "Refunds and your right of withdrawal",
+    body: (
+      <>
+        <p>
+          If you are a consumer, the Brazilian Consumer Protection Code (CDC, art. 49) gives you{" "}
+          <strong>seven days</strong> from the date of purchase to withdraw from a distance purchase
+          and receive a full refund. You do not need to give a reason. To exercise it, email{" "}
+          {CONTACT_EMAIL} from your account address within that period.
+        </p>
+        <LegalList
+          items={[
+            "Beyond those seven days, monthly subscriptions are not generally refundable once a period has begun, because access is delivered immediately.",
+            "If the service was materially unavailable or did not work as described, contact us — we would rather refund than argue.",
+            "If you cancelled and were still charged for a period you have not used, tell us within 14 days and we will refund it.",
+            "Refunds return to the original payment method, normally within 5–10 business days of being issued.",
+          ]}
+        />
+      </>
     ),
   },
   {
