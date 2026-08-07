@@ -93,6 +93,25 @@ corrected versions are recorded here rather than deleted, because the reasoning 
    composes the line and the dispatcher fires.** The handlers stay registered either way, so a
    manually-enqueued job runs today — that is the live-verification seam by design.
 
+### ✅ CUT-06 + CUT-09 PROVEN ON STAGING 2026-08-07 — the durable path works end to end
+Enqueued through the guarded seam exactly as the application does
+(`select enqueue_job('recompute_canvas_recipe', '{"recipe_id":"<random uuid>"}'::jsonb, 3, <key>)`),
+using the least invasive job available: `tasks.ts` treats a missing recipe as
+"nothing to do" + SUCCESS, so the whole chain is exercised without touching a real row.
+
+| Step | Result |
+|---|---|
+| enqueue via `public.enqueue_job` | job **id=1** returned |
+| row in `graphile_worker._private_jobs` | PRESENT, attempts=0 |
+| drain | **~1s**, row gone |
+| terminal state | **success** (no `last_error`; a failure would have kept the row with attempts>0) |
+| dead-letter rows (`attempts >= max_attempts`) | **0** (CUT-09) |
+
+Confirmed from the worker's OWN log, not merely from the row's absence:
+`Completed task 1 (recompute_canvas_recipe, 131.35ms) with success`.
+
+**This is Track 3a's core proof.** The staging rehearsal that Batch B depends on is GREEN.
+
 ### ⚠️ Remember to scale staging back down when the rehearsal is finished
 ```
 aws ecs update-service --cluster nauta-services-email-listener --service nauta-services-email-listener-staging --desired-count 0 --region us-east-1
