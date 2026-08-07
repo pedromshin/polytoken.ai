@@ -15,6 +15,16 @@ import { api } from "~/trpc/react";
 
 import { ActiveParentBanner } from "./active-parent-banner";
 import { CanvasShell } from "./canvas-shell";
+import {
+  DetailErrorFrame,
+  DetailLoadingFrame,
+  DetailNotFoundFrame,
+} from "./email-detail-frames";
+import {
+  FULL_PAGE_POLYGON,
+  getLocationPageIndex,
+} from "./email-detail-helpers";
+import { deriveDetailViewModel } from "./email-detail-view-model";
 import { ExtractionSummaryPanel } from "./extraction-summary-panel";
 import { IngestCappedNote } from "./ingest-capped-note";
 import { InspectorPanel } from "./inspector-panel";
@@ -26,135 +36,7 @@ import { useAutofillFields } from "./use-autofill-fields";
 import { useCanvasState } from "./use-canvas-state";
 import { useRoleMutations } from "./use-role-mutations";
 
-import type { ParentEntityOption } from "./field-relationship-picker";
-import type { InspectorComponent } from "./inspector-panel";
-import type { LayersComponent } from "./layers-panel";
-import type { ComponentRole } from "~/components/regions/region-overlay-box";
 import type { Polygon } from "./use-region-edit";
-
-/** Full-page polygon used by the legacy "Classify Page" affordance. */
-const FULL_PAGE_POLYGON: Polygon = [
-  [0, 0],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-];
-
-const fmt = (d: Date | string | null) =>
-  d ? new Date(d).toLocaleString() : "—";
-
-function getLocationPageIndex(location: unknown): number | null {
-  if (
-    location !== null &&
-    typeof location === "object" &&
-    "page_index" in location &&
-    typeof (location as { page_index?: unknown }).page_index === "number"
-  ) {
-    return (location as { page_index: number }).page_index;
-  }
-  return null;
-}
-
-/** The lineage origin marker AutofillFieldsUseCase stamps on auto-detected boxes. */
-const AUTO_DETECTED_ORIGIN = "auto_detected";
-
-/**
- * Read the lineage origin from a component's content_raw (HIGH-1/WR-05), mirroring
- * the server's DenyFieldUseCase: recognizes both the nested `lineage.origin`
- * Phase-6 convention and a flat top-level `origin`. True ONLY for an auto-detected
- * box — any other value (including null/missing) means user-drawn.
- */
-function isAutoDetectedOrigin(contentRaw: unknown): boolean {
-  if (contentRaw === null || typeof contentRaw !== "object") return false;
-  const raw = contentRaw as Record<string, unknown>;
-  const lineage = raw.lineage;
-  if (lineage !== null && typeof lineage === "object") {
-    const origin = (lineage as Record<string, unknown>).origin;
-    if (typeof origin === "string") return origin === AUTO_DETECTED_ORIGIN;
-  }
-  return raw.origin === AUTO_DETECTED_ORIGIN;
-}
-
-/** Narrow a raw confidence value (string|number|null|unknown) to number|null. */
-function toConfidence(raw: unknown): number | null {
-  if (typeof raw === "number") return raw;
-  if (typeof raw === "string") {
-    const n = parseFloat(raw);
-    return Number.isNaN(n) ? null : n;
-  }
-  return null;
-}
-
-/**
- * Resolve a FIELD's candidate value from its extraction record (WR-02).
- *
- * extractedFields is the JSONB blob keyed by field SLUG. When the FIELD box is
- * mapped to a property (entity_type_field_id → its slug, `fieldKey`), the value
- * is selected DETERMINISTICALLY by that key — never `Object.entries(...)[0]`,
- * which could surface a value for a different property than the mapped one.
- *
- * `fieldKey` is the resolved slug for the mapped entity_type_field_id (null when
- * the box is not yet mapped). Falls back to the single-entry blob only when the
- * box is unmapped AND exactly one value exists (a safe, unambiguous default).
- * Rendered as a React text node (auto-escaped, T-09-80).
- */
-function getCandidateValue(
-  extractedFields: unknown,
-  fieldKey: string | null,
-): string | null {
-  if (
-    extractedFields === null ||
-    typeof extractedFields !== "object" ||
-    Array.isArray(extractedFields)
-  ) {
-    return null;
-  }
-  const fields = extractedFields as Record<string, unknown>;
-
-  // Mapped: select the value for the mapped property's slug (deterministic).
-  if (fieldKey !== null) {
-    const v = fields[fieldKey];
-    return v === null || v === undefined ? null : String(v);
-  }
-
-  // Unmapped: only surface a candidate when exactly one value exists, so an
-  // unmapped box never shows an arbitrary value from a multi-property blob.
-  const entries = Object.entries(fields);
-  if (entries.length === 1) {
-    const [, v] = entries[0]!;
-    return v === null || v === undefined ? null : String(v);
-  }
-  return null;
-}
-
-/**
- * Resolve the extractedFields KEY that `getCandidateValue` surfaced (UI-2).
- *
- * The Inspector needs this key to build corrected_fields when the user edits
- * the candidate value before confirming: the correction must be keyed by the
- * same slug the machine value lives under. Mirrors getCandidateValue's
- * selection exactly — the mapped slug when mapped, else the single-entry key
- * of an unambiguous blob — and returns null when no addressable key exists
- * (unmapped multi-property blob), in which case the edit cannot be keyed.
- */
-function getCandidateFieldKey(
-  extractedFields: unknown,
-  fieldKey: string | null,
-): string | null {
-  if (
-    extractedFields === null ||
-    typeof extractedFields !== "object" ||
-    Array.isArray(extractedFields)
-  ) {
-    return null;
-  }
-  const fields = extractedFields as Record<string, unknown>;
-  if (fieldKey !== null) {
-    return fieldKey in fields ? fieldKey : null;
-  }
-  const entries = Object.entries(fields);
-  return entries.length === 1 ? entries[0]![0] : null;
-}
 
 interface EmailDetailProps {
   emailId: string;
@@ -245,13 +127,6 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
     return map;
   }, [entityTypes]);
 
-  /** Resolve a component's mapped field slug (null when unmapped). */
-  function fieldKeyFor(entityTypeFieldId: string | null): string | null {
-    return entityTypeFieldId !== null
-      ? (fieldIdToKey.get(entityTypeFieldId) ?? null)
-      : null;
-  }
-
   // ---- 09-08 hooks: canvas state + role mutations + autofill-fields ----
   const components = data?.components ?? [];
 
@@ -326,65 +201,18 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   // never nests a second <main> inside the inbox's landmark.
   const Root = embedded ? "div" : "main";
 
+  // Pre-content frames (loading / error / not-found) live in
+  // email-detail-frames.tsx; each mirrors the Root rule above.
   if (isLoading) {
-    // The skeleton predicts the frame it stands in — a header bar, then the
-    // canvas zone — so the load reads as this page assembling rather than as
-    // three slabs that resemble nothing which ever arrives.
-    return (
-      <Root className="h-full">
-        <div
-          className="flex h-full flex-col"
-          aria-busy="true"
-          aria-label="Loading…"
-        >
-          <div className="flex shrink-0 items-center gap-4 border-b border-hair px-row-x py-row-y">
-            <Skeleton className="h-4 w-28 rounded-sm" />
-            <Skeleton className="h-6 max-w-md flex-1 rounded-sm" />
-            <Skeleton className="h-5 w-14 rounded-sm" />
-            <Skeleton className="h-8 w-32 rounded-sm" />
-          </div>
-          <div className="min-h-0 flex-1 p-4">
-            <Skeleton className="h-full w-full rounded-card" />
-          </div>
-        </div>
-      </Root>
-    );
+    return <DetailLoadingFrame embedded={embedded} />;
   }
 
   if (isError) {
-    // An error is not irreversible, so it earns no madder (law 1: "never
-    // errors, never warnings"). It is ink on a rule — the same framed block
-    // the inbox uses, so a failure reads the same way on both surfaces.
-    //
-    // T-60-10: the copy stays generic on purpose. The underlying error is
-    // NOT interpolated here — a tRPC message or a raw error object would
-    // leak server-side detail to the client for no user benefit. Whatever
-    // went wrong, the user's move is the same: refresh.
-    return (
-      <Root className="h-full p-6">
-        <div role="alert" className="border border-rule p-panel">
-          <p className="text-sm font-semibold text-ink">
-            Failed to load email
-          </p>
-          <p className="mt-1 text-xs text-faded">
-            Unable to load this email. Please try refreshing the page.
-          </p>
-        </div>
-      </Root>
-    );
+    return <DetailErrorFrame embedded={embedded} />;
   }
 
   if (data === null || data === undefined) {
-    return (
-      <Root className="h-full p-6">
-        <div className="border border-rule p-panel">
-          <p className="text-sm font-semibold text-ink">Email not found</p>
-          <p className="mt-1 text-xs text-faded">
-            Email not found. It may have been deleted or the link is invalid.
-          </p>
-        </div>
-      </Root>
-    );
+    return <DetailNotFoundFrame embedded={embedded} />;
   }
 
   const { email, attachments } = data;
@@ -456,154 +284,28 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
       ? resolvePageComponentId(currentPage - 1)
       : null;
 
-  // ---- Derive view-model rows for LAYERS + INSPECTOR ----
-  const layersComponents: LayersComponent[] = components.map((c) => ({
-    id: c.id,
-    sourceType: c.sourceType,
-    role: (c.role ?? null) as ComponentRole,
-    parentComponentId: c.parentComponentId ?? null,
-    entityTypeLabel:
-      c.entityTypeId !== null
-        ? (idToLabel.get(c.entityTypeId) ?? c.entityTypeLabel)
-        : c.entityTypeLabel,
-    entityTypeFieldId: c.entityTypeFieldId ?? null,
-    extractionStatus: c.extractionStatus,
-    location: c.location,
-    contentText: c.contentText,
-    candidateValue: getCandidateValue(
-      c.extractedFields,
-      fieldKeyFor(c.entityTypeFieldId ?? null),
-    ),
-    propertyLabel:
-      c.entityTypeFieldId !== null
-        ? (fieldIdToLabel.get(c.entityTypeFieldId) ?? null)
-        : null,
-  }));
-
-  // HIGH-1/D-16: FIELD boxes that carry a pending candidate value get the on-PDF
-  // inline ✓/✗. Confirmed/terminal boxes show no controls (UI-SPEC §Inline ✓/✗).
-  const confirmDenyComponentIds: string[] = components
-    .filter(
-      (c) =>
-        c.role === "field" &&
-        c.extractionStatus !== "confirmed" &&
-        c.extractionStatus !== "rejected" &&
-        c.extractionStatus !== "superseded" &&
-        getCandidateValue(
-          c.extractedFields,
-          fieldKeyFor(c.entityTypeFieldId ?? null),
-        ) !== null,
-    )
-    .map((c) => c.id);
-
-  // WR-05/D-18: boxes the AI auto-detected (origin marker) drive the canonical
-  // control's origin-aware deny + Undo affordance on the PDF.
-  const autoDetectedComponentIds: string[] = components
-    .filter((c) => isAutoDetectedOrigin(c.contentRaw))
-    .map((c) => c.id);
-
-  // Same-page ENTITY regions for the field-relationship parent picker (06-04).
-  const selectedId = canvas.selectedIds[0] ?? null;
-  const selectedComponent =
-    selectedId !== null
-      ? components.find((c) => c.id === selectedId)
-      : undefined;
-  const selectedPageIndex =
-    selectedComponent !== undefined
-      ? getLocationPageIndex(selectedComponent.location)
-      : null;
-
-  const parentOptions: ParentEntityOption[] = components
-    .filter(
-      (c) =>
-        c.sourceType === "region" &&
-        c.role === "entity" &&
-        c.id !== selectedId &&
-        c.extractionStatus !== "rejected" &&
-        c.extractionStatus !== "superseded" &&
-        (selectedPageIndex === null ||
-          getLocationPageIndex(c.location) === selectedPageIndex),
-    )
-    .map((c) => ({
-      id: c.id,
-      label:
-        (c.entityTypeId !== null ? idToLabel.get(c.entityTypeId) : null) ??
-        c.entityTypeLabel ??
-        "Entity",
-      entityTypeId: c.entityTypeId ?? null,
-      entityTypeLabel:
-        (c.entityTypeId !== null ? idToLabel.get(c.entityTypeId) : null) ??
-        c.entityTypeLabel,
-    }));
-
-  // The candidate field children of the selected entity (Confirm All Fields).
-  const candidateFieldIds =
-    selectedComponent !== undefined && selectedComponent.role === "entity"
-      ? components
-          .filter(
-            (c) =>
-              c.role === "field" &&
-              c.parentComponentId === selectedComponent.id &&
-              c.extractionStatus !== "confirmed" &&
-              getCandidateValue(
-                c.extractedFields,
-                fieldKeyFor(c.entityTypeFieldId ?? null),
-              ) !== null,
-          )
-          .map((c) => c.id)
-      : [];
-
-  const inspectorSelected: InspectorComponent | null =
-    selectedComponent !== undefined
-      ? {
-          id: selectedComponent.id,
-          role: (selectedComponent.role ?? null) as ComponentRole,
-          entityTypeId: selectedComponent.entityTypeId ?? null,
-          entityTypeFieldId: selectedComponent.entityTypeFieldId ?? null,
-          parentComponentId: selectedComponent.parentComponentId ?? null,
-          entityTypeLabel:
-            selectedComponent.entityTypeId !== null
-              ? (idToLabel.get(selectedComponent.entityTypeId) ??
-                selectedComponent.entityTypeLabel)
-              : selectedComponent.entityTypeLabel,
-          extractionStatus: selectedComponent.extractionStatus,
-          pageNumber:
-            (getLocationPageIndex(selectedComponent.location) ?? 0) + 1,
-          candidateValue: getCandidateValue(
-            selectedComponent.extractedFields,
-            fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
-          ),
-          candidateFieldKey: getCandidateFieldKey(
-            selectedComponent.extractedFields,
-            fieldKeyFor(selectedComponent.entityTypeFieldId ?? null),
-          ),
-          confidenceScore: toConfidence(selectedComponent.confidenceScore),
-          propertyLabel:
-            selectedComponent.entityTypeFieldId !== null
-              ? (fieldIdToLabel.get(selectedComponent.entityTypeFieldId) ?? null)
-              : null,
-          candidateFieldIds,
-        }
-      : null;
-
-  const inspectorEntityTypeLabel =
-    selectedComponent !== undefined && selectedComponent.entityTypeId !== null
-      ? (idToLabel.get(selectedComponent.entityTypeId) ?? null)
-      : null;
-
-  // The active-parent entity label (D-10 banner).
-  const activeParentComponent =
-    canvas.activeParentId !== null
-      ? components.find((c) => c.id === canvas.activeParentId)
-      : undefined;
-  const activeParentLabel =
-    activeParentComponent !== undefined
-      ? ((activeParentComponent.entityTypeId !== null
-          ? idToLabel.get(activeParentComponent.entityTypeId)
-          : null) ??
-        activeParentComponent.entityTypeLabel ??
-        "Entity")
-      : "";
+  // View-model rows for LAYERS + INSPECTOR + on-PDF controls — derived by the
+  // pure view-model layer (email-detail-view-model.ts): layers tree rows,
+  // D-16 inline ✓/✗ ids, WR-05 auto-detected ids, the 06-04 parent picker,
+  // the inspector selection, and the D-10 active-parent label.
+  const {
+    layersComponents,
+    confirmDenyComponentIds,
+    autoDetectedComponentIds,
+    selectedId,
+    selectedComponent,
+    parentOptions,
+    inspectorSelected,
+    inspectorEntityTypeLabel,
+    activeParentLabel,
+  } = deriveDetailViewModel({
+    components,
+    idToLabel,
+    fieldIdToLabel,
+    fieldIdToKey,
+    selectedIds: canvas.selectedIds,
+    activeParentId: canvas.activeParentId,
+  });
 
   // Selecting a row drives selection + arms active-parent (D-10).
   //   - ENTITY → arm it as the active parent (its fields reveal; focus mode).
