@@ -73,16 +73,25 @@ Worker log: `Worker connected and looking for jobs... (task names: 'ingest_inbou
 'assemble_morning_board', 'dispatch_morning_boards', 'cascade_relabel',
 'recompute_canvas_recipe', 'dispatch_recipe_recomputes')`.
 
-### 🔎 Two findings from the first roll — neither is a regression, both matter later
-1. **`deep_research` is in the DB allowlist but the worker does NOT register it.** `enqueue_job`
-   accepts 7 identifiers; the worker registered **6**. Anything that enqueues `deep_research`
-   through the guarded seam would sit in the queue with no handler. Confirm it is listener-side
-   by design (likely) or add the task — before anything starts enqueueing it.
-2. **Cron is DISABLED:** `Failed to read crontab file '/app/crontab'; cron is disabled`. Harmless
-   today (`MORNING_BOARD_ENABLED=false`, `RECIPE_RECOMPUTE_ENABLED=false`), but
-   `dispatch_morning_boards` and `dispatch_recipe_recomputes` are **cron-fired fan-outs** — when
-   those flags flip, they will never fire until the image ships a crontab. Flipping the flags
-   without fixing this yields a silent no-op, not an error.
+### 🔎 Two "findings" from the first roll — BOTH investigated and BOTH withdrawn
+I raised these from the worker's two log lines before reading the source. Both are wrong; the
+corrected versions are recorded here rather than deleted, because the reasoning is worth keeping.
+
+1. ~~`deep_research` is in the allowlist but the worker does not register it → unhandled jobs.~~
+   **WITHDRAWN — correct as built.** `deep_research` is a listener-side *chat tool*
+   (`DEEP_RESEARCH_TOOL_NAME`, run in-process by `DeepResearchToolExecutor` in
+   `app/application/use_cases/research/deep_research.py`), not a worker job. Nothing enqueues it,
+   so a handler would be dead code. The only residue is a doc inaccuracy: `0053`'s header says
+   "every durable task (ingestion, deep_research) enqueues through it" — aspirational, not current.
+2. ~~Cron is disabled, so the fan-out dispatchers will silently never fire when the flags flip.~~
+   **WITHDRAWN — the opposite is true.** `apps/worker/src/index.ts:82-99` composes the schedule as
+   a **string** and passes it as graphile-worker's `crontab:` option — an in-process schedule, not
+   a file. `crontab()` returns `undefined` while both flags are off, which is *exactly* the
+   documented ship-dark default ("a fresh deploy adds no crontab"). The
+   `Failed to read crontab file '/app/crontab'` line is graphile-worker's generic startup note
+   about the absent optional *file* and has no bearing on the option. **Flipping either flag
+   composes the line and the dispatcher fires.** The handlers stay registered either way, so a
+   manually-enqueued job runs today — that is the live-verification seam by design.
 
 ### ⚠️ Remember to scale staging back down when the rehearsal is finished
 ```
