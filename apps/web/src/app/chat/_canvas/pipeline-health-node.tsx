@@ -48,7 +48,10 @@ import { Activity, TriangleAlert, X } from "lucide-react";
 import { Button } from "@polytoken/ui/button";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
-import { usePipelineHealth } from "~/app/_components/pipeline-health-panel";
+import {
+  LearningSummarySection,
+  usePipelineHealth,
+} from "~/app/_components/pipeline-health-panel";
 
 import { canvasNodeShellClass } from "./canvas-node-shell-class";
 import { useCanvasPublish } from "./canvas-store-context";
@@ -183,6 +186,15 @@ export const PipelineHealthNode = memo(function PipelineHealthNode({
             ))}
           </ul>
         )}
+
+        {/* WEDG-03 — the learning-loop metric on this SAME existing surface,
+            the panel's shared section verbatim (one component, one data path,
+            one place to fix). Its owner-scoped tRPC query is independent of
+            the listener proxy above, so either half can be down without
+            hiding the other. */}
+        <div className="mt-3 border-t border-hair pt-2">
+          <LearningSummarySection />
+        </div>
       </div>
       <Handle type="source" position={Position.Right} />
     </div>
