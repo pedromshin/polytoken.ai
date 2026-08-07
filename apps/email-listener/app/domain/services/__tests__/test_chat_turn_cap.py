@@ -120,9 +120,19 @@ def test_unknown_tier_via_as_known_tier_is_capped_like_free() -> None:
 
 
 @pytest.mark.unit
+def test_unknown_tier_passed_raw_is_narrowed_inside_and_blocked_at_cap() -> None:
+    # W6-L fail-closed fix: decide_chat_turn_cap narrows AT ENTRY — an
+    # un-narrowed 'enterprise' must read as free (blocked), never as paid.
+    decision = decide_chat_turn_cap("enterprise", 200)
+    assert decision.allowed is False
+    assert decision.over_limit is True
+
+
+@pytest.mark.unit
 def test_cap_message_is_the_exact_friendly_copy() -> None:
     assert CHAT_TURN_CAP_MESSAGE == (
-        "You've used all of this month's included chat turns on the free plan. Upgrade to keep chatting."
+        "You've used all of this month's included chat turns on the free plan. "
+        "Upgrade to keep chatting — your allowance resets at the start of next month (UTC)."
     )
 
 

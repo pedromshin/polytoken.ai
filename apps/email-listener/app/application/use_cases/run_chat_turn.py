@@ -261,6 +261,23 @@ _TOOL_ENVELOPE_INVALID_TEXT = "That tool result didn't pass a safety check, so I
 
 
 @dataclass(frozen=True)
+class _ChatTurnCapGateOutcome:
+    """Outcome of the pre-insert monthlyChatTurns gate (vLAUNCH W5-1 / W6-L).
+
+    `rejection` is the ONE un-persisted 'cost_capped' event to yield (FREE
+    tier at/over cap), or None when the turn may proceed. `over_limit` is
+    True ONLY for an ALLOWED paid tier at/over its finite cap — run() threads
+    it through _execute_turn so the terminal 'completed' event surfaces the
+    marker additively (existing clients ignore unknown fields). A fail-open /
+    unwired / blocked outcome always carries over_limit=False (a blocked
+    turn never reaches 'completed', so the marker would be meaningless).
+    """
+
+    rejection: ChatRunEvent | None
+    over_limit: bool
+
+
+@dataclass(frozen=True)
 class _ServerRoundResult:
     """Outcome of one server-tool round (Phase 34-03, LOOP-01) — see `_run_server_tool_round`.
 
@@ -434,7 +451,7 @@ class RunChatTurn:
         # leaves the gate structurally OFF for every existing test/caller; the
         # composition root wires BOTH in production -- unflagged, chat path
         # only, mail ingest untouched. Policy + message live in
-        # app.domain.services.chat_turn_cap; see _chat_turn_cap_rejection.
+        # app.domain.services.chat_turn_cap; see _chat_turn_cap_gate.
         self._user_tiers = user_tiers
         self._chat_turn_usage = chat_turn_usage
 
@@ -452,7 +469,7 @@ class RunChatTurn:
         Persists the user message first (next turn_index) regardless of the
         pre-turn cost decision — only the assistant call is withheld on BLOCK
         (fail-closed, D-21). The ONE exception is the monthlyChatTurns cap
-        gate (vLAUNCH W5-1, `_chat_turn_cap_rejection`): a FREE-tier user
+        gate (vLAUNCH W5-1, `_chat_turn_cap_gate`): a FREE-tier user
         at/over the monthly allowance is rejected BEFORE the user row is
         written (the rejected send must not itself consume a metered turn).
 
@@ -476,10 +493,12 @@ class RunChatTurn:
         # ownership/authn checks and BEFORE any turn row" contract; ownership
         # was already asserted at the transport, chat_stream.py). Rejection
         # reuses the pre-turn BLOCK mechanism the cost breaker established
-        # below: ONE un-persisted terminal event, then return.
-        rejection = await self._chat_turn_cap_rejection(conversation_id)
-        if rejection is not None:
-            yield rejection
+        # below: ONE un-persisted terminal event, then return. An ALLOWED
+        # paid tier at/over its finite cap carries over_limit through to the
+        # terminal 'completed' event (W6-L, additive).
+        cap_gate = await self._chat_turn_cap_gate(conversation_id)
+        if cap_gate.rejection is not None:
+            yield cap_gate.rejection
             return
 
         history = await self._messages.list_active_context(conversation_id)
@@ -530,6 +549,7 @@ class RunChatTurn:
             user_text=user_text,
             sibling_group_id=str(uuid.uuid4()),
             version=1,
+            cap_over_limit=cap_gate.over_limit,
         ):
             yield event
 
@@ -655,7 +675,7 @@ class RunChatTurn:
         ):
             yield event
 
-    async def _chat_turn_cap_rejection(self, conversation_id: str) -> ChatRunEvent | None:
+    async def _chat_turn_cap_gate(self, conversation_id: str) -> _ChatTurnCapGateOutcome:
         """The monthlyChatTurns pre-insert gate — MIRROR of enforceChatTurnCap (vLAUNCH W5-1).
 
         Policy mirror of packages/api-client/src/router/chat/turn-cap.ts,
@@ -663,11 +683,14 @@ class RunChatTurn:
         continue_after_widget never insert a role='user' row, so they never
         consume a turn and are not gated — matching the TS meter's unit).
 
-        Returns the ONE un-persisted rejection event to yield when the FREE
-        tier is at/over its cap (the same pre-turn BLOCK mechanism as the
-        cost breaker: chat_run_events.run_id is NOT NULL, so a turn rejected
-        before a run exists yields an in-memory event carrying the friendly
-        message in `data`), or None when the turn may proceed.
+        The outcome carries the ONE un-persisted rejection event to yield when
+        the FREE tier is at/over its cap (the same pre-turn BLOCK mechanism as
+        the cost breaker: chat_run_events.run_id is NOT NULL, so a turn
+        rejected before a run exists yields an in-memory event carrying the
+        friendly message in `data`), or rejection=None when the turn may
+        proceed — plus the over_limit marker for an ALLOWED paid tier at/over
+        its finite cap (W6-L: threaded to the terminal 'completed' event, no
+        longer log-only).
 
         FAIL-OPEN on ANY owner/tier/count lookup failure — an outage must
         never lock users out of chat; only the deliberate free-at-cap
@@ -676,7 +699,7 @@ class RunChatTurn:
         SERVER-resolved from the conversation owner — never client input.
         """
         if self._user_tiers is None or self._chat_turn_usage is None:
-            return None
+            return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
         try:
             owner_user_id = await self._conversations.owner_user_id(conversation_id)
             if owner_user_id is None:
@@ -684,27 +707,38 @@ class RunChatTurn:
                 # conversation before run() starts, so an unresolvable owner
                 # here is an anomaly — fail open, never lock chat.
                 logger.warning("chat_turn_cap_owner_missing_failing_open", conversation_id=conversation_id)
-                return None
-            tier = as_known_tier(await self._user_tiers.tier_for_user(owner_user_id))
-            used = await self._chat_turn_usage.count_monthly_chat_turns_used(owner_user_id)
+                return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
+            # W6-L: the tier and count reads are independent — run them
+            # concurrently (one round-trip of latency, not two). gather sits
+            # INSIDE the same fail-open try, so the degradation is identical:
+            # ANY exception from either read -> fail open, logged below.
+            raw_tier, used = await asyncio.gather(
+                self._user_tiers.tier_for_user(owner_user_id),
+                self._chat_turn_usage.count_monthly_chat_turns_used(owner_user_id),
+            )
+            tier = as_known_tier(raw_tier)
             decision = decide_chat_turn_cap(tier, used)
         except Exception:
             # FAIL-OPEN for everyone (mirror of enforceChatTurnCap's catch).
             logger.warning(
                 "chat_turn_cap_check_failed_failing_open", conversation_id=conversation_id, exc_info=True
             )
-            return None
+            return _ChatTurnCapGateOutcome(rejection=None, over_limit=False)
         if decision.allowed:
             if decision.over_limit:
                 # Paid tier at/over its finite cap — allowed by policy
-                # (PRO/POWER are never hard-blocked); logged for the meter.
+                # (PRO/POWER are never hard-blocked); logged for the meter
+                # AND surfaced on the terminal 'completed' event (W6-L).
                 logger.info("chat_turn_cap_over_limit_allowed", user_id=owner_user_id, tier=tier, used=used)
-            return None
+            return _ChatTurnCapGateOutcome(rejection=None, over_limit=decision.over_limit)
         # Server-side detail; the client only ever sees CHAT_TURN_CAP_MESSAGE.
         logger.warning("chat_turn_cap_blocked", user_id=owner_user_id, tier=tier, used=used)
-        return ChatRunEvent(
-            type="cost_capped",
-            data={"breached_cap": MONTHLY_CHAT_TURNS_BREACHED_CAP, "message": CHAT_TURN_CAP_MESSAGE},
+        return _ChatTurnCapGateOutcome(
+            rejection=ChatRunEvent(
+                type="cost_capped",
+                data={"breached_cap": MONTHLY_CHAT_TURNS_BREACHED_CAP, "message": CHAT_TURN_CAP_MESSAGE},
+            ),
+            over_limit=False,
         )
 
     def _build_tool_offer(self, model: ChatModel) -> tuple[dict[str, Any], ...]:
@@ -821,6 +855,7 @@ class RunChatTurn:
         user_text: str,
         sibling_group_id: str,
         version: int,
+        cap_over_limit: bool = False,
     ) -> AsyncIterator[ChatRunEvent]:
         """Shared engine: create the run, stream the provider, persist, and finish.
 
@@ -828,6 +863,12 @@ class RunChatTurn:
         exactly one terminal run event and persists the assistant message with
         the matching status — the partial content accumulated so far is NEVER
         silently dropped (D-15/D-19/D-21).
+
+        `cap_over_limit` (W6-L, additive default False): run()'s
+        monthlyChatTurns gate decided this ALLOWED turn is at/over a paid
+        tier's finite cap — the terminal 'completed' event surfaces the
+        marker (see _finalize_turn_completed). regenerate/
+        continue_after_widget never gate, so they never pass it.
         """
         run = await self._runs.create_run(conversation_id=conversation_id, agent_id=_AGENT_ID, model_id=model_id)
         yield await self._emit(run.id, "started", {"model_id": model_id})
@@ -1028,6 +1069,7 @@ class RunChatTurn:
             model_id=model_id,
             is_first_turn=is_first_turn,
             user_text=user_text,
+            cap_over_limit=cap_over_limit,
         ):
             yield event
 
@@ -1045,6 +1087,7 @@ class RunChatTurn:
         model_id: str,
         is_first_turn: bool,
         user_text: str,
+        cap_over_limit: bool = False,
     ) -> AsyncIterator[ChatRunEvent]:
         """Finalize any still-pending tool call, persist 'completed', touch the conversation.
 
@@ -1084,7 +1127,13 @@ class RunChatTurn:
         yield await self._emit(
             run.id, "usage", {"input_tokens": state.input_tokens, "output_tokens": state.output_tokens}
         )
-        yield await self._emit(run.id, "completed", {})
+        # W6-L: surface the gate's over-limit decision on the terminal event —
+        # ADDITIVE (existing clients ignore unknown fields); the data stays {}
+        # byte-identical whenever the gate did not decide over_limit.
+        completed_data: dict[str, Any] = (
+            {"over_limit": True, "breached_cap": MONTHLY_CHAT_TURNS_BREACHED_CAP} if cap_over_limit else {}
+        )
+        yield await self._emit(run.id, "completed", completed_data)
 
         title = _title_snippet(user_text) if is_first_turn else None
         await self._conversations.touch(conversation_id=conversation_id, model_id=model_id, title=title)

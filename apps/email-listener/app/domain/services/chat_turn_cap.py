@@ -42,10 +42,13 @@ from app.domain.services.tier_entitlements import monthly_chat_turns_for_tier
 _FREE_TIER: Final = "free"
 
 # User-facing block message (FREE tier at cap). Friendly by design — the
-# server-side log carries the detail (user id, tier, used count). Mirrors the
-# TS gate's CHAT_TURN_CAP_MESSAGE role in turn-cap.ts.
+# server-side log carries the detail (user id, tier, used count). BYTE-EQUAL
+# to packages/billing/src/chat-cap-parity.json's capMessage (the single source
+# of truth, which turn-cap.ts's CHAT_TURN_CAP_MESSAGE also mirrors) — the
+# parity suite (tests/test_chat_cap_parity.py) reds on any drift.
 CHAT_TURN_CAP_MESSAGE: Final = (
-    "You've used all of this month's included chat turns on the free plan. Upgrade to keep chatting."
+    "You've used all of this month's included chat turns on the free plan. "
+    "Upgrade to keep chatting — your allowance resets at the start of next month (UTC)."
 )
 
 # The `breached_cap` marker the rejection event carries — distinguishes this
@@ -75,10 +78,17 @@ def as_known_tier(value: str | None) -> str:
 def decide_chat_turn_cap(tier: str, monthly_chat_turns_used: int) -> ChatTurnCapDecision:
     """The pure policy decision (see module doc) — mirror of decideChatTurnCap.
 
+    Narrows *tier* through as_known_tier AT ENTRY (W6-L fail-closed fix): the
+    TS side is protected by its Tier union, but a plain str here would read
+    any unknown string (e.g. 'enterprise') as paid at the block decision —
+    while monthly_chat_turns_for_tier simultaneously handed it free's cap.
+    Callers that pre-narrow are unaffected (as_known_tier is idempotent).
+
     Reads the cap from tier_entitlements' mirror of @polytoken/billing;
     never redefines the numbers.
     """
-    cap = monthly_chat_turns_for_tier(tier)
+    known_tier = as_known_tier(tier)
+    cap = monthly_chat_turns_for_tier(known_tier)
     if cap is None:
         # Unlimited (power) — no cap to be over.
         return ChatTurnCapDecision(allowed=True, over_limit=False)
@@ -86,7 +96,7 @@ def decide_chat_turn_cap(tier: str, monthly_chat_turns_used: int) -> ChatTurnCap
         return ChatTurnCapDecision(allowed=True, over_limit=False)
     # At/over cap: ONLY free hard-blocks; paid tiers stay fail-open with the
     # over_limit marker.
-    return ChatTurnCapDecision(allowed=tier != _FREE_TIER, over_limit=True)
+    return ChatTurnCapDecision(allowed=known_tier != _FREE_TIER, over_limit=True)
 
 
 def start_of_current_utc_month(now: datetime) -> datetime:
