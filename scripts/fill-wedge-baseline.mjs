@@ -2,16 +2,30 @@
 // only under --apply, write the baseline document.
 //
 // ## The guard that matters most
-// It REFUSES to write when the learning loop has not actually run — zero corrections, or zero
-// merge cascades. An early read bakes a meaningless zero into the baseline and poisons every
-// later delta (the capture rule the WEDGE-BASELINE skeleton opens with). The refusal exits 3
-// and names which precondition is missing.
+// It REFUSES to write unless the learning loop has run ENOUGH for the three headline numbers to
+// mean something. "Enough" is not a vibe — it is the six numbered rules in ELIGIBILITY below,
+// each naming the metric it protects and the threshold it enforces. An early read bakes a
+// meaningless number into the baseline and poisons every later delta (the capture rule the
+// WEDGE-BASELINE skeleton opens with). The refusal exits 3 and names every rule that failed.
+//
+// The first version of this guard only refused on "zero corrections" and "zero cascades", which
+// let the worst case through: ONE cascade whose `affected_email_ids` is EMPTY published
+// `M2 = 0.0 emails re-pointed per confirmed merge` — the "one click compounds" headline — and
+// `M3 = 100.0 % of 1 corrections stick`, under prose asserting WEDG-01/02 were DONE. The sibling
+// collect-wedge-evidence.mjs treats that identical state as a hard FAIL (E3). The two now agree.
 //
 // ## The definitions are the shipped router's, not this script's
 // M1/M2/M3 mirror `deriveLearningSummary` in packages/api-client/src/router/learning/index.ts.
-// That is ENFORCED, not asserted: the script hashes the router's own function source and
-// refuses to run if the hash moved (MIRRORED_FINGERPRINT below). If you change the router,
-// this script stops until the port here is re-checked and the pin updated.
+// That is ENFORCED, not asserted: the script hashes TWO slices of the router's own source and
+// refuses to run if either moved.
+//
+//   MIRRORED_FINGERPRINT   the arithmetic — `relabelCount` through `deriveLearningSummary`
+//   SELECTION_FINGERPRINT  the POPULATION — the `summary` procedure's select/innerJoin/where
+//
+// The second pin exists because the first one is not enough: this script hand-ports the router's
+// tenancy join in readRowsFromDb, so a future change to the join, the WHERE, a soft-delete
+// filter or a date window would change what the surface shows while the arithmetic hash — and
+// this script's numbers — stayed put. Both slices are pinned, so both stop the script.
 //
 //   M1 corrections made      = typeCorrections + mergeCascades (row counts of the two ledgers)
 //   M2 re-labels per cascade = Σ|affected_email_ids| / mergeCascades, null when no cascade
@@ -40,13 +54,20 @@
 //   --out <path>      target document (default .planning/milestones/WEDGE-BASELINE.md)
 //   --force           allow --apply to overwrite an existing document
 //   --fixture <path>  compute from a local JSON row dump instead of the database, for
-//                     exercising the guard without credentials. A fixture run may NOT write
-//                     to the default baseline path, and everything it writes carries a
-//                     SYNTHETIC banner.
+//                     exercising the guard without credentials.
+//
+// WHAT A FIXTURE RUN MAY WRITE — the exact, enforced rule (it was previously overstated):
+//   a fixture run's --out may not be the real baseline path AND may not be anywhere inside the
+//   repo's `.planning/` tree. Both comparisons run through samePath/isInside, which case-fold on
+//   win32 and darwin — so on THIS repo's platform (Windows/NTFS)
+//   `--out .planning/Milestones/wedge-baseline.MD` is refused, not written. It used to be
+//   written: the old check was a case-sensitive `===` against a case-insensitive filesystem, so
+//   the guard the header advertised did not exist on the only platform this repo is driven from.
+//   Everything a fixture run does write carries a SYNTHETIC banner.
 //
 // EXIT CODES: 0 eligible (and written under --apply) · 1 refused for a correctness reason
 // (definition drift, existing file without --force) · 2 config/usage refusal · 3 INELIGIBLE
-// (the zero-corrections / no-cascade guard) · 4 runtime error.
+// (the not-enough-signal guard) · 4 runtime error.
 
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -58,28 +79,35 @@ import {
   EXIT,
   closeQuietly,
   describeTarget,
+  isInside,
   openReadOnly,
   readArgs,
   readOnlyTx,
   resolveDatabaseUrl,
+  samePath,
 } from './lib/close-kit-db.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const ROUTER_PATH = join(REPO, 'packages/api-client/src/router/learning/index.ts');
+const PLANNING_DIR = join(REPO, '.planning');
 const DEFAULT_OUT = join(REPO, '.planning/milestones/WEDGE-BASELINE.md');
 
-// sha256 of the router's own metric functions (see readDefinitionFingerprint). Update ONLY
-// together with a re-check of the port below — that is the whole point of the pin.
-const MIRRORED_FINGERPRINT = 'e50d827ddff29e97ebd72b4354e7ca59585cdcfdd78f37dd726d96d23a085e3f';
+/** The flag vocabulary — anything else is a refusal, not a silently dropped token. */
+const VALUE_FLAGS = ['env', 'out', 'fixture', 'user-id'];
+const BOOL_FLAGS = ['apply', 'force', 'allow-prod'];
 
-const args = readArgs(process.argv.slice(2));
+// sha256 of the router's own metric functions and of its row-selection block (see
+// readDefinitionFingerprint). Update ONLY together with a re-check of the port below — that is
+// the whole point of the pins.
+export const MIRRORED_FINGERPRINT = 'e50d827ddff29e97ebd72b4354e7ca59585cdcfdd78f37dd726d96d23a085e3f';
+export const SELECTION_FINGERPRINT = '66de0499cd67f27094d300ff55ce38ec19409f7194d919f314dfd85960cd4c98';
 
 // ---------------------------------------------------------------------------
 // Mirror guard
 // ---------------------------------------------------------------------------
 
 /** Raised when the router's definitions moved out from under this script's port. */
-class MirrorDriftError extends Error {
+export class MirrorDriftError extends Error {
   constructor(message) {
     super(message);
     this.name = 'MirrorDriftError';
@@ -87,33 +115,49 @@ class MirrorDriftError extends Error {
 }
 
 /**
- * Hash the router's metric source: `relabelCount` through the end of `deriveLearningSummary`.
+ * Hash the two router slices this script mirrors:
+ *   metrics   — `relabelCount` through the end of `deriveLearningSummary` (the arithmetic)
+ *   selection — the `summary` procedure body (the tenancy join and WHERE: the POPULATION)
  * Line endings are normalised (a CRLF checkout must not read as drift); nothing else is, so a
- * real edit to the definitions always moves the hash.
+ * real edit to either slice always moves its hash.
  */
-function readDefinitionFingerprint() {
-  const src = readFileSync(ROUTER_PATH, 'utf8').replace(/\r\n/g, '\n');
+export function readDefinitionFingerprint(routerPath = ROUTER_PATH) {
+  const src = readFileSync(routerPath, 'utf8').replace(/\r\n/g, '\n');
+  const digest = (slice) => createHash('sha256').update(slice).digest('hex');
+
   const start = src.indexOf('function relabelCount(');
   const anchor = src.indexOf('export function deriveLearningSummary(');
   const end = anchor === -1 ? -1 : src.indexOf('\n}\n', anchor);
-  if (start === -1 || anchor === -1 || end === -1 || start > anchor) {
+  const selStart = src.indexOf('summary: protectedProcedure.query(');
+  const selEnd = selStart === -1 ? -1 : src.indexOf('\n});', selStart);
+  if (start === -1 || anchor === -1 || end === -1 || start > anchor || selStart === -1 || selEnd === -1) {
     throw new ConfigError(
-      `cannot locate the metric definitions in ${ROUTER_PATH} — the anchors moved.\n` +
-        '  Re-read the router, re-check the port in this script, then update MIRRORED_FINGERPRINT.',
+      `cannot locate the metric definitions or the row-selection block in ${routerPath} — the anchors moved.\n` +
+        '  Re-read the router, re-check the port in this script, then update both fingerprints.',
     );
   }
-  const slice = src.slice(start, end + 3);
-  return createHash('sha256').update(slice).digest('hex');
+  return Object.freeze({
+    metrics: digest(src.slice(start, end + 3)),
+    selection: digest(src.slice(selStart, selEnd + 4)),
+  });
 }
 
-function assertMirrorIntact() {
-  const actual = readDefinitionFingerprint();
-  if (actual === MIRRORED_FINGERPRINT) return actual;
+export function assertMirrorIntact(routerPath = ROUTER_PATH) {
+  const actual = readDefinitionFingerprint(routerPath);
+  const drifted = [
+    actual.metrics === MIRRORED_FINGERPRINT
+      ? null
+      : `  metric arithmetic: expected ${MIRRORED_FINGERPRINT}\n                     actual   ${actual.metrics}`,
+    actual.selection === SELECTION_FINGERPRINT
+      ? null
+      : `  row selection:     expected ${SELECTION_FINGERPRINT}\n                     actual   ${actual.selection}`,
+  ].filter((line) => line !== null);
+  if (drifted.length === 0) return actual;
   throw new MirrorDriftError(
-    'the learning-router metric definitions CHANGED — this script no longer provably mirrors them.\n' +
-      `  expected ${MIRRORED_FINGERPRINT}\n` +
-      `  actual   ${actual}\n` +
-      `  Re-read ${ROUTER_PATH}, re-check deriveLearningSummary below, then update MIRRORED_FINGERPRINT.`,
+    'the learning-router source CHANGED — this script no longer provably mirrors it.\n' +
+      `${drifted.join('\n')}\n` +
+      `  Re-read ${routerPath}, re-check the port below (arithmetic AND the tenancy join in\n` +
+      '  readRowsFromDb), then update the fingerprint(s).',
   );
 }
 
@@ -125,7 +169,7 @@ function relabelCount(ids) {
   return Array.isArray(ids) ? ids.length : 0;
 }
 
-function deriveLearningSummary(typeCorrections, propagations) {
+export function deriveLearningSummary(typeCorrections, propagations) {
   const typeCount = typeCorrections.length;
   const cascadeCount = propagations.length;
   const correctionsMade = typeCount + cascadeCount;
@@ -165,7 +209,7 @@ function deriveLearningSummary(typeCorrections, propagations) {
 }
 
 /** Skeleton-only extras (max re-labels, avg edges promoted) — no router definition exists. */
-function deriveExtras(propagations) {
+export function deriveExtras(propagations) {
   if (propagations.length === 0) return { maxRelabels: 0, avgEdgesPromoted: 0 };
   const counts = propagations.map((row) => relabelCount(row.affectedEmailIds));
   const edges = propagations.map((row) => relabelCount(row.promotedEdgeIds));
@@ -186,6 +230,7 @@ async function readRowsFromDb(sql, userId) {
     // The router's tenancy: join importer_id → importers, filter importers.user_id. With no
     // --user-id the join still runs (rows without a live importer are excluded either way),
     // but the scope is every importer — the output labels which of the two applies.
+    // SELECTION_FINGERPRINT pins the router side of this port.
     const typeRows = userId
       ? await tx`select c.component_id, c.created_at from entity_type_corrections c
                  join importers i on i.id = c.importer_id where i.user_id = ${userId}`
@@ -214,7 +259,7 @@ async function readRowsFromDb(sql, userId) {
 }
 
 /** Fixture shape: { typeCorrections: [{componentId, createdAt}], propagations: [...] }. */
-function readRowsFromFixture(path) {
+export function readRowsFromFixture(path) {
   const raw = JSON.parse(readFileSync(path, 'utf8'));
   const typeCorrections = (raw.typeCorrections ?? []).map((r) => ({
     componentId: r.componentId,
@@ -231,25 +276,125 @@ function readRowsFromFixture(path) {
 }
 
 // ---------------------------------------------------------------------------
-// Eligibility — the guard
+// Eligibility — the guard. WHAT "ENOUGH" MEANS, exactly.
 // ---------------------------------------------------------------------------
 
-function eligibilityRefusals(summary) {
+/**
+ * The thresholds, in one place, each attached to the metric it protects. They are deliberately
+ * LOW: this is not a statistical-power test, it is a floor below which the published number is
+ * arithmetically incapable of carrying information.
+ */
+export const ELIGIBILITY = Object.freeze({
+  /** M1's first term and M3's type-correction leg. */
+  MIN_TYPE_CORRECTIONS: 1,
+  /** M2's denominator, and WEDG-01/02's evidence that the cascade ran at all. */
+  MIN_CASCADES: 1,
+  /** M2's numerator — the re-label fan-out must have had real mail to re-point. */
+  MIN_EMAILS_RELABELED: 1,
+  /**
+   * M3's denominator. M3's resolution is 1/n: at n=1 the only possible reading is 100 % (nothing
+   * can supersede a lone correction), at n=2 only 0/50/100. n=3 is the first denominator that can
+   * express a rate rather than a coin flip, so it is the floor.
+   */
+  MIN_CORRECTIONS_FOR_STICK_RATE: 3,
+});
+
+/**
+ * Every state in which the three headline numbers would be meaningless, as numbered rules.
+ * Returns [] when the baseline may be written. Pure — the caller decides what to do with it.
+ *
+ * The rules are ordered by how badly each poisons the artifact, and each explains what to do.
+ */
+export function eligibilityRefusals(summary, rows = null) {
   const refusals = [];
+
   if (summary.correctionsMade === 0) {
     refusals.push(
-      'ZERO corrections exist (entity_type_corrections + correction_propagations are both empty). ' +
-        'Every metric would be a meaningless zero; M3 would be null.',
+      'R1 · M1/M2/M3 — ZERO corrections exist (entity_type_corrections + correction_propagations ' +
+        'are both empty). Every metric would be a meaningless zero; M3 would be null.',
     );
   }
-  if (summary.mergeCascades === 0) {
+  if (summary.mergeCascades < ELIGIBILITY.MIN_CASCADES) {
     refusals.push(
-      'the cascade has NEVER run (correction_propagations is empty): WEDG-01 (CASCADE_CORRECTION_ENABLED ' +
-        'live + cascade_relabel draining) and WEDG-02 (one genuine merge on real mail) are not done, so ' +
-        'M2 is undefined (null, not 0).',
+      `R2 · M2 — the cascade has NEVER run (correction_propagations holds ${summary.mergeCascades} row(s), ` +
+        `need ≥ ${ELIGIBILITY.MIN_CASCADES}): WEDG-01 (CASCADE_CORRECTION_ENABLED live + cascade_relabel ` +
+        'draining) and WEDG-02 (one genuine merge on real mail) are not done, so M2 is undefined (null, not 0).',
+    );
+  }
+  if (summary.mergeCascades > 0 && summary.emailsRelabeled < ELIGIBILITY.MIN_EMAILS_RELABELED) {
+    refusals.push(
+      `R3 · M2 — the cascade fan-out is EMPTY (Σ|affected_email_ids| = ${summary.emailsRelabeled} across ` +
+        `${summary.mergeCascades} cascade(s), need ≥ ${ELIGIBILITY.MIN_EMAILS_RELABELED}). M2 would publish ` +
+        '"0.0 emails re-pointed per confirmed merge" as the "one click compounds" headline while the ' +
+        're-label leg is entirely UNPROVEN. collect-wedge-evidence.mjs fails this same state at E3; the ' +
+        'two scripts agree. Cascade a merge whose absorbed identity actually appears on mail.',
+    );
+  }
+  if (summary.typeCorrections < ELIGIBILITY.MIN_TYPE_CORRECTIONS) {
+    refusals.push(
+      `R4 · M1/M3 — no type re-label exists (entity_type_corrections holds ${summary.typeCorrections} row(s), ` +
+        `need ≥ ${ELIGIBILITY.MIN_TYPE_CORRECTIONS}). M1 is published as "N type re-labels + M cascades" and ` +
+        'M3 as a rate over BOTH ledgers; with this leg empty the document describes a loop that only ' +
+        'half-ran. Make one genuine type correction, or change the document to stop claiming both legs.',
+    );
+  }
+  if (summary.correctionsMade > 0 && summary.correctionsMade < ELIGIBILITY.MIN_CORRECTIONS_FOR_STICK_RATE) {
+    refusals.push(
+      `R5 · M3 — only ${summary.correctionsMade} correction(s) exist (need ≥ ` +
+        `${ELIGIBILITY.MIN_CORRECTIONS_FOR_STICK_RATE}). M3's resolution is 1/n: at n=1 it can ONLY read ` +
+        '100.0 % because nothing can supersede a lone correction, at n=2 only 0/50/100. Publishing that as ' +
+        '"% of corrections that stick" states a fact about the arithmetic, not about the product.',
+    );
+  }
+  const degenerate = degenerateTimestamps(rows);
+  if (degenerate !== null) {
+    refusals.push(
+      `R6 · M3 — all ${degenerate.count} correction rows carry the SAME created_at (${degenerate.at}). ` +
+        'Supersession is the only mechanism M3 has, and it compares timestamps: with every row tied, ' +
+        'ties do not supersede and the rate is 100 % by construction. This is the signature of a seeded ' +
+        'or backfilled table, not of a loop that ran.',
     );
   }
   return refusals;
+}
+
+/**
+ * Do ALL correction rows share one timestamp? (null when rows were not supplied, or when there
+ * are fewer than two — a single row cannot be "degenerate", R5 already covers it.)
+ */
+function degenerateTimestamps(rows) {
+  if (rows === null) return null;
+  const times = [...rows.typeCorrections, ...rows.propagations].map((r) => r.createdAt.getTime());
+  if (times.length < 2) return null;
+  const first = times[0];
+  if (!times.every((t) => t === first)) return null;
+  return { count: times.length, at: new Date(first).toISOString() };
+}
+
+/**
+ * May a FIXTURE run write to `outPath`? Returns the refusal text, or null when it may.
+ *
+ * Two layers, both filesystem-accurate (samePath/isInside case-fold on win32 and darwin):
+ * the real baseline file itself, and the whole `.planning/` tree around it. The second layer is
+ * what makes the first one hard to route around — every near-miss spelling of the baseline path
+ * still lands inside `.planning/`.
+ */
+export function fixtureWriteRefusal(outPath, { defaultOut = DEFAULT_OUT, planningDir = PLANNING_DIR } = {}) {
+  if (samePath(outPath, defaultOut)) {
+    return (
+      `a fixture run may not write the real baseline (${defaultOut}).\n` +
+      `  --out resolved to ${resolve(outPath)}, which IS that file on this filesystem.\n` +
+      '  Pass --out <scratch path outside .planning/> if you are drilling the write path.'
+    );
+  }
+  if (isInside(planningDir, outPath)) {
+    return (
+      `a fixture run may not write anywhere inside ${planningDir}.\n` +
+      `  --out resolved to ${resolve(outPath)}.\n` +
+      '  Synthetic numbers do not belong in the tracked planning tree; use a scratch path.'
+    );
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -259,7 +404,7 @@ function eligibilityRefusals(summary) {
 const pct = (v) => (v === null ? 'n/a' : `${(v * 100).toFixed(1)} %`);
 const num = (v, digits = 1) => (v === null ? 'n/a' : v.toFixed(digits));
 
-function renderDocument({ summary, extras, scope, target, capturedAt, fingerprint, fixture }) {
+export function renderDocument({ summary, extras, scope, target, capturedAt, fingerprint, fixture }) {
   const banner = fixture
     ? '> ⛔ **SYNTHETIC — FIXTURE RUN.** These numbers came from a local JSON fixture, NOT from a\n> database. This file is a drill artifact and must never be treated as the baseline.\n\n'
     : '';
@@ -267,12 +412,18 @@ function renderDocument({ summary, extras, scope, target, capturedAt, fingerprin
 
 ${banner}> Captured ${capturedAt} by \`scripts/fill-wedge-baseline.mjs\` (WEDG-04).
 > Source of truth for the definitions: \`packages/api-client/src/router/learning/index.ts\`
-> (\`deriveLearningSummary\`, source sha256 \`${fingerprint}\` — the script refuses to run if it moves).
+> (\`deriveLearningSummary\` arithmetic sha256 \`${fingerprint.metrics}\`; \`summary\` row-selection
+> sha256 \`${fingerprint.selection}\` — the script refuses to run if either moves).
 > Scope: ${scope} · target: \`${target}\`.
 >
-> CAPTURE RULE (load-bearing): these values are readable only because WEDG-01 (cascade live and
-> draining) and WEDG-02 (one genuine merge cascaded on real mail) are DONE. The script refuses to
-> write when either is missing — a blank baseline is correct, a zeroed one is poison.
+> CAPTURE RULE (load-bearing): these values are readable only because the loop actually ran. The
+> script refuses to write unless ALL of the following hold — a blank baseline is correct, a
+> zeroed or single-row one is poison:
+>   R1 at least one correction exists · R2 ≥ ${ELIGIBILITY.MIN_CASCADES} merge cascade (WEDG-01 + WEDG-02 done)
+>   R3 ≥ ${ELIGIBILITY.MIN_EMAILS_RELABELED} email actually re-labelled by a cascade (M2's numerator is not 0)
+>   R4 ≥ ${ELIGIBILITY.MIN_TYPE_CORRECTIONS} type re-label (M1's other leg is not empty)
+>   R5 ≥ ${ELIGIBILITY.MIN_CORRECTIONS_FOR_STICK_RATE} corrections total (below that M3 can only read 0/50/100)
+>   R6 the correction rows do not all share one timestamp (M3's supersession must be able to discriminate)
 
 ## M1 — Corrections made
 
@@ -320,49 +471,53 @@ The next milestone's Track-6 opener — this file is its intake artifact.
 // Main
 // ---------------------------------------------------------------------------
 
-let sql = null;
-try {
-  const fingerprint = assertMirrorIntact();
-  const fixture = typeof args.fixture === 'string' ? args.fixture : null;
-  const userId = typeof args['user-id'] === 'string' ? args['user-id'] : null;
-  const apply = Boolean(args.apply);
-  const outPath = resolve(typeof args.out === 'string' ? args.out : DEFAULT_OUT);
+async function main(argv) {
+  let sql = null;
+  try {
+    const args = readArgs(argv, { valueFlags: VALUE_FLAGS, boolFlags: BOOL_FLAGS });
+    const fingerprint = assertMirrorIntact();
+    const fixture = args.fixture ?? null;
+    const userId = args['user-id'] ?? null;
+    const apply = Boolean(args.apply);
+    const outPath = resolve(args.out ?? DEFAULT_OUT);
 
-  let rows;
-  let target;
-  if (fixture) {
-    rows = readRowsFromFixture(fixture);
-    target = `FIXTURE ${fixture}`;
-    console.log(`FIXTURE MODE — rows read from ${fixture}; no database was contacted.`);
-  } else {
-    const { url, from } = resolveDatabaseUrl({
-      envFile: typeof args.env === 'string' ? args.env : null,
-      allowProd: Boolean(args['allow-prod']),
-    });
-    target = describeTarget(url);
-    console.log(`credentials from: ${from}`);
-    sql = await openReadOnly(REPO, url);
-    rows = await readRowsFromDb(sql, userId);
-  }
+    let rows;
+    let target;
+    if (fixture) {
+      rows = readRowsFromFixture(fixture);
+      target = `FIXTURE ${fixture}`;
+      console.log(`FIXTURE MODE — rows read from ${fixture}; no database was contacted.`);
+    } else {
+      const { url, from } = resolveDatabaseUrl({
+        envFile: args.env ?? null,
+        allowProd: Boolean(args['allow-prod']),
+      });
+      target = describeTarget(url);
+      console.log(`credentials from: ${from}`);
+      sql = await openReadOnly(REPO, url);
+      rows = await readRowsFromDb(sql, userId);
+    }
 
-  const summary = deriveLearningSummary(rows.typeCorrections, rows.propagations);
-  const extras = deriveExtras(rows.propagations);
-  const scope = userId ? `owner ${userId} (importers.user_id, exactly as the router scopes)` : 'ALL importers in this database';
+    const summary = deriveLearningSummary(rows.typeCorrections, rows.propagations);
+    const extras = deriveExtras(rows.propagations);
+    const scope = userId ? `owner ${userId} (importers.user_id, exactly as the router scopes)` : 'ALL importers in this database';
 
-  console.log(`\nWEDGE-BASELINE metrics — ${scope} · target: ${target}`);
-  console.log(`definition fingerprint: ${fingerprint} (matches the shipped router)`);
-  console.log(`  M1 corrections made:      ${summary.correctionsMade} (${summary.typeCorrections} type re-labels + ${summary.mergeCascades} cascades)`);
-  console.log(`  M2 re-labels per cascade: ${num(summary.relabelsPerCorrection)} (${summary.emailsRelabeled} emails / ${summary.mergeCascades} cascades)`);
-  console.log(`  M3 % that stick:          ${pct(summary.stickRate)}`);
+    console.log(`\nWEDGE-BASELINE metrics — ${scope} · target: ${target}`);
+    console.log(`definitions pinned: arithmetic ${fingerprint.metrics}`);
+    console.log(`                    selection  ${fingerprint.selection}`);
+    console.log(`  M1 corrections made:      ${summary.correctionsMade} (${summary.typeCorrections} type re-labels + ${summary.mergeCascades} cascades)`);
+    console.log(`  M2 re-labels per cascade: ${num(summary.relabelsPerCorrection)} (${summary.emailsRelabeled} emails / ${summary.mergeCascades} cascades)`);
+    console.log(`  M3 % that stick:          ${pct(summary.stickRate)}`);
 
-  const refusals = eligibilityRefusals(summary);
-  if (refusals.length > 0) {
-    console.error('\nINELIGIBLE — refusing to write the baseline:');
-    for (const reason of refusals) console.error(`  - ${reason}`);
-    console.error('\nLeave the baseline BLANK until WEDG-01 and WEDG-02 are done. A blank slot means');
-    console.error('"not yet eligible"; a written zero would be read forever as a real first value.');
-    process.exitCode = EXIT.INELIGIBLE;
-  } else {
+    const refusals = eligibilityRefusals(summary, rows);
+    if (refusals.length > 0) {
+      console.error('\nINELIGIBLE — refusing to write the baseline. These numbers cannot carry information yet:');
+      for (const reason of refusals) console.error(`  - ${reason}`);
+      console.error('\nLeave the baseline BLANK until every rule above passes. A blank slot means "not yet');
+      console.error('eligible"; a written zero (or a 100 % over n=1) would be read forever as a real first value.');
+      return EXIT.INELIGIBLE;
+    }
+
     const document = renderDocument({
       summary,
       extras,
@@ -376,32 +531,40 @@ try {
       console.log('\n--- DOCUMENT (not written; re-run with --apply) --------------------------');
       console.log(document);
       console.log('--------------------------------------------------------------------------');
-      process.exitCode = EXIT.OK;
-    } else if (fixture && outPath === resolve(DEFAULT_OUT)) {
-      console.error(`\nREFUSED: a fixture run may not write the real baseline (${DEFAULT_OUT}).`);
-      console.error('Pass --out <scratch path> if you are drilling the write path.');
-      process.exitCode = EXIT.REFUSED;
-    } else if (existsSync(outPath) && !args.force) {
-      console.error(`\nREFUSED: ${outPath} already exists. Re-run with --force to overwrite it.`);
-      process.exitCode = EXIT.ASSERTION_FAILED;
-    } else {
-      mkdirSync(dirname(outPath), { recursive: true });
-      writeFileSync(outPath, document, 'utf8');
-      console.log(`\nWROTE ${outPath} (${document.length} bytes)`);
-      process.exitCode = EXIT.OK;
+      return EXIT.OK;
     }
-  }
-} catch (error) {
-  if (error instanceof ConfigError) {
-    console.error(`REFUSED: ${error.message}`);
-    process.exitCode = EXIT.REFUSED;
-  } else if (error instanceof MirrorDriftError) {
-    console.error(`REFUSED: ${error.message}`);
-    process.exitCode = EXIT.ASSERTION_FAILED;
-  } else {
+    const fixtureRefusal = fixture ? fixtureWriteRefusal(outPath) : null;
+    if (fixtureRefusal !== null) {
+      console.error(`\nREFUSED: ${fixtureRefusal}`);
+      return EXIT.REFUSED;
+    }
+    if (existsSync(outPath) && !args.force) {
+      console.error(`\nREFUSED: ${outPath} already exists. Re-run with --force to overwrite it.`);
+      return EXIT.ASSERTION_FAILED;
+    }
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, document, 'utf8');
+    console.log(`\nWROTE ${outPath} (${document.length} bytes)`);
+    return EXIT.OK;
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      console.error(`REFUSED: ${error.message}`);
+      return EXIT.REFUSED;
+    }
+    if (error instanceof MirrorDriftError) {
+      console.error(`REFUSED: ${error.message}`);
+      return EXIT.ASSERTION_FAILED;
+    }
     console.error(`ERROR: ${String(error.message || error)}`);
-    process.exitCode = EXIT.ERROR;
+    return EXIT.ERROR;
+  } finally {
+    await closeQuietly(sql);
   }
-} finally {
-  await closeQuietly(sql);
+}
+
+// Run only when invoked as the entry point, so the pure functions above are importable by
+// scripts/__tests__/. samePath (not ===) because argv[1]'s spelling need not match this URL's
+// on a case-insensitive filesystem.
+if (process.argv[1] !== undefined && samePath(process.argv[1], fileURLToPath(import.meta.url))) {
+  process.exitCode = await main(process.argv.slice(2));
 }

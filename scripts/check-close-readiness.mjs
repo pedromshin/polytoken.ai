@@ -8,6 +8,14 @@
 //      with a disposition, an owner, a trigger — and each in a CLOSE-TERMINAL state. A row that
 //      still reads "EXECUTE-…" is a row that says the seam is SCHEDULED, not that it happened;
 //      closing on it is exactly the v1.9 rot this audit exists to prevent.
+//
+//      WHAT "EXECUTED (with evidence)" MEANS HERE, precisely — this is a LEDGER checker, so it
+//      cannot know that a seam ran; it can only refuse a row that offers nothing to check. An
+//      EXECUTED row must therefore CARRY AN EVIDENCE REFERENCE in its own cells: a commit sha,
+//      a repo path, or a URL (hasEvidenceReference). A row reading bare "EXECUTED" now FAILS
+//      instead of passing. That is strictly weaker than "the seam demonstrably happened" — a
+//      human still has to follow the reference — and the script says so rather than implying
+//      more. Nothing here executes, opens, or fetches the referenced artifact.
 //   B. CROSS-LEDGER AGREEMENT — ROADMAP.md, ORCHESTRATOR-STATE.md ⭐ CURRENT, STATE.md
 //      frontmatter, HANDOFF.json (negative assertion) and the per-seam requirement checkboxes
 //      in REQUIREMENTS.md must all agree with the ledger. A ticked checkbox for a seam nobody
@@ -27,6 +35,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { samePath } from './lib/close-kit-db.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
 const argv = process.argv.slice(2);
@@ -60,14 +70,31 @@ const fail = (g, id, l, d) => record(g, id, l, 'FAIL', d);
 const warn = (g, id, l, d) => record(g, id, l, 'WARN', d);
 
 const readIfPresent = (path) => (existsSync(path) ? readFileSync(path, 'utf8') : null);
-const isPlaceholder = (cell) => PLACEHOLDERS.has(cell.trim().toLowerCase());
+export const isPlaceholder = (cell) => PLACEHOLDERS.has(cell.trim().toLowerCase());
+
+/**
+ * Does this ledger row point at something a human could open? One of:
+ *   - a git sha (7–40 hex chars containing at least one digit, so ordinary hex-looking words
+ *     like "facade" cannot pass for one),
+ *   - a repo path with a directory separator and a file extension, or a `.planning/` reference,
+ *   - an http(s) URL.
+ * A reference is NOT proof the seam ran — see the header. It is the minimum a row must offer
+ * before "EXECUTED" is allowed to mean anything to this script.
+ */
+export function hasEvidenceReference(rowText) {
+  const sha = /\b(?=[0-9a-f]{7,40}\b)[0-9a-f]*\d[0-9a-f]*\b/i;
+  const path = /(^|[\s`(])[\w.-]+[\\/][\w./\\-]*\.\w{2,4}\b/;
+  const planning = /\.planning[\\/]/;
+  const url = /https?:\/\/\S+/;
+  return sha.test(rowText) || path.test(rowText) || planning.test(rowText) || url.test(rowText);
+}
 
 // ---------------------------------------------------------------------------
 // A. Decision Ledger
 // ---------------------------------------------------------------------------
 
 /** Rows of the `| # | Seam | Choice ... |` table, as trimmed cell arrays. */
-function parseLedgerRows(src) {
+export function parseLedgerRows(src) {
   const lines = src.replace(/\r\n/g, '\n').split('\n');
   const header = lines.findIndex((l) => /^\|\s*#\s*\|\s*Seam\s*\|/i.test(l));
   if (header === -1) return null;
@@ -85,7 +112,7 @@ function parseLedgerRows(src) {
  * Which close-state a Choice cell expresses. `SCHEDULED` (an "EXECUTE-…" row with no record
  * that it happened) is deliberately NOT terminal — see the header.
  */
-function classifyChoice(cell) {
+export function classifyChoice(cell) {
   if (cell.includes('☐') || isPlaceholder(cell)) return 'NONE';
   const upper = cell.toUpperCase();
   if (upper.includes('BLOCK-CLOSE')) return 'BLOCK_CLOSE';
@@ -114,7 +141,8 @@ function checkDecisionLedger(checklistSrc) {
     const [num, seam, choice, owner, trigger] = cells;
     const kind = classifyChoice(choice);
     dispositions.push({ num: Number(num), seam, kind, choice, owner, trigger, row: cells.join(' | ') });
-    checkLedgerRow({ num, seam, kind, choice, owner, trigger, cells, checklistSrc });
+    const verdict = classifyLedgerRow({ seam, kind, choice, owner, trigger, cells, checklistSrc });
+    record('A', `A2.${num}`, `seam ${num} (${seam.slice(0, 40)})`, verdict.status, verdict.detail);
   }
   const assumed = dispositions.filter((d) => d.row.includes('ASSUMED'));
   if (assumed.length > 0) {
@@ -123,41 +151,49 @@ function checkDecisionLedger(checklistSrc) {
   return dispositions;
 }
 
-function checkLedgerRow({ num, seam, kind, choice, owner, trigger, cells, checklistSrc }) {
-  const id = `A2.${num}`;
-  const label = `seam ${num} (${seam.slice(0, 40)})`;
+/**
+ * The verdict for ONE ledger row — pure, so scripts/__tests__ can drive every branch without a
+ * .planning tree. Returns `{ status: 'PASS' | 'FAIL', detail }`; the caller records it.
+ */
+export function classifyLedgerRow({ seam, kind, choice, owner, trigger, cells, checklistSrc }) {
+  const failed = (detail) => ({ status: 'FAIL', detail });
+  const passed = (detail) => ({ status: 'PASS', detail });
+
   if (kind === 'NONE' || kind === 'UNRECOGNIZED') {
-    fail('A', id, label, `no usable disposition — Choice reads "${choice}"`);
-    return;
+    return failed(`no usable disposition — Choice reads "${choice}"`);
   }
   if (isPlaceholder(owner) || isPlaceholder(trigger)) {
-    fail('A', id, label, `disposition ${kind} but owner="${owner}" trigger="${trigger}" — the audit counts an owner-less or trigger-less row as UNCHECKED`);
-    return;
+    return failed(`disposition ${kind} but owner="${owner}" trigger="${trigger}" — the audit counts an owner-less or trigger-less row as UNCHECKED`);
   }
   if (kind === 'BLOCK_CLOSE') {
-    fail('A', id, label, 'BLOCK-CLOSE — by its own definition the milestone may not close while this row stands');
-    return;
+    return failed('BLOCK-CLOSE — by its own definition the milestone may not close while this row stands');
   }
   if (kind === 'SCHEDULED') {
-    fail('A', id, label, `Choice "${choice}" only SCHEDULES the seam; at close it must read EXECUTED (with evidence) or ACCEPT-AS-DEBT (owner + trigger + date)`);
-    return;
+    return failed(`Choice "${choice}" only SCHEDULES the seam; at close it must read EXECUTED (with evidence) or ACCEPT-AS-DEBT (owner + trigger + date)`);
   }
+
+  const rowText = cells.join(' ');
   if (kind === 'ACCEPT') {
-    const rowText = cells.join(' ');
     const hasDate = /\d{4}-\d{2}-\d{2}/.test(rowText);
     const inChecklist = Boolean(checklistSrc) && seamIdsOf(seam).some((sid) => checklistSrc.includes(sid));
     if (!hasDate) {
-      fail('A', id, label, 'ACCEPT-AS-DEBT without a YYYY-MM-DD date in the row (BURN-06 requires owner + trigger + date)');
-      return;
+      return failed('ACCEPT-AS-DEBT without a YYYY-MM-DD date in the row (BURN-06 requires owner + trigger + date)');
     }
     if (!inChecklist) {
-      fail('A', id, label, `ACCEPT-AS-DEBT but no mention of ${seamIdsOf(seam).join('/')} in PEDRO-CHECKLIST.md — accepted debt must be copied there, not "carried" bare`);
-      return;
+      return failed(`ACCEPT-AS-DEBT but no mention of ${seamIdsOf(seam).join('/')} in PEDRO-CHECKLIST.md — accepted debt must be copied there, not "carried" bare`);
     }
-    pass('A', id, label, `ACCEPT-AS-DEBT · owner ${owner} · trigger ${trigger} · mentioned in PEDRO-CHECKLIST (mention only — a human still reads the entry)`);
-    return;
+    return passed(`ACCEPT-AS-DEBT · owner ${owner} · trigger ${trigger} · mentioned in PEDRO-CHECKLIST (mention only — a human still reads the entry)`);
   }
-  pass('A', id, label, `${kind} · owner ${owner} · trigger ${trigger}`);
+
+  // kind === 'EXECUTED' — the word alone is not checkable; the row must point somewhere.
+  if (!hasEvidenceReference(rowText)) {
+    return failed(
+      'EXECUTED but the row carries NO evidence reference (no commit sha, repo path, or URL). ' +
+        'A close satisfiable by typing the word "EXECUTED" into a cell is the rot this gate exists to stop. ' +
+        'Add the sha/artifact the seam produced. (This script checks that a reference EXISTS — a human still opens it.)',
+    );
+  }
+  return passed(`${kind} · owner ${owner} · trigger ${trigger} · carries an evidence reference (unverified here — open it)`);
 }
 
 /**
@@ -165,7 +201,7 @@ function checkLedgerRow({ num, seam, kind, choice, owner, trigger, cells, checkl
  * "CPF-live merge → re-label fan-out" → ["CPF-live"]. Falls back to the whole label so a
  * seam whose name carries no id is still looked up rather than silently skipped.
  */
-function seamIdsOf(seam) {
+export function seamIdsOf(seam) {
   return seam.match(/\b[A-Z]{3,5}-[A-Za-z0-9]{2,}\b/g) ?? [seam];
 }
 
@@ -264,7 +300,7 @@ function checkSeamCheckboxes(dispositions) {
 // ---------------------------------------------------------------------------
 
 /** Resolve the handful of PowerShell RHS forms sauce-backup.ps1 actually uses. */
-function resolvePsExpression(expr, vars) {
+export function resolvePsExpression(expr, vars) {
   const text = expr.trim();
   const literal = text.match(/^"([^"]*)"$/);
   if (literal) return literal[1];
@@ -346,10 +382,10 @@ function findPowerShell() {
 // Main
 // ---------------------------------------------------------------------------
 
-try {
+function main() {
   if (!existsSync(PLANNING)) {
     console.error(`REFUSED: planning directory not found: ${PLANNING}`);
-    process.exit(2);
+    return 2;
   }
   console.log(`close-readiness — planning: ${PLANNING}`);
   console.log(`                  repo:     ${REPO_ROOT}\n`);
@@ -373,14 +409,22 @@ try {
   const warnings = results.filter((r) => r.status === 'WARN');
   console.log(`\n${results.filter((r) => r.status === 'PASS').length} pass · ${failures.length} fail · ${warnings.length} warn`);
   if (failures.length === 0) {
-    console.log('\nCLOSE-READY: the ledgers agree and the backup ritual can run.');
+    console.log('\nCLOSE-READY: the ledgers agree and every EXECUTED row points at an artifact.');
+    console.log('That is LEDGER agreement, not proof the seams ran — open the referenced evidence before closing.');
     console.log('Next: pwsh scripts/sauce-backup.ps1 → /gsd:audit-milestone → /gsd:complete-milestone.');
-    process.exit(0);
+    return 0;
   }
   console.log('\nNOT CLOSE-READY — exactly what is missing:');
   for (const f of failures) console.log(`  - [${f.group}·${f.id}] ${f.label}: ${f.detail}`);
-  process.exit(1);
-} catch (error) {
-  console.error(`ERROR: ${String(error.stack || error.message || error)}`);
-  process.exit(4);
+  return 1;
+}
+
+// Entry-point only, so the pure functions above are importable by scripts/__tests__/.
+if (process.argv[1] !== undefined && samePath(process.argv[1], fileURLToPath(import.meta.url))) {
+  try {
+    process.exit(main());
+  } catch (error) {
+    console.error(`ERROR: ${String(error.stack || error.message || error)}`);
+    process.exit(4);
+  }
 }

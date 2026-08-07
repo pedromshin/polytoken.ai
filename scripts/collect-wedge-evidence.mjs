@@ -43,13 +43,17 @@ import {
   readArgs,
   readOnlyTx,
   resolveDatabaseUrl,
+  samePath,
 } from './lib/close-kit-db.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-const CASCADE_MECHANISM = 'merge_cascade'; // apps/email-listener/.../cascade_correction.py:44
+export const CASCADE_MECHANISM = 'merge_cascade'; // apps/email-listener/.../cascade_correction.py:44
 const EXTRACTED = 'EXTRACTED'; // the tier promote_edge writes (knowledge_graph_repository.py:359)
 
-const args = readArgs(process.argv.slice(2));
+/** The flag vocabulary — see close-kit-db's readArgs: anything else is a refusal. */
+const VALUE_FLAGS = ['env', 'survivor', 'absorbed', 'job-key', 'expect-fingerprint'];
+const BOOL_FLAGS = ['allow-prod', 'allow-zero-promotions'];
+
 const checks = [];
 const notes = [];
 
@@ -62,7 +66,7 @@ const record = (id, label, ok, detail) => {
 // Row selection
 // ---------------------------------------------------------------------------
 
-async function selectCascade(tx) {
+async function selectCascade(tx, args) {
   if (args['job-key']) {
     const rows = await tx`
       select * from correction_propagations where job_key = ${args['job-key']}`;
@@ -124,20 +128,30 @@ function assertRowShape(row) {
   );
 }
 
-function assertAffectedEmails(row) {
+/**
+ * E3's verdict, pure. Exported because fill-wedge-baseline's eligibility rule R3 must agree with
+ * it: the state this call fails is the state that must NOT be allowed to publish M2. A committed
+ * test asserts the two agree, so they cannot drift apart again.
+ */
+export function affectedEmailsVerdict(row) {
   const ids = Array.isArray(row.affected_email_ids) ? row.affected_email_ids : [];
-  record(
-    'E3',
-    'affected_email_ids is non-empty (the fan-out had real mail to re-label)',
-    ids.length > 0,
-    ids.length > 0
-      ? `${ids.length} email id(s) enqueued for re-label`
-      : 'empty — the absorbed identity had no past emails, so this cascade proves nothing about the re-label leg; pick a merge whose absorbed identity actually appears on mail',
-  );
-  return ids;
+  return {
+    ids,
+    ok: ids.length > 0,
+    detail:
+      ids.length > 0
+        ? `${ids.length} email id(s) enqueued for re-label`
+        : 'empty — the absorbed identity had no past emails, so this cascade proves nothing about the re-label leg; pick a merge whose absorbed identity actually appears on mail',
+  };
 }
 
-async function assertEdgesFlipped(tx, row) {
+function assertAffectedEmails(row) {
+  const verdict = affectedEmailsVerdict(row);
+  record('E3', 'affected_email_ids is non-empty (the fan-out had real mail to re-label)', verdict.ok, verdict.detail);
+  return verdict.ids;
+}
+
+async function assertEdgesFlipped(tx, row, args) {
   const ids = Array.isArray(row.promoted_edge_ids) ? row.promoted_edge_ids : [];
   const malformed = ids.filter((id) => !isUuid(id));
   if (malformed.length > 0) {
@@ -228,7 +242,7 @@ async function failedRelabelJobs(sql, jobKey) {
  * move it; re-running after a re-confirm and getting the SAME digest is what actually proves
  * the re-run was a no-op (the ledger's unique index only proves no second row).
  */
-function fingerprintOf(row, edges) {
+export function fingerprintOf(row, edges) {
   const payload = {
     job_key: row.job_key,
     importer_id: row.importer_id,
@@ -286,51 +300,58 @@ function printReport({ target, how, row, edges, effect, jobs, fingerprint }) {
 // Main
 // ---------------------------------------------------------------------------
 
-let sql = null;
-try {
-  const { url, from } = resolveDatabaseUrl({
-    envFile: typeof args.env === 'string' ? args.env : null,
-    allowProd: Boolean(args['allow-prod']),
-  });
-  const target = describeTarget(url);
-  console.log(`credentials from: ${from}`);
-  sql = await openReadOnly(REPO, url);
+async function main(argv) {
+  let sql = null;
+  try {
+    const args = readArgs(argv, { valueFlags: VALUE_FLAGS, boolFlags: BOOL_FLAGS });
+    const { url, from } = resolveDatabaseUrl({
+      envFile: args.env ?? null,
+      allowProd: Boolean(args['allow-prod']),
+    });
+    const target = describeTarget(url);
+    console.log(`credentials from: ${from}`);
+    sql = await openReadOnly(REPO, url);
 
-  const result = await readOnlyTx(sql, async (tx) => {
-    const { rows, how } = await selectCascade(tx);
-    const row = assertLedgerRow(rows, how);
-    if (!row) return { how, row: null, edges: [], effect: null };
-    assertRowShape(row);
-    const emailIds = assertAffectedEmails(row);
-    const edges = await assertEdgesFlipped(tx, row);
-    await assertNoDuplicate(tx, row, rows.length);
-    const effect = await relabelEffect(tx, row, emailIds);
-    return { how, row, edges, effect };
-  });
+    const result = await readOnlyTx(sql, async (tx) => {
+      const { rows, how } = await selectCascade(tx, args);
+      const row = assertLedgerRow(rows, how);
+      if (!row) return { how, row: null, edges: [], effect: null };
+      assertRowShape(row);
+      const emailIds = assertAffectedEmails(row);
+      const edges = await assertEdgesFlipped(tx, row, args);
+      await assertNoDuplicate(tx, row, rows.length);
+      const effect = await relabelEffect(tx, row, emailIds);
+      return { how, row, edges, effect };
+    });
 
-  const jobs = result.row ? await failedRelabelJobs(sql, result.row.job_key) : null;
-  const fingerprint = result.row ? fingerprintOf(result.row, result.edges) : null;
+    const jobs = result.row ? await failedRelabelJobs(sql, result.row.job_key) : null;
+    const fingerprint = result.row ? fingerprintOf(result.row, result.edges) : null;
 
-  if (typeof args['expect-fingerprint'] === 'string') {
-    record('E6', 'fingerprint matches the previous run (re-run was a no-op)',
-      fingerprint === args['expect-fingerprint'],
-      fingerprint === args['expect-fingerprint']
-        ? `unchanged: ${fingerprint}`
-        : `expected ${args['expect-fingerprint']}, got ${fingerprint} — the re-run CHANGED the cascade's footprint`);
-  }
+    const expected = args['expect-fingerprint'] ?? null;
+    if (expected !== null) {
+      record('E6', 'fingerprint matches the previous run (re-run was a no-op)',
+        fingerprint === expected,
+        fingerprint === expected
+          ? `unchanged: ${fingerprint}`
+          : `expected ${expected}, got ${fingerprint} — the re-run CHANGED the cascade's footprint`);
+    }
 
-  const failures = printReport({ target, ...result, jobs, fingerprint });
-  // process.exitCode (not process.exit) so the `finally` below actually closes the pool —
-  // process.exit would terminate before it runs.
-  process.exitCode = failures === 0 ? EXIT.OK : EXIT.ASSERTION_FAILED;
-} catch (error) {
-  if (error instanceof ConfigError) {
-    console.error(`REFUSED: ${error.message}`);
-    process.exitCode = EXIT.REFUSED;
-  } else {
+    const failures = printReport({ target, ...result, jobs, fingerprint });
+    return failures === 0 ? EXIT.OK : EXIT.ASSERTION_FAILED;
+  } catch (error) {
+    if (error instanceof ConfigError) {
+      console.error(`REFUSED: ${error.message}`);
+      return EXIT.REFUSED;
+    }
     console.error(`ERROR: ${String(error.message || error)}`);
-    process.exitCode = EXIT.ERROR;
+    return EXIT.ERROR;
+  } finally {
+    // `finally` (not process.exit) so the pool is always closed before the process settles.
+    await closeQuietly(sql);
   }
-} finally {
-  await closeQuietly(sql);
+}
+
+// Entry-point only, so the pure functions above are importable by scripts/__tests__/.
+if (process.argv[1] !== undefined && samePath(process.argv[1], fileURLToPath(import.meta.url))) {
+  process.exitCode = await main(process.argv.slice(2));
 }

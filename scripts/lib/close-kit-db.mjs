@@ -17,6 +17,18 @@
 //      to the driver and nowhere else; `describeTarget` rebuilds a description from discrete
 //      URL parts — host, database, project ref — and never returns the password or the URL.
 //      The refs are already committed in `.env.example`, so they are not secrets.
+//   4. A MALFORMED FLAG IS A REFUSAL, NEVER A DEGRADED RUN. `readArgs` is given the caller's
+//      exact flag vocabulary and throws `ConfigError` for an unknown flag, for a value-taking
+//      flag with no value, and for a boolean flag handed one. The failure mode this closes is
+//      real: `--fixture --apply` (path typed away) used to become a LIVE database run, and
+//      `--env` with no path used to fall back silently to the ambient environment.
+//   5. PATH COMPARISONS MATCH THIS FILESYSTEM. `samePath`/`isInside` case-fold on win32 and
+//      darwin, because NTFS and APFS-default resolve `A.md` and `a.MD` to the SAME FILE. A
+//      case-sensitive `===` on those platforms is a guard that does not guard (see
+//      fill-wedge-baseline's fixture write-path refusal, which was defeated exactly that way).
+//
+// Every one of the five is covered by `scripts/__tests__/close-kit-db.test.mjs`; each test is
+// written so that deleting the guard turns it RED. A guard no test protects is not a guard.
 //
 // EXIT-CODE CONTRACT shared by both callers (documented again in each script's header):
 //   0 = every assertion held / the requested work completed
@@ -29,7 +41,7 @@
 
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, sep } from 'node:path';
 
 /** Supabase project refs (already committed in `.env.example` — identifiers, not secrets). */
 export const PROD_REF = 'dazyccjijdahxyciptkp';
@@ -52,10 +64,21 @@ export class ConfigError extends Error {
   }
 }
 
-/** Minimal dotenv reader (same shape staging-repair.mjs uses) — KEY=value, optional quotes. */
+/**
+ * Minimal dotenv reader (same shape staging-repair.mjs uses) — KEY=value, optional quotes.
+ * An unreadable file is a CONFIGURATION refusal (exit 2 — nothing was verified), not a runtime
+ * error (exit 4 — something broke mid-run). The exit-code contract above depends on the
+ * distinction: exit 4 reads as "the tool is broken", exit 2 as "you pointed it at nothing".
+ */
 export function parseEnvFile(path) {
   const out = {};
-  for (const line of readFileSync(path, 'utf8').split(/\r?\n/)) {
+  let contents;
+  try {
+    contents = readFileSync(path, 'utf8');
+  } catch (error) {
+    throw new ConfigError(`cannot read the env file ${path}: ${String(error.message || error)}\n  Nothing was read; nothing was written.`);
+  }
+  for (const line of contents.split(/\r?\n/)) {
     const m = line.match(/^([A-Za-z_0-9]+)=(.*)$/);
     if (m) out[m[1]] = m[2].replace(/^"|"$/g, '');
   }
@@ -169,20 +192,100 @@ export function isUuid(value) {
   return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-/** Tiny argv reader: `--flag` → true, `--key value` → 'value'. Unknown keys are the caller's problem. */
-export function readArgs(argv) {
+// ---------------------------------------------------------------------------
+// Path comparison — must match the FILESYSTEM, not the string
+// ---------------------------------------------------------------------------
+
+/**
+ * Does this platform's filesystem treat `A.md` and `a.MD` as the same file?
+ *
+ * win32 (NTFS) and darwin (APFS/HFS+ in their default case-insensitive mode): YES. Linux ext4:
+ * no. This is a platform statement, not a per-volume probe — a case-SENSITIVE NTFS directory or
+ * a case-sensitive APFS volume exists but is rare, and erring toward "case-insensitive" only
+ * ever makes the guards below REFUSE MORE, never less. That is the safe direction for a guard.
+ */
+export const CASE_INSENSITIVE_FS = process.platform === 'win32' || process.platform === 'darwin';
+
+/** Absolute, separator-normalised, and case-folded where the filesystem folds case. */
+function normalizeForCompare(path) {
+  const absolute = resolve(path).replace(/[\\/]+$/, '');
+  return CASE_INSENSITIVE_FS ? absolute.toLowerCase() : absolute;
+}
+
+/**
+ * Do these two paths name the same file ON THIS PLATFORM? Use this instead of `===` in any
+ * refusal that protects a specific file: on win32 a plain `===` lets
+ * `.planning/Milestones/wedge-baseline.MD` slip past a guard on
+ * `.planning/milestones/WEDGE-BASELINE.md` and write the very file being protected.
+ */
+export function samePath(a, b) {
+  return normalizeForCompare(a) === normalizeForCompare(b);
+}
+
+/** Is `child` the directory `parent` itself, or anything beneath it? Same folding rules. */
+export function isInside(parent, child) {
+  const p = normalizeForCompare(parent);
+  const c = normalizeForCompare(child);
+  return c === p || c.startsWith(p + sep);
+}
+
+// ---------------------------------------------------------------------------
+// argv
+// ---------------------------------------------------------------------------
+
+/**
+ * Strict argv reader over the caller's EXACT flag vocabulary.
+ *
+ *   `--bool`            → true          (only for a name in `boolFlags`)
+ *   `--key value`       → 'value'       (only for a name in `valueFlags`)
+ *   `--key=value`       → 'value'       (same)
+ *
+ * Everything else is a `ConfigError`: an unknown flag, a value flag with no value, a boolean
+ * flag given one, a bare `--`, or a positional argument. The permissive predecessor mapped a
+ * valueless flag to `true` and both callers then tested `typeof x === 'string'`, so a typo
+ * silently DEGRADED the run — `--fixture --apply` became a live database run with no FIXTURE
+ * banner. Refusing is the only behaviour that cannot be mistaken for success.
+ */
+export function readArgs(argv, { valueFlags = [], boolFlags = [] } = {}) {
+  const values = new Set(valueFlags);
+  const bools = new Set(boolFlags);
+  const known = [...values, ...bools].map((f) => `--${f}`).join(' ');
   const out = {};
+
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
-    if (!token.startsWith('--')) continue;
-    const key = token.slice(2);
-    const next = argv[i + 1];
-    if (next && !next.startsWith('--')) {
-      out[key] = next;
-      i += 1;
-    } else {
-      out[key] = true;
+    if (!token.startsWith('--')) {
+      throw new ConfigError(`unexpected argument "${token}" — this script takes flags only.\n  Known flags: ${known}`);
     }
+    const body = token.slice(2);
+    if (body === '') throw new ConfigError(`bare "--" is not a flag.\n  Known flags: ${known}`);
+
+    const eq = body.indexOf('=');
+    const key = eq === -1 ? body : body.slice(0, eq);
+    const inlineValue = eq === -1 ? null : body.slice(eq + 1);
+
+    if (!values.has(key) && !bools.has(key)) {
+      throw new ConfigError(`unknown flag "--${key}".\n  Known flags: ${known}\n  Nothing was read; nothing was written.`);
+    }
+    if (bools.has(key)) {
+      if (inlineValue !== null) throw new ConfigError(`--${key} is a switch and takes no value (got "${inlineValue}").`);
+      out[key] = true;
+      continue;
+    }
+    if (inlineValue !== null) {
+      if (inlineValue === '') throw new ConfigError(`--${key} needs a value (got an empty one).`);
+      out[key] = inlineValue;
+      continue;
+    }
+    const next = argv[i + 1];
+    if (next === undefined || next.startsWith('--')) {
+      throw new ConfigError(
+        `--${key} needs a value and none was given${next === undefined ? '' : ` (next token is "${next}")`}.\n` +
+          '  Refusing rather than falling back — a flag that silently vanishes turns a drill into a live run.',
+      );
+    }
+    out[key] = next;
+    i += 1;
   }
-  return out;
+  return Object.freeze(out);
 }
