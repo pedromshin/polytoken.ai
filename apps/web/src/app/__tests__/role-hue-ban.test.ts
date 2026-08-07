@@ -109,6 +109,9 @@ export const SCOPED_DIRS: readonly string[] = [
   // v2.2 /sessions (daemon terminal surface) — born clean: built monochrome under law 1
   // (state is glyph + ink weight; exit codes are words in a rule chip, never a fill).
   "sessions",
+  // vLAUNCH Wave 0.65 lane P2 (/spreadsheets registry + [id] viewer) — born clean:
+  // list and detail states speak ink; the grid's only chrome is rules and ink weight.
+  "spreadsheets",
 ];
 
 /** Structurally excluded from the walk (§E, same set as palette-ban.test.ts). */

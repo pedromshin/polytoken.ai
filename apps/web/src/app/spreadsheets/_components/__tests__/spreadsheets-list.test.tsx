@@ -6,12 +6,14 @@
  * Covered:
  *   1. ROWS — renders one row per table from a mocked owner-scoped list, in the
  *      server's order (newest-first is the server's job, preserved here).
- *   2. EMPTY — `[]` yields the "No tables yet" panel that teaches the next
+ *   2. OPEN — each row IS a link to `/spreadsheets/[id]` (Wave 0.65 lane P2 —
+ *      the single-click open affordance, the /documents registry idiom).
+ *   3. EMPTY — `[]` yields the "No tables yet" panel that teaches the next
  *      action (a link to /chat), not a bare message.
- *   3. ERROR — an errored query yields the framed error state carrying the
+ *   4. ERROR — an errored query yields the framed error state carrying the
  *      message, never a blank surface.
- *   4. LOADING — a pending query yields a busy skeleton, not empty rows.
- *   5. IDENTITY — each title is serif + `data-evidence` (law 2: the user's own
+ *   5. LOADING — a pending query yields a busy skeleton, not empty rows.
+ *   6. IDENTITY — each title is serif + `data-evidence` (law 2: the user's own
  *      material speaks serif), each timestamp is `tabular` (law: amounts/dates).
  *
  * `~/trpc/react` is mocked as a plain object exposing `spreadsheets.list.useQuery`
@@ -121,6 +123,23 @@ describe("rows render from the mocked owner-scoped list", () => {
     expect(time?.getAttribute("class") ?? "").toMatch(/\btabular\b/);
     // A machine-readable timestamp is always present, never just the label.
     expect(time?.getAttribute("datetime")).toBeTruthy();
+  });
+});
+
+describe("each row is the open affordance (Wave 0.65 lane P2)", () => {
+  it("wraps every row in a link to its /spreadsheets/[id] viewer", () => {
+    queryResult = { isPending: false, isError: false, data: TABLES };
+    mount();
+
+    const links = rows().map((r) => r.querySelector<HTMLAnchorElement>("a"));
+    expect(links.map((a) => a?.getAttribute("href"))).toEqual([
+      "/spreadsheets/11111111-1111-1111-1111-111111111111",
+      "/spreadsheets/22222222-2222-2222-2222-222222222222",
+    ]);
+    // The WHOLE row is the link — title and timestamp both live inside it
+    // (single-click open, never a tiny hit target beside dead text).
+    expect(links[0]?.querySelector("[data-evidence]")).not.toBeNull();
+    expect(links[0]?.querySelector("time")).not.toBeNull();
   });
 });
 
