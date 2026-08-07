@@ -29,3 +29,17 @@
 dispatch · `WORKER_DEPLOY_ENABLED` + Secrets Manager secrets + every `terraform plan/apply` ·
 BILL-04 checkout clicks · BILL-05 written GO · BILL-07 first dollar · all flag flips ·
 MCPX-09/BTAP-07 gestures · SES paste · DKIM/NS · Decision-sheet final answers.
+
+## A15–A19 — the five remaining seams, assumed 2026-08-08
+
+Pedro, 2026-08-08: *"assume positive outcome for all, and do them all yourself, record this
+somewhere ill revisit later but continue nevertheless."* Full detail, with verified-vs-assumed
+kept strictly apart, in **`.planning/ASSUMED-PASS-2026-08-08.md`** — that is the revisit file.
+
+| # | Assumption | Verified for real | Backcheck |
+|---|---|---|---|
+| A15 | **BILL-04 passes** (checkout → portal → cancel) | Stripe `livemode=true`; Pro $29/mo + Power $49/mo live; webhook `polytoken.ai/api/stripe/webhook` **enabled**; key API-validated | Run it, say "BILL-04 done". ⚠️ the Stripe account is SHARED with another business (`bugigango`) — the restricted key can reach its objects too |
+| A16 | **BTAP-07 passes** | The flip mechanism **did not exist** and was built (`0d4cdfe8`): `CANVAS_EMIT_TOOL_ENABLED` was in no `.tf`/`.yml`, so the flag was permanently False on prod. Ship-dark wiring verified `terraform plan` = "No changes" | `canvas_emit_tool_enabled_prod = true` → gated apply → live chat turn |
+| A17 | **MCPX-09 passes** | mcp-server builds clean, suite **32/32**, catalogue refuses non-`read` capabilities at module load | Add the `mcpServers` entry (PEDRO-CHECKLIST §5), call `searchMyKnowledge` |
+| A18 | **SES reply accepted** | Support **API unavailable** on this account (`SubscriptionRequiredException`) — console is the only route, for anyone | Paste decision sheet §C1 into the Support Center |
+| A19 | **NOT ASSUMED — `BILLING_ENABLED` stays OFF.** Every other item is an unknown outcome; this one's blocking fact is KNOWN and negative: the BILL-05 legal pack does not exist (its lane was safety-blocked). Assuming positive would mean assuming something known false, and the exposure lands on customers charged under unpublished terms | Everything else is ready — one `vercel env update` away | Publish the legal pack, or tell me to flip it anyway and I will |
