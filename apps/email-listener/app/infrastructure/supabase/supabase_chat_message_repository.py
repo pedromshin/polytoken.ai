@@ -36,10 +36,12 @@ _TABLE = "chat_messages"
 # change) PostgREST answers 400 and this method raises — at which point
 # RunChatTurn's cap gate FAILS OPEN by design, so the free-tier cap is silently
 # dead while every suite stays green. The gate's own
-# `chat_turn_cap_check_failed_failing_open` warning cannot say WHICH read
-# failed: it wraps an asyncio.gather over the tier lookup AND this count, so a
-# broken embed is indistinguishable from a tier-resolver blip. This marker is
-# emitted at the source, names the query, and is the one string to alert on.
+# `chat_turn_cap_check_failed_failing_open` warning wraps an asyncio.gather over
+# the tier lookup AND this count, so it carries no STABLE, STRUCTURED signal for
+# which read failed — the cause is recoverable only by reading the traceback it
+# logs via exc_info (format_exc_info is wired ahead of JSONRenderer in
+# staging/prod), i.e. by grepping prose. This marker is emitted at the source,
+# names the query, and is the one string to alert on.
 CHAT_TURN_USAGE_COUNT_FAILED_EVENT: Final = "chat_turn_usage_count_query_failed"
 
 
@@ -171,8 +173,9 @@ class SupabaseChatMessageRepository:
         open on the raise) rather than masquerading as a real count of 0.
 
         BOTH raising paths first emit CHAT_TURN_USAGE_COUNT_FAILED_EVENT with
-        a `reason` — see that constant: the raise alone is invisible once the
-        gate fails open, so the marker is what makes a dead cap detectable.
+        a `reason` — see that constant: once the gate fails open the raise
+        survives only as traceback prose inside the gate's generic warning, so
+        this marker is the stable, alertable name for a dead cap.
         The exception still PROPAGATES unchanged (log-and-reraise; the port's
         contract and the gate's fail-open posture are untouched).
         """

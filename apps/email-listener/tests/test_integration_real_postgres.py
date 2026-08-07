@@ -17,8 +17,10 @@ from __future__ import annotations
 import asyncio
 import os
 import uuid
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -795,14 +797,32 @@ async def _run_monthly_chat_turn_count() -> None:
         unknown_used = await repo.count_monthly_chat_turns_used(str(uuid.uuid4()), now=moment)
         assert unknown_used == 0, f"expected 0 for a user with no conversations, got {unknown_used}"
     finally:
+        # Each step is independently best-effort: this is the only test here
+        # that creates auth.users, and a failed early delete must not strand
+        # them. Steps still run in FK order; failures are reported, not raised
+        # (raising in `finally` would mask the real assertion failure).
+        def _best_effort(label: str, step: Callable[[], object]) -> None:
+            try:
+                step()
+            except Exception as exc:
+                # Cleanup must never mask the test's own failure — report and continue.
+                print(f"[cleanup] {label} failed, may have leaked: {exc}")
+
         if message_ids:
-            client.table("chat_messages").delete().in_("id", message_ids).execute()
-        client.table("chat_conversations").delete().in_(
-            "id", [subject_conversation_id, other_conversation_id]
-        ).execute()
+            _best_effort(
+                "chat_messages",
+                lambda: client.table("chat_messages").delete().in_("id", message_ids).execute(),
+            )
+        _best_effort(
+            "chat_conversations",
+            lambda: client.table("chat_conversations")
+            .delete()
+            .in_("id", [subject_conversation_id, other_conversation_id])
+            .execute(),
+        )
         for user_id in (subject_user_id, other_user_id):
             if user_id:
-                client.auth.admin.delete_user(user_id)
+                _best_effort(f"auth.user {user_id}", partial(client.auth.admin.delete_user, user_id))
 
 
 def test_monthly_chat_turn_count_against_real_postgrest() -> None:
