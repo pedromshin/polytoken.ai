@@ -30,16 +30,15 @@ const ZERO_LEARNING: LearningSummaryLike = {
 
 interface LearningQueryState {
   data?: LearningSummaryLike;
-  /** React Query v5 three-state status — the component's source of truth. */
+  /** React Query v5 three-state status — the component's source of truth
+   * (all three branches switch on it exclusively; isLoading is dead). */
   status: "pending" | "error" | "success";
-  isLoading: boolean;
   isError: boolean;
 }
 
 let learningState: LearningQueryState = {
   data: ZERO_LEARNING,
   status: "success",
-  isLoading: false,
   isError: false,
 };
 const learningRefetch = vi.fn();
@@ -83,7 +82,6 @@ beforeEach(() => {
   learningState = {
     data: ZERO_LEARNING,
     status: "success",
-    isLoading: false,
     isError: false,
   };
   learningRefetch.mockClear();
@@ -263,7 +261,6 @@ describe("LearningSummarySection (WEDG-03)", () => {
         stickRate: 0.86,
       },
       status: "success",
-      isLoading: false,
       isError: false,
     };
 
@@ -287,7 +284,6 @@ describe("LearningSummarySection (WEDG-03)", () => {
         stickRate: 1,
       },
       status: "success",
-      isLoading: false,
       isError: false,
     };
 
@@ -302,7 +298,6 @@ describe("LearningSummarySection (WEDG-03)", () => {
     learningState = {
       data: undefined,
       status: "error",
-      isLoading: false,
       isError: true,
     };
 
@@ -324,7 +319,6 @@ describe("LearningSummarySection (WEDG-03)", () => {
     learningState = {
       data: undefined,
       status: "pending",
-      isLoading: true,
       isError: false,
     };
 
@@ -334,15 +328,13 @@ describe("LearningSummarySection (WEDG-03)", () => {
     expect(container.textContent).not.toContain("corrections");
   });
 
-  it("paused-pending (offline, RQ v5: isLoading false, isError false, no data) shows a skeleton, never the error alert", async () => {
+  it("paused-pending (offline, RQ v5: status 'pending', no data) shows a skeleton, never the error alert", async () => {
     // React Query v5: a query paused before its first fetch (fetchStatus
-    // "paused", e.g. offline) reports status "pending" with isLoading FALSE
-    // (isLoading = isPending && isFetching) and isError false. That is "no
-    // data yet", not a failure — skeleton, no alert.
+    // "paused", e.g. offline) reports status "pending" with isError false.
+    // That is "no data yet", not a failure — skeleton, no alert.
     learningState = {
       data: undefined,
       status: "pending",
-      isLoading: false,
       isError: false,
     };
 
