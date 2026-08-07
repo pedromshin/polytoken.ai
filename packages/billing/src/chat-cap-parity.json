@@ -1,0 +1,9 @@
+{
+  "$comment": "chat-cap-parity.json — THE single source of truth for the cross-language chat-turn-cap mirror (Wave 0.6). The TS gate (packages/api-client/src/router/chat/turn-cap.ts + packages/billing/src/entitlements.ts) and the Python gate (apps/email-listener/app/domain/services/chat_turn_cap.py + tier_entitlements.py) each carry their own constants; BOTH test suites assert their constants equal THIS file (pattern: the eval injection-fixtures shared asset). Edit here first — a one-sided edit reds the other side's suite. null = unlimited.",
+  "monthlyChatTurns": {
+    "free": 200,
+    "pro": 2000,
+    "power": null
+  },
+  "capMessage": "You've used all of this month's included chat turns on the free plan. Upgrade to keep chatting — your allowance resets at the start of next month (UTC)."
+}
