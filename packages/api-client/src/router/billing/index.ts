@@ -32,16 +32,11 @@ import {
   type TierPriceIds,
 } from "@polytoken/billing";
 import { createDrizzleBillingStore } from "@polytoken/billing/store-drizzle";
-import {
-  ChatConversations,
-  ChatMessages,
-  Emails,
-  Importers,
-  Subscriptions,
-} from "@polytoken/db/schema";
+import { Emails, Importers, Subscriptions } from "@polytoken/db/schema";
 
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
+import { countMonthlyChatTurnsUsed } from "../_chat-turn-usage";
 
 interface BillingConfig {
   readonly secretKey: string;
@@ -113,6 +108,10 @@ export const billingRouter = createTRPCRouter({
    *     = ctx.user.id) since the 1st of the current UTC month. is_active=true
    *     counts one row per logical turn — a regenerated/edited turn adds a
    *     sibling row, and only the active one should count, matching `monthlyChatTurns`.
+   *     Counted by the SHARED `countMonthlyChatTurnsUsed` helper
+   *     (../_chat-turn-usage.ts) — the SAME function the chat-turn cap
+   *     enforcement gate (chat/turn-cap.ts) runs, so meter and enforcement
+   *     can never drift.
    *
    * STRICTLY caller-scoped: every count joins to the owning tenant column and
    * filters on ctx.user.id — no client field, no cross-user leak. Safe to call
@@ -124,9 +123,6 @@ export const billingRouter = createTRPCRouter({
     const now = new Date();
     const startOfUtcDay = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const startOfUtcMonth = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     );
 
     let dailyIngestUsed = 0;
@@ -155,24 +151,13 @@ export const billingRouter = createTRPCRouter({
     }
 
     try {
-      const rows = await ctx.db
-        .select({ value: count() })
-        .from(ChatMessages)
-        .innerJoin(
-          ChatConversations,
-          eq(ChatMessages.conversationId, ChatConversations.id),
-        )
-        .where(
-          and(
-            eq(ChatConversations.userId, ctx.user.id),
-            eq(ChatMessages.role, "user"),
-            // Only the active sibling counts — a regenerated/edited turn adds a
-            // row sharing sibling_group_id; counting all would over-report turns.
-            eq(ChatMessages.isActive, true),
-            gte(ChatMessages.createdAt, startOfUtcMonth),
-          ),
-        );
-      monthlyChatTurnsUsed = Number(rows[0]?.value ?? 0);
+      // The SHARED counting helper (see _chat-turn-usage.ts) — identical
+      // semantics to the enforcement gate in chat/turn-cap.ts by construction.
+      monthlyChatTurnsUsed = await countMonthlyChatTurnsUsed(
+        ctx.db,
+        ctx.user.id,
+        now,
+      );
     } catch {
       monthlyChatTurnsUsed = 0;
     }

@@ -58,6 +58,7 @@ import { assertConversationOwnership } from "@polytoken/db/ownership";
 
 import { protectedProcedure } from "../../trpc";
 import { assertOwnedOrNotFound } from "../_ownership";
+import { enforceChatTurnCap } from "./turn-cap";
 
 // ---------------------------------------------------------------------------
 // SEAM-04 — same agent id the server-side chat agent uses
@@ -206,6 +207,13 @@ export const browserTurnProcedures = {
    * is written verbatim (message x2, run_events x2, one $0 ledger row), and
    * the conversation's model_id/title/updated_at are touched to match the
    * server-turn ChatConversationRepository.touch() behavior.
+   *
+   * monthlyChatTurns cap: enforceChatTurnCap (./turn-cap.ts — the ONE place
+   * the cap policy lives) runs AFTER the ownership assert and BEFORE any row
+   * is written. Free tier at cap → FORBIDDEN with a friendly message, nothing
+   * persisted; paid tiers are never blocked (the additive `overLimit` field
+   * in the response marks an over-cap paid turn); any cap-check db failure
+   * fails open.
    */
   recordBrowserTurn: protectedProcedure
     .input(recordBrowserTurnInputSchema)
@@ -213,6 +221,8 @@ export const browserTurnProcedures = {
       await assertOwnedOrNotFound(() =>
         assertConversationOwnership(ctx.db, input.conversationId, ctx.user.id),
       );
+
+      const { overLimit } = await enforceChatTurnCap(ctx.db, ctx.user.id);
 
       const importerId = input.importerId ?? DEFAULT_IMPORTER_ID;
 
@@ -256,7 +266,11 @@ export const browserTurnProcedures = {
           .set({ ...rows.conversationUpdate, updatedAt: new Date() })
           .where(eq(ChatConversations.id, input.conversationId));
 
-        return { runId: run.id, turnIndex };
+        // `overLimit` is ADDITIVE (new optional-shaped field): existing
+        // clients that only read runId/turnIndex are unaffected. It is true
+        // only for a PAID tier at/over its finite cap (free is blocked above;
+        // power is unlimited).
+        return { runId: run.id, turnIndex, overLimit };
       });
     }),
 };
