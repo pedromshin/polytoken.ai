@@ -9,6 +9,13 @@ request — count from Content-Range, no row body, no .limit(1)), the UTC
 month-boundary window, and a missing count RAISING (never read as a real 0).
 Errors PROPAGATE (the module's non-best-effort contract) — the RunChatTurn
 gate owns the fail-open wrapping.
+
+These are FLUENT-BUILDER MOCKS: they prove the query this code *asks for*, not
+that PostgREST *answers* it. The embed actually resolving against real Postgres
+is proven by tests/test_integration_real_postgres.py's
+test_monthly_chat_turn_count_against_real_postgrest (vLAUNCH W9-3). Also
+covered below: the dead-cap marker both raising paths emit, since the raise
+itself is invisible once the gate fails open.
 """
 
 from __future__ import annotations
@@ -18,8 +25,12 @@ from typing import Any
 
 import pytest
 
+from app.infrastructure.supabase import supabase_chat_message_repository as repo_module
 from app.infrastructure.supabase.__tests__._postgrest_mocks import make_client, make_table
-from app.infrastructure.supabase.supabase_chat_message_repository import SupabaseChatMessageRepository
+from app.infrastructure.supabase.supabase_chat_message_repository import (
+    CHAT_TURN_USAGE_COUNT_FAILED_EVENT,
+    SupabaseChatMessageRepository,
+)
 
 # The chainable table/client mocks live in _postgrest_mocks.py (shared with
 # test_supabase_chat_widget_interaction_repository.py); make_table(execute_count=...)
@@ -72,3 +83,80 @@ async def test_missing_count_raises_so_the_gate_fails_open_upstream() -> None:
 
     with pytest.raises(RuntimeError, match="no exact count"):
         await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 7, tzinfo=UTC))
+
+
+# ---------------------------------------------------------------------------
+# vLAUNCH W9-3: the dead-cap marker. A raise here is INVISIBLE downstream — the
+# gate catches it and fails open — and the gate's own warning cannot say which
+# of its two gathered reads failed. These tests pin the source-level marker so
+# a dead cap is greppable instead of silent.
+# ---------------------------------------------------------------------------
+
+
+class _PostgrestApiError(Exception):
+    """Stands in for the PGRST200 a broken `!inner` embed answers with."""
+
+
+class _RecordingLogger:
+    """Records structlog calls (mirrors _FakeLogger in test_sns_inbound_enqueue.py)."""
+
+    def __init__(self) -> None:
+        self.entries: list[dict[str, Any]] = []
+
+    def info(self, *_args: Any, **_kwargs: Any) -> None:
+        pass
+
+    def warning(self, *_args: Any, **_kwargs: Any) -> None:
+        pass
+
+    def error(self, event: str, **kwargs: Any) -> None:
+        self.entries.append({"event": event, **kwargs})
+
+    def exception(self, event: str, **kwargs: Any) -> None:
+        self.entries.append({"event": event, **kwargs})
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_embed_failure_logs_the_dead_cap_marker_and_still_propagates(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The live failure this guards: PostgREST stops resolving the
+    # chat_conversations!inner embed and answers 400. The gate then fails OPEN,
+    # so nothing user-visible changes — the cap is just gone. The marker is the
+    # only signal, so it must carry the reason and the user id.
+    table = make_table(execute_count=0)
+    table.execute.side_effect = _PostgrestApiError("PGRST200: could not find a relationship")
+    recorder = _RecordingLogger()
+    monkeypatch.setattr(repo_module, "logger", recorder)
+    repo = SupabaseChatMessageRepository(client=make_client(table))
+
+    with pytest.raises(_PostgrestApiError):  # still PROPAGATES — log-and-reraise
+        await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 7, tzinfo=UTC))
+
+    assert recorder.entries == [
+        {
+            "event": CHAT_TURN_USAGE_COUNT_FAILED_EVENT,
+            "reason": "query_error",
+            "user_id": "user-1",
+            "month_start": datetime(2026, 8, 1, tzinfo=UTC).isoformat(),
+        }
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_missing_count_logs_the_dead_cap_marker_with_its_own_reason(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    table = make_table(execute_count=None)
+    recorder = _RecordingLogger()
+    monkeypatch.setattr(repo_module, "logger", recorder)
+    repo = SupabaseChatMessageRepository(client=make_client(table))
+
+    with pytest.raises(RuntimeError, match="no exact count"):
+        await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 7, tzinfo=UTC))
+
+    assert [(e["event"], e["reason"]) for e in recorder.entries] == [
+        (CHAT_TURN_USAGE_COUNT_FAILED_EVENT, "missing_exact_count")
+    ]

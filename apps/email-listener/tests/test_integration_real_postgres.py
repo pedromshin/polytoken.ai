@@ -18,8 +18,9 @@ import asyncio
 import os
 import uuid
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -594,3 +595,216 @@ def test_dismiss_then_resolve_excludes_both_directions_against_real_postgres() -
     """RejectMergeUseCase's was_dismissed flag now excludes the pair from
     ResolveEntityCandidates symmetrically in both directions (LEARN-02, Pitfall 1)."""
     asyncio.run(_run_dismiss_then_resolve_excludes_both_directions())
+
+
+# ---------------------------------------------------------------------------
+# vLAUNCH W9-3: the monthlyChatTurns count against REAL PostgREST
+# ---------------------------------------------------------------------------
+#
+# count_monthly_chat_turns_used is this codebase's FIRST PostgREST `!inner`
+# embed, and until now it was proven only against fluent-builder mocks — which
+# assert the query the code ASKS for, never that PostgREST ANSWERS it. That gap
+# is the dangerous kind: if the embed 400s live, the method raises, RunChatTurn's
+# cap gate FAILS OPEN by design, and the free-tier cap is silently gone while
+# every suite stays green. This test makes the embed resolve for real and pins
+# every filter's meaning to observed rows.
+
+
+def _create_auth_user(client: Any, label: str) -> str:
+    """Create a disposable GoTrue user — chat_conversations.user_id is a NOT NULL
+    FK to auth.users, and a fresh owner guarantees the count sees ONLY our rows."""
+    created = client.auth.admin.create_user(
+        {
+            "email": f"w9-cap-{label}-{uuid.uuid4().hex[:12]}@integration-test.example",
+            "password": uuid.uuid4().hex,
+            "email_confirm": True,
+        }
+    )
+    user = getattr(created, "user", None)
+    assert user is not None, "GoTrue admin.create_user returned no user"
+    return str(user.id)
+
+
+def _conversation_row(*, conversation_id: str, user_id: str, title: str) -> dict[str, Any]:
+    return {
+        "id": conversation_id,
+        "user_id": user_id,
+        "title": title,
+        "model_id": "integration-test-model",
+    }
+
+
+def _message_row(
+    *,
+    conversation_id: str,
+    role: str,
+    is_active: bool,
+    created_at: datetime,
+    note: str,
+) -> dict[str, Any]:
+    """A chat_messages row seeded DIRECTLY (not via insert_message).
+
+    insert_message cannot set created_at — the column defaults to now() — and
+    the out-of-month rows are the whole point of the window assertion. Only the
+    READ path is under test here, so seeding the write side by hand is correct.
+    """
+    return {
+        "id": str(uuid.uuid4()),
+        "conversation_id": conversation_id,
+        "role": role,
+        "parts": [{"type": "text", "text": note}],
+        "turn_index": 0,
+        "is_active": is_active,
+        "status": "completed",
+        "created_at": created_at.isoformat(),
+    }
+
+
+def _seeded_rows(
+    *,
+    subject_conversation_id: str,
+    other_conversation_id: str,
+    moment: datetime,
+    month_start: datetime,
+) -> list[dict[str, Any]]:
+    """The seven rows that pin every filter. Exactly TWO count for the subject.
+
+    Each excluded row isolates ONE filter, so a filter that silently stopped
+    applying changes the expected count and reds this test:
+      - assistant row      -> role = 'user'
+      - inactive row       -> is_active = true (regenerated-sibling semantics)
+      - month_start - 1us  -> gte is EXCLUSIVE below the boundary
+      - previous day       -> the coarse out-of-month case
+      - other owner's row  -> the `!inner` embed's chat_conversations.user_id
+                              filter (the one thing mocks cannot prove)
+    The month_start row proves gte is INCLUSIVE at the boundary.
+    """
+    return [
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="user",
+            is_active=True,
+            created_at=moment,
+            note="counts: in-month active user turn",
+        ),
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="user",
+            is_active=True,
+            created_at=month_start,
+            note="counts: exactly at the UTC month boundary (gte inclusive)",
+        ),
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="user",
+            is_active=True,
+            created_at=month_start - timedelta(microseconds=1),
+            note="excluded: one microsecond before the boundary",
+        ),
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="user",
+            is_active=True,
+            created_at=month_start - timedelta(days=1),
+            note="excluded: previous UTC month",
+        ),
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="assistant",
+            is_active=True,
+            created_at=moment,
+            note="excluded: assistant reply is not a turn",
+        ),
+        _message_row(
+            conversation_id=subject_conversation_id,
+            role="user",
+            is_active=False,
+            created_at=moment,
+            note="excluded: superseded sibling",
+        ),
+        _message_row(
+            conversation_id=other_conversation_id,
+            role="user",
+            is_active=True,
+            created_at=moment,
+            note="excluded from the subject's count: another user's conversation",
+        ),
+    ]
+
+
+async def _run_monthly_chat_turn_count() -> None:
+    from app.infrastructure.supabase.supabase_chat_message_repository import SupabaseChatMessageRepository
+
+    client = _client()
+    repo = SupabaseChatMessageRepository(client=client)
+
+    # `now` is pinned so the window cannot shift under a month rollover mid-run;
+    # month_start is recomputed here INDEPENDENTLY of start_of_current_utc_month
+    # so the test does not inherit the production helper's own arithmetic.
+    moment = datetime.now(UTC)
+    month_start = datetime(moment.year, moment.month, 1, tzinfo=UTC)
+
+    subject_conversation_id = str(uuid.uuid4())
+    other_conversation_id = str(uuid.uuid4())
+    subject_user_id: str | None = None
+    other_user_id: str | None = None
+    message_ids: list[str] = []
+
+    try:
+        subject_user_id = _create_auth_user(client, "subject")
+        other_user_id = _create_auth_user(client, "other")
+
+        client.table("chat_conversations").insert(
+            [
+                _conversation_row(
+                    conversation_id=subject_conversation_id,
+                    user_id=subject_user_id,
+                    title="W9-3 subject",
+                ),
+                _conversation_row(
+                    conversation_id=other_conversation_id,
+                    user_id=other_user_id,
+                    title="W9-3 other owner",
+                ),
+            ]
+        ).execute()
+
+        rows = _seeded_rows(
+            subject_conversation_id=subject_conversation_id,
+            other_conversation_id=other_conversation_id,
+            moment=moment,
+            month_start=month_start,
+        )
+        message_ids = [str(row["id"]) for row in rows]
+        client.table("chat_messages").insert(rows).execute()
+
+        # THE assertion. Reaching a number at all proves the `!inner` embed
+        # resolved (a broken relationship is a PostgREST 400 -> raise) AND that
+        # head=True + count=exact really returns the count in Content-Range
+        # (a missing count raises rather than reading as 0).
+        used = await repo.count_monthly_chat_turns_used(subject_user_id, now=moment)
+        assert used == 2, f"expected exactly the 2 in-window active user turns, got {used}"
+
+        # The embed FILTERS by owner rather than merely joining: the other
+        # user's single row is the only one in their count.
+        other_used = await repo.count_monthly_chat_turns_used(other_user_id, now=moment)
+        assert other_used == 1, f"expected the other owner's single turn, got {other_used}"
+
+        # A user with no conversations at all counts 0 — the embed must not
+        # degrade into an unfiltered count when the join matches nothing.
+        unknown_used = await repo.count_monthly_chat_turns_used(str(uuid.uuid4()), now=moment)
+        assert unknown_used == 0, f"expected 0 for a user with no conversations, got {unknown_used}"
+    finally:
+        if message_ids:
+            client.table("chat_messages").delete().in_("id", message_ids).execute()
+        client.table("chat_conversations").delete().in_(
+            "id", [subject_conversation_id, other_conversation_id]
+        ).execute()
+        for user_id in (subject_user_id, other_user_id):
+            if user_id:
+                client.auth.admin.delete_user(user_id)
+
+
+def test_monthly_chat_turn_count_against_real_postgrest() -> None:
+    """The `!inner` embed resolves live and every cap filter means what the mocks claim."""
+    asyncio.run(_run_monthly_chat_turn_count())
