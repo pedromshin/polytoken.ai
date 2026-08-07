@@ -90,13 +90,52 @@ try {
     console.log(`PENDING (${pending.length}, journal order):`);
     for (const m of pending) console.log(`  ${m.tag}`);
   }
-  // The ordering fact that decides the whole sequence: 0053 RAISEs when the schema is
-  // absent, so if it is PENDING the schema must be installed before the migration runs;
-  // if it is APPLIED while enqueue_job is ABSENT, prod has diverged and needs a human.
   const g = migrations.find((m) => m.tag.startsWith('0053'));
   const g53pending = g ? !have.has(g.hash) : null;
   console.log(`ORDERING: 0053=${g53pending === null ? 'not-in-journal' : g53pending ? 'PENDING' : 'APPLIED'} enqueue_job=${enq ? 'PRESENT' : 'ABSENT'}`);
   if (g53pending === false && !enq) console.log('  ⚠ DIVERGENCE: 0053 is recorded as applied but its function does not exist. Do NOT dispatch; a human must reconcile.');
+
+  // WHAT ACTUALLY MATTERS: the allowlist the LIVE function carries. The journal count is
+  // bookkeeping; this is behaviour. Identifiers are read from the migration files, never guessed.
+  const WANT = [
+    'ingest_inbound_email', 'deep_research',
+    'assemble_morning_board', 'dispatch_morning_boards',
+    'cascade_relabel', 'recompute_canvas_recipe', 'dispatch_recipe_recomputes',
+  ];
+  if (enq) {
+    const [{ def }] = await sql`
+      select pg_get_functiondef(p.oid) as def from pg_proc p
+      join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname='public' and p.proname='enqueue_job' limit 1`;
+    const missing = WANT.filter((w) => !def.includes(w));
+    const [grant] = await sql`
+      select 1 as p from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname='public' and p.proname='enqueue_job'
+        and has_function_privilege('service_role', p.oid, 'EXECUTE')`;
+    console.log(`ALLOWLIST: ${WANT.length - missing.length}/${WANT.length} present${missing.length ? ' — MISSING: ' + missing.join(', ') : ''}`);
+    console.log(`GRANT: service_role EXECUTE = ${grant ? 'YES' : 'NO'}`);
+    if (missing.length) console.log('  ⚠ The live function is NOT the 0061 shape. A human must look.');
+  }
+
+  // ⛔ THE LANDMINE. Drizzle applies only migrations NEWER than the last applied one
+  // (folderMillis > last created_at), so 0053 (2026-07-24) and 0054 (2026-07-25) are skipped
+  // forever on a database whose last applied is 0060 (2026-07-27). That is FINE: 0061 is a full
+  // CREATE OR REPLACE carrying the complete 7-identifier allowlist and supersedes both.
+  // But 0054's body installs a FOUR-identifier allowlist. Any tool that "applies pending
+  // migrations in journal order" (scripts/staging-repair.mjs does exactly this) would DOWNGRADE
+  // the live function and break cascade_relabel + the recipe recompute tasks.
+  const superseded = ['0053', '0054'].filter((t) => {
+    const m = migrations.find((x) => x.tag.startsWith(t));
+    return m && !have.has(m.hash);
+  });
+  if (superseded.length && enq) {
+    console.log('');
+    console.log(`⛔ DO NOT APPLY the ${superseded.length} pending migration(s) above (${superseded.join(', ')}).`);
+    console.log('   They are SUPERSEDED by 0061, which CREATE OR REPLACEs the same function with the');
+    console.log('   full allowlist. Applying 0054 would REPLACE the live function with a 4-identifier');
+    console.log('   allowlist and break cascade_relabel / recompute_canvas_recipe / dispatch_recipe_recomputes.');
+    console.log('   Never point a journal-order repair tool (e.g. staging-repair.mjs) at this database.');
+  }
 } catch (e) {
   console.log('PROBE-FAIL ' + String(e && e.message ? e.message : e).slice(0, 200));
   process.exitCode = 1;
