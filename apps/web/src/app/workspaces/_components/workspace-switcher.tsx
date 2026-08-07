@@ -1,6 +1,7 @@
 "use client";
 
 import { Check, ChevronsUpDown } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 
 import { cn } from "@polytoken/ui";
@@ -29,6 +30,14 @@ import { ROLE_LABEL, type WorkspaceRole } from "../_lib/roles";
  *
  * Monochrome chrome (law 1): the trigger + items are ink/rule only; the role
  * is a plain sans label.
+ *
+ * Mounted in the shared nav (app-sidebar header + mobile "More" sheet) with
+ * `hideWhenEmpty` — there it renders NOTHING while the list is loading or
+ * empty, so a zero-workspace user sees quiet chrome, never an error and never
+ * a dead disabled control. Without the prop (a management surface that wants
+ * an explicit empty state) the original disabled "No workspaces" trigger is
+ * preserved. The dropdown's last row links to /workspaces, which is otherwise
+ * reachable only by typing the URL.
  */
 
 export const STORAGE_KEY = "polytoken:selectedWorkspaceId";
@@ -60,7 +69,13 @@ interface SwitcherWorkspace {
 export function WorkspaceSwitcher(props: {
   className?: string;
   onSelect?: (workspaceId: string) => void;
-}): React.ReactElement {
+  /**
+   * Nav-chrome mode: render nothing while the list is loading, empty, or
+   * errored. A rail must stay quiet for a zero-workspace user — no disabled
+   * control, no "Loading…", never an error.
+   */
+  hideWhenEmpty?: boolean;
+}): React.ReactElement | null {
   const query = api.workspaces.list.useQuery();
   const workspaces = (query.data ?? []) as SwitcherWorkspace[];
 
@@ -82,6 +97,12 @@ export function WorkspaceSwitcher(props: {
       setSelectedId(workspaces[0]!.id);
     }
   }, [workspaces, selectedId]);
+
+  // After all hooks (rules-of-hooks): the quiet nav mode bails out entirely
+  // rather than rendering loading/empty/error chrome into the rail.
+  if (props.hideWhenEmpty && workspaces.length === 0) {
+    return null;
+  }
 
   function select(id: string): void {
     setSelectedId(id);
@@ -144,6 +165,17 @@ export function WorkspaceSwitcher(props: {
             </span>
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        {/* /workspaces was direct-URL-only before this row existed — the
+            switcher is the one place the destination naturally belongs. */}
+        <DropdownMenuItem asChild>
+          <Link
+            href="/workspaces"
+            className="text-sm text-muted-foreground"
+          >
+            Manage workspaces
+          </Link>
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
