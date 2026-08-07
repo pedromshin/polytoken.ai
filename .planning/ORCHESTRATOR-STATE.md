@@ -6,8 +6,57 @@
 > the RESUME PROTOCOL below. Strategic `/compact` is safe at any batch boundary — this file + pushed
 > branches hold all durable state, so nothing critical lives only in chat.
 
-## ⭐ CURRENT — 2026-08-06 · wrap-up session · `main` (all commits LOCAL, about to push)
+## ⭐ CURRENT — 2026-08-06 · tonight part 2 (live-infra session) · `main` (pushed; prod deploys green)
 > **This block is the live "where are we."** Everything below is chronological history
+> (newest-first). vNEXT (Phases 73–77) stays **CODE-COMPLETE** (block below); tonight part 2
+> closed the prod DB outage, landed Track 1 for real, provisioned Track 3a dark, and put the
+> milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
+> bullet + STATE.md Next Actions).
+
+### ✅ PROD RESTORED + TRACK 1 LIVE + TRACK 3a DARK + MILESTONE CODE DEPLOYED — 2026-08-06 tonight part 2
+- ✅ **Prod DB restore chain CLOSED.** Root cause confirmed: both Supabase projects had
+  AUTO-PAUSED (9 days idle). Pedro ran the password reset himself (the prepared
+  Management-token script) → the new credentials replaced the STALE values in the Vercel env →
+  `/api/dbcheck` came back GREEN against prod → the diagnostic route was then DELETED from
+  `main` (`af6c8810`). The 🔥 PROD INCIDENT in the block below is RESOLVED; prod web DB is up.
+- ✅ **Track 1 DONE — Terraform remote state LIVE** (`13edbea6`). S3 state bucket
+  (`nauta-services-terraform-state`) + DynamoDB lock table (`nauta-services-terraform-locks`);
+  the 5 forwarder resources imported; the 4 queued in-place changes APPLIED (incl. the
+  **s3:DeleteObject right-to-erasure fix** in `iam.tf`); final `terraform plan` = CLEAN
+  ("No changes"). The no-apply landmine is retired — any checkout can now plan/apply safely.
+- ✅ **Track 3a PROVISIONED DARK** (`6c4e7cc9` + `b797ffa6`). Co-located `email-worker` ECS
+  container wired into `ecs.tf`, gated on `worker_db_url_secret_arn_*` (unset ⇒ rendered task
+  def byte-identical ⇒ live no-op — applied ship-dark); `nauta-services-email-worker` ECR repo
+  APPLIED; the worker image pipeline VALIDATED GREEN end-to-end — incl. the Trivy gate, which
+  passed after stripping bundled npm/yarn from the runtime image (`b797ffa6`). Enable sequence
+  = `docs/DURABLE-WORKER-RUNBOOK.md` §3/§5 (secret → image push → tfvars → plan/apply → flags).
+- ✅ **Listener prod deploy SUCCESS ×2** — the deploy workflow went green twice on tonight's
+  pushes; the vNEXT milestone listener code (76-02b typed-inputs manifest, 75-03/04 cascade —
+  all flag-dark) is **LIVE on prod ECS**.
+- 🟡 **Stripe: objects LIVE + 4/6 Vercel env vars.** Products/prices + the webhook endpoint
+  exist in Stripe; `STRIPE_PRICE_PRO` / `STRIPE_PRICE_POWER` / `STRIPE_WEBHOOK_SECRET` /
+  `BILLING_APP_URL` are set in Vercel. Still MISSING: `STRIPE_SECRET_KEY` (mint a durable
+  restricted key — CLI keys expire ~90 days) + `BILLING_ENABLED`. Billing stays inert until
+  both exist.
+- 🟡 **Staging drift OPEN.** Staging still shows Terraform drift; the repair is
+  **classifier-gated** — each diff must be classified safe-in-place vs live-churn before any
+  apply (the standing live-infra guard). Nothing was applied against staging tonight.
+- ℹ️ **GitHub major outage (2026-08-06):** Actions silently swallowed the runs for 4
+  consecutive pushes (zero runs created; Vercel deployed fine), then recovered — the two green
+  listener prod deploys above landed after recovery.
+- ⛔ **REMAINING (all Pedro-gated):** worker ENABLE sequence (runbook §3/§5: session-mode
+  `GRAPHILE_WORKER_CONNECTION_STRING` secret → image push → `worker_db_url_secret_arn_*` in
+  tfvars → apply → boot check → `INGEST_ENQUEUE_ENABLED` last; graphile schema + migration
+  `0061` on prod precede the recompute/cascade flags) · staging drift repair (classifier-gated)
+  · `STRIPE_SECRET_KEY` + `BILLING_ENABLED` · SES production-access case `178464704400134`
+  reply · flag flips after a live smoke loop (`CANVAS_EMIT_TOOL_ENABLED` ·
+  `MORNING_BOARD_ENABLED` · `CASCADE_CORRECTION_ENABLED` · `RECIPE_RECOMPUTE_ENABLED`) · live
+  UAT seams (LCAN-05 / LCAN-09-live · MORN-07 · BTAP-07 · MCPX-09 · CPF-live) · the
+  real-browser screenshot pass.
+
+## 2026-08-06 · wrap-up session · `main` (superseded later the same day — tonight part 2)
+> **(Was the ⭐ CURRENT block until tonight part 2 — the live status is now the block above;
+> the 🔥 PROD INCIDENT below is resolved there.)** Everything below is chronological history
 > (newest-first). vNEXT (Phases 73–77) is now **CODE-COMPLETE** — every remaining item is a
 > Pedro-gated LIVE seam, not missing software.
 

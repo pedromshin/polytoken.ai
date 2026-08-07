@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: vNEXT-living-canvas
 milestone_name: The Living Canvas
 status: in-progress
-last_updated: "2026-08-06T00:00:00.000Z"
+last_updated: "2026-08-07T01:30:00.000Z"
 progress:
   total_phases: 5
   completed_phases: 5
@@ -99,28 +99,35 @@ SES receipt rule drift is in flight on a sibling branch
 
 ## Next Actions
 
-**Everything remaining on vNEXT is a Pedro-gated LIVE seam (no missing software):**
-1. **Prod DB back up:** both Supabase projects were AUTO-PAUSED (the 9-day outage's root cause),
-   restored now — but the DB passwords were changed everywhere in recovery, so Vercel env + local
-   `.env.production`/`.env.staging` all hold STALE passwords. Reset + paste the new password,
-   verify via `/api/dbcheck`, then DELETE that diagnostic route from `main`.
-2. **Create the 3 `PROD_*` secrets** (`PROD_POSTGRES_URL_NON_POOLING` / `PROD_POSTGRES_URL` /
-   `PROD_SUPABASE_URL`, production GitHub Environment) → run `deploy-migrate-prod.yml`: apply
-   migration **0061** (task-allowlist widen) + verify 0058–0060.
-3. **Provision the worker container** (`ecs.tf` wiring — needs a Node runtime image; Terraform
-   remote-state gate per `IMPORT-RUNBOOK.md` / `docs/DURABLE-WORKER-RUNBOOK.md`).
-4. **Flip the flags after a live smoke loop:** `CANVAS_EMIT_TOOL_ENABLED` ·
-   `MORNING_BOARD_ENABLED` · `CASCADE_CORRECTION_ENABLED` · `RECIPE_RECOMPUTE_ENABLED` ·
-   `INGEST_ENQUEUE_ENABLED`.
-5. **Run the live UAT seams:** LCAN-05 / LCAN-09-live · MORN-07 · BTAP-07 · MCPX-09 · CPF-live;
-   plus the real-browser screenshot pass over all shipped UI.
-6. **AWS/Stripe:** reply to SES production-access case `178464704400134` (Support Center — AWS is
-   waiting on Pedro's reply); the Stripe CLI login is expired (re-auth before CLI-side Stripe work).
+**Reconciled 2026-08-06 tonight part 2 (see the ⭐ block in `ORCHESTRATOR-STATE.md`): prod DB is
+RESTORED (dbcheck green, diagnostic route deleted `af6c8810`), Track 1 remote state is LIVE
+(`13edbea6`), Track 3a is PROVISIONED DARK (`6c4e7cc9`+`b797ffa6`, image pipeline green), and the
+milestone listener code is DEPLOYED to prod (×2 green). Everything remaining is a Pedro-gated
+enable/live seam (no missing software):**
+1. **Worker ENABLE sequence** (`docs/DURABLE-WORKER-RUNBOOK.md` §3/§5 — infra is applied
+   ship-dark, ECR repo + gated container on `main`): create the session-mode
+   `GRAPHILE_WORKER_CONNECTION_STRING` secret → push the worker image (pipeline validated green,
+   incl. Trivy) → set `worker_db_url_secret_arn_*` in tfvars → plan/apply (expect only task-def
+   revision + service update + read-secrets policy) → confirm boot/polling → ensure the
+   graphile_worker schema + migration **0061** (and verify 0058–0060) are on prod via
+   `deploy-migrate-prod.yml` → flip `INGEST_ENQUEUE_ENABLED` LAST.
+2. **Staging drift repair (OPEN, classifier-gated):** staging still shows Terraform drift;
+   classify each diff safe-in-place vs live-churn before any apply (standing live-infra guard).
+3. **Billing key:** mint a durable restricted `STRIPE_SECRET_KEY` (CLI keys expire ~90 days) and
+   set it + `BILLING_ENABLED=true` in Vercel — Stripe objects and the other 4 env vars
+   (`STRIPE_PRICE_PRO` / `STRIPE_PRICE_POWER` / `STRIPE_WEBHOOK_SECRET` / `BILLING_APP_URL`) are
+   already live; billing stays inert until these two land.
+4. **SES:** reply to production-access case `178464704400134` (Support Center — AWS is waiting
+   on Pedro's reply; sandbox until then).
+5. **Live seams:** flip the flags after a live smoke loop (`CANVAS_EMIT_TOOL_ENABLED` ·
+   `MORNING_BOARD_ENABLED` · `CASCADE_CORRECTION_ENABLED` · `RECIPE_RECOMPUTE_ENABLED`) → run
+   the live UAT seams LCAN-05 / LCAN-09-live · MORN-07 · BTAP-07 · MCPX-09 · CPF-live; plus the
+   real-browser screenshot pass over all shipped UI.
 
 **Infra / carried (unchanged):**
-7. Wire + verify Phases 68–72 (v1.11 closeout); pixel gates on 62/63; the owed v1.9 live legs
+6. Wire + verify Phases 68–72 (v1.11 closeout); pixel gates on 62/63; the owed v1.9 live legs
    (LIVE-03 / LIVE-04 / CLUS-07) per the MORNING-CHECKLIST runsheet.
-8. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
+7. Deferred reorgs (recorded, not started): split `night-run/` docs from runtime scripts; fold
    version-scoped `research/` dirs into milestone archives.
 
 ## Open Debug
