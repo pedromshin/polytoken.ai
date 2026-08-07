@@ -58,9 +58,23 @@ api.stripe.com / api.vercel.com. Two ways to finish (either works):
   local env files (coordinate with the §0 rotation — one reset covers both). Verify with
   `/api/dbcheck`; that diagnostic route stays on `main` ONLY until prod DB is verified, then
   DELETE it.
-- **🆕 Migration `0061` (worker task-allowlist widen, 2026-08-06) is NOT yet on prod.** Once the 3
-  `PROD_*` secrets below exist, dispatch `deploy-migrate-prod.yml` (`confirm=MIGRATE-PROD`) — it
-  applies `0061` and re-verifies `0058`–`0060` in the same run.
+- **🆕 THREE migrations are pending on prod, not one — MEASURED 2026-08-07, not assumed.**
+  A read-only hash comparison (`scripts/prod-graphile-preflight.ps1`) returned `recorded=58/61`,
+  `graphile_worker=ABSENT`, `enqueue_job=ABSENT`, and named the pending set:
+  **`0053_graphile_enqueue_wrapper`, `0054_enqueue_allowlist_morning_board`,
+  `0061_enqueue_allowlist_cascade_recipe`** — exactly the three graphile-dependent migrations.
+  They never applied because 0053's ordering guard **`RAISE`s** when the `graphile_worker` schema
+  is absent (it does *not* silently no-op), and that schema was never installed on prod. This is a
+  **consistent** state, not a diverged one: 0053 pending ⟺ no `enqueue_job`. The previous wording
+  here ("only 0061 is pending") was wrong.
+  **Correct sequence (hard-ordered):**
+  1. `pwsh -File scripts/prod-graphile-preflight.ps1 -Apply` — installs `graphile_worker`
+     (graphile-worker's own idempotent migrate).
+  2. `gh workflow run deploy-migrate-prod.yml -f confirm=MIGRATE-PROD` — applies 0053 → 0054 →
+     0061 in journal order, landing the same 7-identifier allowlist staging already carries.
+  3. Re-run the preflight read-only; expect `graphile_worker=PRESENT enqueue_job=PRESENT
+     recorded=61/61`.
+  The 3 `PROD_*` environment secrets this needs are **SET** (2026-08-07).
 - **✅ PROD MIGRATIONS APPLIED (2026-07-28 ~12:07 UTC).** `0057`→`0060` were applied to prod via the
   sanctioned `deploy-migrate-prod.yml` pipeline (run #7, `30357523559`, conclusion **success** — the
   migrator exits non-zero on any error incl. "already exists", so success ⟹ clean apply, no drift). Applied,
