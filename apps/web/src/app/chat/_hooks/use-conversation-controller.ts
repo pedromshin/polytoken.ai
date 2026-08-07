@@ -62,6 +62,42 @@ export function errorMessageForWidgetError(
   }
 }
 
+/**
+ * Over-allowance marker (paid tiers): chat.recordBrowserTurn returns an
+ * additive `overLimit: true` when a PRO/POWER user is at/over their finite
+ * monthlyChatTurns cap — the turn still persists (paid tiers are never
+ * hard-blocked; see turn-cap.ts), so this is informational, not an error.
+ * Distinct from the FREE-tier cap block, which rejects with FORBIDDEN and is
+ * surfaced by the catch branch's toast.error below.
+ */
+export const OVER_ALLOWANCE_TOAST_MESSAGE =
+  "You're past this month's included chat turns. See Billing for your plan's allowance.";
+
+/**
+ * notifyOverAllowanceOnce — shows the over-allowance toast AT MOST ONCE per
+ * controller mount (the ref is the latch): every subsequent over-cap turn in
+ * the same session would otherwise re-toast on every send. Extracted (like
+ * errorMessageForWidgetError / invalidateOnChatTerminal above) so the
+ * decide-and-latch behavior is unit-testable without mounting the full
+ * controller/tRPC context. Mutating `alreadyNotifiedRef.current` is the
+ * standard React ref idiom, not shared-data mutation.
+ */
+export function notifyOverAllowanceOnce(
+  overLimit: boolean | undefined,
+  alreadyNotifiedRef: { current: boolean },
+): void {
+  if (overLimit !== true || alreadyNotifiedRef.current) return;
+  alreadyNotifiedRef.current = true;
+  toast.warning(OVER_ALLOWANCE_TOAST_MESSAGE, {
+    action: {
+      label: "Billing",
+      onClick: () => {
+        window.location.assign("/billing");
+      },
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Turn grouping — chat.getHistory returns EVERY sibling version row (D-16),
 // not just the active one, so the regenerate SiblingNav has something to
@@ -415,6 +451,10 @@ export function useConversationController({
   // ref, not `activeStreamState`, because that value is derived AFTER
   // handleSubmit is defined and would be a stale closure here.
   const sendInFlightRef = useRef(false);
+  // Once-per-mount latch for the paid-tier over-allowance toast
+  // (notifyOverAllowanceOnce) — an over-cap session would otherwise re-toast
+  // on every single turn.
+  const overAllowanceNotifiedRef = useRef(false);
 
   const widgetInteractions: readonly WidgetInteractionRow[] = useMemo(
     () => widgetInteractionsData ?? [],
@@ -523,7 +563,7 @@ export function useConversationController({
       setWebllmStreamState(terminalState);
 
       try {
-        await recordBrowserTurn.mutateAsync({
+        const recorded = await recordBrowserTurn.mutateAsync({
           conversationId,
           modelId,
           userText: text,
@@ -532,6 +572,10 @@ export function useConversationController({
           inputTokens: usage?.inputTokens ?? 0,
           outputTokens: usage?.outputTokens ?? 0,
         });
+        // Paid-tier over-cap marker (additive `overLimit` field): the turn
+        // persisted fine, but the user is past their monthly allowance —
+        // surface it once per mount (never per-turn spam).
+        notifyOverAllowanceOnce(recorded.overLimit, overAllowanceNotifiedRef);
       } catch (error) {
         console.error("[useConversationController] recordBrowserTurn failed:", error);
         // The turn-cap gate rejects with FORBIDDEN carrying a user-facing message
