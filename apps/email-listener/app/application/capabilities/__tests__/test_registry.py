@@ -25,7 +25,11 @@ from app.application.capabilities.registry import (
     CapabilityManifestEntry,
     CapabilityRegistry,
     DuplicateCapabilityError,
+    NonReadCapabilityError,
+    UndeclaredCapabilityError,
     UnknownCapabilityError,
+    assert_declared_model_callable_read_only,
+    assert_model_callable_read_only,
     define_capability,
 )
 from app.domain.ports.tool_executor import ToolExecutionResult
@@ -208,3 +212,137 @@ def test_list_projects_metadata_with_no_executable_coupling() -> None:
     )
     # No executable coupling on the outward projection.
     assert not any(hasattr(entry, "executor") for entry in manifest)
+
+
+# --- assert_model_callable_read_only (W9-1: the ENFORCED read-tier gate) -----
+#
+# The chat tool loop awaits `registry.executors()[tool_name]` for whatever tool
+# the model names (run_chat_turn_server_rounds.py:218) with NO risk check, and
+# the model's tool choice is influenced by untrusted content (email bodies,
+# web_search / deep_research page text). The ONLY thing making that safe today
+# is that every chat capability is risk="read" -- a fact this module's header
+# merely ASSERTED IN PROSE until this guard existed.
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_passes_for_an_all_read_registry() -> None:
+    """Behaviour-preserving: today's all-read chat registry passes unchanged."""
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("web_search", risk="read")])
+
+    assert_model_callable_read_only(registry)  # must not raise
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("risk", ["write", "exec"])
+def test_assert_model_callable_read_only_refuses_a_non_read_capability(risk: str) -> None:
+    """A write/exec capability in the model-callable set FAILS CLOSED at wiring time."""
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("send_email", risk=risk)])
+
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_model_callable_read_only(registry)
+
+    assert excinfo.value.capability_id == "send_email"
+    assert excinfo.value.risk == risk
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_reports_the_first_offender_in_declaration_order() -> None:
+    registry = CapabilityRegistry(
+        [
+            _capability("lookup_entity", risk="read"),
+            _capability("delete_everything", risk="exec"),
+            _capability("send_email", risk="write"),
+        ]
+    )
+
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_model_callable_read_only(registry)
+
+    assert excinfo.value.capability_id == "delete_everything"
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_accepts_an_empty_registry() -> None:
+    """A registry with no capabilities is vacuously read-only (every flag off)."""
+    assert_model_callable_read_only(CapabilityRegistry([]))  # must not raise
+
+
+# --- assert_declared_model_callable_read_only (W11-1: the IMPORT-TIME half) --
+#
+# The registry-level assertion above runs inside a dishka Scope.APP factory, so
+# in production it fires on the first chat turn, not at process start. This
+# second function takes plain `{id: risk}` DATA so the composition root can call
+# it at module scope -- the shape apps/mcp-server/src/catalogue.ts already uses
+# (readManifestEntry throws at module load rather than at first call).
+
+
+@pytest.mark.unit
+def test_assert_declared_read_only_passes_for_an_all_read_table() -> None:
+    """Behaviour-preserving: today's declared table is all-read and passes."""
+    assert_declared_model_callable_read_only({"lookup_entity": "read", "web_search": "read"})  # must not raise
+
+
+@pytest.mark.unit
+def test_assert_declared_read_only_accepts_an_empty_table() -> None:
+    assert_declared_model_callable_read_only({})  # must not raise
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("risk", ["write", "exec"])
+def test_assert_declared_read_only_refuses_a_non_read_declared_tier(risk: str) -> None:
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_declared_model_callable_read_only({"lookup_entity": "read", "send_email": risk})  # type: ignore[dict-item]
+
+    assert excinfo.value.capability_id == "send_email"
+    assert excinfo.value.risk == risk
+
+
+@pytest.mark.unit
+def test_assert_declared_read_only_reports_the_first_offender_in_declaration_order() -> None:
+    with pytest.raises(NonReadCapabilityError) as excinfo:
+        assert_declared_model_callable_read_only(
+            {"lookup_entity": "read", "delete_everything": "exec", "send_email": "write"}
+        )
+
+    assert excinfo.value.capability_id == "delete_everything"
+
+
+# --- registry <-> declared-table agreement (W11-1) ---------------------------
+#
+# Without this the declared table could drift away from the registry it claims
+# to describe, and the import-time gate would be checking a fiction.
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_accepts_a_registry_matching_the_declared_table() -> None:
+    """Behaviour-preserving: an in-sync pair passes exactly as it did without `declared`."""
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("web_search", risk="read")])
+
+    assert_model_callable_read_only(registry, declared={"lookup_entity": "read", "web_search": "read"})
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_refuses_a_capability_absent_from_the_declared_table() -> None:
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read"), _capability("brand_new", risk="read")])
+
+    with pytest.raises(UndeclaredCapabilityError) as excinfo:
+        assert_model_callable_read_only(registry, declared={"lookup_entity": "read"})
+
+    assert excinfo.value.capability_id == "brand_new"
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_refuses_a_declared_risk_that_contradicts_the_registry() -> None:
+    registry = CapabilityRegistry([_capability("lookup_entity", risk="read")])
+
+    with pytest.raises(UndeclaredCapabilityError):
+        assert_model_callable_read_only(registry, declared={"lookup_entity": "write"})
+
+
+@pytest.mark.unit
+def test_assert_model_callable_read_only_reports_the_risk_tier_before_the_declaration_gap() -> None:
+    """A write capability that is ALSO undeclared reports the more severe failure."""
+    registry = CapabilityRegistry([_capability("send_email", risk="write")])
+
+    with pytest.raises(NonReadCapabilityError):
+        assert_model_callable_read_only(registry, declared={})
