@@ -41,7 +41,18 @@
   default — so the env var never reached a deployed listener and the flag read `False` on prod
   permanently. The runsheet's *"flip the flag"* had nothing to invoke; the seam was unexecutable
   by anyone. Wired ship-dark (tfvars-gated, `terraform plan` = "No changes" while unset).
-- ⏳ **BTAP-07 prod enable is STAGED, not applied.** `canvas_emit_tool_enabled_prod = true` is in
+- ✅ **BTAP-07 ENABLED ON PROD 2026-08-08 — applied and verified.** Task def
+  `nauta-services-email-listener:4` carries `CANVAS_EMIT_TOOL_ENABLED = "true"`; listener
+  RUNNING/**HEALTHY** (1/1, 0 pending); ALB health **200**; **all 5 SES receipt rules intact**
+  (`agent-local`, `agent-staging`, `agent-prod`, `personal-forward`, `forwarding-catchall`) — the
+  zero-churn gate held and inbound mail routing never moved. Agent-authored canvas emit tools are
+  now exposed on the production listener.
+  ⚠️ Verification gotcha worth keeping: my first check used
+  `containerDefinitions[?name==\`email-listener\`].environment[?...]` and returned `[]`, which
+  reads exactly like the flag being absent. It was a bad JMESPath filter, not a failed apply —
+  dumping the whole env list showed it present. A wrong query returning empty is indistinguishable
+  from a real absence; confirm with a broader read before concluding.
+- ⏳ ~~BTAP-07 prod enable is STAGED, not applied.~~ (superseded by the line above) `canvas_emit_tool_enabled_prod = true` is in
   tfvars and the plan is gated green — **exactly 2 changes** (prod listener task-def replace +
   service update), no stop-list resource, no destroy. The apply is **classifier-blocked** for the
   agent. Pedro runs: `terraform -chdir=infrastructure/aws apply btap07.tfplan` then
