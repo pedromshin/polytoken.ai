@@ -16,18 +16,14 @@ import { StripeWebhookEvents, Subscriptions } from "@polytoken/db/schema";
 import type { OwnershipDb } from "@polytoken/db/ownership";
 
 import type { BillingStore, BillingSubscription } from "./store";
-import type { Tier } from "./tiers";
-
-function coerceTier(value: string): Tier {
-  return value === "pro" || value === "power" ? value : "free";
-}
+import { asKnownTier } from "./tiers";
 
 function rowToSubscription(row: typeof Subscriptions.$inferSelect): BillingSubscription {
   return {
     userId: row.userId,
     stripeCustomerId: row.stripeCustomerId ?? null,
     stripeSubscriptionId: row.stripeSubscriptionId ?? null,
-    tier: coerceTier(row.tier),
+    tier: asKnownTier(row.tier),
     status: row.status,
     currentPeriodEnd: row.currentPeriodEnd ?? null,
   };

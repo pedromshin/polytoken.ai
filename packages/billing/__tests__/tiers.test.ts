@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { asPaidTier, priceIdForTier, tierFromPriceId } from "../src/tiers";
+import { asKnownTier, asPaidTier, priceIdForTier, tierFromPriceId } from "../src/tiers";
 
 const PRICES = { pro: "price_pro", power: "price_power" };
 
@@ -28,5 +28,14 @@ describe("tiers", () => {
     expect(asPaidTier("free")).toBeNull();
     expect(asPaidTier("nonsense")).toBeNull();
     expect(asPaidTier(null)).toBeNull();
+  });
+
+  it("narrows unknown/absent tiers to free (fail-closed default)", () => {
+    expect(asKnownTier("pro")).toBe("pro");
+    expect(asKnownTier("power")).toBe("power");
+    expect(asKnownTier("free")).toBe("free");
+    expect(asKnownTier("enterprise-gibberish")).toBe("free");
+    expect(asKnownTier(null)).toBe("free");
+    expect(asKnownTier(undefined)).toBe("free");
   });
 });

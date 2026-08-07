@@ -29,7 +29,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { entitlementsFor, type Tier } from "@polytoken/billing";
+import { asKnownTier, entitlementsFor, type Tier } from "@polytoken/billing";
 import { Subscriptions } from "@polytoken/db/schema";
 
 import { TRPCError } from "@trpc/server";
@@ -49,15 +49,6 @@ export interface ChatTurnCapDecision {
   readonly allowed: boolean;
   /** true whenever a finite cap is met/exceeded (drives the paid-tier marker). */
   readonly overLimit: boolean;
-}
-
-/**
- * asKnownTier — narrow the subscriptions.tier text column (or its absence) to
- * a known Tier. Anything unknown reads as `free` — the fail-closed default
- * for POLICY (an unrecognized tier must not accidentally read as paid).
- */
-export function asKnownTier(value: string | null | undefined): Tier {
-  return value === "pro" || value === "power" ? value : "free";
 }
 
 /**
@@ -98,14 +89,19 @@ export async function enforceChatTurnCap(
 ): Promise<{ overLimit: boolean }> {
   let decision: ChatTurnCapDecision;
   try {
-    const rows = await db
-      .select({ tier: Subscriptions.tier })
-      .from(Subscriptions)
-      .where(eq(Subscriptions.userId, userId))
-      .limit(1);
+    // The tier lookup and the usage count are independent reads — run them
+    // concurrently. Both live inside the same fail-open try: one rejection
+    // (or a sync builder throw) lands in the single catch, exactly as the
+    // sequential version did.
+    const [rows, used] = await Promise.all([
+      db
+        .select({ tier: Subscriptions.tier })
+        .from(Subscriptions)
+        .where(eq(Subscriptions.userId, userId))
+        .limit(1),
+      countMonthlyChatTurnsUsed(db, userId, now),
+    ]);
     const tier = asKnownTier(rows[0]?.tier);
-
-    const used = await countMonthlyChatTurnsUsed(db, userId, now);
     decision = decideChatTurnCap(tier, used);
 
     if (!decision.allowed) {

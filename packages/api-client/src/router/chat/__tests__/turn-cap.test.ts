@@ -45,12 +45,11 @@ vi.mock("@polytoken/db/ownership", async () => {
   };
 });
 
-import { ENTITLEMENTS } from "@polytoken/billing";
+import { asKnownTier, ENTITLEMENTS } from "@polytoken/billing";
 import { assertConversationOwnership } from "@polytoken/db/ownership";
 
 import { appRouter } from "../../../root";
 import {
-  asKnownTier,
   CHAT_TURN_CAP_MESSAGE,
   decideChatTurnCap,
   enforceChatTurnCap,
