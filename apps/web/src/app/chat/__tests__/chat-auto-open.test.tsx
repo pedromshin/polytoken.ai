@@ -160,6 +160,17 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({ data: { entries: [] }, isPending: false, isError: false }),
       },
     },
+    // W8-1: UpsellBanner mounts in ConversationView's dock stack. A loading
+    // read keeps it fail-quiet (renders nothing) — this suite is about
+    // auto-open, not billing.
+    billing: {
+      currentSubscription: {
+        useQuery: () => ({ data: undefined, isLoading: true, isError: false }),
+      },
+      usage: {
+        useQuery: () => ({ data: undefined, isLoading: true, isError: false }),
+      },
+    },
     emails: {
       threadCard: { useQuery: () => ({ data: undefined }) },
       listThreads: {

@@ -37,6 +37,16 @@
  *      replaces the held one, and an unclaimed draft is dropped with only a
  *      console.warn — no draft history is kept.
  *
+ *   6. The approaching-cap upsell notice (W8-1) — approachingCapNoticeFor +
+ *      useUpsellBannerDismissal. The pure derivation behind UpsellBanner
+ *      (the ONE upgrade prompt outside /billing): a finite-tier caller at
+ *      >= 80% of their monthlyChatTurns entitlement gets a quiet single-line
+ *      notice above the composer. Numbers come from entitlementsFor — never
+ *      hardcoded — so a tier's allowance raise moves the threshold for free.
+ *      The dismiss latch is MODULE-scoped (session), not per-mount: the
+ *      keyed ConversationView remounts on every conversation switch, and a
+ *      per-mount latch would resurrect a banner the user just closed.
+ *
  * KNOWN LIMITATION (follow-up, W7-4 item 3): a past_due/canceled PRO user is
  * enforcement-narrowed to `free` (A11 — turn-cap.ts entitledTierFrom,
  * tier_resolver.py), so when blocked at the free cap they get the free-tier
@@ -51,6 +61,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+import { entitlementsFor, type Tier } from "@polytoken/billing";
 
 import type { CapNotice } from "./use-chat-stream";
 
@@ -280,4 +292,79 @@ export function useBlockedDraftHolder(
     heldDraft: isPreTurnCapBlock ? (held ?? pendingDraft) : null,
     noteDraftRestored,
   };
+}
+
+/**
+ * Fraction of a FINITE monthlyChatTurns entitlement at which the
+ * approaching-cap banner appears (UpsellBanner): 0.8 = "you've used 80% of
+ * this month's included turns".
+ */
+export const APPROACHING_CAP_FRACTION = 0.8;
+
+/** The two numbers the banner reads out: consumption and the tier's cap. */
+export interface ApproachingCapNotice {
+  readonly used: number;
+  readonly cap: number;
+}
+
+/**
+ * approachingCapNoticeFor — pure derivation behind UpsellBanner (W8-1).
+ * Returns `{ used, cap }` only when the caller's tier has a FINITE
+ * monthlyChatTurns entitlement (read via entitlementsFor — never a number
+ * hardcoded here) AND usage has reached APPROACHING_CAP_FRACTION of it.
+ * `null` everywhere else:
+ *   - an unlimited tier (power: monthlyChatTurns null) NEVER sees the banner
+ *     — there is nothing to sell past;
+ *   - absent tier/usage (query loading, errored, or data missing) fails
+ *     quiet, per the banner's contract.
+ * An unknown tier string falls back to `free` inside entitlementsFor, which
+ * is also the enforcement gate's reading (turn-cap.ts) — the banner can
+ * never promise more than the gate grants.
+ */
+export function approachingCapNoticeFor(args: {
+  readonly tier: Tier | undefined;
+  readonly monthlyChatTurnsUsed: number | undefined;
+}): ApproachingCapNotice | null {
+  if (args.tier === undefined || args.monthlyChatTurnsUsed === undefined) {
+    return null;
+  }
+  const cap = entitlementsFor(args.tier).monthlyChatTurns;
+  if (cap === null) return null;
+  if (args.monthlyChatTurnsUsed < cap * APPROACHING_CAP_FRACTION) return null;
+  return { used: args.monthlyChatTurnsUsed, cap };
+}
+
+/**
+ * The banner-dismiss latch — the once-per-mount ref idiom above
+ * (notifyOverAllowanceOnce) hoisted ONE level, because module scope IS the
+ * session on a client bundle: ConversationView is keyed by conversationId,
+ * so a per-mount latch would resurrect the banner on every conversation
+ * switch right after the user closed it. Mutating `.current` is the same
+ * blessed ref-shaped mutation the per-mount latches use, not shared-data
+ * mutation of app state.
+ */
+const upsellBannerDismissLatch = { current: false };
+
+/** TEST-ONLY reset — module state outlives each test's mounts. Production
+ * code must never call this: the whole point is that the latch survives. */
+export function resetUpsellBannerDismissalForTests(): void {
+  upsellBannerDismissLatch.current = false;
+}
+
+/**
+ * useUpsellBannerDismissal — the session dismiss latch as React state. A
+ * fresh mount seeds from the module latch (an already-dismissed session
+ * never re-shows), and `dismiss` writes both the latch and the local state
+ * so the current mount hides immediately.
+ */
+export function useUpsellBannerDismissal(): {
+  readonly dismissed: boolean;
+  readonly dismiss: () => void;
+} {
+  const [dismissed, setDismissed] = useState(upsellBannerDismissLatch.current);
+  const dismiss = useCallback(() => {
+    upsellBannerDismissLatch.current = true;
+    setDismissed(true);
+  }, []);
+  return { dismissed, dismiss };
 }
