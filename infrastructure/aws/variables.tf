@@ -109,3 +109,21 @@ variable "ingest_enqueue_enabled_staging" {
   type        = bool
   default     = false
 }
+
+# BTAP-07's flip mechanism. Discovered 2026-08-08: CANVAS_EMIT_TOOL_ENABLED existed only as a
+# settings.py default and was wired into NO .tf/.yml anywhere, so the env var never reached a
+# deployed listener and the flag was permanently False in every environment. The runsheet's
+# "flip CANVAS_EMIT_TOOL_ENABLED (listener env)" therefore had no mechanism to invoke — the seam
+# was unexecutable by anyone. These variables are that mechanism, in the proven ship-dark shape:
+# false (default) contributes an empty list, so the rendered task definition is byte-identical.
+variable "canvas_emit_tool_enabled_prod" {
+  description = "BTAP-07 flag for the PRODUCTION listener: true adds CANVAS_EMIT_TOOL_ENABLED=true to the listener container env, exposing the agent-authored canvas emit tools. False (default) = entry omitted entirely, rendered task definition byte-identical, listener keeps its settings.py default False."
+  type        = bool
+  default     = false
+}
+
+variable "canvas_emit_tool_enabled_staging" {
+  description = "BTAP-07 flag for the STAGING listener. Same posture as the prod variable: false (default) omits the entry entirely (ship-dark)."
+  type        = bool
+  default     = false
+}

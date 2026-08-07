@@ -62,6 +62,13 @@ locals {
     production = var.ingest_enqueue_enabled_prod
     staging    = var.ingest_enqueue_enabled_staging
   }
+
+  # env key -> BTAP-07 CANVAS_EMIT_TOOL_ENABLED flag (variables.tf). Same posture:
+  # false = the entry is omitted from the listener container entirely.
+  canvas_emit_tool_enabled = {
+    production = var.canvas_emit_tool_enabled_prod
+    staging    = var.canvas_emit_tool_enabled_staging
+  }
 }
 
 resource "aws_ecs_task_definition" "service" {
@@ -109,6 +116,14 @@ resource "aws_ecs_task_definition" "service" {
         # worker_db_url_secret_arn_* gate on the worker container below).
         local.ingest_enqueue_enabled[each.key] ? [
           { name = "INGEST_ENQUEUE_ENABLED", value = "true" }
+        ] : [],
+        # BTAP-07 flip mechanism, added 2026-08-08 — before this the flag was wired
+        # NOWHERE in the infrastructure, so CANVAS_EMIT_TOOL_ENABLED never reached a
+        # deployed listener and the seam could not be executed by anyone. Identical
+        # ship-dark posture: false contributes an empty list, rendered task definition
+        # byte-identical, listener keeps its settings.py default (False).
+        local.canvas_emit_tool_enabled[each.key] ? [
+          { name = "CANVAS_EMIT_TOOL_ENABLED", value = "true" }
         ] : [],
       )
 
