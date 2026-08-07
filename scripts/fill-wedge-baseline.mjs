@@ -27,6 +27,14 @@
 // filter or a date window would change what the surface shows while the arithmetic hash — and
 // this script's numbers — stayed put. Both slices are pinned, so both stop the script.
 //
+// WHAT THE PINS DO NOT COVER — say it here so the header stops overclaiming. They pin the
+// router's SOURCE, so they catch DRIFT. They do not make a default run's POPULATION equal the
+// surface's. `learning.summary` is always scoped to one owner; this script applies that WHERE
+// only when `--user-id` is passed. Without it the run pools EVERY importer in the database — a
+// figure the pipeline-health surface never displays and which is not comparable to it. So:
+// arithmetic — enforced. Population — enforced only with `--user-id`; otherwise labelled, in the
+// document's Scope line and again under M1.
+//
 //   M1 corrections made      = typeCorrections + mergeCascades (row counts of the two ledgers)
 //   M2 re-labels per cascade = Σ|affected_email_ids| / mergeCascades, null when no cascade
 //   M3 % that stick          = sticking / correctionsMade, by SUPERSESSION (a type correction
@@ -38,6 +46,25 @@
 // SHIPPED definition is unwindowed supersession — no arbitrary N. This script follows the
 // shipped router (the number a human will see on the surface) and records the divergence in
 // the document it writes.
+//
+// ## M3 IS WITHHELD WHENEVER IT IS FORCED — the choice, and why it is this one
+// Supersession is M3's ONLY mechanism. If no `component_id` is ever corrected twice and no
+// cascade survivor is ever itself absorbed later, then every row sticks BY ARITHMETIC and
+// stickRate is pinned at exactly 1.0 — no dataset in that shape can read anything else. That is
+// the shape the FIRST baseline will really be captured in: a loop that has run forward and has
+// never been re-corrected. R5 bounds M3's RESOLUTION (1/n); nothing bounded its DEGENERACY, so
+// "100.0 % of N corrections stick" was publishable as the milestone headline over a state that
+// could not have produced any other number. `stickRateIsForced` detects exactly that state
+// (see the equivalence proof in its docstring) and `renderDocument` then prints M3 as
+// **not yet measurable**, with the surface's own forced reading quoted beside it.
+//
+// WHY WITHHOLD RATHER THAN REFUSE THE WHOLE FILE (the other option on the table): M1 and M2 are
+// genuine measurements in that same state, and blocking the document would make the ONLY way to
+// unblock it "go re-correct something you already corrected" — i.e. it would pay an operator to
+// write a bogus correction into the ledger to satisfy a guard whose entire purpose is keeping
+// bogus signal out. A gate that manufactures the data it audits is worse than no gate. So the
+// file is written, the meaningful numbers are published, and the forced one is not published at
+// all. R1–R6 still block the file outright; the M3 gate withholds one metric.
 //
 // READ-ONLY against the database (server-enforced; see scripts/lib/close-kit-db.mjs). The only
 // thing it can write is the baseline document, only under --apply.
@@ -292,16 +319,82 @@ export const ELIGIBILITY = Object.freeze({
   /** M2's numerator — the re-label fan-out must have had real mail to re-point. */
   MIN_EMAILS_RELABELED: 1,
   /**
-   * M3's denominator. M3's resolution is 1/n: at n=1 the only possible reading is 100 % (nothing
-   * can supersede a lone correction), at n=2 only 0/50/100. n=3 is the first denominator that can
-   * express a rate rather than a coin flip, so it is the floor.
+   * M3's denominator, and ONLY its denominator. M3's resolution is 1/n: at n=1 the only
+   * expressible value is 100 %, at n=2 only 0/50/100, and n=3 is the first denominator whose
+   * grid is finer than a coin flip. That is ALL this threshold buys.
+   *
+   * It does NOT make M3 expressive. Clearing n≥3 with three untouched targets still leaves the
+   * achievable set at the single point {100 %} — strictly worse than a coin flip — because
+   * resolution is not the binding constraint, DEGENERACY is. Raising this number cannot fix
+   * that at any n; see `stickRateIsForced`, which is the rule that does.
    */
   MIN_CORRECTIONS_FOR_STICK_RATE: 3,
 });
 
 /**
- * Every state in which the three headline numbers would be meaningless, as numbered rules.
- * Returns [] when the baseline may be written. Pure — the caller decides what to do with it.
+ * Has supersession — M3's only mechanism — had any OPPORTUNITY to fire on these rows?
+ *
+ * It fires in exactly two places in the ported arithmetic, and this function is the negation of
+ * each, read straight off that code:
+ *   type leg     a `component_id` carrying two rows at DISTINCT times (the earlier one then
+ *                fails `row.createdAt >= latestByComponent.get(componentId)`)
+ *   cascade leg  a survivor that some STRICTLY LATER cascade absorbs (that row then fails
+ *                `latestAbsorbedAt.get(survivor) <= row.createdAt`)
+ *
+ * Returns null when rows were not supplied (nothing can be concluded). Otherwise
+ * `{ typeLeg, cascadeLeg, any }`.
+ */
+export function supersessionOpportunity(rows) {
+  if (rows === null || rows === undefined) return null;
+
+  const timesByComponent = new Map();
+  for (const row of rows.typeCorrections) {
+    const seen = timesByComponent.get(row.componentId) ?? new Set();
+    seen.add(row.createdAt.getTime());
+    timesByComponent.set(row.componentId, seen);
+  }
+  const typeLeg = [...timesByComponent.values()].some((times) => times.size > 1);
+
+  const cascadeLeg = rows.propagations.some((earlier) =>
+    rows.propagations.some(
+      (later) =>
+        later.absorbedEntityInstanceId === earlier.survivorEntityInstanceId &&
+        later.createdAt.getTime() > earlier.createdAt.getTime(),
+    ),
+  );
+
+  return Object.freeze({ typeLeg, cascadeLeg, any: typeLeg || cascadeLeg });
+}
+
+/**
+ * Is M3 pinned at 100 % by the SHAPE of the data rather than measured from it?
+ *
+ * True iff supersession has had no opportunity to fire (or the rows were withheld, in which case
+ * nothing can be proven and withholding is the safe direction — a suppressed metric is never
+ * poison, a forced one published as a headline is).
+ *
+ * The equivalence, which `scripts/__tests__/fill-wedge-baseline.test.mjs` asserts directly rather
+ * than taking on trust: under the ported arithmetic a row is non-sticking iff it is one half of
+ * one of the two pairs above, so `stickRateIsForced(rows) === (summary.stickRate === 1)` for
+ * every non-empty ledger. Stated the other way round: with this definition, 100 % never means
+ * "everything held up under pressure" — it means no pressure was ever applied.
+ */
+export function stickRateIsForced(rows) {
+  const opportunity = supersessionOpportunity(rows);
+  return opportunity === null || !opportunity.any;
+}
+
+/**
+ * The states in which the document as a WHOLE would be meaningless, as numbered rules. Returns []
+ * when the baseline may be written. Pure — the caller decides what to do with it.
+ *
+ * SCOPE, stated exactly (the earlier docstring claimed to enumerate "every state in which the
+ * three headline numbers would be meaningless" and did not): these six rules block the FILE.
+ * They are necessary, not sufficient — a state can clear all six and still have one metric that
+ * carries no information. That is precisely M3 in the ordinary first-capture shape, and it is
+ * handled where it belongs, per-metric, by `stickRateIsForced` + `renderDocument`, which withhold
+ * M3 rather than blocking the file. R6 is NOT that guard: R6 catches only the seeded/backfilled
+ * signature where ALL rows share one timestamp, a measure-zero corner of the same degeneracy.
  *
  * The rules are ordered by how badly each poisons the artifact, and each explains what to do.
  */
@@ -404,10 +497,56 @@ export function fixtureWriteRefusal(outPath, { defaultOut = DEFAULT_OUT, plannin
 const pct = (v) => (v === null ? 'n/a' : `${(v * 100).toFixed(1)} %`);
 const num = (v, digits = 1) => (v === null ? 'n/a' : v.toFixed(digits));
 
-export function renderDocument({ summary, extras, scope, target, capturedAt, fingerprint, fixture }) {
+/**
+ * The M3 section. `rows` is REQUIRED: without it `stickRateIsForced` cannot prove the metric was
+ * measured, and an unprovable M3 is withheld rather than printed (the safe direction — see the
+ * header). When it IS measured the number is published exactly as the surface shows it.
+ */
+function renderM3(summary, rows) {
+  const definition =
+    'Definition (the SHIPPED one): supersession, unwindowed. A type correction sticks iff no strictly-later\n' +
+    'correction targets the same `component_id`; a cascade sticks iff its survivor was never itself absorbed\n' +
+    'by a strictly-later cascade. **Divergence on record:** the 0c-uat-pack skeleton drafted M3 as "not\n' +
+    're-corrected within N=14 days". The router shipped the unwindowed rule instead (no arbitrary N, and\n' +
+    'strictly stricter), and this file follows what the surface actually shows.';
+
+  if (!stickRateIsForced(rows)) {
+    return `**${pct(summary.stickRate)}** of ${summary.correctionsMade} corrections stick.\n\n${definition}`;
+  }
+  const opportunity = supersessionOpportunity(rows);
+  const because =
+    opportunity === null
+      ? 'the row detail needed to decide was not supplied to the renderer, so the number could not be shown to be a measurement'
+      : 'no `component_id` in `entity_type_corrections` has been corrected twice, and no cascade survivor ' +
+        'has later been absorbed by another cascade';
+  return `**not yet measurable — withheld on purpose.**
+
+Supersession is M3's only mechanism, and in this dataset ${because}. With nothing for it to fire
+on, the arithmetic returns exactly one value — \`${pct(summary.stickRate)}\` — for every dataset of this shape.
+That reading is FORCED, not measured, so it is not published here as a headline. (\`learning.summary\`
+on the pipeline-health surface will still display \`${pct(summary.stickRate)}\`; this file declines to
+enshrine it as the milestone's first real value, which is what a baseline is read as forever.)
+
+M3 becomes measurable on its own, with no action taken to produce it, the first time a real
+correction is re-corrected or a real survivor is later merged away. Re-run this script then.
+**Do not manufacture one to fill this slot** — a correction written to satisfy a gate is exactly
+the signal this gate exists to keep out.
+
+${definition}`;
+}
+
+export function renderDocument({ summary, extras, scope, target, capturedAt, fingerprint, fixture, rows = null }) {
   const banner = fixture
     ? '> ⛔ **SYNTHETIC — FIXTURE RUN.** These numbers came from a local JSON fixture, NOT from a\n> database. This file is a drill artifact and must never be treated as the baseline.\n\n'
     : '';
+  const leverage =
+    summary.relabelsPerCorrection !== null && summary.relabelsPerCorrection > 1
+      ? '(' + summary.emailsRelabeled + ' emails across ' + summary.mergeCascades + ' cascades — the "one click compounds" number).'
+      : '(' +
+        summary.emailsRelabeled +
+        ' emails across ' +
+        summary.mergeCascades +
+        ' cascades). **No compounding yet:** at ≤ 1.0 email per\ncascade a merge re-points no more mail than merges performed, so this value does not yet support the\n"one click compounds" claim — it is the honest floor the claim will be measured against.';
   return `# WEDGE-BASELINE — email-intelligence learning-loop, first real values
 
 ${banner}> Captured ${capturedAt} by \`scripts/fill-wedge-baseline.mjs\` (WEDG-04).
@@ -422,8 +561,14 @@ ${banner}> Captured ${capturedAt} by \`scripts/fill-wedge-baseline.mjs\` (WEDG-0
 >   R1 at least one correction exists · R2 ≥ ${ELIGIBILITY.MIN_CASCADES} merge cascade (WEDG-01 + WEDG-02 done)
 >   R3 ≥ ${ELIGIBILITY.MIN_EMAILS_RELABELED} email actually re-labelled by a cascade (M2's numerator is not 0)
 >   R4 ≥ ${ELIGIBILITY.MIN_TYPE_CORRECTIONS} type re-label (M1's other leg is not empty)
->   R5 ≥ ${ELIGIBILITY.MIN_CORRECTIONS_FOR_STICK_RATE} corrections total (below that M3 can only read 0/50/100)
->   R6 the correction rows do not all share one timestamp (M3's supersession must be able to discriminate)
+>   R5 ≥ ${ELIGIBILITY.MIN_CORRECTIONS_FOR_STICK_RATE} corrections total — a RESOLUTION floor only (M3's grid is 1/n). It does NOT make
+>      M3 expressive: clearing it with untouched targets still leaves exactly one achievable value.
+>   R6 the correction rows do not all share one timestamp (the seeded/backfilled signature)
+>
+> R1–R6 gate the FILE and are necessary, not sufficient. One further rule gates ONE METRIC: M3 is
+> published only when supersession has had an opportunity to fire, and is otherwise
+> withheld as "not yet measurable" — in that shape its value is forced, not measured. See the
+> M3 section for which of the two happened in this capture.
 
 ## M1 — Corrections made
 
@@ -432,23 +577,22 @@ ${banner}> Captured ${capturedAt} by \`scripts/fill-wedge-baseline.mjs\` (WEDG-0
 One cascade row per merge — \`job_key\` \`cascade:{survivor}:{absorbed}\` is UNIQUE, so a redelivered
 cascade is never double-counted.
 
+Population: ${scope}. The \`learning.summary\` surface is ALWAYS scoped to a single owner, so an
+all-importer capture is **not** comparable to what any user sees on pipeline-health; only a
+\`--user-id\` capture is. The pinned fingerprints guarantee the arithmetic and catch drift in the
+router's own selection — they do not make these two populations the same one.
+
 ## M2 — Re-labels per cascade (propagation leverage)
 
 **${num(summary.relabelsPerCorrection)}** emails re-pointed per confirmed merge
-(${summary.emailsRelabeled} emails across ${summary.mergeCascades} cascades — the "one click compounds" number).
+${leverage}
 
 Skeleton-only extras, with no definition in the router: max ${extras.maxRelabels} re-labels in a single
 cascade; ${num(extras.avgEdgesPromoted)} edges promoted per cascade on average.
 
 ## M3 — % of corrections that stick
 
-**${pct(summary.stickRate)}** of ${summary.correctionsMade} corrections stick.
-
-Definition (the SHIPPED one): supersession, unwindowed. A type correction sticks iff no strictly-later
-correction targets the same \`component_id\`; a cascade sticks iff its survivor was never itself absorbed
-by a strictly-later cascade. **Divergence on record:** the 0c-uat-pack skeleton drafted M3 as "not
-re-corrected within N=14 days". The router shipped the unwindowed rule instead (no arbitrary N, and
-strictly stricter), and this file follows what the surface actually shows.
+${renderM3(summary, rows)}
 
 ## Surfaced on
 
@@ -507,7 +651,13 @@ async function main(argv) {
     console.log(`                    selection  ${fingerprint.selection}`);
     console.log(`  M1 corrections made:      ${summary.correctionsMade} (${summary.typeCorrections} type re-labels + ${summary.mergeCascades} cascades)`);
     console.log(`  M2 re-labels per cascade: ${num(summary.relabelsPerCorrection)} (${summary.emailsRelabeled} emails / ${summary.mergeCascades} cascades)`);
-    console.log(`  M3 % that stick:          ${pct(summary.stickRate)}`);
+    console.log(
+      `  M3 % that stick:          ${pct(summary.stickRate)}${
+        stickRateIsForced(rows)
+          ? ' — FORCED by the shape of this data (supersession has never had anything to fire on); WITHHELD from the document'
+          : ''
+      }`,
+    );
 
     const refusals = eligibilityRefusals(summary, rows);
     if (refusals.length > 0) {
@@ -526,6 +676,7 @@ async function main(argv) {
       capturedAt: new Date().toISOString(),
       fingerprint,
       fixture: Boolean(fixture),
+      rows,
     });
     if (!apply) {
       console.log('\n--- DOCUMENT (not written; re-run with --apply) --------------------------');

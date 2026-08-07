@@ -8,7 +8,7 @@
 // two of those guards turned out not to work — one had never been probed adversarially, the
 // other was not enforced on the only platform the repo is driven from.
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
@@ -27,6 +27,13 @@ import {
   resolveDatabaseUrl,
   samePath,
 } from '../lib/close-kit-db.mjs';
+import {
+  MINIMUM_SUITE_FILES,
+  declaredTestPaths,
+  presentTestFiles,
+  suiteFloorProblems,
+  usesGlob,
+} from './_suite-floor.mjs';
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url));
 
@@ -196,4 +203,68 @@ test('isUuid accepts canonical uuids only', () => {
   assert.equal(isUuid('11111111-2222-3333-4444-55555555555'), false);
   assert.equal(isUuid("'; drop table emails; --"), false);
   assert.equal(isUuid(null), false);
+});
+
+// ---------------------------------------------------------------------------
+// The gate on the gate — W12 review NOTE #2. `npm run test:close-kit` could not tell
+// "68 green" from "no tests found"; a glob that matches nothing exits 0.
+// ---------------------------------------------------------------------------
+
+const ALL_FOUR = [
+  'check-close-readiness.test.mjs',
+  'close-kit-db.test.mjs',
+  'collect-wedge-evidence.test.mjs',
+  'fill-wedge-baseline.test.mjs',
+];
+const explicitScript = `node scripts/__tests__/_suite-floor.mjs && node --test ${ALL_FOUR.map((f) => `scripts/__tests__/${f}`).join(' ')}`;
+
+test('THE REGRESSION: a glob-based gate is refused — it exits 0 on zero tests', () => {
+  const problems = suiteFloorProblems({ npmScript: 'node --test "scripts/__tests__/*.test.mjs"', present: ALL_FOUR });
+  assert.ok(usesGlob('node --test "scripts/__tests__/*.test.mjs"'));
+  assert.ok(problems.some((p) => /GLOB/.test(p)), `expected the glob problem among:\n${problems.join('\n')}`);
+});
+
+test('a file on disk that the gate never names is refused (it would never run)', () => {
+  const problems = suiteFloorProblems({ npmScript: explicitScript, present: [...ALL_FOUR, 'brand-new.test.mjs'] });
+  assert.ok(problems.some((p) => p.startsWith('brand-new.test.mjs')), problems.join('\n'));
+});
+
+test('a file the gate names but that is GONE is refused — node --test skips it silently', () => {
+  const problems = suiteFloorProblems({ npmScript: explicitScript, present: ALL_FOUR.slice(1) });
+  assert.ok(problems.some((p) => /is NOT on disk/.test(p)), problems.join('\n'));
+});
+
+test('renaming the suite to *.spec.mjs is refused rather than reported as a pass', () => {
+  const problems = suiteFloorProblems({ npmScript: explicitScript, present: [] });
+  assert.ok(problems.length >= ALL_FOUR.length, problems.join('\n'));
+  assert.ok(problems.every((p) => /is NOT on disk/.test(p)));
+});
+
+test('dropping below the file floor is refused', () => {
+  const two = ALL_FOUR.slice(0, 2);
+  const problems = suiteFloorProblems({
+    npmScript: `node --test ${two.map((f) => `scripts/__tests__/${f}`).join(' ')}`,
+    present: two,
+  });
+  assert.ok(problems.some((p) => new RegExp(`the floor is ${MINIMUM_SUITE_FILES}`).test(p)), problems.join('\n'));
+});
+
+test('a missing script entirely is refused, not treated as "nothing to check"', () => {
+  assert.equal(suiteFloorProblems({ npmScript: undefined, present: ALL_FOUR }).length, 1);
+  assert.equal(suiteFloorProblems({ npmScript: '', present: ALL_FOUR }).length, 1);
+});
+
+test('the guard is not vacuous: TODAY\'S real package.json + real directory are clean', () => {
+  const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
+  const script = pkg.scripts['test:close-kit'];
+  const present = presentTestFiles();
+  assert.ok(present.length >= MINIMUM_SUITE_FILES, `only ${present.length} test file(s) found`);
+  assert.deepEqual(declaredTestPaths(script).length, present.length);
+  assert.deepEqual(suiteFloorProblems({ npmScript: script, present }), []);
+});
+
+test('the real gate names paths, not a glob — the Node 20 floor cannot expand one', () => {
+  const pkg = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8'));
+  assert.equal(usesGlob(pkg.scripts['test:close-kit']), false);
+  assert.match(pkg.scripts['test:close-kit'], /^node scripts[/\\]__tests__[/\\]_suite-floor\.mjs &&/, 'the floor must run BEFORE the runner, chained so a failure stops the chain');
 });

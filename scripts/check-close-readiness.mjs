@@ -11,11 +11,22 @@
 //
 //      WHAT "EXECUTED (with evidence)" MEANS HERE, precisely — this is a LEDGER checker, so it
 //      cannot know that a seam ran; it can only refuse a row that offers nothing to check. An
-//      EXECUTED row must therefore CARRY AN EVIDENCE REFERENCE in its own cells: a commit sha,
-//      a repo path, or a URL (hasEvidenceReference). A row reading bare "EXECUTED" now FAILS
-//      instead of passing. That is strictly weaker than "the seam demonstrably happened" — a
-//      human still has to follow the reference — and the script says so rather than implying
-//      more. Nothing here executes, opens, or fetches the referenced artifact.
+//      EXECUTED row must CARRY AN EVIDENCE REFERENCE in its own cells (evidenceReference), and
+//      the three kinds are NOT equally strong. The verdict line now says which one it got:
+//
+//        path  RESOLVED — existsSync under the repo or the planning dir. A named file that is
+//              not there now FAILS ('dangling-path'); it used to pass, so `.planning/
+//              does-not-exist-anywhere.md` was as good as a real artifact.
+//        sha   UNRESOLVED. Confirming one means running git, and this script executes nothing.
+//              Tightened so a bare date or ticket number ("EXECUTED 20260807") is no longer a
+//              sha, but a sha ANYWHERE in the row still satisfies the check — including one
+//              pasted into Notes for unrelated context. Known and disclosed, not fixed.
+//        url   UNRESOLVED. Fetching is out of the question for the same reason.
+//
+//      So: strictly weaker than "the seam demonstrably happened", and the output says which of
+//      the three it is instead of printing one undifferentiated "carries an evidence reference".
+//      Nothing here executes, opens, or fetches anything; the strongest claim it makes is that a
+//      referenced FILE exists — never that its contents mean what the row says.
 //   B. CROSS-LEDGER AGREEMENT — ROADMAP.md, ORCHESTRATOR-STATE.md ⭐ CURRENT, STATE.md
 //      frontmatter, HANDOFF.json (negative assertion) and the per-seam requirement checkboxes
 //      in REQUIREMENTS.md must all agree with the ledger. A ticked checkbox for a seam nobody
@@ -28,25 +39,39 @@
 // USAGE (from the repo root):
 //   node scripts/check-close-readiness.mjs
 //   node scripts/check-close-readiness.mjs --planning <dir>   # e.g. a copy, for drills
+//   node scripts/check-close-readiness.mjs --repo <dir>
+//
+// Flags go through the kit's strict reader: an unknown flag, a mistyped one, or one with no value
+// REFUSES (exit 2). It does not fall back to the real `.planning`.
 //
 // EXIT CODES: 0 close-ready · 1 NOT close-ready (every missing item is listed) · 2 usage
-// refusal (the planning directory is not there) · 4 unexpected error.
+// refusal (bad flag, or the planning directory is not there) · 4 unexpected error.
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { samePath } from './lib/close-kit-db.mjs';
+import { isInside, readArgs, samePath } from './lib/close-kit-db.mjs';
 
 const REPO = fileURLToPath(new URL('..', import.meta.url));
-const argv = process.argv.slice(2);
-const argOf = (name) => {
-  const i = argv.indexOf(`--${name}`);
-  return i !== -1 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : null;
-};
 
-const PLANNING = resolve(argOf('planning') ?? join(REPO, '.planning'));
-const REPO_ROOT = resolve(argOf('repo') ?? REPO);
+// The SAME strict reader the two DB scripts use. The ad-hoc `argOf` that used to live here
+// returned null for a mistyped or valueless flag and then fell back to the REAL `.planning` and
+// repo root — so `--planing <copy>` audited the LIVE ledger while the operator believed they were
+// drilling a copy, and said so in its own banner. Read-only, so the blast radius was a wrong
+// verdict rather than a wrong write; a wrong verdict is still the thing this script exists to
+// prevent. Parsing happens at module load, so a bad flag refuses before anything is read.
+let args;
+let argvError = null;
+try {
+  args = readArgs(process.argv.slice(2), { valueFlags: ['planning', 'repo'], boolFlags: [] });
+} catch (error) {
+  args = {};
+  argvError = error;
+}
+
+const PLANNING = resolve(args.planning ?? join(REPO, '.planning'));
+const REPO_ROOT = resolve(args.repo ?? REPO);
 
 const AUDIT = join(PLANNING, 'milestones/vNEXT-AUDIT-2026-08-06.md');
 const ROADMAP = join(PLANNING, 'ROADMAP.md');
@@ -73,20 +98,57 @@ const readIfPresent = (path) => (existsSync(path) ? readFileSync(path, 'utf8') :
 export const isPlaceholder = (cell) => PLACEHOLDERS.has(cell.trim().toLowerCase());
 
 /**
- * Does this ledger row point at something a human could open? One of:
- *   - a git sha (7–40 hex chars containing at least one digit, so ordinary hex-looking words
- *     like "facade" cannot pass for one),
- *   - a repo path with a directory separator and a file extension, or a `.planning/` reference,
- *   - an http(s) URL.
- * A reference is NOT proof the seam ran — see the header. It is the minimum a row must offer
- * before "EXECUTED" is allowed to mean anything to this script.
+ * Resolve a path-shaped token against the repo (and, for `.planning/…`, against whichever
+ * planning dir this run was pointed at). Returns the absolute path if it EXISTS, else null.
+ * Anything that resolves outside those two roots is rejected rather than probed.
  */
-export function hasEvidenceReference(rowText) {
-  const sha = /\b(?=[0-9a-f]{7,40}\b)[0-9a-f]*\d[0-9a-f]*\b/i;
-  const path = /(^|[\s`(])[\w.-]+[\\/][\w./\\-]*\.\w{2,4}\b/;
-  const planning = /\.planning[\\/]/;
-  const url = /https?:\/\/\S+/;
-  return sha.test(rowText) || path.test(rowText) || planning.test(rowText) || url.test(rowText);
+function resolvePathReference(token, { repoRoot, planningDir }) {
+  const cleaned = token.replace(/^[`'"([]+/, '').replace(/[`'"),.\]]+$/, '');
+  if (cleaned === '') return null;
+  const candidates = [join(repoRoot, cleaned)];
+  const planningRelative = cleaned.match(/^\.planning[\\/](.+)$/);
+  if (planningRelative) candidates.push(join(planningDir, planningRelative[1]));
+  for (const candidate of candidates) {
+    const absolute = resolve(candidate);
+    if (!isInside(repoRoot, absolute) && !isInside(planningDir, absolute)) continue;
+    if (existsSync(absolute)) return absolute;
+  }
+  return null;
+}
+
+/**
+ * What, concretely, does this ledger row offer a human to open? Returns null when it offers
+ * nothing, else `{ kind, token, resolved }`.
+ *
+ * WHAT IS AND IS NOT VERIFIED — say it precisely, because the previous version was a pure text
+ * test and three of its four accept-cases were satisfiable by fiction:
+ *
+ *   kind 'path'          RESOLVED. The file exists on this machine, under the repo or the
+ *                        planning dir. `.planning/does-not-exist-anywhere.md` and
+ *                        `scripts/totally-made-up.mjs` used to pass; they now come back
+ *                        'dangling-path', which the caller FAILS.
+ *   kind 'sha'           NOT resolved. Verifying a sha means running git, and this script's
+ *                        charter is that it never executes anything. Tightened instead: a sha
+ *                        must contain BOTH a digit and an a–f letter, so a bare date or ticket
+ *                        number is no longer evidence (`EXECUTED 20260807` used to pass).
+ *   kind 'url'           NOT resolved. Fetching it is out of the question for the same reason.
+ *   kind 'dangling-path' the row names a file that is NOT there — worse than silence, because it
+ *                        reads as evidence. The caller fails it with the path it could not find.
+ *
+ * Paths are tried FIRST so the strongest available reference is the one reported.
+ */
+export function evidenceReference(rowText, { repoRoot = REPO_ROOT, planningDir = PLANNING } = {}) {
+  const pathTokens = rowText.match(/[\w.-]+[\\/][\w./\\-]*\.\w{2,4}/g) ?? [];
+  for (const token of pathTokens) {
+    const at = resolvePathReference(token, { repoRoot, planningDir });
+    if (at !== null) return Object.freeze({ kind: 'path', token, resolved: true, at });
+  }
+  const sha = rowText.match(/\b(?=[0-9a-f]{7,40}\b)(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b/i);
+  if (sha) return Object.freeze({ kind: 'sha', token: sha[0], resolved: false });
+  const url = rowText.match(/https?:\/\/\S+/);
+  if (url) return Object.freeze({ kind: 'url', token: url[0], resolved: false });
+  if (pathTokens.length > 0) return Object.freeze({ kind: 'dangling-path', token: pathTokens[0], resolved: false });
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,7 +217,7 @@ function checkDecisionLedger(checklistSrc) {
  * The verdict for ONE ledger row — pure, so scripts/__tests__ can drive every branch without a
  * .planning tree. Returns `{ status: 'PASS' | 'FAIL', detail }`; the caller records it.
  */
-export function classifyLedgerRow({ seam, kind, choice, owner, trigger, cells, checklistSrc }) {
+export function classifyLedgerRow({ seam, kind, choice, owner, trigger, cells, checklistSrc, roots = undefined }) {
   const failed = (detail) => ({ status: 'FAIL', detail });
   const passed = (detail) => ({ status: 'PASS', detail });
 
@@ -185,15 +247,29 @@ export function classifyLedgerRow({ seam, kind, choice, owner, trigger, cells, c
     return passed(`ACCEPT-AS-DEBT · owner ${owner} · trigger ${trigger} · mentioned in PEDRO-CHECKLIST (mention only — a human still reads the entry)`);
   }
 
-  // kind === 'EXECUTED' — the word alone is not checkable; the row must point somewhere.
-  if (!hasEvidenceReference(rowText)) {
+  // kind === 'EXECUTED' — the word alone is not checkable; the row must point somewhere REAL.
+  const evidence = evidenceReference(rowText, roots);
+  if (evidence === null) {
     return failed(
       'EXECUTED but the row carries NO evidence reference (no commit sha, repo path, or URL). ' +
         'A close satisfiable by typing the word "EXECUTED" into a cell is the rot this gate exists to stop. ' +
-        'Add the sha/artifact the seam produced. (This script checks that a reference EXISTS — a human still opens it.)',
+        'Add the sha/artifact the seam produced.',
     );
   }
-  return passed(`${kind} · owner ${owner} · trigger ${trigger} · carries an evidence reference (unverified here — open it)`);
+  if (evidence.kind === 'dangling-path') {
+    return failed(
+      `EXECUTED and the row names "${evidence.token}", but that file does not exist under the repo or the ` +
+        'planning dir. A reference to a file that is not there reads as evidence and is not — fix the path, ' +
+        'or point at the artifact that does exist.',
+    );
+  }
+  if (evidence.kind === 'path') {
+    return passed(`${kind} · owner ${owner} · trigger ${trigger} · evidence RESOLVED: ${evidence.at} exists (its CONTENT is still a human's job)`);
+  }
+  return passed(
+    `${kind} · owner ${owner} · trigger ${trigger} · evidence is an UNRESOLVED ${evidence.kind} (${evidence.token}) — ` +
+      'this script does not run git or fetch URLs, so it cannot tell you that reference is real. Open it.',
+  );
 }
 
 /**
@@ -383,6 +459,12 @@ function findPowerShell() {
 // ---------------------------------------------------------------------------
 
 function main() {
+  if (argvError !== null) {
+    console.error(`REFUSED: ${argvError.message}`);
+    console.error('  Nothing was read. This script never falls back to the real .planning after a bad flag —');
+    console.error('  a drill that silently audits the live ledger reports the wrong verdict with full confidence.');
+    return 2;
+  }
   if (!existsSync(PLANNING)) {
     console.error(`REFUSED: planning directory not found: ${PLANNING}`);
     return 2;
@@ -411,6 +493,7 @@ function main() {
   if (failures.length === 0) {
     console.log('\nCLOSE-READY: the ledgers agree and every EXECUTED row points at an artifact.');
     console.log('That is LEDGER agreement, not proof the seams ran — open the referenced evidence before closing.');
+    console.log('A "path" reference above was confirmed to EXIST; a "sha" or "url" one was not checked at all.');
     console.log('Next: pwsh scripts/sauce-backup.ps1 → /gsd:audit-milestone → /gsd:complete-milestone.');
     return 0;
   }
