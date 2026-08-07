@@ -1,6 +1,7 @@
 # GSD Core — install + reconciliation notes
 
-_Installed 2026-07-24 from **open-gsd/gsd-core v1.8.0** (commit in
+_Installed 2026-07-24 from **open-gsd/gsd-core v1.8.0**; bumped 2026-08-07 to
+**v1.9.1** across all four vendored subtrees (commit in
 `.claude/gsd/SOURCE_COMMIT.txt`). This repo was already a GSD project — only the
 plugin machinery had never been committed._
 

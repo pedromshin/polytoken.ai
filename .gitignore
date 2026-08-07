@@ -69,7 +69,7 @@ apps/email-listener/listener-*.log
 .planning/night-run/remote-control.log
 .planning/night-run/resume-log.txt
 
-# GSD Core (open-gsd/gsd-core v1.8.0) — vendored into the repo so the /gsd:*
+# GSD Core (open-gsd/gsd-core v1.9.1) — vendored into the repo so the /gsd:*
 # commands, gsd-* agents and gsd-* skills persist across ephemeral remote
 # sessions (there is no persistent user-scope plugin store here). The hook
 # scripts live under .claude/gsd/ (tracked) but are NOT auto-wired — see
