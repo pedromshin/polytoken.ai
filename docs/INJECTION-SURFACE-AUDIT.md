@@ -110,40 +110,40 @@ not a gate on the document in isolation.
 <!-- CANVAS-FIELD-COVERAGE:BEGIN -->
 | Tool | Field | Content filter | Bound | Enforcing line |
 |---|---|---|---|---|
-| `emit_canvas_node` | `type` | n/a -- server-authored literal | -- | L406 -- `"type": "canvas_add_node"` |
-| `emit_canvas_node` | `handle` | refuses part -- pollution key | -- | L392 -- `handle in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_canvas_node` | `nodeType` | refuses part -- unsafe object index | -- | L394 -- `_is_unsafe_object_index_value(node_type)` |
-| `emit_canvas_node` | `data` | refuses part -- spec/root at top level | -- | L352 -- `key in data for key in _CANVAS_NODE_DATA_RESERVED_KEYS` |
-| `emit_canvas_node` | `data` | refuses part -- pollution key at any depth | depth <= 12 | L354 -- `return _has_forbidden_key_deep(data)` |
-| `emit_canvas_node` | `position` | refuses part -- pollution key at any depth | depth <= 12 | L412 -- `if _has_forbidden_key_deep(position):` |
-| `emit_canvas_connect` | `type` | n/a -- server-authored literal | -- | L431 -- `"type": "canvas_connect"` |
-| `emit_canvas_connect` | `sourceHandle` | refuses part -- pollution key | -- | L437 -- `part["sourceHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_canvas_connect` | `targetHandle` | refuses part -- pollution key | -- | L437 -- `part["targetHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_canvas_connect` | `sourcePath` | refuses part -- pollution segment | -- | L439 -- `_has_forbidden_path_segment(part["sourcePath"])` |
-| `emit_canvas_connect` | `targetKey` | refuses part -- pollution segment | -- | L439 -- `_has_forbidden_path_segment(part["targetKey"])` |
-| `emit_code_island` | `type` | n/a -- server-authored literal | -- | L596 -- `"type": "canvas_code_island"` |
-| `emit_code_island` | `intent` | NONE | <= 4096 chars | L583 -- `intent = intent[:_CODE_ISLAND_MAX_INTENT_CHARS].rstrip()` |
-| `emit_code_island` | `selectedNodeKeys` | refuses part -- empty survivor set | <= 32 keys | L587 -- `if not selected:` |
-| `emit_code_island` | `selectedNodeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_code_island` | `inputBindings` | refuses part -- empty survivor set | <= 16 entries | L590 -- `if not bindings:` |
-| `emit_code_island` | `inputBindings.<k>` | drops entry -- pollution key | -- | L476 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_code_island` | `inputBindings.<k>.sourceNodeKey` | drops entry -- pollution key | -- | L484 -- `if source_node_key in _FORBIDDEN_MANIFEST_KEYS:` |
-| `emit_code_island` | `inputBindings.<k>.sourcePath` | drops entry -- pollution segment | -- | L488 -- `if _has_forbidden_path_segment(source_path):` |
-| `emit_code_island` | `inputs` | refuses part -- empty survivor set | <= 16 entries | L593 -- `if not inputs:` |
-| `emit_code_island` | `inputs.<k>` | drops entry -- pollution key | -- | L550 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_code_island` | `inputs.<k>.kind` | drops entry -- pollution key | -- | L528 -- `kind in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_code_island` | `inputs.<k>.columns` | omits field -- non-list | <= 64 keys | L532 -- `if isinstance(columns, list):` |
-| `emit_code_island` | `inputs.<k>.columns[]` | drops element -- pollution key | -- | L533 -- `cleaned["columns"] = _clean_key_list(columns, _CODE_ISLAND_MAX_COLUMNS)` |
-| `emit_code_island` | `inputs.<k>.rowCount` | omits field -- non-int, bool, or negative | -- | L536 -- `isinstance(row_count, int) and not isinstance(row_count, bool) and row_count >= 0` |
-| `emit_code_island` | `inputs.<k>.sample` | omits field -- non-list | <= 5 rows | L539 -- `if isinstance(sample, list):` |
-| `emit_code_island` | `inputs.<k>.sample[]` | drops element -- pollution key at any depth | depth <= 12 | L540 -- `row for row in sample if not _has_forbidden_key_deep(row)` |
-| `emit_canvas_recipe` | `type` | n/a -- server-authored literal | -- | L641 -- `"type": "canvas_recipe"` |
-| `emit_canvas_recipe` | `name` | refuses part -- pollution key (checked after strip/cap) | <= 120 chars | L634 -- `if not name or name in _FORBIDDEN_MANIFEST_KEYS:` |
-| `emit_canvas_recipe` | `nodeKeys` | refuses part -- empty survivor set | <= 32 keys | L637 -- `if not node_keys:` |
-| `emit_canvas_recipe` | `nodeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_canvas_recipe` | `edgeKeys` | NONE | <= 64 keys | L639 -- `edge_keys = _clean_key_list(raw.get("edgeKeys"), _CANVAS_RECIPE_MAX_EDGE_KEYS)` |
-| `emit_canvas_recipe` | `edgeKeys[]` | drops element -- pollution key | -- | L451 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
-| `emit_canvas_recipe` | `sourceRef` | omits field -- pollution key at any depth | <= 2048 serialized chars, depth <= 12 | L649 -- `and not _has_forbidden_key_deep(source_ref)` |
+| `emit_canvas_node` | `type` | n/a -- server-authored literal | -- | L405 -- `"type": "canvas_add_node"` |
+| `emit_canvas_node` | `handle` | refuses part -- pollution key | -- | L391 -- `handle in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_node` | `nodeType` | refuses part -- unsafe object index | -- | L393 -- `_is_unsafe_object_index_value(node_type)` |
+| `emit_canvas_node` | `data` | refuses part -- spec/root at top level | -- | L351 -- `key in data for key in _CANVAS_NODE_DATA_RESERVED_KEYS` |
+| `emit_canvas_node` | `data` | refuses part -- pollution key at any depth | depth <= 12 | L353 -- `return _has_forbidden_key_deep(data)` |
+| `emit_canvas_node` | `position` | refuses part -- pollution key at any depth | depth <= 12 | L411 -- `if _has_forbidden_key_deep(position):` |
+| `emit_canvas_connect` | `type` | n/a -- server-authored literal | -- | L430 -- `"type": "canvas_connect"` |
+| `emit_canvas_connect` | `sourceHandle` | refuses part -- pollution key | -- | L436 -- `part["sourceHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_connect` | `targetHandle` | refuses part -- pollution key | -- | L436 -- `part["targetHandle"] in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_connect` | `sourcePath` | refuses part -- pollution segment | -- | L438 -- `_has_forbidden_path_segment(part["sourcePath"])` |
+| `emit_canvas_connect` | `targetKey` | refuses part -- pollution segment | -- | L438 -- `_has_forbidden_path_segment(part["targetKey"])` |
+| `emit_code_island` | `type` | n/a -- server-authored literal | -- | L595 -- `"type": "canvas_code_island"` |
+| `emit_code_island` | `intent` | NONE | <= 4096 chars | L582 -- `intent = intent[:_CODE_ISLAND_MAX_INTENT_CHARS].rstrip()` |
+| `emit_code_island` | `selectedNodeKeys` | refuses part -- empty survivor set | <= 32 keys | L586 -- `if not selected:` |
+| `emit_code_island` | `selectedNodeKeys[]` | drops element -- pollution key | -- | L450 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputBindings` | refuses part -- empty survivor set | <= 16 entries | L589 -- `if not bindings:` |
+| `emit_code_island` | `inputBindings.<k>` | drops entry -- pollution key | -- | L475 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputBindings.<k>.sourceNodeKey` | drops entry -- pollution key | -- | L483 -- `if source_node_key in _FORBIDDEN_MANIFEST_KEYS:` |
+| `emit_code_island` | `inputBindings.<k>.sourcePath` | drops entry -- pollution segment | -- | L487 -- `if _has_forbidden_path_segment(source_path):` |
+| `emit_code_island` | `inputs` | refuses part -- empty survivor set | <= 16 entries | L592 -- `if not inputs:` |
+| `emit_code_island` | `inputs.<k>` | drops entry -- pollution key | -- | L549 -- `target_key in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputs.<k>.kind` | drops entry -- pollution key | -- | L527 -- `kind in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_code_island` | `inputs.<k>.columns` | omits field -- non-list | <= 64 keys | L531 -- `if isinstance(columns, list):` |
+| `emit_code_island` | `inputs.<k>.columns[]` | drops element -- pollution key | -- | L532 -- `cleaned["columns"] = _clean_key_list(columns, _CODE_ISLAND_MAX_COLUMNS)` |
+| `emit_code_island` | `inputs.<k>.rowCount` | omits field -- non-int, bool, or negative | -- | L535 -- `isinstance(row_count, int) and not isinstance(row_count, bool) and row_count >= 0` |
+| `emit_code_island` | `inputs.<k>.sample` | omits field -- non-list | <= 5 rows | L538 -- `if isinstance(sample, list):` |
+| `emit_code_island` | `inputs.<k>.sample[]` | drops element -- pollution key at any depth | depth <= 12 | L539 -- `row for row in sample if not _has_forbidden_key_deep(row)` |
+| `emit_canvas_recipe` | `type` | n/a -- server-authored literal | -- | L640 -- `"type": "canvas_recipe"` |
+| `emit_canvas_recipe` | `name` | refuses part -- pollution key (checked after strip/cap) | <= 120 chars | L633 -- `if not name or name in _FORBIDDEN_MANIFEST_KEYS:` |
+| `emit_canvas_recipe` | `nodeKeys` | refuses part -- empty survivor set | <= 32 keys | L636 -- `if not node_keys:` |
+| `emit_canvas_recipe` | `nodeKeys[]` | drops element -- pollution key | -- | L450 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_recipe` | `edgeKeys` | NONE | <= 64 keys | L638 -- `edge_keys = _clean_key_list(raw.get("edgeKeys"), _CANVAS_RECIPE_MAX_EDGE_KEYS)` |
+| `emit_canvas_recipe` | `edgeKeys[]` | drops element -- pollution key | -- | L450 -- `item in _FORBIDDEN_MANIFEST_KEYS` |
+| `emit_canvas_recipe` | `sourceRef` | omits field -- pollution key at any depth | <= 2048 serialized chars, depth <= 12 | L648 -- `and not _has_forbidden_key_deep(source_ref)` |
 <!-- CANVAS-FIELD-COVERAGE:END -->
 
 **What the table says is NOT covered, stated plainly rather than glossed:**
