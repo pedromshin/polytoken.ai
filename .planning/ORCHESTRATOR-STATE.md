@@ -34,6 +34,20 @@
 - ✅ **`.planning/PEDRO-DECISION-SHEET-2026-08-07.md`** consolidates ALL Pedro-gated remainder
   (one-pastes · 7 audit seams · SES reply draft · Legal/MoR) into one sitting — per order, never
   blanket-resolved.
+- ✅ **vLAUNCH WAVE 0 SHIPPED (ultracode, pre-bless)** — 13-agent workflow: 3 plan-packs
+  (78-cutover runsheets w/ zero-churn TF gate · BILL-04 SQL harness · UAT pack + WEDGE-BASELINE
+  skeleton — promoted to `.planning/milestones/vlaunch-prep/`, `287f4d94`) + 5 build lanes in
+  isolated worktrees, each hostile-reviewed, merged behind the full gate stack (api-client 820 ·
+  web targeted · worker 34 · **full listener pytest 2157** · 3× typecheck) + a 10-angle
+  `/code-review` (13 findings: 3 fixed in `dfb87ee1` — cap-block toast, per-merge label,
+  learning-read logging; 10 recorded for follow-up). Landed dark: **WEDG-03 learning.summary**
+  (owner-scoped, on pipeline-health), **chat-turn cap** (free blocked w/ friendly msg at 200/mo,
+  paid never blocked, fail-open), **ingest-capped visibility** (inbox+detail), **cascade
+  screenshot scenario** (skip-laddered), worker-test 0061 sync. Follow-up queue (from review):
+  server-SSE cap mirror in listener (load-bearing before announcing caps) · duplicateConversation
+  createdAt fix via shared helper · overLimit consumer banner · classifier structural parse ·
+  worker-test readFileSync(0061) · tier-narrowing → @polytoken/billing · email-detail.tsx
+  extraction (901 lines).
 - ✅ **Vendored gsd-core bumped → v1.9.1** (`69dc8ce8`): all FOUR vendored subtrees together
   (`.claude/gsd` + `commands/gsd` + `gsd-*` agents + `gsd-*` skills — prior state was
   v1.8.0+53, byte-identical upstream, no local patches). SOURCE_COMMIT = `957ebd8e`. Wins:
