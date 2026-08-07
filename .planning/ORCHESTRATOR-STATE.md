@@ -51,9 +51,18 @@
   fail-quiet on loading/error. Closes the last "zero upgrade prompts outside /billing" debt.
   Web suite 2287/175 files green. Banner uses the DISPLAY tier, not A11's enforcement tier —
   recorded as **A13**.
-- 🔁 **Wave 0.8b IN FLIGHT:** capability nested-args seam (investigation-first,
-  build-only-if-contained). Its first attempt died on the **Fable 5 model limit** (stall #1,
-  not a code failure) — session switched to Opus and the lane was relaunched once.
+- 🔒 **Wave 0.8b (`26da8ea4`) — SECURITY FIX, the night's most valuable find.** The lane
+  returned NOT-CONTAINED (correct: no emitter exists, and the Bedrock artifact/settings.py
+  inlets are both oversized), but its **hostile reviewer refuted the analysis's central
+  claim** and the driver verified the refutation in code: the agent-emitted `capability`
+  binding path was **reachable end-to-end from untrusted content** — listener stores
+  `emit_ui_spec` JSON verbatim → `extractCapabilityBinding` runs BEFORE the `.strict()` spec
+  parse and strips the key → live invoker with five write-tier tRPC mutations → a confirm
+  card that **displayed no arguments**. One blind Approve fired a real mutation. Fixed
+  defense-in-depth: default-OFF kill switch (`NEXT_PUBLIC_CAPABILITY_BINDING_ENABLED`),
+  **required** arg disclosure on the card, and `parseArgs` fail-closed before approve.
+  Analysis + correction banner: `docs/NESTED-ARGS-ANALYSIS.md`. Recorded as **A14**.
+  (Lane stall #1 was the Fable 5 model limit — session switched to Opus, relaunched once.)
 - 🌅 **Morning report: `.planning/MORNING-REPORT-2026-08-07.md`** — Pedro starts there.
 
 ### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up

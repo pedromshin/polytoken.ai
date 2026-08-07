@@ -60,6 +60,17 @@ boundary). It stays a draft task for your sitting.
   **Fable 5 usage limit** (a model-budget stall, not a code failure). The session was switched
   to Opus and the lane relaunched once, investigation-first. If it stalls again it stops for
   good and lands in your lap as a decision, per the two-strikes rule.
+- 🔒 **SECURITY FIX — read this one (`26da8ea4`).** The nested-args lane came back
+  "not contained" (right answer), but its hostile reviewer refuted the analysis's core claim
+  and I verified the refutation in the code: the **agent-emitted capability binding path was
+  reachable from untrusted content**. The listener stores `emit_ui_spec` JSON verbatim; the
+  web strips `capability` *before* the strict spec parse (so `.strict()` never rejected it);
+  the invoker is mounted with five real write-tier mutations; and the confirm card showed
+  **no arguments** — so an instruction injected via an email body or a web-search result
+  could put a live "Approve" in front of you for an action you couldn't see. Fixed three
+  ways: a **default-OFF kill switch**, **required argument disclosure** on the card, and
+  **fail-closed arg validation** before any approve is offered. Nothing user-visible changes
+  (no emitter exists). Recorded as **A14**; full write-up at `docs/NESTED-ARGS-ANALYSIS.md`.
 - Everything else in this report stands; the Pedro-gated list is unchanged.
 
 ## Token spend (subagents, whole night)
