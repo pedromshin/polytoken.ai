@@ -97,3 +97,15 @@ variable "budget_alert_emails" {
   type        = list(string)
   default     = ["pedro@magnitudetech.com.br"]
 }
+
+variable "ingest_enqueue_enabled_prod" {
+  description = "Track 3a durable-path cutover flag for the PRODUCTION listener (flip = CUT-08 per docs/DURABLE-WORKER-RUNBOOK.md §P5): true adds INGEST_ENQUEUE_ENABLED=true to the listener container env. False (default) = the entry is omitted entirely, so the rendered task definition stays byte-identical to today (ship-dark) and the listener keeps its settings.py default False (inline ingest path)."
+  type        = bool
+  default     = false
+}
+
+variable "ingest_enqueue_enabled_staging" {
+  description = "Track 3a durable-path cutover flag for the STAGING listener (flip = CUT-06 per docs/DURABLE-WORKER-RUNBOOK.md §P5): true adds INGEST_ENQUEUE_ENABLED=true to the listener container env. False (default) = entry omitted (ship-dark, rendered task definition unchanged)."
+  type        = bool
+  default     = false
+}

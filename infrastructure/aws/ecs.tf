@@ -54,6 +54,14 @@ locals {
     production = var.worker_db_url_secret_arn_prod
     staging    = var.worker_db_url_secret_arn_staging
   }
+
+  # env key -> Track 3a INGEST_ENQUEUE_ENABLED cutover flag (variables.tf).
+  # false = the env entry is omitted from the listener container entirely; see
+  # the listener `environment` concat below.
+  ingest_enqueue_enabled = {
+    production = var.ingest_enqueue_enabled_prod
+    staging    = var.ingest_enqueue_enabled_staging
+  }
 }
 
 resource "aws_ecs_task_definition" "service" {
@@ -80,16 +88,29 @@ resource "aws_ecs_task_definition" "service" {
         }
       ]
 
-      environment = [
-        { name = "ENVIRONMENT", value = each.value.environment },
-        { name = "DEBUG", value = "false" },
-        { name = "HOST", value = "0.0.0.0" },
-        { name = "PORT", value = tostring(var.service_port) },
-        { name = "LOG_LEVEL", value = "INFO" },
-        { name = "LOG_JSON", value = "true" },
-        { name = "SUPABASE_URL", value = each.value.supabase_url },
-        { name = "BEDROCK_REGION", value = each.value.bedrock_region },
-      ]
+      environment = concat(
+        [
+          { name = "ENVIRONMENT", value = each.value.environment },
+          { name = "DEBUG", value = "false" },
+          { name = "HOST", value = "0.0.0.0" },
+          { name = "PORT", value = tostring(var.service_port) },
+          { name = "LOG_LEVEL", value = "INFO" },
+          { name = "LOG_JSON", value = "true" },
+          { name = "SUPABASE_URL", value = each.value.supabase_url },
+          { name = "BEDROCK_REGION", value = each.value.bedrock_region },
+        ],
+        # Sanctioned CUT-06 (staging) / CUT-08 (prod) flip mechanism — the ONLY
+        # way INGEST_ENQUEUE_ENABLED reaches the listener (flip = durable-path
+        # cutover per docs/DURABLE-WORKER-RUNBOOK.md §P5; one-line tfvars change
+        # + gated apply, never a console task-def hand-edit). While the env's
+        # flag is false this arm contributes an empty list, so concat(...)
+        # yields exactly the previous literal env list and the rendered task
+        # definition stays byte-identical (ship-dark — mirrors the
+        # worker_db_url_secret_arn_* gate on the worker container below).
+        local.ingest_enqueue_enabled[each.key] ? [
+          { name = "INGEST_ENQUEUE_ENABLED", value = "true" }
+        ] : [],
+      )
 
       secrets = concat(
         each.value.api_key_arn != "" ? [
