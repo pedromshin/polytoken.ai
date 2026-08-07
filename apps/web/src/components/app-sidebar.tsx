@@ -15,6 +15,7 @@ import {
   SidebarMenuItem,
 } from "@polytoken/ui/sidebar";
 
+import { WorkspaceSwitcher } from "~/app/workspaces/_components/workspace-switcher";
 import { BrandMark } from "~/components/brand-mark";
 import { isActiveRoute, LIVE_NAV_ITEMS } from "~/components/nav-items";
 import { SignOutButton } from "~/components/sign-out-button";
@@ -55,6 +56,12 @@ export function AppSidebar(): React.ReactElement {
           <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
             Polytoken
           </span>
+        </div>
+        {/* Workspace switcher (PEDRO-CHECKLIST §5): quiet ink chrome under the
+            brand row. `hideWhenEmpty` keeps the rail silent for zero-workspace
+            users; hidden in the icon-collapsed rail like the brand label. */}
+        <div className="px-2 pb-1 group-data-[collapsible=icon]:hidden">
+          <WorkspaceSwitcher hideWhenEmpty className="w-full" />
         </div>
       </SidebarHeader>
 

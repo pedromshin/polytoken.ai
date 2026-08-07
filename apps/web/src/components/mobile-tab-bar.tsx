@@ -20,8 +20,8 @@
  *
  * The "More" sheet: full capability parity, one tap away. It lists the
  * remaining destinations as quiet rows (icon + label, row density steps),
- * then the theme toggle and sign-out — the two controls that live in the
- * desktop sidebar footer. The sheet closes on navigation.
+ * then the workspace switcher, theme toggle and sign-out — the controls that
+ * live in the desktop sidebar chrome. The sheet closes on navigation.
  *
  * Nav data comes from `nav-items.ts` — the ONE registry the sidebar reads
  * too. Do not add a destination here; add it there.
@@ -42,6 +42,7 @@ import {
 } from "@polytoken/ui/sheet";
 import { Separator } from "@polytoken/ui/separator";
 
+import { WorkspaceSwitcher } from "~/app/workspaces/_components/workspace-switcher";
 import { BrandMark } from "~/components/brand-mark";
 import {
   isActiveRoute,
@@ -186,6 +187,9 @@ export function MobileTabBar(): React.ReactElement | null {
             <Separator className="bg-hair" />
 
             <div className="flex flex-col gap-1 p-2">
+              {/* Parity with the desktop sidebar header (nothing is
+                  desktop-only): quiet when the user has no workspaces. */}
+              <WorkspaceSwitcher hideWhenEmpty className="w-full" />
               <ThemeToggle />
               <SignOutButton />
             </div>
