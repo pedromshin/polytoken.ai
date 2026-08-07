@@ -12,6 +12,7 @@ import { filesRouter } from "./router/files";
 import { forwardingRouter } from "./router/forwarding";
 import { genuiRouter } from "./router/genui";
 import { knowledgeRouter } from "./router/knowledge";
+import { learningRouter } from "./router/learning";
 import { referencesRouter } from "./router/references";
 import { searchRouter } from "./router/search";
 import { spreadsheetsRouter } from "./router/spreadsheets";
@@ -37,6 +38,7 @@ export const appRouter = createTRPCRouter({
   workspaces: workspacesRouter,
   billing: billingRouter,
   canvasRecipes: canvasRecipesRouter,
+  learning: learningRouter,
 });
 
 // export type definition of API

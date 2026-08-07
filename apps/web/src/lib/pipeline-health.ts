@@ -66,6 +66,61 @@ export interface PipelineHealthRow {
   readonly failedByStage: ReadonlyArray<PipelineStageFailure>;
 }
 
+// ---------------------------------------------------------------------------
+// Learning summary (WEDG-03) — pure shaping for the `learning.summary` read
+// ---------------------------------------------------------------------------
+
+/**
+ * Structural mirror of the tRPC `learning.summary` payload (the router's
+ * `LearningSummary` in `packages/api-client/src/router/learning`). Declared
+ * structurally here so this pure layer stays dependency-free, matching the
+ * rest of this module.
+ */
+export interface LearningSummaryLike {
+  readonly correctionsMade: number;
+  readonly typeCorrections: number;
+  readonly mergeCascades: number;
+  readonly emailsRelabeled: number;
+  readonly relabelsPerCorrection: number | null;
+  readonly stickRate: number | null;
+}
+
+export interface LearningSummaryView {
+  readonly correctionsMade: number;
+  readonly emailsRelabeled: number;
+  /** "—" until any cascade exists; else e.g. "3.5" (1 decimal, ".0" trimmed). */
+  readonly relabelsPerCorrectionLabel: string;
+  /** "—" until any correction exists; else e.g. "86%". */
+  readonly stickRateLabel: string;
+  /** false while every counter is zero — the honest pre-flag-flip state. */
+  readonly hasActivity: boolean;
+}
+
+/** One decimal place, trailing ".0" trimmed ("4", "2.5") — never NaN text. */
+function formatRatio(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
+/**
+ * shapeLearningSummary — display shaping for the learning-loop metrics. The
+ * null rates (no cascades yet / no corrections yet) render as an em-dash, not
+ * a fake 0%: an unread meter is not a zero meter. Pure; never mutates.
+ */
+export function shapeLearningSummary(summary: LearningSummaryLike): LearningSummaryView {
+  return {
+    correctionsMade: summary.correctionsMade,
+    emailsRelabeled: summary.emailsRelabeled,
+    relabelsPerCorrectionLabel:
+      summary.relabelsPerCorrection === null
+        ? "—"
+        : formatRatio(summary.relabelsPerCorrection),
+    stickRateLabel:
+      summary.stickRate === null ? "—" : `${Math.round(summary.stickRate * 100)}%`,
+    hasActivity: summary.correctionsMade > 0 || summary.emailsRelabeled > 0,
+  };
+}
+
 /** Short importer-id fallback: first 8 chars (uuid prefix) — never a blank row. */
 function shortImporterId(importerId: string): string {
   return importerId.length > 8 ? `${importerId.slice(0, 8)}…` : importerId;

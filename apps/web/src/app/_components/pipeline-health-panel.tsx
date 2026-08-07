@@ -18,6 +18,11 @@
  * numerals for counts (law 2's numerals rule), failures announced by a glyph
  * + border-rule frame, never a hue (the madder rule: no colour on a STATE).
  * No font-medium (500) — only 400/600.
+ *
+ * WEDG-03 (vLAUNCH): this surface also carries `LearningSummarySection` — the
+ * owner-scoped `learning.summary` tRPC read (corrections made · re-labels per
+ * correction · % that stick), shared verbatim with the canvas pipeline-health
+ * node. It reads an honest all-zeros until the cascade flag flips (WEDG-01).
  */
 
 import * as React from "react";
@@ -27,7 +32,12 @@ import { TriangleAlert } from "lucide-react";
 import { Button } from "@polytoken/ui/button";
 import { Skeleton } from "@polytoken/ui/skeleton";
 
-import { shapePipelineHealth, type PipelineHealthRow } from "~/lib/pipeline-health";
+import {
+  shapeLearningSummary,
+  shapePipelineHealth,
+  type PipelineHealthRow,
+} from "~/lib/pipeline-health";
+import { api } from "~/trpc/react";
 
 // ---------------------------------------------------------------------------
 // Data hook — plain fetch + state (mirrors this repo's promoteEdge
@@ -85,6 +95,92 @@ export function usePipelineHealth(): {
   }, []);
 
   return { state, reload };
+}
+
+// ---------------------------------------------------------------------------
+// Learning loop (WEDG-03) — the first learning-loop metric, shared by this
+// panel and the canvas pipeline-health node (which already imports this
+// module for usePipelineHealth — same dependency direction, one data path).
+// ---------------------------------------------------------------------------
+
+/**
+ * LearningSummarySection — the owner-scoped `learning.summary` tRPC read
+ * (corrections made · emails re-labeled per correction · % that stick),
+ * shaped by `shapeLearningSummary`. Reads an honest all-zeros until the
+ * cascade flag flips (WEDG-01) — that state renders as a quiet "no
+ * corrections yet" line, never fake numbers. Identity: monochrome ink/pencil,
+ * tabular numerals, an error is ink on a rule with a Retry (UI-5).
+ */
+export function LearningSummarySection(): React.ReactElement {
+  const summary = api.learning.summary.useQuery();
+
+  return (
+    <section aria-label="Learning loop">
+      <div className="mb-2 text-2xs font-semibold tracking-[0.07em] text-pencil uppercase">
+        Learning loop
+      </div>
+
+      {summary.isLoading && (
+        <div aria-hidden className="space-y-1.5">
+          <Skeleton className="h-3 w-28 rounded-sm" />
+          <Skeleton className="h-3 w-20 rounded-sm" />
+        </div>
+      )}
+
+      {!summary.isLoading && (summary.isError || summary.data === undefined) && (
+        <div role="alert" className="border border-rule p-2.5">
+          <p className="text-xs font-semibold text-ink">
+            Learning metrics unavailable.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-2 w-full"
+            onClick={() => {
+              void summary.refetch();
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!summary.isLoading && !summary.isError && summary.data !== undefined && (
+        <LearningSummaryReadout view={shapeLearningSummary(summary.data)} />
+      )}
+    </section>
+  );
+}
+
+function LearningSummaryReadout({
+  view,
+}: {
+  readonly view: ReturnType<typeof shapeLearningSummary>;
+}): React.ReactElement {
+  if (!view.hasActivity) {
+    // The honest pre-flip state (WEDG-03 reads zero until WEDG-01 flips the
+    // cascade flag) — a quiet line, not a wall of zero meters.
+    return (
+      <p className="text-xs text-faded">
+        No corrections yet — learning metrics appear as you correct merges and
+        types.
+      </p>
+    );
+  }
+
+  return (
+    <div className="text-xs">
+      <div className="tabular text-pencil">
+        {view.correctionsMade} corrections · {view.emailsRelabeled} emails
+        re-labeled
+      </div>
+      <div className="tabular mt-0.5 text-pencil">
+        {view.relabelsPerCorrectionLabel} re-labels per correction ·{" "}
+        {view.stickRateLabel} stick
+      </div>
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +255,13 @@ export function PipelineHealthPanel(): React.ReactElement {
           ))}
         </ul>
       )}
+
+      {/* WEDG-03 — the learning-loop metric lives on this existing surface
+          (no new page): its query is independent of the listener proxy above,
+          so a down listener never hides the learning numbers or vice versa. */}
+      <div className="mt-4 border-t border-hair pt-3">
+        <LearningSummarySection />
+      </div>
     </section>
   );
 }

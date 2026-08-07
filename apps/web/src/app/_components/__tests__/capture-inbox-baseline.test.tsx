@@ -137,6 +137,25 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
     },
+    // WEDG-03: the pipeline-health panel now carries the learning-loop
+    // section — stub its owner-scoped query in the honest all-zeros state.
+    learning: {
+      summary: {
+        useQuery: () => ({
+          data: {
+            correctionsMade: 0,
+            typeCorrections: 0,
+            mergeCascades: 0,
+            emailsRelabeled: 0,
+            relabelsPerCorrection: null,
+            stickRate: null,
+          },
+          isLoading: false,
+          isError: false,
+          refetch: vi.fn(),
+        }),
+      },
+    },
   },
 }));
 
