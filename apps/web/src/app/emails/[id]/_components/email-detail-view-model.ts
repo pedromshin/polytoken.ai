@@ -110,19 +110,19 @@ export function deriveDetailViewModel({
 
   // HIGH-1/D-16: FIELD boxes that carry a pending candidate value get the on-PDF
   // inline ✓/✗. Confirmed/terminal boxes show no controls (UI-SPEC §Inline ✓/✗).
-  const confirmDenyComponentIds: string[] = components
+  // Derived from the ALREADY-COMPUTED layers rows — `role` and `candidateValue`
+  // there are the same values a second getCandidateValue pass would recompute
+  // (pinned by the equality test in email-detail-view-model.test.ts).
+  const confirmDenyComponentIds: string[] = layersComponents
     .filter(
-      (c) =>
-        c.role === "field" &&
-        c.extractionStatus !== "confirmed" &&
-        c.extractionStatus !== "rejected" &&
-        c.extractionStatus !== "superseded" &&
-        getCandidateValue(
-          c.extractedFields,
-          fieldKeyFor(c.entityTypeFieldId ?? null),
-        ) !== null,
+      (row) =>
+        row.role === "field" &&
+        row.extractionStatus !== "confirmed" &&
+        row.extractionStatus !== "rejected" &&
+        row.extractionStatus !== "superseded" &&
+        row.candidateValue !== null,
     )
-    .map((c) => c.id);
+    .map((row) => row.id);
 
   // WR-05/D-18: boxes the AI auto-detected (origin marker) drive the canonical
   // control's origin-aware deny + Undo affordance on the PDF.

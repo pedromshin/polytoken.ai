@@ -245,9 +245,17 @@ export interface MessageTurnProps {
    * turn or a still-streaming/completed-with-no-marker assistant turn. */
   readonly status?: TurnStatus;
   /** Server copy for a monthly-turns pre-turn cap block — forwarded to
-   * CostCapBlockedCard so it renders the upgrade message rather than the
-   * daily-cost copy. Meaningful only with status 'cost_capped_pre_turn'. */
+   * CostCapBlockedCard as PRESENTATION (the remedy switches on `capKind`).
+   * Meaningful only with status 'cost_capped_pre_turn'. */
   readonly capMessage?: string;
+  /** The cap-block remedy discriminant — forwarded to CostCapBlockedCard.
+   * Meaningful only with status 'cost_capped_pre_turn'. */
+  readonly capKind?: "monthly_chat_turns";
+  /** The composer text the pre-turn block destroyed — forwarded to
+   * CostCapBlockedCard's "Restore draft" affordance, with `onRestoreDraft`
+   * putting it back in the Composer. */
+  readonly draftText?: string;
+  readonly onRestoreDraft?: (text: string) => void;
   /** Sibling message ids for this turn's regenerate group, version order
    * (D-16) — omitted/length<=1 hides SiblingNav. */
   readonly siblings?: readonly string[];
@@ -319,6 +327,9 @@ export function MessageTurn({
   onNavigateSibling,
   widgets,
   capMessage,
+  capKind,
+  draftText,
+  onRestoreDraft,
 }: MessageTurnProps): React.ReactElement {
   const isUser = role === "user";
   const isAssistant = role === "assistant";
@@ -371,7 +382,12 @@ export function MessageTurn({
     // user-bubble-class.ts).
     <div className={isUser ? `self-end ${USER_BUBBLE_CLASS}` : "w-full min-w-0"}>
       {isCostCapBlocked ? (
-        <CostCapBlockedCard message={capMessage} />
+        <CostCapBlockedCard
+          message={capMessage}
+          capKind={capKind}
+          draftText={draftText}
+          onRestoreDraft={onRestoreDraft}
+        />
       ) : isFailed ? (
         <InlineErrorCard onRetry={onRegenerate ?? (() => {})} />
       ) : (

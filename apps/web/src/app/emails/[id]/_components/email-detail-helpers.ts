@@ -16,9 +16,6 @@ export const FULL_PAGE_POLYGON: Polygon = [
   [0, 1],
 ];
 
-export const fmt = (d: Date | string | null) =>
-  d ? new Date(d).toLocaleString() : "—";
-
 export function getLocationPageIndex(location: unknown): number | null {
   if (
     location !== null &&

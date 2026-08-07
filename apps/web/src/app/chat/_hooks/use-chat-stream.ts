@@ -229,12 +229,17 @@ export interface UseChatStreamOptions {
 export interface UseChatStreamResult {
   readonly state: StreamState;
   readonly parts: readonly MessagePart[];
-  /** The server's user-facing message for a monthly-chat-turns cap block
-   * (listener cap mirror, ASSUMPTIONS A7) — non-null only after a
-   * `cost_capped` event whose data carries breached_cap='monthly_chat_turns'
-   * plus a message. The generic daily-cost cap keeps its hardcoded card copy;
-   * this rides alongside so CostCapBlockedCard can say the right thing. */
-  readonly capMessage: string | null;
+  /** The monthly-chat-turns cap notice for the CURRENT turn (listener cap
+   * mirror, ASSUMPTIONS A7) — non-null only after a `cost_capped` event whose
+   * data carries breached_cap='monthly_chat_turns'. `kind` is the remedy
+   * DISCRIMINANT CostCapBlockedCard switches on; `message` is presentation
+   * only. The generic daily-cost cap keeps its hardcoded card copy. */
+  readonly capNotice: CapNotice | null;
+  /** True once the CURRENT turn's terminal `completed` event carried the
+   * paid-over-cap marker (`data.over_limit === true`, sent alongside
+   * breached_cap by the listener's chat-turn-cap mirror). Absent field →
+   * false: older listeners simply never set it. Resets on the next send. */
+  readonly overLimit: boolean;
   readonly send: (
     userText: string,
     modelId: string,
@@ -282,20 +287,46 @@ const TERMINAL_EVENT_TYPES: ReadonlySet<string> = new Set<StreamTerminalState>(
 );
 
 /**
- * capMessageFromEvent — extracts the user-facing monthly-turns cap message
- * from a `cost_capped` event, or null. The listener's chat-turn-cap mirror
- * sends `data: { breached_cap: "monthly_chat_turns", message: <friendly> }`
+ * CapNotice — the monthly-turns cap block, as a DISCRIMINATED notice rather
+ * than a bare string: `kind` (read explicitly from data.breached_cap) is what
+ * CostCapBlockedCard switches its remedy line on; `message` is presentation
+ * only (the server's friendly copy, null when absent/off-shape). Presence of
+ * a message is deliberately NOT the discriminant — a copy-less event must
+ * still route the user to Billing, not to "ask an admin".
+ */
+export interface CapNotice {
+  readonly kind: "monthly_chat_turns";
+  readonly message: string | null;
+}
+
+/**
+ * capNoticeFromEvent — extracts the monthly-turns CapNotice from a
+ * `cost_capped` event, or null. The listener's chat-turn-cap mirror sends
+ * `data: { breached_cap: "monthly_chat_turns", message: <friendly> }`
  * (run_chat_turn.py); every other cost_capped shape (daily cost breaker's
  * per-turn/daily caps) returns null so the card keeps its cost-cap copy.
  * Pure and exported for direct unit testing (untrusted stream input — never
  * throws, never trusts types).
  */
-export function capMessageFromEvent(event: ChatRunEvent): string | null {
+export function capNoticeFromEvent(event: ChatRunEvent): CapNotice | null {
   if (event.type !== "cost_capped") return null;
-  const breached = event.data["breached_cap"];
+  if (event.data["breached_cap"] !== "monthly_chat_turns") return null;
   const message = event.data["message"];
-  if (breached !== "monthly_chat_turns") return null;
-  return typeof message === "string" && message.length > 0 ? message : null;
+  return {
+    kind: "monthly_chat_turns",
+    message: typeof message === "string" && message.length > 0 ? message : null,
+  };
+}
+
+/**
+ * overLimitFromEvent — true when a terminal `completed` event carries the
+ * listener's paid-over-cap marker (`data.over_limit === true`, sibling
+ * listener lane). Coded to the CONTRACT: the field being absent (an older
+ * listener) or any non-`true` value reads false — never throws, never
+ * trusts types (T-22-30 posture).
+ */
+export function overLimitFromEvent(event: ChatRunEvent): boolean {
+  return event.type === "completed" && event.data["over_limit"] === true;
 }
 
 /** Phase 73 (LCAN-01) — the flag-gated listener tools whose finalized parts
@@ -576,7 +607,13 @@ export function useChatStream({
 }: UseChatStreamOptions): UseChatStreamResult {
   const [state, setState] = useState<StreamState>("idle");
   const [parts, setParts] = useState<readonly MessagePart[]>([]);
-  const [capMessage, setCapMessage] = useState<string | null>(null);
+  // The per-turn cap signals, folded as ONE small state object (Wave 0.6):
+  // the monthly-turns notice (cost_capped) and the paid-over-cap marker
+  // (completed + over_limit). Both reset when the next stream opens.
+  const [capSignals, setCapSignals] = useState<{
+    readonly capNotice: CapNotice | null;
+    readonly overLimit: boolean;
+  }>({ capNotice: null, overLimit: false });
   const abortControllerRef = useRef<AbortController | null>(null);
 
   /**
@@ -597,7 +634,7 @@ export function useChatStream({
       abortControllerRef.current = controller;
       setParts([]);
       setState("streaming");
-      setCapMessage(null);
+      setCapSignals({ capNotice: null, overLimit: false });
 
       let acc: ChatStreamAccumulator = { parts: [], state: "streaming" };
 
@@ -639,8 +676,14 @@ export function useChatStream({
             acc = applyRunEvent(acc, event);
             setParts(acc.parts);
             setState(acc.state);
-            const eventCapMessage = capMessageFromEvent(event);
-            if (eventCapMessage !== null) setCapMessage(eventCapMessage);
+            const eventCapNotice = capNoticeFromEvent(event);
+            const eventOverLimit = overLimitFromEvent(event);
+            if (eventCapNotice !== null || eventOverLimit) {
+              setCapSignals((prev) => ({
+                capNotice: eventCapNotice ?? prev.capNotice,
+                overLimit: prev.overLimit || eventOverLimit,
+              }));
+            }
           }
         }
 
@@ -727,5 +770,14 @@ export function useChatStream({
     abortControllerRef.current?.abort();
   }, []);
 
-  return { state, parts, capMessage, send, regenerate, submitWidget, stop };
+  return {
+    state,
+    parts,
+    capNotice: capSignals.capNotice,
+    overLimit: capSignals.overLimit,
+    send,
+    regenerate,
+    submitWidget,
+    stop,
+  };
 }

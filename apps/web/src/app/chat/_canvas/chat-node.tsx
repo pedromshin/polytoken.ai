@@ -152,6 +152,7 @@ const ChatNodeBody = memo(function ChatNodeBody({
           onNavigateSibling={controller.handleNavigateSibling}
           onRegenerate={controller.onRegenerateTurn}
           widgets={controller.widgets}
+          onRestoreDraft={controller.handleRestoreDraft}
         />
         <GeneratingIndicator state={controller.activeStreamState} />
         <Composer
@@ -159,6 +160,7 @@ const ChatNodeBody = memo(function ChatNodeBody({
           onSubmit={controller.handleSubmit}
           onStop={controller.handleStop}
           conversationId={conversationId}
+          restoreDraft={controller.draftRestore}
         />
       </div>
     </>

@@ -30,9 +30,17 @@ export interface MessageListItem {
   /** Terminal status for a settled assistant turn (CHAT-05, D-15/D-19/D-21). */
   readonly status?: TurnStatus;
   /** Server-supplied copy for a monthly-turns pre-turn cap block (listener
-   * cap mirror) — CostCapBlockedCard renders it instead of the daily-cost
-   * copy. Only ever set alongside status 'cost_capped_pre_turn'. */
+   * cap mirror) — presentation only; the remedy discriminates on `capKind`.
+   * Only ever set alongside status 'cost_capped_pre_turn'. */
   readonly capMessage?: string;
+  /** The cap-block remedy discriminant (Wave 0.6) — 'monthly_chat_turns'
+   * switches CostCapBlockedCard to the Billing remedy. Only ever set
+   * alongside status 'cost_capped_pre_turn'. */
+  readonly capKind?: "monthly_chat_turns";
+  /** The composer text a pre-turn cap block destroyed — CostCapBlockedCard
+   * renders it with a one-click "Restore draft" affordance. Only ever set
+   * alongside status 'cost_capped_pre_turn'. */
+  readonly draftText?: string;
   /** Sibling message ids for this turn's regenerate group, version order
    * (D-16) — length<=1 hides SiblingNav. Assistant turns only. */
   readonly siblings?: readonly string[];
@@ -58,6 +66,10 @@ export interface MessageListProps {
    * interactive_widget parts (Task 4, D-08) — the same bundle for all turns;
    * each part looks up its own interactionId. */
   readonly widgets?: MessageTurnWidgets;
+  /** One-click draft recovery for a pre-turn cap block — called with the
+   * card's `draftText`; the controller routes it into the Composer
+   * (turn-cap-notices.ts). */
+  readonly onRestoreDraft?: (text: string) => void;
 }
 
 /**
@@ -79,6 +91,7 @@ export function MessageList({
   regenerateDisabled = false,
   onNavigateSibling,
   widgets,
+  onRestoreDraft,
 }: MessageListProps): React.ReactElement {
   const scrollAreaRootRef = useRef<HTMLDivElement | null>(null);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +180,9 @@ export function MessageList({
               isStreamingTurn={turn.id === streamingTurnId}
               status={turn.status}
               capMessage={turn.capMessage}
+              capKind={turn.capKind}
+              draftText={turn.draftText}
+              onRestoreDraft={onRestoreDraft}
               siblings={turn.siblings}
               activeSiblingIndex={turn.activeSiblingIndex}
               regenerateDisabled={regenerateDisabled}

@@ -5,13 +5,14 @@
 // in scope for any suite that mounts this file directly (documented gotcha,
 // see genui-panel-node.tsx / 53-03 / 53-04's identical fix).
 import * as React from "react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Send, Square } from "lucide-react";
 
 import { cn } from "@polytoken/ui";
 import { Button } from "@polytoken/ui/button";
 import { Textarea } from "@polytoken/ui/textarea";
 
+import type { DraftRestoreRequest } from "../_hooks/turn-cap-notices";
 import { ComposerAttachments } from "./composer-attachments";
 
 /**
@@ -40,6 +41,13 @@ export interface ComposerProps {
    * byte-for-byte unchanged.
    */
   readonly conversationId?: string;
+  /**
+   * A draft-restore request (turn-cap-notices.ts): the pre-turn cap block's
+   * "Restore draft" affordance puts the destroyed text back into this field.
+   * The composer stays UNCONTROLLED — a request is applied exactly once
+   * (keyed on `seq`), so normal typing is never clobbered by a re-render.
+   */
+  readonly restoreDraft?: DraftRestoreRequest | null;
 }
 
 /**
@@ -56,6 +64,7 @@ export function Composer({
   onSubmit,
   onStop,
   conversationId,
+  restoreDraft,
 }: ComposerProps): React.ReactElement {
   const [value, setValue] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -82,6 +91,24 @@ export function Composer({
     },
     [resizeTextarea],
   );
+
+  // DRAFT RESTORE (turn-cap-notices): apply each restore request exactly once
+  // (seq-keyed) — the field stays uncontrolled otherwise, so typing is never
+  // clobbered by an unrelated re-render carrying a stale request. Focus lands
+  // in the field so the user can send (or edit) immediately: the whole point
+  // is one-click recovery of exactly what they typed.
+  const appliedRestoreSeqRef = useRef(0);
+  useEffect(() => {
+    if (!restoreDraft || restoreDraft.seq === appliedRestoreSeqRef.current) {
+      return;
+    }
+    appliedRestoreSeqRef.current = restoreDraft.seq;
+    setValue(restoreDraft.text);
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus();
+      resizeTextarea();
+    });
+  }, [restoreDraft, resizeTextarea]);
 
   const submit = useCallback(() => {
     const trimmed = value.trim();

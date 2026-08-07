@@ -128,7 +128,8 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   }, [entityTypes]);
 
   // ---- 09-08 hooks: canvas state + role mutations + autofill-fields ----
-  const components = data?.components ?? [];
+  // Stable reference per fetch result — the view-model memo below keys on it.
+  const components = useMemo(() => data?.components ?? [], [data]);
 
   function resolvePageComponentId(pageIndex: number): string | null {
     if (activeAttachmentId === null) return null;
@@ -287,7 +288,10 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
   // View-model rows for LAYERS + INSPECTOR + on-PDF controls — derived by the
   // pure view-model layer (email-detail-view-model.ts): layers tree rows,
   // D-16 inline ✓/✗ ids, WR-05 auto-detected ids, the 06-04 parent picker,
-  // the inspector selection, and the D-10 active-parent label.
+  // the inspector selection, and the D-10 active-parent label. Memoized on
+  // its EXPLICIT inputs — the derivation walks every component row several
+  // times, so an unrelated re-render (dialog open, page turn) must not
+  // recompute it or hand child panels fresh array identities.
   const {
     layersComponents,
     confirmDenyComponentIds,
@@ -298,14 +302,25 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
     inspectorSelected,
     inspectorEntityTypeLabel,
     activeParentLabel,
-  } = deriveDetailViewModel({
-    components,
-    idToLabel,
-    fieldIdToLabel,
-    fieldIdToKey,
-    selectedIds: canvas.selectedIds,
-    activeParentId: canvas.activeParentId,
-  });
+  } = useMemo(
+    () =>
+      deriveDetailViewModel({
+        components,
+        idToLabel,
+        fieldIdToLabel,
+        fieldIdToKey,
+        selectedIds: canvas.selectedIds,
+        activeParentId: canvas.activeParentId,
+      }),
+    [
+      components,
+      idToLabel,
+      fieldIdToLabel,
+      fieldIdToKey,
+      canvas.selectedIds,
+      canvas.activeParentId,
+    ],
+  );
 
   // Selecting a row drives selection + arms active-parent (D-10).
   //   - ENTITY → arm it as the active parent (its fields reveal; focus mode).

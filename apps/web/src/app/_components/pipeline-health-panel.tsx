@@ -120,10 +120,12 @@ export function LearningSummarySection(): React.ReactElement {
         Learning loop
       </div>
 
-      {/* React Query v5 three-state status. `status === "pending"` (not
+      {/* React Query v5 three-state status — ALL THREE branches switch on
+          `summary.status` exclusively, so exactly one renders. "pending" (not
           isLoading) covers the paused-pending query too — offline, a query
-          sits at status "pending" with isLoading false and isError false;
-          that is still "no data yet", a skeleton, never an error alert. */}
+          sits at status "pending" with isLoading false; that is still "no
+          data yet", a skeleton, never an error alert. On "success" the v5
+          union narrows `data` to defined — no redundant guard. */}
       {summary.status === "pending" && (
         <div aria-hidden className="space-y-1.5">
           <Skeleton className="h-3 w-28 rounded-sm" />
@@ -131,7 +133,7 @@ export function LearningSummarySection(): React.ReactElement {
         </div>
       )}
 
-      {summary.isError && (
+      {summary.status === "error" && (
         <div role="alert" className="border border-rule p-2.5">
           <p className="text-xs font-semibold text-ink">
             Learning metrics unavailable.
@@ -150,7 +152,7 @@ export function LearningSummarySection(): React.ReactElement {
         </div>
       )}
 
-      {summary.status === "success" && summary.data !== undefined && (
+      {summary.status === "success" && (
         <LearningSummaryReadout view={shapeLearningSummary(summary.data)} />
       )}
     </section>
