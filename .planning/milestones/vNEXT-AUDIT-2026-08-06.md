@@ -211,15 +211,21 @@ Recommended dispositions (Pedro decides; these are the auditor's defaults):
 
 ### Decision Ledger — fill in, then close
 
+> **2026-08-07 — rows filled with the auditor's recommended default under Pedro's nonstop order**
+> (*"assume positive outcome ... record and ill do a retroactive backcheck"* — assumption **A3** in
+> [../ASSUMPTIONS-2026-08-07.md](../ASSUMPTIONS-2026-08-07.md)). Every row = EXECUTE-IN-vLAUNCH,
+> scheduled into Phases 80/81. Pedro may flip any row to ACCEPT-AS-DEBT (owner+trigger required)
+> at backcheck; execution of each seam remains his live action regardless.
+
 | # | Seam | Choice (EXECUTE-NOW / ACCEPT-AS-DEBT / BLOCK-CLOSE) | Owner | Trigger/date | Notes |
 |---|------|------|-------|--------------|-------|
-| 1 | LCAN-05 DB-row round-trip | ☐ | Pedro | | |
-| 2 | LCAN-09-live after-close recompute | ☐ | Pedro | | |
-| 3 | MORN-07 real overnight run | ☐ | Pedro | | |
-| 4 | BTAP-07 agent-authored app live | ☐ | Pedro | | |
-| 5 | MCPX-09 real Claude Code connect | ☐ | Pedro | | |
-| 6 | CPF-live merge → re-label fan-out | ☐ | Pedro | | |
-| 7 | Real-browser screenshot pass (incl. CPF-06) | ☐ | Pedro | | |
+| 1 | LCAN-05 DB-row round-trip | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-05 | runsheet: vlaunch-prep/0c |
+| 2 | LCAN-09-live after-close recompute | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-05 (worker triad) | rides CUT chain |
+| 3 | MORN-07 real overnight run | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-04 (+1 overnight) | both-ends flag checklist in 0c |
+| 4 | BTAP-07 agent-authored app live | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-02 | flag flip + gesture |
+| 5 | MCPX-09 real Claude Code connect | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-03 | config block staged |
+| 6 | CPF-live merge → re-label fan-out | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 81 / WEDG-02 (scheduled ONCE, here) | struck from Phase-80 lists |
+| 7 | Real-browser screenshot pass (incl. CPF-06) | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-01 | cascade scenario merged `8263578c` |
 
 **Rule:** `/gsd:complete-milestone` may run only when every row is checked. An ACCEPT-AS-DEBT row
 without an owner + trigger is an unchecked row.
