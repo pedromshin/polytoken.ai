@@ -8,6 +8,11 @@
 // inbox-mobile-stack.test.tsx).
 import * as React from "react";
 
+import {
+  INGEST_COST_CAPPED_MARK,
+  INGEST_COST_CAPPED_NOTE,
+  isIngestCostCapped,
+} from "../_vocabulary/ingest-degradation";
 import { EntityChips, type EntityChipEntry } from "./entity-chips";
 import { RuleSuggestionRowMark } from "./mail-rule-review";
 
@@ -25,6 +30,15 @@ export interface InboxEmail {
   readonly senderAddress: string;
   readonly receivedAt: Date | string | null;
   readonly bodyText: string | null;
+  /**
+   * Pipeline state (vLAUNCH B-lane — ingest-degraded visibility): drives the
+   * quiet "not analyzed" marker for an email the A1 daily cost cap finalized
+   * 'degraded' (`ingest_cost_capped`). Optional so existing call sites and
+   * tests compile unchanged; absent/non-capped renders byte-identical to the
+   * pre-lane row.
+   */
+  readonly parseStatus?: string | null;
+  readonly parseError?: string | null;
 }
 
 interface InboxRowProps {
@@ -111,6 +125,7 @@ export function InboxRow({
 }: InboxRowProps): React.ReactElement {
   const sender = email.senderName ?? email.senderAddress;
   const snippet = toInboxSnippet(email.bodyText);
+  const ingestCapped = isIngestCostCapped(email.parseStatus, email.parseError);
 
   function activate(): void {
     onSelect(email.id);
@@ -153,6 +168,20 @@ export function InboxRow({
         <span data-field="sender" className="truncate text-sm font-semibold">
           {sender}
         </span>
+        {/* vLAUNCH B-lane: the A1 cost cap skipped this email's analysis.
+            Quiet chrome (rule border, pencil ink — the parse marker's quiet
+            register, law 1): a paused analysis is a status, not an alarm.
+            The shared one-liner rides on title; the detail page states it
+            in full (IngestCappedNote). */}
+        {ingestCapped && (
+          <span
+            data-field="ingest-capped"
+            title={INGEST_COST_CAPPED_NOTE}
+            className="shrink-0 rounded-sm border border-rule px-1.5 py-0.5 text-2xs font-semibold whitespace-nowrap text-pencil"
+          >
+            {INGEST_COST_CAPPED_MARK}
+          </span>
+        )}
         <time data-field="time" className="tabular shrink-0 text-2xs text-pencil">
           {formatDate(email.receivedAt)}
         </time>

@@ -88,6 +88,14 @@ export const emailsRouter = createTRPCRouter({
           toAddresses: Emails.toAddresses,
           receivedAt: Emails.receivedAt,
           importerId: Emails.importerId,
+          // vLAUNCH B-lane (ingest-degraded visibility): the inbox row's
+          // quiet "not analyzed" marker needs the pipeline state to decide
+          // whether the A1 daily cost cap finalized this email 'degraded'
+          // (`ingest_cost_capped` — see the web `_vocabulary/ingest-degradation`
+          // predicate). parse_error is a length-capped text summary (<=2000
+          // chars server-side), never a body-sized payload.
+          parseStatus: Emails.parseStatus,
+          parseError: Emails.parseError,
           bodyText: sql<
             string | null
           >`left(${Emails.bodyText}, ${INBOX_SNIPPET_CHARS})`,

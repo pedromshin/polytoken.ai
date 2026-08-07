@@ -16,6 +16,7 @@ import { api } from "~/trpc/react";
 import { ActiveParentBanner } from "./active-parent-banner";
 import { CanvasShell } from "./canvas-shell";
 import { ExtractionSummaryPanel } from "./extraction-summary-panel";
+import { IngestCappedNote } from "./ingest-capped-note";
 import { InspectorPanel } from "./inspector-panel";
 import { LayersPanel } from "./layers-panel";
 import { ParseStatusMarker } from "./parse-status-marker";
@@ -421,6 +422,12 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
           </Button>
         </div>
 
+        {/* vLAUNCH B-lane: one plain-words line when the A1 cost cap skipped
+            this email's analysis. Self-deciding — renders null for every
+            other status/reason, so this line adds nothing until the cap
+            flag flips. */}
+        <IngestCappedNote status={email.parseStatus} error={email.parseError} />
+
         <ReprocessDialog
           open={reprocessDialogOpen}
           onOpenChange={setReprocessDialogOpen}
@@ -818,6 +825,11 @@ export function EmailDetail({ emailId, embedded = false }: EmailDetailProps) {
           Reprocess Email
         </Button>
       </header>
+
+      {/* vLAUNCH B-lane: the capped-ingest one-liner (self-deciding; null for
+          every non-capped email — the standalone header stays byte-identical
+          until the cap flag flips). */}
+      <IngestCappedNote status={email.parseStatus} error={email.parseError} />
 
       <ReprocessDialog
         open={reprocessDialogOpen}
