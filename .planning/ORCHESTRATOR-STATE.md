@@ -13,6 +13,33 @@
 > milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
 > bullet + STATE.md Next Actions).
 
+### ✅ 2026-08-07 OVERNIGHT — WAVES 0.5/0.6/0.65 SHIPPED (`5d490259`, 24-commit push)
+- ✅ **Wave 0.5** (6 lanes): listener chat-turn-cap MIRROR (server-locus gate, pre-insert,
+  fail-open), duplicate-createdAt fix, over-allowance toast, tier narrowing → billing,
+  RQ-v5 fix, structural stream-parse classifier, migration-sourced worker SQL,
+  email-detail 901→603, ship-dark ecs.tf flip wiring + staging worker CI lanes.
+- ✅ **Wave 0.6** (16-item review fix batch): cap-message PARITY FIXTURE
+  (`packages/billing/src/chat-cap-parity.json` — both language suites assert against it),
+  fail-closed tier narrowing in the Python gate, paid `over_limit` rides the completed SSE
+  event → Billing toast on the PRIMARY path, **draft preservation** on pre-turn cap block
+  (one-click restore), tier-for-enforcement = active/trialing BOTH gates (A11), panel status
+  machine, controller split <800, gather/head-count efficiency, e2e typecheck in CI,
+  staging workflow mirrors prod (worker build/scan unconditional, only push gated),
+  migration-by-content selector.
+- ✅ **Wave 0.65** (breadth): WorkspaceSwitcher mounted in nav (+ sheet-close fix),
+  /spreadsheets → standalone read-only viewer `/spreadsheets/[id]`, workspace add-member
+  USER SEARCH (min-3-char, capped, minimal columns), 999.21 sidebar pointer-events
+  root-cause + regression pin, screenshot camera scenarios for /billing · /settings/account
+  · /workspaces · /spreadsheets. ⛔ **legal-pack lane SAFETY-BLOCKED** (correctly: live
+  billing-terms page needs Pedro's BILL-05 written GO — A4 boundary held; stays a draft
+  task for the sitting).
+- 🔎 Two 10-angle review rounds (26 findings total filed w/ outcomes); full gates green at
+  every merge: listener 2190 · api-client 831 · web 2267 (174 files) · billing 31 · worker.
+- 🟢 **LIVE on this deploy:** the listener cap mirror (free 200/mo enforced on BOTH chat
+  paths w/ friendly copy + draft restore; paid never blocked, over-limit toast).
+- 📋 Queue (recorded, next waves): A12 widget-path policy · run_chat_turn extraction ·
+  test-double consolidation ×3 · jsonlStreamConsumer swap · workflow composite action.
+
 ### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up
 - ✅ **Harness DECISION recorded** (`.planning/decisions/2026-08-07-HARNESS-LOCK.md`, Pedro,
   FINAL): v2.0 and everything before it runs on **Claude Code + gsd plugin 4.5.3 + `.planning/`**.
