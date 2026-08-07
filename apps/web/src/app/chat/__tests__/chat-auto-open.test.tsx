@@ -34,6 +34,13 @@ vi.mock("~/hooks/use-is-mobile-viewport", () => ({
   useIsMobileViewport: () => false,
 }));
 
+// useConversationController calls useRouter() (Wave 0.6: injected router.push
+// for the over-allowance Billing toast) — jsdom has no App Router; the repo's
+// standard stub (entities-table.test.tsx idiom).
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), prefetch: vi.fn() }),
+}));
+
 vi.mock("../_canvas/chat-canvas-island", () => ({
   ChatCanvasIsland: () => null,
 }));

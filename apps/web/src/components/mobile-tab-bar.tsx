@@ -83,6 +83,15 @@ export function MobileTabBar(): React.ReactElement | null {
   const [moreOpen, setMoreOpen] = React.useState(false);
   const moreActive = isMoreActive(pathname);
 
+  // The sheet closes on navigation — MOBILE_MORE_ITEMS rows close via their
+  // own onClick, but embedded content (WorkspaceSwitcher's "Manage
+  // workspaces" link) navigates without a close path; the App Router keeps
+  // this layout mounted, so without this the destination renders under a
+  // still-open modal sheet.
+  React.useEffect(() => {
+    setMoreOpen(false);
+  }, [pathname]);
+
   // No app nav on the unauthenticated door or on print output — the one
   // surface a signed-out phone sees, and the one surface meant for paper.
   if (pathname === "/login" || pathname.endsWith("/print")) return null;
