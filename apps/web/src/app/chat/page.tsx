@@ -21,6 +21,7 @@ import { CostMeter } from "./_components/cost-meter";
 import { GeneratingIndicator, MessageList } from "./_components/message-list";
 import { ModelPicker } from "./_components/model-picker";
 import { ThreadClusterIndicator } from "./_components/thread-cluster-indicator";
+import { UpsellBanner } from "./_components/upsell-banner";
 import { ChatCanvasIsland } from "./_canvas/chat-canvas-island";
 import {
   ChatCanvasViewToggle,
@@ -242,6 +243,13 @@ function ConversationView({
                 onRestoreDraft={controller.handleRestoreDraft}
               />
               <GeneratingIndicator state={controller.activeStreamState} />
+              {/* W8-1 — the ONE upgrade prompt outside /billing: a quiet
+                  approaching-cap notice in the dock stack directly above the
+                  composer, sharing its hairline-rule idiom. Fail-quiet on
+                  loading/error/absent usage; dismiss latches for the session
+                  (turn-cap-notices.ts), so it does not resurrect on the keyed
+                  remount a conversation switch causes. */}
+              <UpsellBanner />
               <Composer
                 isStreaming={controller.activeStreamState === "streaming"}
                 onSubmit={controller.handleSubmit}
