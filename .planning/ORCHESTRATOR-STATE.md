@@ -34,7 +34,11 @@
 - ✅ **`.planning/PEDRO-DECISION-SHEET-2026-08-07.md`** consolidates ALL Pedro-gated remainder
   (one-pastes · 7 audit seams · SES reply draft · Legal/MoR) into one sitting — per order, never
   blanket-resolved.
-- 🔄 **Vendored gsd-core bump 1.8.0→1.9.1** in flight (background agent, SOURCE_COMMIT process).
+- ✅ **Vendored gsd-core bumped → v1.9.1** (`69dc8ce8`): all FOUR vendored subtrees together
+  (`.claude/gsd` + `commands/gsd` + `gsd-*` agents + `gsd-*` skills — prior state was
+  v1.8.0+53, byte-identical upstream, no local patches). SOURCE_COMMIT = `957ebd8e`. Wins:
+  code-fixer honors `use_worktrees:false` + Windows reparse-point guard; guard hooks close
+  fail-open holes; executor SUMMARY needs `actuals`.
 
 ### ✅ PROD RESTORED + TRACK 1 LIVE + TRACK 3a DARK + MILESTONE CODE DEPLOYED — 2026-08-06 tonight part 2
 - ✅ **Prod DB restore chain CLOSED.** Root cause confirmed: both Supabase projects had
