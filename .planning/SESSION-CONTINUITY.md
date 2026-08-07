@@ -49,8 +49,26 @@ waves that run downstream of them.
 ## 5. The gate matrix (what "full gates" means)
 
 - **Listener** (any `apps/email-listener/**` change — merge = live mail-receiver redeploy):
-  `cd apps/email-listener && uv run pytest` (full) `&& uv run mypy app && uv run ruff check &&
-  uv run lint-imports`.
+  ```
+  cd apps/email-listener
+  uv run pytest            # full
+  uv run mypy app
+  uv run ruff check .      # LINT
+  uv run ruff format --check .   # ⚠️ FORMAT — a SEPARATE check, and CI runs it
+  uv run lint-imports
+  uv run bandit -c pyproject.toml -r app   # ⚠️ SECURITY scan — CI runs this too
+  ```
+  > **TWO of these were missing from this list until 2026-08-07.** CI went red on
+  > `ruff format --check` (run `31222333007`); reading the workflow afterwards showed `bandit`
+  > was also never being run locally (it passes — 0 issues at every severity — but nobody knew
+  > that). `ruff check` and `ruff format --check` are *different commands*; passing the first
+  > says nothing about the second. Every lane and merge for a whole night was gated against the
+  > incomplete list, so the drift accumulated silently until a push surfaced it.
+  >
+  > **The authority for what "green" means is `.github/workflows/ci-email-listener.yml`, not this
+  > file.** Derive the gate from the workflow's steps rather than from any prose list — including
+  > this one. A hand-maintained mirror of a CI config drifts, which is the same failure this
+  > milestone kept finding in the lanes' own hardcoded lists.
 - **TS**: `SKIP_ENV_VALIDATION=1 npm run test -w @polytoken/<ws>` per touched workspace +
   `npm run typecheck -w <ws>` (apps/web's typecheck now also runs the e2e tsconfig leg).
 - **Never** bare `next build` (use `build:local`), never bare `npx playwright test`.
