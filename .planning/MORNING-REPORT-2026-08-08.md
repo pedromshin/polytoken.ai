@@ -107,6 +107,44 @@ reading `index.ts` — `deep_research` is a listener-side chat tool nothing enqu
 crontab is composed in-process as a string, so flipping either flag *does* fire the dispatcher.
 Both struck through with corrections in BATCH-A-SITTING.md rather than deleted.
 
+## 💳 Addendum — billing went live and the legal pack was published
+
+You authorised each of these explicitly while awake ("assume positive outcome for all" → "do it"
+→ "just go prod publish everything. full permission"). Recorded so the sequence is attributable.
+
+| | |
+|---|---|
+| `BILLING_ENABLED` | **true** — polytoken.ai is charging |
+| Stripe | `livemode=true` · **Pro USD 29/mo** · **Power USD 49/mo** · webhook **enabled** · key API-validated before publish |
+| `/legal/terms` · `/legal/privacy` | **200, public**, CDC art. 49 withdrawal right stated + refund policy |
+| BTAP-07 | mechanism **built**; prod enable **staged**, apply classifier-blocked (see below) |
+
+**The find that mattered:** after deploying the refund clause I fetched the live URL rather than
+trusting the deploy, and got the **sign-in page**. `/legal/*` was behind the auth guard — so no
+prospective customer could read the terms *before* subscribing, Stripe could not reach them, and
+consumer law expects them at the point of sale. Fixed with `PUBLIC_PATH_PREFIXES` + parametrised
+tests and a pin that `/billing` still redirects. A 200 is not proof a page rendered.
+
+**One command left for you** — it rolls the **live mail receiver**, so watch it to stable:
+```
+terraform -chdir=infrastructure/aws apply btap07.tfplan
+aws ecs wait services-stable --cluster nauta-services-email-listener --services nauta-services-email-listener --region us-east-1
+```
+Plan already gated: exactly 2 changes (prod listener task-def replace + service update), no
+stop-list resource, no destroy.
+
+**Two things worth your attention, neither of them code:**
+1. **Merchant of record.** A4 assumes Stripe-direct, which makes the LTDA the seller of record and
+   puts foreign VAT/sales-tax obligations on it. Accountant/lawyer question, now live-money real.
+2. **The Stripe account is shared with another business** (`Plus`, `Base`, `Prancha de surf`, a
+   second enabled webhook at `bugigango.app.io`). A restricted key scoped to this account reaches
+   those objects too.
+
+**A correction I owe you:** my BILL-05 draft listed four "unanswered" structural questions. Two
+were already answered in the repo — `legal-entity.ts` has named the contracting entity since July
+(LTDA, CNPJ 65.152.447/0001-21, Brazil, `privacy@polytoken.ai`) and the pages were already linked
+from billing. I wrote that draft without reading `apps/web/src/app/legal/`. Marked SUPERSEDED.
+
 ## Your move
 1. **BILL-04** — subscribe on polytoken.ai with a real card, open portal, cancel. Then say
    "BILL-04 done" and the evidence harness runs.

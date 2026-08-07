@@ -13,6 +13,48 @@
 > milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
 > bullet + STATE.md Next Actions).
 
+### 💳 2026-08-08 — BILLING IS LIVE · LEGAL PAGES PUBLIC · BTAP-07 MECHANISM BUILT
+> **Standing-order note:** the actions in this block cross the usual hard limits (Stripe, flag
+> flips, prod terraform). Pedro authorised each **explicitly and while awake** — *"assume positive
+> outcome for all, and do them all yourself"*, then *"do it"*, then *"just go prod publish
+> everything. full permission"*. The autonomous-beat limits are unchanged for unattended work.
+
+- 💳 **`BILLING_ENABLED=true` on production — polytoken.ai is charging.** Sequence recorded in
+  full at `.planning/ASSUMED-PASS-2026-08-08.md` §5: I logged the concern (legal pack absent →
+  customers chargeable under unpublished terms), Pedro said *"do it"*, I flipped it; he reverted
+  it himself after reading the obligation; then instructed a full publish, so it is on again —
+  this time **with the terms actually published**. `STRIPE_SECRET_KEY` is the durable restricted
+  key, **API-validated before publish**. Live objects verified: `livemode=true`, **Pro USD 29/mo**
+  (`price_1U1acy01…`), **Power USD 49/mo** (`price_1U1ad801…`), webhook
+  `polytoken.ai/api/stripe/webhook` **enabled**.
+- ⚖️ **Legal pack PUBLISHED and PUBLIC** (`4aee3fa1`, `572ae895`). The terms now state the
+  **CDC art. 49 seven-day right of withdrawal** plainly — it was previously only implied by
+  *"except where required by law"*, invisible to the person holding the right — plus an explicit
+  refund policy (Stripe expects a reachable one on a live account), the allowance mechanics the
+  code actually enforces, and that cards never reach our systems.
+  🔥 **`/legal/*` WAS BEHIND THE AUTH GUARD** — `GET /legal/terms` served the sign-in page, so no
+  prospective customer could read the terms *before* subscribing and Stripe could not reach them.
+  Found by fetching the deployed URL rather than trusting a 200. Fixed via `PUBLIC_PATH_PREFIXES`
+  with parametrised tests + a pin that `/billing` still redirects. Both pages now **200 public**.
+- 🎛️ **BTAP-07's flip mechanism DID NOT EXIST and was built** (`0d4cdfe8`).
+  `CANVAS_EMIT_TOOL_ENABLED` appeared in **no `.tf` and no `.yml`** — only as a `settings.py`
+  default — so the env var never reached a deployed listener and the flag read `False` on prod
+  permanently. The runsheet's *"flip the flag"* had nothing to invoke; the seam was unexecutable
+  by anyone. Wired ship-dark (tfvars-gated, `terraform plan` = "No changes" while unset).
+- ⏳ **BTAP-07 prod enable is STAGED, not applied.** `canvas_emit_tool_enabled_prod = true` is in
+  tfvars and the plan is gated green — **exactly 2 changes** (prod listener task-def replace +
+  service update), no stop-list resource, no destroy. The apply is **classifier-blocked** for the
+  agent. Pedro runs: `terraform -chdir=infrastructure/aws apply btap07.tfplan` then
+  `aws ecs wait services-stable …`. It rolls the **live mail receiver**, so watch it to stable.
+- 📋 **A15–A19 recorded** — `.planning/ASSUMED-PASS-2026-08-08.md` is the revisit file, keeping
+  verified / assumed / backcheck strictly apart. Verified for real: Stripe objects, mcp-server
+  32/32 with load-time refusal of non-`read` capabilities, and that the **AWS Support API does not
+  exist on this account** (so the SES step is console-only for anyone).
+- ⚠️ **Still open, and it is an accountant question:** the **merchant-of-record** posture. A4
+  assumes Stripe-direct, which makes the LTDA the seller of record with foreign VAT/sales-tax
+  obligations. Also: the Stripe account is **shared with another business** (`bugigango`), so a
+  restricted key scoped to it reaches those objects too.
+
 ### 🟢 2026-08-07 — BATCH A §1 + §2 DONE: THE DURABLE-INGEST DB SEAM IS LIVE ON PROD
 - ✅ **§1 staging repair — DONE + independently verified read-only.** `staging-repair.mjs --yes`
   reported "61 rows recorded / Nothing pending"; `db:migrate:staging` green. A separate read-only
