@@ -71,6 +71,26 @@ verify), `w13-injection-fix` (canvas emitter field guards + **import-time** read
 Final gate: **2389 listener tests**, mypy 329 files, ruff lint + format, lint-imports 3/3,
 bandit 0 high / 0 medium.
 
+## Addendum — full cross-workspace verification (later beat)
+Having found the listener gate wrong, I audited the **other** matrices against the CI workflow
+files. The TS one was wrong too: it said "per touched workspace", but
+`ci-web-and-packages.yml` typechecks **eleven** workspaces, tests **ten**, and runs
+`drizzle-kit check` — none of which I had been running. Per-workspace gating is not equivalent,
+because a change in one workspace reds another's typecheck (an `api-client` router change
+breaking `web` is the standard case).
+
+Ran the complete set. **All green, nothing had slipped through:**
+
+| | |
+|---|---|
+| Typechecks | **11/11** (incl. `daemon`, which CI typechecks but does not test) |
+| `drizzle-kit check` | `Everything's fine` — journal/snapshot consistent after all the migration work |
+| Suites (10) | db 124 · api-client 839 · billing 31 · daemon-protocol 52 · capabilities 65 · genui 645 · ui 49 · worker 42 · mcp-server 32 · **web 2292 / 175 files** |
+| Listener | 2389 passed · mypy 329 · ruff lint+format · lint-imports 3/3 · bandit 0/0 |
+
+**~6560 tests green across the repo.** The result was luck rather than verification until now —
+which is exactly why the matrix is corrected and both workflow files are named as the authority.
+
 ## ⚠️ Two failures of mine, stated plainly
 1. **My gate matrix was incomplete all night.** CI runs `ruff format --check .` and `bandit`;
    my documented "FULL listener stack" ran neither. Every lane and merge for a whole night was

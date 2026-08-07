@@ -69,8 +69,21 @@ waves that run downstream of them.
   > file.** Derive the gate from the workflow's steps rather than from any prose list — including
   > this one. A hand-maintained mirror of a CI config drifts, which is the same failure this
   > milestone kept finding in the lanes' own hardcoded lists.
-- **TS**: `SKIP_ENV_VALIDATION=1 npm run test -w @polytoken/<ws>` per touched workspace +
-  `npm run typecheck -w <ws>` (apps/web's typecheck now also runs the e2e tsconfig leg).
+- **TS** — `.github/workflows/ci-web-and-packages.yml` is the authority, and it does **not** gate
+  per touched workspace. It sets `SKIP_ENV_VALIDATION=1` job-wide and runs:
+  1. `npm run typecheck -w <ws>` for **ELEVEN** workspaces: db · api-client · billing ·
+     daemon-protocol · capabilities · genui · ui · web · worker · mcp-server · **daemon**.
+  2. `npm run test -w <ws>` for **TEN** — the same list minus `daemon` (its suite has 12 known
+     non-hermetic realpath/junction failures; it typechecks but is not tested).
+  3. `cd packages/db && npx drizzle-kit check` — journal/snapshot consistency.
+
+  > **Per-workspace gating is NOT equivalent.** A change in one workspace can red another's
+  > typecheck — an `api-client` router change breaking `web` is the standard case, and the
+  > stale-dist trap below makes it likelier. `drizzle-kit check` was never in this list either.
+  > Verified green 2026-08-08 after the fact: 11/11 typechecks, drizzle-kit "Everything's fine",
+  > and 10 suites — db 124 · api-client 839 · billing 31 · daemon-protocol 52 · capabilities 65 ·
+  > genui 645 · ui 49 · worker 42 · mcp-server 32 · web 2292/175 files. Nothing had slipped
+  > through, but that was luck rather than verification.
 - **Never** bare `next build` (use `build:local`), never bare `npx playwright test`.
 
 ## 6. What is left, precisely
