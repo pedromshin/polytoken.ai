@@ -297,8 +297,11 @@ export const chatConversationsProcedures = {
    * conversation row (userId/modelId/importerId copied; threadId copied only
    * behind the SAME tableColumnExists gate createConversation uses; title
    * "Copy of <source>", capped 200), every chat_messages row (role/parts/
-   * turnIndex/version/isActive/status preserved; runId=null — the copy has
-   * no run provenance; siblingGroupId remapped to fresh per-group uuids),
+   * turnIndex/version/isActive/status/createdAt preserved — createdAt
+   * verbatim so copies of old turns never re-enter the current
+   * monthlyChatTurns window (countMonthlyChatTurnsUsed); runId=null — the
+   * copy has no run provenance; siblingGroupId remapped to fresh per-group
+   * uuids),
    * and every chat_context_edges row (keeps attached context). Deliberately
    * NOT copied: cost ledger, runs, run events, canvas layouts — those are
    * per-run/per-surface provenance of the ORIGINAL, not conversation
@@ -369,6 +372,7 @@ export const chatConversationsProcedures = {
             version: ChatMessages.version,
             isActive: ChatMessages.isActive,
             status: ChatMessages.status,
+            createdAt: ChatMessages.createdAt,
           })
           .from(ChatMessages)
           .where(eq(ChatMessages.conversationId, input.id))
@@ -387,6 +391,14 @@ export const chatConversationsProcedures = {
               version: message.version,
               isActive: message.isActive,
               status: message.status,
+              // Carried VERBATIM from the source row — omitting this would let
+              // the column's defaultNow() re-stamp every copy into the current
+              // month, so duplicating an old conversation would spuriously
+              // consume monthlyChatTurns allowance (countMonthlyChatTurnsUsed
+              // windows on created_at; the meter AND the enforcement gate).
+              // Safe to carry: getHistory orders by turnIndex/version, never
+              // created_at, so a duplicate renders identically to its source.
+              createdAt: message.createdAt,
             })),
           );
         }
