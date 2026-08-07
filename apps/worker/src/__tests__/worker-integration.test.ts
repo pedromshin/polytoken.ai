@@ -12,44 +12,59 @@
  *  2. a route returning 500 leaves the job in the queue with attempts incremented (the retry
  *     contract graphile-worker gives us around the unchanged Python pipeline).
  */
+import { readFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { makeWorkerUtils, runOnce, type TaskList, type WorkerUtils } from "graphile-worker";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const CONNECTION = process.env.WORKER_TEST_DATABASE_URL;
 
-// Byte-identical to the CREATE OR REPLACE body of
-// packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql (the current widened
-// allowlist). Keep in sync with the latest enqueue_job migration — it is the source of truth.
-const ENQUEUE_WRAPPER_SQL = `
-CREATE OR REPLACE FUNCTION public.enqueue_job(
-  p_identifier   text,
-  p_payload      jsonb,
-  p_max_attempts integer DEFAULT 8,
-  p_job_key      text    DEFAULT NULL
-) RETURNS bigint
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, graphile_worker
-AS $$
-DECLARE v_id bigint;
-BEGIN
-  IF p_identifier NOT IN (
-    'ingest_inbound_email',
-    'deep_research',
-    'assemble_morning_board',      -- Phase 74: per-user morning board assembly
-    'dispatch_morning_boards',     -- Phase 74: cron-fired per-user fan-out
-    'cascade_relabel',             -- Phase 75 (75-04): merge-cascade re-label fan-out
-    'recompute_canvas_recipe',     -- Phase 73 Wave C (LCAN-09): per-recipe durable recompute
-    'dispatch_recipe_recomputes'   -- Phase 73 Wave C (LCAN-09): cron-fired per-recipe fan-out
-  ) THEN   -- allowlist; extend per task
-    RAISE EXCEPTION 'enqueue_job: unknown identifier %', p_identifier;
-  END IF;
-  SELECT (graphile_worker.add_job(
-    p_identifier, p_payload::json, max_attempts := p_max_attempts, job_key := p_job_key
-  )).id INTO v_id;
-  RETURN v_id;
-END; $$;`;
+// The enqueue_job wrapper under test IS the migration: the CREATE OR REPLACE statement is read
+// at test setup from packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql (the
+// current widened allowlist — 0061 CREATE OR REPLACEs the 0054 wrapper), replacing the
+// hand-synced byte-copy that used to live here and could drift from the source of truth.
+// Of the migration's `--> statement-breakpoint`-separated statements only the CREATE OR
+// REPLACE FUNCTION is executed — exactly what the embedded copy contained: the DO-block
+// ordering guard is redundant after utils.migrate() installs the graphile_worker schema, and
+// the REVOKE/GRANT trailer targets a service_role this scratch cluster does not have (grant
+// posture is not what this seam test proves).
+const ENQUEUE_MIGRATION_RELATIVE_PATH =
+  "../../../../packages/db/migrations/0061_enqueue_allowlist_cascade_recipe.sql";
+const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
+
+function loadEnqueueWrapperSql(): string {
+  const migrationPath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    ENQUEUE_MIGRATION_RELATIVE_PATH,
+  );
+  let raw: string;
+  try {
+    raw = readFileSync(migrationPath, "utf8");
+  } catch (cause) {
+    throw new Error(
+      `worker-integration: enqueue_job migration not found at ${migrationPath} — if the ` +
+        "migration was renamed or superseded by a later enqueue_job allowlist migration, " +
+        "update ENQUEUE_MIGRATION_RELATIVE_PATH in this test.",
+      { cause },
+    );
+  }
+  const createStatement = raw
+    .split(STATEMENT_BREAKPOINT)
+    .map((statement) => statement.trim())
+    .find((statement) => statement.startsWith("CREATE OR REPLACE FUNCTION public.enqueue_job"));
+  if (createStatement === undefined) {
+    throw new Error(
+      'worker-integration: no "CREATE OR REPLACE FUNCTION public.enqueue_job" statement in ' +
+        `${migrationPath} — the migration's statement shape changed; update the selection in ` +
+        "loadEnqueueWrapperSql.",
+    );
+  }
+  return createStatement;
+}
 
 interface StubServer {
   server: Server;
@@ -92,10 +107,13 @@ describe.skipIf(!CONNECTION)("graphile-worker → Python HTTP seam", () => {
   };
 
   beforeAll(async () => {
+    // Read inside beforeAll (not at module scope) so the hermetic default run — where the
+    // whole describe self-skips without WORKER_TEST_DATABASE_URL — never touches the file.
+    const enqueueWrapperSql = loadEnqueueWrapperSql();
     utils = await makeWorkerUtils({ connectionString: CONNECTION! });
     await utils.migrate();
     await utils.withPgClient(async (pg) => {
-      await pg.query(ENQUEUE_WRAPPER_SQL);
+      await pg.query(enqueueWrapperSql);
       // graphile_worker.jobs is a (non-updatable) VIEW; the backing table is _private_jobs.
       await pg.query("DELETE FROM graphile_worker._private_jobs");
     });
