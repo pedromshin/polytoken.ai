@@ -50,70 +50,22 @@ vi.mock("drizzle-orm", async () => {
 
 import { ChatConversations, ChatMessages } from "@polytoken/db/schema";
 
-import { appRouter } from "../../root";
 import {
   countMonthlyChatTurnsUsed,
   startOfCurrentUtcMonth,
 } from "../_chat-turn-usage";
+import {
+  createFakeDb,
+  createThrowingDb,
+  makeCaller,
+  type FakeRow,
+} from "./support/fake-drizzle";
 
 const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
 const FROZEN_NOW = new Date("2026-08-15T12:34:56.000Z");
 
-type FakeRow = Record<string, unknown>;
-
-/** Thenable chain covering the builder subset both call paths use. */
-function createThenableChain(rows: ReadonlyArray<FakeRow>) {
-  const chain = {
-    from() {
-      return chain;
-    },
-    innerJoin() {
-      return chain;
-    },
-    where() {
-      return chain;
-    },
-    groupBy() {
-      return chain;
-    },
-    limit() {
-      return chain;
-    },
-    then(
-      onFulfilled: (value: ReadonlyArray<FakeRow>) => unknown,
-      onRejected?: (reason: unknown) => unknown,
-    ) {
-      return Promise.resolve(rows).then(onFulfilled, onRejected);
-    },
-  };
-  return chain;
-}
-
-/** Queue-driven fake db: each select() consumes the next seeded result. */
-function createFakeDb(resultsQueue: Array<ReadonlyArray<FakeRow>>) {
-  return {
-    select() {
-      const rows = resultsQueue.shift() ?? [];
-      return createThenableChain(rows);
-    },
-  };
-}
-
-function createThrowingDb() {
-  return {
-    select() {
-      throw new Error("relation does not exist");
-    },
-  };
-}
-
-function makeCaller(user: { id: string } | null, db: unknown) {
-  return appRouter.createCaller({
-    db: db as never,
-    headers: new Headers(),
-    user,
-  });
-}
+// The thenable chain / fake dbs / makeCaller live in ./support/fake-drizzle.ts
+// (shared, W7-2).
 
 // The columns the chat-turn count may touch — used to isolate its recorded
 // conditions from billing.usage's other (emails) query.

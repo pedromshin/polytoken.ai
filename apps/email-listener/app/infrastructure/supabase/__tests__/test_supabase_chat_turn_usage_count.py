@@ -15,35 +15,22 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import MagicMock
 
 import pytest
 
+from app.infrastructure.supabase.__tests__._postgrest_mocks import make_client, make_table
 from app.infrastructure.supabase.supabase_chat_message_repository import SupabaseChatMessageRepository
 
-
-def _make_count_table(*, count: int | None) -> MagicMock:
-    """Chainable fluent-builder mock whose .execute() reports a PostgREST count."""
-    table = MagicMock()
-    table.select.return_value = table
-    table.eq.return_value = table
-    table.gte.return_value = table
-    table.limit.return_value = table
-    table.execute.return_value = MagicMock(data=[], count=count)
-    return table
-
-
-def _make_client(table: MagicMock) -> MagicMock:
-    client = MagicMock()
-    client.table.return_value = table
-    return client
+# The chainable table/client mocks live in _postgrest_mocks.py (shared with
+# test_supabase_chat_widget_interaction_repository.py); make_table(execute_count=...)
+# models the PostgREST HEAD+exact count response (data=[], count=...).
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_count_filters_mirror_the_ts_meter_semantics() -> None:
-    table = _make_count_table(count=42)
-    repo = SupabaseChatMessageRepository(client=_make_client(table))
+    table = make_table(execute_count=42)
+    repo = SupabaseChatMessageRepository(client=make_client(table))
 
     used = await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 7, 15, 30, tzinfo=UTC))
 
@@ -64,8 +51,8 @@ async def test_count_filters_mirror_the_ts_meter_semantics() -> None:
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_count_window_starts_at_the_first_of_the_current_utc_month() -> None:
-    table = _make_count_table(count=0)
-    repo = SupabaseChatMessageRepository(client=_make_client(table))
+    table = make_table(execute_count=0)
+    repo = SupabaseChatMessageRepository(client=make_client(table))
 
     await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 31, 23, 59, 59, tzinfo=UTC))
 
@@ -80,8 +67,8 @@ async def test_missing_count_raises_so_the_gate_fails_open_upstream() -> None:
     # reading it as 0 would silently pretend a fresh month. The raise reaches
     # RunChatTurn's gate, which fails OPEN (logged), same net posture as any
     # other count-query error.
-    table = _make_count_table(count=None)
-    repo = SupabaseChatMessageRepository(client=_make_client(table))
+    table = make_table(execute_count=None)
+    repo = SupabaseChatMessageRepository(client=make_client(table))
 
     with pytest.raises(RuntimeError, match="no exact count"):
         await repo.count_monthly_chat_turns_used("user-1", now=datetime(2026, 8, 7, tzinfo=UTC))

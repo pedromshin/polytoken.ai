@@ -26,18 +26,23 @@ chat_tools.py, not re-tested from this file.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import Any
 
 import pytest
 
+from app.application.use_cases.__tests__._run_chat_turn_fakes import (
+    FakeChatConversationRepository,
+    FakeChatMessageRepository,
+    FakeChatProvider,
+    FakeChatRunRepository,
+    FakeCostCircuitBreaker,
+    FakeCostLedgerRepository,
+    FakeRouter,
+)
 from app.application.use_cases.run_chat_turn import RunChatTurn, _provider_content_blocks
 from app.domain.ports.chat_provider import StreamEnd, ToolCallDelta
-from app.domain.ports.chat_repositories import ChatMessage, ChatRun, ChatRunEvent
 from app.domain.ports.chat_widget_interaction_repository import WidgetInteraction
-from app.domain.ports.cost_ledger_repository import UsageEvent
 from app.domain.services.chat_model_registry import ChatModel, ChatModelCapabilities
-from app.domain.services.cost_circuit_breaker import PreTurnDecision
 
 _IMPORTER_ID = "importer-1"
 _CONVERSATION_ID = "conv-1"
@@ -69,91 +74,9 @@ def _patch_model_registry(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test doubles (mirrors tests/application/test_run_chat_turn.py's shape)
+# Test doubles — shared RunChatTurn fakes live in _run_chat_turn_fakes.py;
+# only the widget-interaction-specific doubles remain here.
 # ---------------------------------------------------------------------------
-
-
-class FakeChatMessageRepository:
-    """In-memory ChatMessageRepository test double."""
-
-    def __init__(self) -> None:
-        self.messages: list[ChatMessage] = []
-        self._next_id = 0
-
-    async def insert_message(
-        self,
-        *,
-        conversation_id: str,
-        role: str,
-        parts: Any,
-        turn_index: int,
-        status: str = "completed",
-        run_id: str | None = None,
-        sibling_group_id: str | None = None,
-        version: int = 1,
-        is_active: bool = True,
-    ) -> ChatMessage:
-        self._next_id += 1
-        message = ChatMessage(
-            id=f"msg-{self._next_id}",
-            conversation_id=conversation_id,
-            role=role,  # type: ignore[arg-type]
-            parts=tuple(parts),
-            turn_index=turn_index,
-            status=status,  # type: ignore[arg-type]
-            run_id=run_id,
-            sibling_group_id=sibling_group_id,
-            version=version,
-            is_active=is_active,
-        )
-        self.messages.append(message)
-        return message
-
-    async def list_active_context(self, conversation_id: str) -> list[ChatMessage]:
-        active = [m for m in self.messages if m.conversation_id == conversation_id and m.is_active]
-        return sorted(active, key=lambda m: m.turn_index)
-
-    async def get_by_id(self, message_id: str) -> ChatMessage | None:  # pragma: no cover - unused this plan
-        return next((m for m in self.messages if m.id == message_id), None)
-
-    async def mark_status(self, message_id: str, status: str) -> None:
-        pass
-
-    async def set_sibling_inactive(self, sibling_group_id: str) -> None:
-        pass
-
-
-class FakeChatRunRepository:
-    """In-memory ChatRunRepository test double."""
-
-    def __init__(self) -> None:
-        self.runs: dict[str, dict[str, Any]] = {}
-        self._next_run_id = 0
-        self._seq_by_run: dict[str, int] = {}
-
-    async def create_run(self, *, conversation_id: str, agent_id: str, model_id: str) -> ChatRun:
-        self._next_run_id += 1
-        run_id = f"run-{self._next_run_id}"
-        self.runs[run_id] = {"status": "running"}
-        self._seq_by_run[run_id] = 0
-        return ChatRun(
-            id=run_id, conversation_id=conversation_id, agent_id=agent_id, model_id=model_id, status="running"
-        )
-
-    async def append_event(self, *, run_id: str, event_type: str, data: dict[str, Any]) -> ChatRunEvent:
-        seq = self._seq_by_run.get(run_id, 0)
-        self._seq_by_run[run_id] = seq + 1
-        return ChatRunEvent(id=f"evt-{run_id}-{seq}", run_id=run_id, seq=seq, type=event_type, data=data)  # type: ignore[arg-type]
-
-    async def finish_run(self, *, run_id: str, status: str) -> None:
-        self.runs[run_id]["status"] = status
-
-
-class FakeChatConversationRepository:
-    """In-memory ChatConversationRepository test double."""
-
-    async def touch(self, *, conversation_id: str, model_id: str, title: str | None = None) -> None:
-        pass
 
 
 class FakeChatWidgetInteractionRepository:
@@ -190,52 +113,6 @@ class FakeChatWidgetInteractionRepository:
         return 0
 
 
-class FakeChatProvider:
-    """A ChatProvider test double streaming a pre-configured sequence of deltas."""
-
-    def __init__(self, deltas: list[Any]) -> None:
-        self._deltas = deltas
-        self.stream_calls: list[dict[str, Any]] = []
-
-    async def stream(self, **kwargs: Any) -> Any:
-        self.stream_calls.append(kwargs)
-        for delta in self._deltas:
-            yield delta
-
-
-class FakeCostCircuitBreaker:
-    """A CostCircuitBreaker test double that always allows and never mid-stream aborts."""
-
-    async def check_pre_turn(self, **kwargs: Any) -> PreTurnDecision:
-        return PreTurnDecision.allow()
-
-    def should_abort(self, running_cost: Decimal) -> bool:
-        return False
-
-    def estimate_turn_cost(self, *, model: ChatModel, prompt_tokens_est: int, max_output_tokens: int) -> Decimal:
-        return Decimal("0")
-
-
-class FakeCostLedgerRepository:
-    """In-memory CostLedgerRepository test double."""
-
-    def __init__(self) -> None:
-        self.recorded: list[UsageEvent] = []
-
-    async def record(self, event: UsageEvent) -> None:
-        self.recorded.append(event)
-
-
-class _FakeRouter:
-    """Duck-typed ChatProviderRouter test double — returns a pre-set provider."""
-
-    def __init__(self, provider: FakeChatProvider) -> None:
-        self._provider = provider
-
-    def select(self, model_id: str) -> FakeChatProvider:
-        return self._provider
-
-
 def _make_use_case(
     *,
     provider: FakeChatProvider,
@@ -246,7 +123,7 @@ def _make_use_case(
         messages=messages,
         runs=FakeChatRunRepository(),
         conversations=FakeChatConversationRepository(),  # type: ignore[arg-type]
-        router=_FakeRouter(provider),  # type: ignore[arg-type]
+        router=FakeRouter(provider),  # type: ignore[arg-type]
         breaker=FakeCostCircuitBreaker(),  # type: ignore[arg-type]
         ledger=FakeCostLedgerRepository(),  # type: ignore[arg-type]
         emit_ui_spec_tool=_TEST_EMIT_UI_SPEC_TOOL,

@@ -39,9 +39,13 @@ vi.mock("@polytoken/db/ownership", async () => {
 import { assertConversationOwnership } from "@polytoken/db/ownership";
 import { ChatConversations, ChatMessages } from "@polytoken/db/schema";
 
-import { appRouter } from "../../../root";
 import { startOfCurrentUtcMonth } from "../../_chat-turn-usage";
 import { __resetColumnExistsCacheForTests } from "../../_column-detect";
+import {
+  createThenableChain,
+  makeCaller,
+  type FakeRow,
+} from "../../__tests__/support/fake-drizzle";
 import {
   createConversationInputSchema,
   DEFAULT_CHAT_MODEL_ID,
@@ -221,32 +225,9 @@ const USER_A = { id: "10000000-0000-0000-0000-00000000000a" };
 const SOURCE_CONVERSATION_ID = "60000000-0000-0000-0000-000000000001";
 const NEW_CONVERSATION_ID = "60000000-0000-0000-0000-000000000002";
 
-type FakeRow = Record<string, unknown>;
-
-/** Thenable chain covering the builder subset duplicateConversation uses. */
-function createThenableChain(rows: ReadonlyArray<FakeRow>) {
-  const chain = {
-    from() {
-      return chain;
-    },
-    where() {
-      return chain;
-    },
-    orderBy() {
-      return chain;
-    },
-    limit() {
-      return chain;
-    },
-    then(
-      onFulfilled: (value: ReadonlyArray<FakeRow>) => unknown,
-      onRejected?: (reason: unknown) => unknown,
-    ) {
-      return Promise.resolve(rows).then(onFulfilled, onRejected);
-    },
-  };
-  return chain;
-}
+// The thenable chain / makeCaller live in ../../__tests__/support/
+// fake-drizzle.ts (shared, W7-2); only the duplicate-specific fake db
+// remains below.
 
 /**
  * Fake db for duplicateConversation: the root handle serves the source
@@ -409,11 +390,7 @@ describe("duplicateConversation — createdAt carried verbatim (Test 13)", () =>
       },
       sourceMessages,
     });
-    const caller = appRouter.createCaller({
-      db: db as never,
-      headers: new Headers(),
-      user: USER_A,
-    });
+    const caller = makeCaller(USER_A, db);
 
     await expect(
       caller.chat.duplicateConversation({ id: SOURCE_CONVERSATION_ID }),

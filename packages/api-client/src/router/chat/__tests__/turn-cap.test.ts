@@ -48,7 +48,12 @@ vi.mock("@polytoken/db/ownership", async () => {
 import { asKnownTier, ENTITLEMENTS } from "@polytoken/billing";
 import { assertConversationOwnership } from "@polytoken/db/ownership";
 
-import { appRouter } from "../../../root";
+import {
+  createFakeDb,
+  createThenableChain,
+  makeCaller,
+  type FakeRow,
+} from "../../__tests__/support/fake-drizzle";
 import {
   CHAT_TURN_CAP_MESSAGE,
   decideChatTurnCap,
@@ -72,45 +77,9 @@ const TURN_INPUT = {
   outputTokens: 1,
 } as const;
 
-type FakeRow = Record<string, unknown>;
-
-/** Thenable chain covering the builder subset the gate + mutation use. */
-function createThenableChain(rows: ReadonlyArray<FakeRow>) {
-  const chain = {
-    from() {
-      return chain;
-    },
-    innerJoin() {
-      return chain;
-    },
-    where() {
-      return chain;
-    },
-    orderBy() {
-      return chain;
-    },
-    limit() {
-      return chain;
-    },
-    then(
-      onFulfilled: (value: ReadonlyArray<FakeRow>) => unknown,
-      onRejected?: (reason: unknown) => unknown,
-    ) {
-      return Promise.resolve(rows).then(onFulfilled, onRejected);
-    },
-  };
-  return chain;
-}
-
-/** Queue-driven fake db for the gate's two selects (tier, then count). */
-function createFakeGateDb(resultsQueue: Array<ReadonlyArray<FakeRow>>) {
-  return {
-    select() {
-      const rows = resultsQueue.shift() ?? [];
-      return createThenableChain(rows);
-    },
-  };
-}
+// The thenable chain / queue-driven fake db / makeCaller live in
+// ../../__tests__/support/fake-drizzle.ts (shared, W7-2); only the
+// cap-wiring-specific doubles remain below.
 
 /** A db whose Nth select() throws (0-based); earlier selects use the queue. */
 function createThrowingAtDb(
@@ -189,14 +158,6 @@ function createFakeMutationDb(opts: {
   };
 
   return { db, wasTransactionEntered: () => transactionEntered };
-}
-
-function makeCaller(user: { id: string } | null, db: unknown) {
-  return appRouter.createCaller({
-    db: db as never,
-    headers: new Headers(),
-    user,
-  });
 }
 
 let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
@@ -304,7 +265,7 @@ describe("entitledTierFrom (A11 status-honouring tier read)", () => {
 
 describe("enforceChatTurnCap — gate", () => {
   it("Test 5: free at cap → FORBIDDEN with the friendly message; detail logged server-side", async () => {
-    const db = createFakeGateDb([[{ tier: "free" }], [{ value: FREE_CAP }]]);
+    const db = createFakeDb([[{ tier: "free" }], [{ value: FREE_CAP }]]);
 
     await expect(
       enforceChatTurnCap(db as never, USER_A.id),
@@ -321,21 +282,21 @@ describe("enforceChatTurnCap — gate", () => {
   });
 
   it("Test 6: free under cap → resolves overLimit:false", async () => {
-    const db = createFakeGateDb([[{ tier: "free" }], [{ value: FREE_CAP - 1 }]]);
+    const db = createFakeDb([[{ tier: "free" }], [{ value: FREE_CAP - 1 }]]);
     await expect(enforceChatTurnCap(db as never, USER_A.id)).resolves.toEqual({
       overLimit: false,
     });
   });
 
   it("Test 7: absent subscription row reads as free → blocked at the free cap", async () => {
-    const db = createFakeGateDb([[], [{ value: FREE_CAP }]]);
+    const db = createFakeDb([[], [{ value: FREE_CAP }]]);
     await expect(
       enforceChatTurnCap(db as never, USER_A.id),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("Test 8: ACTIVE pro at cap → allowed with overLimit:true; power huge usage → overLimit:false", async () => {
-    const proDb = createFakeGateDb([
+    const proDb = createFakeDb([
       [{ tier: "pro", status: "active" }],
       [{ value: PRO_CAP }],
     ]);
@@ -343,7 +304,7 @@ describe("enforceChatTurnCap — gate", () => {
       enforceChatTurnCap(proDb as never, USER_A.id),
     ).resolves.toEqual({ overLimit: true });
 
-    const powerDb = createFakeGateDb([
+    const powerDb = createFakeDb([
       [{ tier: "power", status: "active" }],
       [{ value: 1_000_000 }],
     ]);
@@ -353,7 +314,7 @@ describe("enforceChatTurnCap — gate", () => {
   });
 
   it("Test 8b (A11): past_due pro at the FREE cap → blocked as free (status narrows the tier)", async () => {
-    const db = createFakeGateDb([
+    const db = createFakeDb([
       [{ tier: "pro", status: "past_due" }],
       [{ value: FREE_CAP }],
     ]);
@@ -363,7 +324,7 @@ describe("enforceChatTurnCap — gate", () => {
   });
 
   it("Test 8c (A11): ACTIVE pro under its own cap but over the free cap → never blocked", async () => {
-    const db = createFakeGateDb([
+    const db = createFakeDb([
       [{ tier: "pro", status: "active" }],
       [{ value: FREE_CAP + 10 }],
     ]);
@@ -373,7 +334,7 @@ describe("enforceChatTurnCap — gate", () => {
   });
 
   it("Test 8d (A11): trialing pro is honoured as paid (at cap → allowed, overLimit marker)", async () => {
-    const db = createFakeGateDb([
+    const db = createFakeDb([
       [{ tier: "pro", status: "trialing" }],
       [{ value: PRO_CAP }],
     ]);

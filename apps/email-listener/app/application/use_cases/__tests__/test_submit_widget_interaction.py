@@ -16,6 +16,7 @@ from typing import Any
 
 import pytest
 
+from app.application.use_cases.__tests__._run_chat_turn_fakes import FakeChatMessageRepository
 from app.application.use_cases.submit_widget_interaction import (
     SubmitWidgetInteraction,
     WidgetSubmitRejected,
@@ -145,57 +146,6 @@ class FakeChatWidgetInteractionRepository:
     async def is_stale(self, interaction: WidgetInteraction) -> bool:
         self.is_stale_calls.append(interaction.id)
         return self._stale
-
-
-class FakeChatMessageRepository:
-    """In-memory ChatMessageRepository test double — only insert_message/list_active_context needed."""
-
-    def __init__(self, *, existing: list[ChatMessage] | None = None) -> None:
-        self._existing = existing or []
-        self.inserted: list[ChatMessage] = []
-
-    async def insert_message(
-        self,
-        *,
-        conversation_id: str,
-        role: str,
-        parts: Any,
-        turn_index: int,
-        status: str = "completed",
-        run_id: str | None = None,
-        sibling_group_id: str | None = None,
-        version: int = 1,
-        is_active: bool = True,
-    ) -> ChatMessage:
-        message = ChatMessage(
-            id=f"msg-inserted-{len(self.inserted) + 1}",
-            conversation_id=conversation_id,
-            role=role,  # type: ignore[arg-type]
-            parts=tuple(parts),
-            turn_index=turn_index,
-            status=status,  # type: ignore[arg-type]
-            run_id=run_id,
-            sibling_group_id=sibling_group_id,
-            version=version,
-            is_active=is_active,
-        )
-        self.inserted.append(message)
-        return message
-
-    async def list_active_context(self, conversation_id: str) -> list[ChatMessage]:
-        return [m for m in self._existing if m.conversation_id == conversation_id]
-
-    async def get_by_id(self, message_id: str) -> ChatMessage | None:  # pragma: no cover - unused
-        return next(
-            (m for m in [*self._existing, *self.inserted] if m.id == message_id),
-            None,
-        )
-
-    async def mark_status(self, message_id: str, status: str) -> None:  # pragma: no cover - unused
-        pass
-
-    async def set_sibling_inactive(self, sibling_group_id: str) -> None:  # pragma: no cover - unused
-        pass
 
 
 class FakeContinuationRunner:
