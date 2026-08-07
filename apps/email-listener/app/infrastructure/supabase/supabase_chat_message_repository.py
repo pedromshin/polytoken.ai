@@ -14,9 +14,13 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from postgrest.types import CountMethod
+
 from app.domain.ports.chat_repositories import ChatMessage, ChatMessageRole, ChatMessageStatus
+from app.domain.services.chat_turn_cap import start_of_current_utc_month
 
 if TYPE_CHECKING:
     from supabase import Client
@@ -81,7 +85,9 @@ class SupabaseChatMessageRepository:
 
     Satisfies the ChatMessageRepository Protocol structurally (no explicit
     inheritance — keeps the domain port lint-imports clean, matching every
-    other adapter in this codebase).
+    other adapter in this codebase). Also satisfies ChatTurnUsageRepository
+    (vLAUNCH W5-1) — `count_monthly_chat_turns_used` is the listener half of
+    the shared monthlyChatTurns meter.
     """
 
     def __init__(self, *, client: Client) -> None:
@@ -134,6 +140,33 @@ class SupabaseChatMessageRepository:
         if result is None or not result.data:
             return None
         return _row_to_entity(result.data)
+
+    async def count_monthly_chat_turns_used(self, user_id: str, *, now: datetime | None = None) -> int:
+        """ChatTurnUsageRepository (vLAUNCH W5-1) — the monthlyChatTurns meter's count.
+
+        Mirrors packages/api-client/src/router/_chat-turn-usage.ts's
+        countMonthlyChatTurnsUsed exactly: ACTIVE role='user' rows joined
+        (PostgREST `!inner` embed on the conversation_id FK) to
+        chat_conversations owned by *user_id*, created_at >= the 1st of the
+        current UTC month. Server-side exact count — never a fetched-rows
+        length. PROPAGATES exceptions like every other method here; the
+        RunChatTurn gate owns the fail-open wrapping.
+        """
+        moment = now if now is not None else datetime.now(UTC)
+        month_start = start_of_current_utc_month(moment)
+        result = await asyncio.to_thread(
+            lambda: (
+                self._client.table(_TABLE)
+                .select("id, chat_conversations!inner(user_id)", count=CountMethod.exact)
+                .eq("chat_conversations.user_id", user_id)
+                .eq("role", "user")
+                .eq("is_active", True)
+                .gte("created_at", month_start.isoformat())
+                .limit(1)
+                .execute()
+            )
+        )
+        return int(result.count or 0)
 
     async def mark_status(self, message_id: str, status: ChatMessageStatus) -> None:
         await asyncio.to_thread(

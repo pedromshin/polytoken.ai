@@ -1,11 +1,14 @@
-"""SupabaseTierResolver — implements TierResolver.
+"""SupabaseTierResolver — implements TierResolver AND UserTierResolver.
 
 Resolves an importer to its owning user's subscription tier in two reads:
 importer_id -> importers.user_id -> subscriptions(tier, status) for that user.
-A tier is honoured only when the subscription is in an active/trialing state
-(mirroring @polytoken/billing's duplicate-active guard); any other status, or a
-missing importer / subscription row, resolves to 'free'. Genuine query errors
-propagate (the budget guard fails open on the raise, never capping real mail).
+The second read is also exposed directly as `tier_for_user` (UserTierResolver,
+vLAUNCH W5-1) — the chat-turn cap gate already owns the conversation owner's
+user id and skips the importer pivot. A tier is honoured only when the
+subscription is in an active/trialing state (mirroring @polytoken/billing's
+duplicate-active guard); any other status, or a missing importer /
+subscription row, resolves to 'free'. Genuine query errors propagate (both
+guards fail open on the raise, never capping real mail or locking chat).
 """
 
 from __future__ import annotations
@@ -33,7 +36,7 @@ class SupabaseTierResolver:
         user_id = await self._user_id_for_importer(importer_id)
         if user_id is None:
             return _FREE_TIER
-        return await self._tier_for_user(user_id)
+        return await self.tier_for_user(user_id)
 
     async def _user_id_for_importer(self, importer_id: str) -> str | None:
         result = await asyncio.to_thread(
@@ -45,7 +48,7 @@ class SupabaseTierResolver:
         user_id = rows[0].get("user_id")
         return str(user_id) if user_id else None
 
-    async def _tier_for_user(self, user_id: str) -> str:
+    async def tier_for_user(self, user_id: str) -> str:
         result = await asyncio.to_thread(
             lambda: self._client.table("subscriptions").select("tier, status").eq("user_id", user_id).limit(1).execute()
         )

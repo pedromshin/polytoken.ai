@@ -24,6 +24,7 @@ from app.domain.ports.chat_repositories import (
     ChatMessageRepository,
     ChatRunRepository,
 )
+from app.domain.ports.chat_turn_usage_repository import ChatTurnUsageRepository
 from app.domain.ports.chat_widget_interaction_repository import ChatWidgetInteractionRepository
 from app.domain.ports.component_repository import ComponentRepository
 from app.domain.ports.email_repository import EmailRepository
@@ -33,6 +34,7 @@ from app.domain.ports.entity_type_repository import EntityTypeRepository
 from app.domain.ports.extraction_repository import ExtractionRepository
 from app.domain.ports.retrieval_port import RetrievalPort
 from app.domain.ports.source_ledger_repository import SourceLedgerRepository
+from app.domain.ports.tier_resolver import UserTierResolver
 from app.infrastructure.supabase.attachment_repository import SupabaseAttachmentRepository
 from app.infrastructure.supabase.autofill_retrieval_event_repository import (
     SupabaseAutofillRetrievalEventRepository,
@@ -56,6 +58,7 @@ from app.infrastructure.supabase.supabase_chat_run_repository import SupabaseCha
 from app.infrastructure.supabase.supabase_chat_widget_interaction_repository import (
     SupabaseChatWidgetInteractionRepository,
 )
+from app.infrastructure.supabase.tier_resolver import SupabaseTierResolver
 
 
 def _provide_retrieval(client: Client) -> RetrievalPort:
@@ -102,6 +105,27 @@ def _provide_chat_widget_interaction_repository(client: Client) -> ChatWidgetInt
     return SupabaseChatWidgetInteractionRepository(client=client)
 
 
+def _provide_chat_turn_usage_repository(client: Client) -> ChatTurnUsageRepository:
+    """SupabaseChatMessageRepository doubling as the monthlyChatTurns meter (vLAUNCH W5-1).
+
+    The count lives on the chat_messages adapter (it is a chat_messages
+    read), but is bound under its OWN port so RunChatTurn's cap gate takes
+    exactly the one method it needs.
+    """
+    return SupabaseChatMessageRepository(client=client)
+
+
+def _provide_user_tier_resolver(client: Client) -> UserTierResolver:
+    """SupabaseTierResolver's user-id read for the chat-turn cap gate (vLAUNCH W5-1).
+
+    The same adapter class the ingest budget guard uses (subscriptions tier +
+    active/trialing status honouring), bound under the narrower
+    UserTierResolver port — the chat path already owns the conversation
+    owner's user id and skips the importer pivot.
+    """
+    return SupabaseTierResolver(client=client)
+
+
 def register(provider: Provider) -> None:
     """Register the Supabase repository group's bindings on the shared APP-scoped provider.
 
@@ -134,3 +158,6 @@ def register(provider: Provider) -> None:
     provider.provide(_provide_chat_run_repository, provides=ChatRunRepository)
     provider.provide(_provide_chat_conversation_repository, provides=ChatConversationRepository)
     provider.provide(_provide_chat_widget_interaction_repository, provides=ChatWidgetInteractionRepository)
+    # monthlyChatTurns cap gate reads (vLAUNCH W5-1) — meter count + user tier.
+    provider.provide(_provide_chat_turn_usage_repository, provides=ChatTurnUsageRepository)
+    provider.provide(_provide_user_tier_resolver, provides=UserTierResolver)
