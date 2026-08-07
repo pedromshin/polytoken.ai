@@ -2,7 +2,7 @@
 
 /**
  * turn-cap-notices.ts — the monthlyChatTurns cap's USER-FACING half, extracted
- * from use-conversation-controller.ts (800-line law, Wave 0.6). Three
+ * from use-conversation-controller.ts (800-line law, Wave 0.6). Five
  * cohesive pieces:
  *
  *   1. The paid-tier over-allowance toast (OVER_ALLOWANCE_TOAST_MESSAGE /
@@ -22,6 +22,31 @@
  *      "Restore draft" affordance requests a restore; the Composer applies
  *      the latest request (seq-keyed so restoring the same text twice still
  *      re-applies after the user cleared it).
+ *
+ *   4. The browser-locus block toast (notifyBrowserTurnCapBlocked, W7-4) —
+ *      chat.recordBrowserTurn's FORBIDDEN rejection has no block card (the
+ *      turn already RENDERED locally; only persistence was refused), so the
+ *      error toast itself carries the one-click "Restore draft" action,
+ *      feeding the same restore channel as the card.
+ *
+ *   5. The blocked-draft durability slot (useBlockedDraftHolder, W7-4) —
+ *      SINGLE-SLOT holder for the draft the current pre-turn block
+ *      destroyed, so the card's Restore keeps working while the card is
+ *      visible even after a later action clears the controller's
+ *      pending-draft ref. Single slot BY DESIGN: the next block's draft
+ *      replaces the held one, and an unclaimed draft is dropped with only a
+ *      console.warn — no draft history is kept.
+ *
+ * KNOWN LIMITATION (follow-up, W7-4 item 3): a past_due/canceled PRO user is
+ * enforcement-narrowed to `free` (A11 — turn-cap.ts entitledTierFrom,
+ * tier_resolver.py), so when blocked at the free cap they get the free-tier
+ * "upgrade" copy even though their real remedy is fixing payment. Neither
+ * the `cost_capped` stream event (breached_cap + message only — see
+ * capNoticeFromEvent in use-chat-stream.ts) nor recordBrowserTurn's
+ * FORBIDDEN error carries a subscription-status discriminant today, so the
+ * client CANNOT tell the two cases apart. Copy nuance here first requires
+ * the listener/gate to emit a status field — a listener-contract change,
+ * deliberately out of scope for this module.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -154,5 +179,105 @@ export function capBlockPresentationFor(args: {
       args.lostDraftText !== null && args.lostDraftText.length > 0
         ? args.lostDraftText
         : undefined,
+  };
+}
+
+/**
+ * notifyBrowserTurnCapBlocked — the browser locus' free-tier cap rejection
+ * (chat.recordBrowserTurn throwing FORBIDDEN). No block card exists on this
+ * path — the turn already rendered locally and only persistence was refused —
+ * so the error toast carries the same one-click "Restore draft" affordance
+ * the server-path card offers, feeding the same channel (useDraftRestore).
+ * The streamed reply is NOT recoverable (the cap gate refused to persist it,
+ * by design); only the user's typed text is. Empty draft text drops the
+ * action — there is nothing to restore.
+ */
+export function notifyBrowserTurnCapBlocked(
+  message: string,
+  draftText: string,
+  requestDraftRestore: (text: string) => void,
+): void {
+  toast.error(
+    message,
+    draftText.length > 0
+      ? {
+          action: {
+            label: "Restore draft",
+            onClick: () => {
+              requestDraftRestore(draftText);
+            },
+          },
+        }
+      : undefined,
+  );
+}
+
+/**
+ * useBlockedDraftHolder — SINGLE-SLOT durability holder for the composer
+ * draft a pre-turn cap block destroyed (W7-4 hardening). Before this hook
+ * the live block card read the controller's MUTABLE pending-draft ref at
+ * render time, making the card the sole holder of the destroyed text: a
+ * regenerate or widget submit issued while the card was still visible
+ * cleared that ref and silently stranded the card's "Restore draft".
+ *
+ * SINGLE-SLOT SEMANTICS (by design — no draft history):
+ *   - The slot captures the pending draft ONCE, on the render where the
+ *     block appears, and holds it while the card is visible — later
+ *     mutations of the pending ref cannot take it away.
+ *   - When the card leaves (the next send / regenerate / widget submit /
+ *     retry), the slot empties. An unclaimed draft is then gone for good:
+ *     log-only (console.warn) — recovering it would need a history this
+ *     module deliberately does not keep. The next block's draft REPLACES
+ *     the slot, never queues behind it.
+ *   - `noteDraftRestored` marks the held draft claimed (the card's Restore
+ *     ran) so the normal restore-then-resend flow drops silently.
+ */
+export function useBlockedDraftHolder(
+  isPreTurnCapBlock: boolean,
+  pendingDraft: string | null,
+): {
+  readonly heldDraft: string | null;
+  readonly noteDraftRestored: (text: string) => void;
+} {
+  const [held, setHeld] = useState<string | null>(null);
+  // Effect-time mirror of the slot; `restored` marks the draft claimed.
+  const slotRef = useRef<{ draft: string | null; restored: boolean }>({
+    draft: null,
+    restored: false,
+  });
+  const prevBlockRef = useRef(false);
+
+  useEffect(() => {
+    if (isPreTurnCapBlock && !prevBlockRef.current) {
+      // Block landing — capture. The pending ref is still intact on this
+      // render: the blocked send wrote it and nothing else has run yet.
+      slotRef.current = { draft: pendingDraft, restored: false };
+      setHeld(pendingDraft);
+    } else if (!isPreTurnCapBlock && prevBlockRef.current) {
+      if (slotRef.current.draft !== null && !slotRef.current.restored) {
+        // Single slot: the unclaimed draft is dropped for good — log-only.
+        console.warn(
+          "[turn-cap-notices] blocked draft dropped without restore " +
+            `(single-slot holder, ${slotRef.current.draft.length} chars)`,
+        );
+      }
+      slotRef.current = { draft: null, restored: false };
+      setHeld(null);
+    }
+    prevBlockRef.current = isPreTurnCapBlock;
+  }, [isPreTurnCapBlock, pendingDraft]);
+
+  const noteDraftRestored = useCallback((text: string) => {
+    if (slotRef.current.draft === text) {
+      slotRef.current = { ...slotRef.current, restored: true };
+    }
+  }, []);
+
+  // First-frame passthrough: the capture effect runs only after the commit,
+  // but the card's very first render must already offer the draft — on that
+  // render the pending ref is still intact, so fall through to it.
+  return {
+    heldDraft: isPreTurnCapBlock ? (held ?? pendingDraft) : null,
+    noteDraftRestored,
   };
 }
