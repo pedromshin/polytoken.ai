@@ -29,7 +29,7 @@
 import path from "node:path";
 
 import { createChunks, stringToBase64URL } from "@supabase/ssr";
-import { createClient, type Session } from "@supabase/supabase-js";
+import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { config as loadDotenv } from "dotenv";
 
 import type { BrowserContext } from "@playwright/test";
@@ -122,8 +122,14 @@ function sleep(ms: number): Promise<void> {
  * desynchronize rather than re-colliding on the next attempt.
  */
 async function mintSession(
-  admin: ReturnType<typeof createClient>,
-  anonClient: ReturnType<typeof createClient>,
+  // Bare `SupabaseClient` (all generic defaults), NOT `ReturnType<typeof createClient>`:
+  // supabase-js >= 2.110 made `createClient` generic in a way where ReturnType of the
+  // UNINSTANTIATED function resolves its schema parameter to `never`, which the real call
+  // sites' `SupabaseClient<any, "public", ...>` can no longer satisfy (found by the e2e tsc
+  // gate, Wave 0.65). With `Database = any` the bare type's defaults collapse to exactly the
+  // call-site instantiation, so this stays correct across minor supabase-js bumps.
+  admin: SupabaseClient,
+  anonClient: SupabaseClient,
   email: string,
 ): Promise<Session> {
   let lastError = "no session returned";
