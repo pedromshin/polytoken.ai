@@ -42,7 +42,8 @@
     "web:dev:prod": "npm run dev:prod -w @polytoken/web",
     "web:build": "npm run build -w @polytoken/api-client && npm run build -w @polytoken/web",
     "api-client:build": "npm run build -w @polytoken/api-client",
-    "hygiene:knip": "knip"
+    "hygiene:knip": "knip",
+    "test:close-kit": "node --test \"scripts/__tests__/*.test.mjs\""
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
