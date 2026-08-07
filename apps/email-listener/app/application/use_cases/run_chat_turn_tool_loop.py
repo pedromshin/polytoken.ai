@@ -309,8 +309,7 @@ def _has_forbidden_key_deep(value: Any, *, depth: int = 0) -> bool:
         return True
     if isinstance(value, dict):
         return any(
-            (isinstance(key, str) and key in _FORBIDDEN_MANIFEST_KEYS)
-            or _has_forbidden_key_deep(item, depth=depth + 1)
+            (isinstance(key, str) and key in _FORBIDDEN_MANIFEST_KEYS) or _has_forbidden_key_deep(item, depth=depth + 1)
             for key, item in value.items()
         )
     if isinstance(value, list):

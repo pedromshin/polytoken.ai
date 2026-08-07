@@ -512,9 +512,7 @@ def _module_scope_gate_precedes_every_definition(module) -> bool:
     if gate_line is None:
         return False
     definition_lines = [
-        node.lineno
-        for node in tree.body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+        node.lineno for node in tree.body if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
     ]
     return all(gate_line < line for line in definition_lines)
 

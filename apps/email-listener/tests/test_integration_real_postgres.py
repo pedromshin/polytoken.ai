@@ -815,10 +815,12 @@ async def _run_monthly_chat_turn_count() -> None:
             )
         _best_effort(
             "chat_conversations",
-            lambda: client.table("chat_conversations")
-            .delete()
-            .in_("id", [subject_conversation_id, other_conversation_id])
-            .execute(),
+            lambda: (
+                client.table("chat_conversations")
+                .delete()
+                .in_("id", [subject_conversation_id, other_conversation_id])
+                .execute()
+            ),
         )
         for user_id in (subject_user_id, other_user_id):
             if user_id:

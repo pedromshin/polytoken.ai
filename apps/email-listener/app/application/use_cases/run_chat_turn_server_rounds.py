@@ -199,7 +199,9 @@ async def _run_server_tool_round(
         state = replace(state, parts=(*state.parts, invocation_part))
         events.append(
             await runs.append_event(
-                run_id=run.id, event_type="tool_call", data={"tool_name": tool_name, "id": tool_id, "arguments": arguments}
+                run_id=run.id,
+                event_type="tool_call",
+                data={"tool_name": tool_name, "id": tool_id, "arguments": arguments},
             )
         )
         # Phase 39 (TUI-01): non-persisted SSE mirror frame -- constructed
