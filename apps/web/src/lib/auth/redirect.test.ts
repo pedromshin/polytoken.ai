@@ -50,4 +50,23 @@ describe("resolveAuthRedirect", () => {
       resolveAuthRedirect({ pathname: "/chat", hasUser: true }),
     ).toBeNull();
   });
+
+  // Regression: billing went live on 2026-08-08 while /legal/* sat behind the guard,
+  // so GET /legal/terms served the sign-in page. Terms have to be readable BEFORE
+  // someone subscribes — that is the moment they matter — and Stripe requires a
+  // reachable terms/refund URL on a live account.
+  it.each(["/legal", "/legal/terms", "/legal/privacy"])(
+    "does not redirect a signed-out visitor on %s",
+    (pathname) => {
+      expect(resolveAuthRedirect({ pathname, hasUser: false })).toBeNull();
+    },
+  );
+
+  // The public list is prefix-matched, so pin that it does not leak a protected
+  // surface whose name merely starts the same way.
+  it("still redirects a signed-out visitor from a protected path", () => {
+    expect(resolveAuthRedirect({ pathname: "/billing", hasUser: false })).toEqual({
+      redirectTo: "/login?redirectTo=%2Fbilling",
+    });
+  });
 });

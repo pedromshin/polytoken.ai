@@ -36,10 +36,26 @@ export interface ResolveAuthRedirectResult {
 }
 
 /**
+ * Path prefixes reachable WITHOUT a session.
+ *
+ * `/login` + `/auth` are the auth surfaces themselves (T-43-P2-04).
+ *
+ * `/legal` was added 2026-08-08, when billing went live: the terms, the refund
+ * policy and the privacy notice were being served behind the guard, so
+ * `GET /legal/terms` returned the sign-in page. That is wrong three ways — a
+ * prospective customer cannot read the terms *before* subscribing (which is when
+ * they matter), Stripe requires a reachable terms/refund URL on a live account,
+ * and consumer law expects the terms to be presented at the point of sale, not
+ * after it. Legal documents are public by nature; nothing under /legal reads
+ * user data.
+ */
+const PUBLIC_PATH_PREFIXES = ["/login", "/auth", "/legal"] as const;
+
+/**
  * Decides whether a request should be redirected to `/login`. Authenticated
- * visitors and requests already targeting a public auth surface (`/login`,
- * `/auth/*`) always pass through unredirected (T-43-P2-04 — matcher gap
- * safety net enumerated by the unit tests below).
+ * visitors and requests targeting a public surface always pass through
+ * unredirected (T-43-P2-04 — matcher gap safety net enumerated by the unit
+ * tests below).
  */
 export function resolveAuthRedirect(
   input: ResolveAuthRedirectInput,
@@ -47,7 +63,7 @@ export function resolveAuthRedirect(
   const { pathname, hasUser } = input;
 
   if (hasUser) return null;
-  if (pathname.startsWith("/login") || pathname.startsWith("/auth")) {
+  if (PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix))) {
     return null;
   }
 
