@@ -198,7 +198,7 @@ describe("PipelineHealthNode — rendered contract with the learning section", (
 
     expect(container.textContent).toContain("4 corrections");
     expect(container.textContent).toContain("8 emails");
-    expect(container.textContent).toContain("8 re-labels per correction");
+    expect(container.textContent).toContain("8 re-labels per merge");
     expect(container.textContent).toContain("75% stick");
   });
 });

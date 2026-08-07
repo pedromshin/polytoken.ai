@@ -189,8 +189,11 @@ export const learningRouter = createTRPCRouter({
         .from(EntityTypeCorrections)
         .innerJoin(Importers, eq(EntityTypeCorrections.importerId, Importers.id))
         .where(eq(Importers.userId, ctx.user.id));
-    } catch {
+    } catch (error) {
       // Graceful default — a missing table / unapplied migration reads as 0.
+      // Logged so a genuine post-migration failure is distinguishable from the
+      // honest pre-flip zero state on the server side.
+      console.error("[learning.summary] entity_type_corrections read failed — rendering zeros:", error);
       typeCorrections = [];
     }
 
@@ -205,7 +208,8 @@ export const learningRouter = createTRPCRouter({
         .from(CorrectionPropagations)
         .innerJoin(Importers, eq(CorrectionPropagations.importerId, Importers.id))
         .where(eq(Importers.userId, ctx.user.id));
-    } catch {
+    } catch (error) {
+      console.error("[learning.summary] correction_propagations read failed — rendering zeros:", error);
       propagations = [];
     }
 

@@ -176,7 +176,7 @@ function LearningSummaryReadout({
         re-labeled
       </div>
       <div className="tabular mt-0.5 text-pencil">
-        {view.relabelsPerCorrectionLabel} re-labels per correction ·{" "}
+        {view.relabelsPerCorrectionLabel} re-labels per merge ·{" "}
         {view.stickRateLabel} stick
       </div>
     </div>

@@ -263,7 +263,7 @@ describe("LearningSummarySection (WEDG-03)", () => {
     expect(container.textContent).toContain("12 corrections");
     expect(container.textContent).toContain("30 emails");
     expect(container.textContent).toContain("re-labeled");
-    expect(container.textContent).toContain("10 re-labels per correction");
+    expect(container.textContent).toContain("10 re-labels per merge");
     expect(container.textContent).toContain("86% stick");
   });
 
@@ -284,7 +284,7 @@ describe("LearningSummarySection (WEDG-03)", () => {
     const container = await mount(<LearningSummarySection />);
 
     expect(container.textContent).toContain("2 corrections");
-    expect(container.textContent).toContain("— re-labels per correction");
+    expect(container.textContent).toContain("— re-labels per merge");
     expect(container.textContent).toContain("100% stick");
   });
 

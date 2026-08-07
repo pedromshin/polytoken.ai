@@ -14,6 +14,7 @@
  */
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { api } from "~/trpc/react";
 
@@ -533,6 +534,16 @@ export function useConversationController({
         });
       } catch (error) {
         console.error("[useConversationController] recordBrowserTurn failed:", error);
+        // The turn-cap gate rejects with FORBIDDEN carrying a user-facing message
+        // (recordBrowserTurn's only FORBIDDEN source). Without surfacing it, the
+        // streamed reply silently fails to persist and vanishes on reload.
+        const code =
+          typeof error === "object" && error !== null && "data" in error
+            ? (error as { data?: { code?: string } }).data?.code
+            : undefined;
+        if (code === "FORBIDDEN" && error instanceof Error && error.message.length > 0) {
+          toast.error(error.message);
+        }
       }
 
       handleTerminal();
