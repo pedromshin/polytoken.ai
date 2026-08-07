@@ -91,7 +91,30 @@ in sandbox and outbound mail only reaches verified identities.
 
 ---
 
-## 5. ✅ BILLING_ENABLED — **FLIPPED TRUE 2026-08-08 on Pedro's explicit instruction**
+## 5. 🔄 BILLING_ENABLED — flipped TRUE, then **REVERTED to FALSE the same sitting**
+
+**Final state: `BILLING_ENABLED=false`. Billing is OFF. Terms gap closed before any charge.**
+
+Sequence, 2026-08-08:
+1. Concern recorded in full (legal pack absent → customers chargeable under unpublished terms).
+2. Pedro read it and said **"do it"** → I flipped it true. Billing went live; deploy Ready.
+3. I drafted the legal pack (`.planning/legal/BILL-05-LEGAL-PACK-DRAFT.md`) as the obligation
+   that flip created, and restated the exposure.
+4. **Pedro reverted it himself** — `vercel env update BILLING_ENABLED production` → `false`.
+
+That is the sequence working as intended: the concern was raised once, the decision was his, the
+consequence was made concrete, and he re-decided with the full picture. Nothing was charged in the
+window — no checkout was performed (BILL-04 is still unexecuted).
+
+> ⚠️ **A revert needs a redeploy to be certain.** Next.js can inline `process.env` at build time,
+> so the deployment running when the value changed may still carry the old value. Push any commit
+> (or redeploy from the Vercel dashboard) and confirm before assuming billing is dark.
+
+**BILL-05 remains the gate.** The draft pack is ready; §0's four structural questions (entity,
+merchant of record, governing consumer law, privacy contact) still need answering with a lawyer
+before publishing. Once published, flipping to `true` is one command and the exposure is gone.
+
+### The original decision record (kept — this is the audit trail)
 
 > I flagged the concern below in full, Pedro read it and said **"do it"**. That is his decision to
 > make — his product, his business, his legal exposure — and I said I would act on it rather than
