@@ -13,6 +13,29 @@
 > milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
 > bullet + STATE.md Next Actions).
 
+### ✅ 2026-08-07 — HARNESS LOCKED · vLAUNCH BLESSED · staging repair staged · decision sheet up
+- ✅ **Harness DECISION recorded** (`.planning/decisions/2026-08-07-HARNESS-LOCK.md`, Pedro,
+  FINAL): v2.0 and everything before it runs on **Claude Code + gsd plugin 4.5.3 + `.planning/`**.
+  GSD Pi migration disqualified now (importer destroys decision bodies #1607, inconsistent state
+  #1606, fresh auto-mode regressions); re-entry criteria verbatim in the record. Sanctioned update
+  route + Buildomator v5.0 (2026-10-01 `/gsd:*`→`/bm:*` retirement) chore captured there too.
+- ✅ **vLAUNCH (phases 78–81) BLESSED as proposed** — execute on this harness; first action of the
+  post-`/reload-plugins` session.
+- ✅ **Sauce-backup RITUAL standing** (`scripts/sauce-backup.ps1`): dated tag + all-refs bundle +
+  non-git IP zip into `C:\Users\pc\polytoken-backups\` at EVERY milestone close; failure =
+  close **BLOCKER**. First capture `sauce-2026-08-06-pre-v2.0` done (parallel session).
+- 🟡 **Staging DB repair STAGED — one paste from green.** Dry-run VERIFIED live against staging
+  (24 pending journal migrations incl. graphile_worker install; prod-ref refusal armed); the
+  `--yes` apply is classifier-blocked in-session → Pedro one-paste
+  `node scripts/staging-repair.mjs --yes` (durable repo copy). Supersedes the 🟡 "Staging drift
+  OPEN" bullet below.
+- ℹ️ **Stripe bullet below is STALE:** `STRIPE_SECRET_KEY` + `BILLING_ENABLED=true` landed
+  2026-08-06 night 2 — **billing is LIVE on polytoken.ai** (webhook 400s unsigned = correct).
+- ✅ **`.planning/PEDRO-DECISION-SHEET-2026-08-07.md`** consolidates ALL Pedro-gated remainder
+  (one-pastes · 7 audit seams · SES reply draft · Legal/MoR) into one sitting — per order, never
+  blanket-resolved.
+- 🔄 **Vendored gsd-core bump 1.8.0→1.9.1** in flight (background agent, SOURCE_COMMIT process).
+
 ### ✅ PROD RESTORED + TRACK 1 LIVE + TRACK 3a DARK + MILESTONE CODE DEPLOYED — 2026-08-06 tonight part 2
 - ✅ **Prod DB restore chain CLOSED.** Root cause confirmed: both Supabase projects had
   AUTO-PAUSED (9 days idle). Pedro ran the password reset himself (the prepared

@@ -6,6 +6,12 @@
 > about to push). Last updated 2026-08-06 (wrap-up session).
 > This supersedes the scattered "[PEDRO]" notes in the ledger for day-to-day use; the
 > ledger stays the full historical record.
+>
+> **🆕 2026-08-07: START AT `.planning/PEDRO-DECISION-SHEET-2026-08-07.md`** — one sitting answers
+> everything still gated on you. Status deltas since this file's last update: **§2 billing is
+> DONE** (LIVE on polytoken.ai) · **§3 prod DB passwords are FIXED** (pwreset flow ran, prod
+> green, dbcheck route deleted) · **§0 rotation stays DEFERRED by your standing order** ("ignore
+> env rotation") — carried on the sheet as a *named* debt, not an ask.
 
 ## 0. First: ROTATE every pasted credential (security — do before anything else) — NOW URGENT
 Everything you pasted into chat must be treated as **exposed and rotated**. As of 2026-07-28 this now
