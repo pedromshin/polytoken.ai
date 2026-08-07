@@ -1,7 +1,9 @@
 # Durable email-ingest worker — provisioning + cutover runbook (Track 3a)
 
-**Status: CODE ON `main`, NOT YET PROVISIONED.** The worker (`apps/worker`) and the
-listener's enqueue path (`INGEST_ENQUEUE_ENABLED` in `sns_inbound.py`) are already merged.
+**Status: CODE + TERRAFORM ON `main` (ship-dark), NOT YET PROVISIONED.** The worker
+(`apps/worker`), the listener's enqueue path (`INGEST_ENQUEUE_ENABLED` in `sns_inbound.py`),
+and — as of 2026-08-06 — the worker's Terraform (gated container + ECR repo, see §P4) are
+merged.
 This doc is the **provisioning + cutover procedure** — install the queue schema, apply the
 enqueue migrations, deploy the worker container, then flip one flag — plus rollback. It ships
 **no code**.
@@ -68,6 +70,7 @@ secrets are invented** — every value already exists for the listener or the DB
 | `WORKER_CONCURRENCY` | no | `3` | Parallel jobs (guarded parse: empty/NaN/≤0 → default) |
 | `WORKER_POLL_INTERVAL_MS` | no | `2000` | Poll interval when NOTIFY is idle |
 | `MORNING_BOARD_ENABLED` | no | unset (OFF) | Gates the in-process `0 5 * * *` crontab **only**; the ingest path ignores it |
+| `RECIPE_RECOMPUTE_ENABLED` | no | unset (OFF) | Gates the in-process `*/15 * * * *` recipe-recompute crontab **only** (Phase 73 Wave C); the ingest path ignores it |
 
 Key point: the worker needs a **session-mode** (non-pooled/direct) connection — LISTEN/NOTIFY
 does not survive a transaction-pooled connection. Use the non-pooling URL, never the pooled
@@ -150,26 +153,46 @@ Design intent (`apps/worker/src/index.ts` header): the worker runs as a **second
 the existing ECS task, `essential = false`**, so a worker crash can never take down the SNS
 receiver. It shares the task's `awsvpc` netns → reaches the listener over `localhost:8000`.
 
-**Not yet wired.** As of this writing `infrastructure/aws/ecs.tf` defines a **single**
-`email-listener` container (`essential = true`); there is **no worker container, no worker
-Dockerfile, and no worker CI job**. Standing the worker up therefore requires infra changes:
+**Terraform wired 2026-08-06 — ship-dark, gated.** `infrastructure/aws/` now carries the
+worker provisioning, dark by default:
 
-1. A runtime image for the Node worker. The listener image is **Python-only** (`python:3.11-slim`,
-   no Node), so the "share the listener image via a command override" note in `index.ts` needs a
-   concrete plan — either a dedicated worker image or a multi-runtime image. **[PEDRO to confirm]**.
-2. A second container in the task def (`essential = false`) with `command`/image pointing at the
-   worker, the P2 env from §2, and the shared `API_KEY` secret.
-3. **[PEDRO to confirm]** the ECR repo + image tag convention (existing listener repo is
-   `nauta-services-email-listener`; see `docs/DEPLOY.md §1`).
+- **ECR repo** `nauta-services-email-worker` (`aws_ecr_repository.email_worker`, `ecr.tf`) — a
+  **dedicated Node image** (the listener image is Python-only; the "share the listener image
+  via a command override" note in `index.ts` is superseded). Same tag convention as the
+  listener: `:latest` production, `:staging` staging. Repo URL = `ecr_worker_repository_url`
+  output; the GitHub deploy role can push to it.
+- **Worker container** in the *existing* task definition (`ecs.tf`): name `email-worker`,
+  `essential = false` (a worker crash never kills the SNS receiver), `dependsOn`
+  listener-HEALTHY, env per §2 with `MORNING_BOARD_ENABLED=false` +
+  `RECIPE_RECOMPUTE_ENABLED=false` explicit, secrets = `GRAPHILE_WORKER_CONNECTION_STRING`
+  (new Secrets Manager secret, below) + the **same** `API_KEY` secret ARN the listener uses.
+  Logs land in the existing `/ecs/<env>` group under the `email-worker` stream prefix.
+- **Gate:** the container is appended to an env's task def **only** when that env's
+  `worker_db_url_secret_arn_prod` / `worker_db_url_secret_arn_staging` variable (declared in
+  `ecs.tf`, default `""`) is set in `terraform.tfvars`. Unset (today's state) → the rendered
+  task definition is byte-identical to before → plan/apply is a no-op for the live service.
 
-> ⚠️ **Live-infra landmine (CLAUDE.md).** There is **no Terraform remote-state backend** (the S3
-> backend is commented out in `infrastructure/aws/main.tf`). A `terraform apply` from a checkout
-> lacking the imported local state can **recreate/drop live SES receipt rules → mail outage**. Do
-> **not** `apply` until shared state exists and every live resource is imported — see
-> `infrastructure/aws/IMPORT-RUNBOOK.md` and `infrastructure/aws/REMOTE-STATE-RUNBOOK.md`. This
-> step is **hard-gated** behind that work. The worker deploy is **purely additive** at the AWS
-> level (a new container + new resources, no rename of `nauta-*` / `magnitudetech.com.br`
-> identities), but until remote state + imports exist, no `apply` is safe.
+Enabling sequence, per environment **[PEDRO — needs AWS creds]**:
+
+1. Create the Secrets Manager secret holding the **session-mode/non-pooling** Postgres URL
+   (e.g. `prod/nauta-services/GRAPHILE_WORKER_CONNECTION_STRING`) — never the pooled URL.
+2. Build + push the worker image to `nauta-services-email-worker` (`:latest`/`:staging`).
+   **Image-before-enable is load-bearing:** `essential=false` does NOT cover an unpullable
+   image — a missing tag fails every task start and trips the deployment circuit breaker.
+   (No worker Dockerfile / CI job exists yet — that is Track 3a's build/CI half.)
+3. Set the env's `worker_db_url_secret_arn_*` in `terraform.tfvars`; `terraform plan` must
+   show only: task def replaced (new revision), service updated in-place, `read-secrets`
+   execution policy updated. Then apply and let the service roll.
+4. Watch memory on first roll: both containers share the task's CPU/memory (staging is
+   256/512) — bump task memory if the worker gets OOM-killed.
+
+> ⚠️ **Live-infra guard (CLAUDE.md).** Remote state is **LIVE** as of 2026-08-06 (S3 backend
+> active in `infrastructure/aws/main.tf`, migrated per `REMOTE-STATE-RUNBOOK.md` after the
+> `IMPORT-RUNBOOK.md` imports). The standing discipline still applies: **never `apply` unless
+> `terraform plan` shows zero create/replace/destroy on live mail resources** (SES receipt
+> rules, SNS topics, inbound S3 bucket, ALB). The worker changes are purely additive/gated;
+> the only expected live-resource churn when enabling is the task-def revision + service
+> update listed above.
 
 Once deployed, confirm the worker booted and is polling (CloudWatch logs for the worker
 container; a healthy boot logs nothing fatal — `worker_fatal` on the connection string means the
@@ -252,8 +275,10 @@ Provisioning (P1–P4):
 - [ ] `npm run build -w @polytoken/worker` produces `dist/index.js` + `dist/install-schema.js` **[safe]**
 - [ ] `install-schema.js` printed `graphile_worker schema installed/upgraded`; `graphile_worker` schema exists **[PEDRO]**
 - [ ] `db:migrate` applied 0053 + 0054; `public.enqueue_job` exists; unknown identifier `RAISE`s **[PEDRO]**
+- [x] Terraform for the worker on `main` (gated container + `nauta-services-email-worker` ECR repo) — 2026-08-06 **[safe]**
+- [ ] Worker image pushed to `nauta-services-email-worker` **before** setting `worker_db_url_secret_arn_*` **[PEDRO]**
 - [ ] Worker container deployed (`essential = false`, co-located), env from §2 set, `API_KEY` secret wired **[PEDRO]**
-- [ ] Terraform remote state + resource imports confirmed **before** any `apply` (no `nauta-*` / SES churn) **[PEDRO]**
+- [x] Terraform remote state + resource imports confirmed **before** any `apply` (no `nauta-*` / SES churn) — DONE 2026-08-06, S3 backend live in `main.tf` **[PEDRO]**
 - [ ] Worker boots without `worker_fatal`; CloudWatch shows it polling **[PEDRO]**
 
 Cutover (P5):

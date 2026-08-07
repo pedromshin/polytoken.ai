@@ -31,6 +31,10 @@ data "aws_iam_policy_document" "ecs_execution_secrets" {
       var.api_key_secret_arn_staging,
       var.supabase_secret_key_arn_prod,
       var.supabase_secret_key_arn_staging,
+      # Track 3a worker: session-mode DB URL injected as a container secret
+      # (GRAPHILE_WORKER_CONNECTION_STRING) — declared in ecs.tf, default "".
+      var.worker_db_url_secret_arn_prod,
+      var.worker_db_url_secret_arn_staging,
     ])
   }
 }
@@ -41,6 +45,8 @@ resource "aws_iam_role_policy" "ecs_execution_secrets" {
     var.api_key_secret_arn_staging,
     var.supabase_secret_key_arn_prod,
     var.supabase_secret_key_arn_staging,
+    var.worker_db_url_secret_arn_prod,
+    var.worker_db_url_secret_arn_staging,
   ])) > 0 ? 1 : 0
   name   = "read-secrets"
   role   = aws_iam_role.ecs_execution.id
@@ -159,7 +165,11 @@ data "aws_iam_policy_document" "github_deploy" {
       "ecr:BatchGetImage",
       "ecr:GetDownloadUrlForLayer",
     ]
-    resources = [aws_ecr_repository.email_listener.arn]
+    resources = [
+      aws_ecr_repository.email_listener.arn,
+      # Track 3a: CI pushes the co-located worker image to its dedicated repo.
+      aws_ecr_repository.email_worker.arn,
+    ]
   }
 
   statement {

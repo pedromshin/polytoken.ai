@@ -23,6 +23,39 @@ resource "aws_cloudwatch_log_group" "service" {
   tags = local.tags
 }
 
+# --- Durable ingest worker (Track 3a) — co-located graphile-worker container ---
+#
+# The worker (apps/worker) rides in the SAME task as the listener (essential = false,
+# shared awsvpc netns -> it reaches the listener over localhost:${var.service_port})
+# per docs/DURABLE-WORKER-RUNBOOK.md §P4. Ship-dark: the container is only added to
+# an environment's task definition once that env's secret ARN below is set — with
+# the defaults ("") the rendered container_definitions are byte-identical to today's,
+# so merging/applying this changes nothing about the live listener.
+#
+# These worker inputs are declared here (not variables.tf) so the whole Track 3a
+# worker surface lands as one reviewable diff; Terraform loads variable blocks from
+# any *.tf file — move them to variables.tf whenever convenient.
+
+variable "worker_db_url_secret_arn_prod" {
+  description = "Secrets Manager ARN for the production GRAPHILE_WORKER_CONNECTION_STRING — a SESSION-MODE (non-pooling/direct) Postgres URL; LISTEN/NOTIFY dies on the transaction pooler, so this must be the same non-pooling URL packages/db migrate uses. Empty = worker container not added (ship-dark)."
+  type        = string
+  default     = ""
+}
+
+variable "worker_db_url_secret_arn_staging" {
+  description = "Secrets Manager ARN for the staging GRAPHILE_WORKER_CONNECTION_STRING (session-mode/non-pooling Postgres URL). Empty = worker container not added (ship-dark)."
+  type        = string
+  default     = ""
+}
+
+locals {
+  # env key -> the worker's DB-URL secret ARN ("" = worker disabled for that env).
+  worker_db_url_secret_arns = {
+    production = var.worker_db_url_secret_arn_prod
+    staging    = var.worker_db_url_secret_arn_staging
+  }
+}
+
 resource "aws_ecs_task_definition" "service" {
   for_each = local.environments
 
@@ -34,7 +67,7 @@ resource "aws_ecs_task_definition" "service" {
   execution_role_arn       = aws_iam_role.ecs_execution.arn
   task_role_arn            = aws_iam_role.ecs_task.arn
 
-  container_definitions = jsonencode([
+  container_definitions = jsonencode(concat([
     {
       name      = "email-listener"
       image     = "${aws_ecr_repository.email_listener.repository_url}:${each.value.image_tag}"
@@ -84,7 +117,62 @@ resource "aws_ecs_task_definition" "service" {
         startPeriod = 10
       }
     }
-  ])
+    ],
+    # Track 3a durable-ingest worker — appended ONLY when the env's DB-URL secret
+    # ARN is set (ship-dark; see the worker inputs above). The worker image must
+    # exist in ECR (:latest / :staging) BEFORE enabling, or every task start fails
+    # on image pull — essential=false does NOT cover an unpullable image.
+    local.worker_db_url_secret_arns[each.key] != "" ? [
+      {
+        name = "email-worker"
+        # Dedicated Node image (the listener image is Python-only); same tag
+        # convention as the listener (:latest prod, :staging staging).
+        image = "${aws_ecr_repository.email_worker.repository_url}:${each.value.image_tag}"
+        # essential=false: a worker crash/exit must never take down the SNS
+        # receiver — the listener stays the only essential container (runbook §P4).
+        essential = false
+
+        environment = [
+          # Co-located listener over the shared awsvpc netns (runbook §2).
+          { name = "LISTENER_INTERNAL_URL", value = "http://localhost:${var.service_port}" },
+          { name = "WORKER_CONCURRENCY", value = "3" },
+          { name = "WORKER_POLL_INTERVAL_MS", value = "2000" },
+          # Ship-dark crontab gates — explicitly OFF; flip via task-def env only
+          # when those features cut over (never as a side effect of this deploy).
+          { name = "MORNING_BOARD_ENABLED", value = "false" },
+          { name = "RECIPE_RECOMPUTE_ENABLED", value = "false" },
+        ]
+
+        secrets = concat(
+          [
+            # Session-mode (non-pooling) Postgres URL — the LISTEN/NOTIFY loop
+            # does not survive the transaction pooler.
+            { name = "GRAPHILE_WORKER_CONNECTION_STRING", valueFrom = local.worker_db_url_secret_arns[each.key] }
+          ],
+          each.value.api_key_arn != "" ? [
+            # SAME secret as the listener's API_KEY — sent as x-api-key to the
+            # guarded localhost re-entry routes (/v1/emails/ingest-job etc.).
+            { name = "API_KEY", valueFrom = each.value.api_key_arn }
+          ] : [],
+        )
+
+        # Start draining only after the listener answers /health — avoids a boot
+        # window of connection-refused job attempts against localhost.
+        dependsOn = [
+          { containerName = "email-listener", condition = "HEALTHY" }
+        ]
+
+        logConfiguration = {
+          logDriver = "awslogs"
+          options = {
+            awslogs-group         = aws_cloudwatch_log_group.service[each.key].name
+            awslogs-region        = var.aws_region
+            awslogs-stream-prefix = "email-worker"
+          }
+        }
+      }
+    ] : [],
+  ))
 
   tags = local.tags
 }

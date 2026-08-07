@@ -3,6 +3,11 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.email_listener.repository_url
 }
 
+output "ecr_worker_repository_url" {
+  description = "ECR repo for the co-located durable-ingest worker images (Track 3a; push :latest / :staging here BEFORE enabling the worker container)"
+  value       = aws_ecr_repository.email_worker.repository_url
+}
+
 output "alb_dns_name" {
   description = "ALB DNS — production on :80, staging on :8080"
   value       = aws_lb.main.dns_name

@@ -6,11 +6,17 @@ on:
     branches: [main]
     paths:
       - "apps/email-listener/**"
+      - "apps/worker/**"
       - ".github/workflows/deploy-email-listener.yml"
 
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: nauta-services-email-listener
+  # Worker image repo (Track 3a, docs/DURABLE-WORKER-RUNBOOK.md §P4): sibling repo to
+  # the listener, same tag scheme (:latest prod / :staging staging). The worker is a
+  # SECOND container in the SAME task def/service (essential = false), so it deploys
+  # through this same workflow — one force-new-deployment rolls both containers.
+  WORKER_ECR_REPOSITORY: nauta-services-email-worker
   ECS_CLUSTER: nauta-services-email-listener
   ECS_SERVICE: nauta-services-email-listener
   IMAGE_TAG: latest
@@ -40,10 +46,28 @@ jobs:
       - run: uv run mypy app
       - run: uv run pytest
 
+  # Worker own-gate (mirrors the listener's test job): typecheck + vitest for
+  # @polytoken/worker before any image is pushed. Node 22 + full root `npm ci`
+  # matches ci-web-and-packages.yml.
+  test-worker:
+    name: Test (worker)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+      - run: npm ci
+      - run: npm run typecheck -w @polytoken/worker
+      - run: npm run test -w @polytoken/worker
+
   deploy:
     name: Build & deploy
     runs-on: ubuntu-latest
-    needs: test
+    needs: [test, test-worker]
     permissions:
       id-token: write
       contents: read
@@ -67,6 +91,16 @@ jobs:
             -t ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG \
             .
 
+      # The worker image is ALWAYS built + scanned (ship-dark gate: a broken worker
+      # Dockerfile blocks the deploy the moment it lands, not on cutover day), but
+      # only PUSHED once the Track 3a P4 infra exists — see the push step below.
+      - name: Build worker image
+        run: |
+          docker build \
+            -f apps/worker/Dockerfile \
+            -t ${{ steps.ecr.outputs.registry }}/$WORKER_ECR_REPOSITORY:$IMAGE_TAG \
+            .
+
       - name: Trivy scan (CRITICAL/HIGH blocks)
         uses: aquasecurity/trivy-action@master
         with:
@@ -76,9 +110,31 @@ jobs:
           severity: CRITICAL,HIGH
           ignore-unfixed: true
 
+      - name: Trivy scan worker (CRITICAL/HIGH blocks)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.ecr.outputs.registry }}/${{ env.WORKER_ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
       - name: Push image
         run: docker push ${{ steps.ecr.outputs.registry }}/$ECR_REPOSITORY:$IMAGE_TAG
 
+      # Infra-gated (same repo-variable pattern as the smoke test): set the GitHub
+      # Actions repo variable WORKER_DEPLOY_ENABLED=true only after the runbook's P4
+      # Terraform is applied — ECR repo $WORKER_ECR_REPOSITORY created, the deploy
+      # role's EcrPush statement widened to it (iam.tf), and the worker container
+      # (essential = false) added to the task definition (ecs.tf). Until then a push
+      # would fail against a nonexistent repo and needlessly redden listener deploys.
+      - name: Push worker image
+        if: vars.WORKER_DEPLOY_ENABLED == 'true'
+        run: docker push ${{ steps.ecr.outputs.registry }}/$WORKER_ECR_REPOSITORY:$IMAGE_TAG
+
+      # One force-new-deployment re-pulls every mutable-tag image in the task def —
+      # once the worker container exists there (runbook §P4), this single step rolls
+      # the listener AND the worker together.
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
