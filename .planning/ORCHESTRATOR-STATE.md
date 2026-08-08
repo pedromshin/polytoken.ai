@@ -27,11 +27,27 @@ allowlist, the `service_role` grant, and a worker proven to drain on staging. In
 mail **does not flow through any of it**. So `CLAUDE.md`'s inbound-SNS landmine is **not stale** —
 it is currently accurate, and I briefly asserted the opposite before checking the deployed flags.
 
-The remedy is a flag flip (`INGEST_ENQUEUE_ENABLED=true`, or at minimum
-`INGEST_INLINE_RETRY_ON_FAILURE=true` to convert silent loss into an SNS retry) plus a
-`terraform apply` — **both hard limits for unattended work, so neither was touched.** Escalated to
-[PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §0c. Until it is flipped, Arc 1's headline promise —
-durable mail — is **provisioned but not in force**.
+**🛑 AND THERE IS NO WORKER ON PROD — so flipping enqueue first would make things WORSE.**
+Verified an hour after the above, correcting my own escalation: the prod task definition holds
+**exactly one container**, `email-listener`. The graphile worker is a ship-dark **sidecar** gated on
+`worker_db_url_secret_arn_prod` (`infrastructure/aws/ecs.tf:39`, default `""` = container omitted),
+never set. ECR repo exists; **no worker task-definition family, no worker service.** Enqueue-with-no-
+worker = every email accepted, queued, and never processed — worse than today, where the normal
+path succeeds and only failures are lost. The staging CUT-06/09 proof does not contradict this: that
+worker was run **by hand**, not deployed.
+
+**Correct order (now in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §0c):** (1)
+`INGEST_INLINE_RETRY_ON_FAILURE=true` — safe today, no worker needed, converts silent loss into an
+SNS retry; (2) deploy the worker sidecar (session-mode/non-pooling URL in Secrets Manager →
+`worker_db_url_secret_arn_prod` → apply → confirm draining); (3) **only then**
+`INGEST_ENQUEUE_ENABLED=true`. All are flag flips / `terraform apply` — **hard limits unattended, so
+nothing was touched.** Until step 3, Arc 1's headline promise — durable mail — is **provisioned but
+not in force**.
+
+**The repeating mistake, now twice in two hours:** I verified a *component* and reported the
+*outcome*. The seam was live, so I said durable ingest was live; the durable code existed, so I said
+the landmine was stale; the staging drain worked, so I recommended flipping prod. Each time the
+deployed system was one question further away than the thing I had checked.
 
 ### 🏁 2026-08-08 — vNEXT CLOSED, and exactly what that does and does not claim
 - **vNEXT is CLOSED** on Pedro's explicit order (*"assume positive outcome for everything, wrap

@@ -39,13 +39,31 @@ but **production mail does not flow through any of it.**
 
 I did not touch this: a flag flip plus `terraform apply` are both hard limits for unattended work.
 
-- **Best fix:** set `INGEST_ENQUEUE_ENABLED=true` (turns on the durable path — a failed *enqueue*
-  returns 500, so SNS retries; the worker owns retries + dead-lettering from there).
-- **Minimum fix if you want a smaller step:** `INGEST_INLINE_RETRY_ON_FAILURE=true` converts silent
-  loss into an SNS retry, with no new runtime. Costs a retry storm risk on a *persistent* failure —
-  which is why it ships default-off.
-- This is **Arc 1's headline promise**. Until it is flipped, "durable mail" is provisioned but not
-  in force.
+### 🛑 DO NOT flip `INGEST_ENQUEUE_ENABLED` yet — THERE IS NO WORKER ON PROD
+**Correcting my own advice from an hour earlier, which said to flip it first. That would have
+broken all mail processing.** Verified: the prod task definition
+(`nauta-services-email-listener:4`) contains **exactly one container**, `email-listener`. The
+graphile worker is a **ship-dark sidecar** gated on `worker_db_url_secret_arn_prod`
+(`infrastructure/aws/ecs.tf:39`, default `""` = container not added), and that has never been set.
+There is an ECR repo (`nauta-services-email-worker`, tags `staging`/`latest`) and no worker task
+definition family and no worker service.
+
+Flipping enqueue with no worker means **every inbound email is accepted, queued, and never
+processed** — worse than today, where the normal path succeeds and only failures are lost. The
+staging CUT-06/09 proof does not contradict this: that worker was one I ran by hand, not a
+deployed service.
+
+**Correct order:**
+1. **Safe now, no worker needed — `INGEST_INLINE_RETRY_ON_FAILURE=true`.** Converts silent loss
+   into an SNS retry on the existing inline path. Cost: retry-storm risk on a *persistent* failure,
+   which is why it ships default-off. This is the one to do first.
+2. **Then deploy the worker:** put a **session-mode / non-pooling** Postgres URL in Secrets Manager
+   (LISTEN/NOTIFY dies on the transaction pooler — `:5432`, not `:6543`), set
+   `worker_db_url_secret_arn_prod` to its ARN, `terraform apply`, and confirm the sidecar is
+   RUNNING and draining.
+3. **Only then flip `INGEST_ENQUEUE_ENABLED=true`**, and watch the first real email through.
+
+Until step 3, **"durable mail" is provisioned but not in force** — Arc 1's headline promise.
 
 ## 0b. Accepted debt from the vNEXT close (2026-08-08) — seven UNWITNESSED behaviours
 vNEXT was closed on 2026-08-08 with all seven live-acceptance seams resolved **ACCEPT-AS-DEBT**,
