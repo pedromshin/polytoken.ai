@@ -26,6 +26,31 @@ includes credentials that were actively USED (not just sitting in env), so rotat
 - Earlier: Supabase `sbp_…`, Vercel `vcp_…`, Stripe LIVE `rk_live_…` — rotate these too.
 None were committed to the repo (env/shell only). Rotation fully neutralizes the exposure.
 
+## 0a. 🔴 STRIPE ACCOUNT IS NOT ACTIVATED FOR LIVE CHARGES — nothing can be sold until you fix this
+The first real checkout click reached Stripe, and Stripe refused:
+
+    code: testmode_charges_only
+    "Your account cannot currently make live charges. If you are the site owner, please set up
+     your account to process payments at https://dashboard.stripe.com/payments"
+
+**Account `acct_1PpHzm010o9nrmKi` cannot accept a single payment.** Every earlier claim that
+"billing is LIVE / polytoken.ai is charging" was WRONG — I verified live-mode products, prices,
+the webhook and `BILLING_ENABLED=true`, and reported that as "charging". Those objects all exist
+happily on an account that can take no money.
+
+**Only you can fix it:** complete Stripe account activation at
+https://dashboard.stripe.com/payments — it needs the LTDA's business details, a bank account and
+tax ID. ⚠️ The account is **shared with another business** (`bugigango`), so activation affects
+more than polytoken; check that before submitting.
+
+**The code is fine.** The request travelled all the way to Stripe attempting a live charge, which
+means the whole app path is proven. Three genuine bugs were fixed to get there: the `max:1` pool
+self-deadlock behind the hang (`bf361d18`), the swallowed error that made every prior diagnosis
+guesswork (`a003ec21`), and the missing USD-compatible payment method (`84177bac`).
+
+Until activation completes, **BILL-04 and BILL-07 (first dollar) are unsatisfiable by anyone**, and
+the "just accept and go" disposition on BILL-04 is moot — there is nothing to accept.
+
 ## 0c. ✅ DONE 2026-08-08 — INBOUND MAIL IS NOW DURABLE (nothing owed here)
 Executed end to end under your "ultracode and do everything" authorization. Prod task def
 **`nauta-services-email-listener:7`** runs **two containers** (`email-listener` + the `email-worker`

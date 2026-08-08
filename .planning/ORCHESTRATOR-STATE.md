@@ -11,6 +11,36 @@
 > (newest-first). **vNEXT (Phases 73–77) is CLOSED as of 2026-08-08.** The active milestone is
 > **vLAUNCH — Durable Mail & First Dollar** (Phases 78–81).
 
+### ❌ 2026-08-08 — CORRECTION: "BILLING IS LIVE / polytoken.ai IS CHARGING" WAS FALSE
+The first real checkout click reached Stripe and Stripe answered:
+
+```
+code: testmode_charges_only
+Your account cannot currently make live charges. If you are the site owner, please set up your
+account to process payments at https://dashboard.stripe.com/payments to remove this limitation.
+```
+
+**The Stripe account (`acct_1PpHzm010o9nrmKi`) is not activated for live charges.** No customer
+could ever have paid. Every earlier "billing LIVE — polytoken.ai is charging" line in this ledger,
+in `SESSION-CLOSE`, and in memory **overstated reality and is corrected here.**
+
+**How the error was made, again:** I verified *components* — `livemode=true` products, Pro/Power
+prices, an enabled webhook, `BILLING_ENABLED=true` — and reported the *outcome* ("charging").
+Those objects can all exist on an account that cannot accept a single payment. This is the same
+mistake as "durable-ingest seam LIVE" (the plumbing existed; mail never flowed through it), and it
+is now four for four this session. **The rule that keeps failing: a component is not an outcome.**
+
+**Not a code defect — the app path is now PROVEN correct end to end**, because the request travelled
+all the way to Stripe attempting a live charge. Three real bugs were fixed getting here:
+`bf361d18` (the `max:1` self-deadlock behind the hang), `a003ec21` (the swallowed error that made
+everything before it guesswork), `84177bac` (no USD-compatible payment method).
+
+**Owner: Pedro. Only he can do it** — Stripe account activation needs the LTDA's business details,
+bank account and tax ID at https://dashboard.stripe.com/payments. Note the account is **shared with
+another business** (`bugigango`), so activation touches more than polytoken. Until it completes,
+**BILL-04 and BILL-07 (first dollar) cannot be satisfied by anyone**, and A20's "accept and go"
+disposition is moot — there is nothing to accept.
+
 ### ✅ 2026-08-08 — ARC 1 IS DONE. INBOUND MAIL IS DURABLE ON PRODUCTION.
 Executed under Pedro's explicit awake authorization (*"ultracode and do everything"*). Prod task def
 **`nauta-services-email-listener:7`** now runs **two containers** — `email-listener` + the
