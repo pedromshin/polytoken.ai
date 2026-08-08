@@ -11,6 +11,37 @@ Sauce backup taken: `sauce-2026-08-07-milestone-close` (tag pushed, bundle verif
 Three things changed after the body of this document was written. **The body below is preserved as
 the record of what was known at the time; where it disagrees with this section, this section wins.**
 
+> ## 🎯 ROOT CAUSE FOUND — 2026-08-08 23:15 local (`bf361d18`)
+>
+> Found by reading the **prod runtime logs** instead of theorising a third time:
+> `Vercel Runtime Timeout Error: Task timed out after 60 seconds` — **on a 200 response** — for
+> `billing.createCheckoutSession` **and** for `billing.currentSubscription` **and**
+> `workspaces.list`. Procedures that never touch Stripe were hanging too, so it was **never a
+> billing bug**.
+>
+> **`packages/db/src/client.ts` caps the serverless pool at `max: 1`.** `withUserLock` opened a
+> **transaction** on that single connection and then called `fn()`, whose queries went to the
+> **outer `db`** — asking the same pool for a *second* connection. The pool cannot free one until
+> the transaction commits; the transaction cannot commit until `fn()` returns. **Self-deadlock.**
+> postgres-js has no queue timeout, so it hangs until the platform kills the function, and
+> `connect_timeout: 15` never fires because the TCP connect was fine — it is the pool *queue* that
+> waits. One stuck request also pins that warm instance's only connection, which is why unrelated
+> procedures timed out alongside it.
+>
+> **Fix:** `withUserLock` now hands `fn` a `LockedBillingStore` bound to the transaction, so every
+> in-lock query runs on the connection holding the lock. The type omits the lock methods, because
+> nesting one would be the same deadlock. The in-memory fake now **counts** outer-store calls made
+> under a lock rather than pretending they are free — the constraint it cannot simulate, it
+> asserts. Regression test verified RED against the outer-store form. Swept the other four
+> `.transaction(` sites: all use `tx` correctly, so this was the only instance.
+>
+> **Why three attempts missed it:** the request returns **200** and throws nothing, so there was no
+> error to find; and the unit suite passed throughout because an in-memory fake has an imaginary
+> unbounded pool and literally cannot express a one-connection constraint. Both earlier commits
+> fixed real defects that were not the cause — kept on their own merits.
+>
+> ---
+>
 > **⚠️ CORRECTION, 2026-08-08 22:50 local — point 1 below is WRONG and is kept only as the
 > record.** Pedro re-tested on the deployed fix (`dpl_EEs34Ru9…`, built 21:54 from `255e5887`,
 > which contains `5a8e4016`) and **it still hangs**. So §2's hypothesis is *disproven*, not merely

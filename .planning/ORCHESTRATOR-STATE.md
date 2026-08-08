@@ -25,7 +25,22 @@
 - **Highest-risk debt: CPF-live / CPF-06.** It is the only one on the **production merge path of
   the live mail receiver**, so it is the only one where being wrong corrupts real user data rather
   than merely failing to appear. Clear it first.
-- 🔴 **CHECKOUT HANG — still open; my first fix was NOT the cause (corrected 2026-08-08 22:50).**
+- 🎯 **CHECKOUT HANG — ROOT CAUSE FOUND AND FIXED (`bf361d18`, 2026-08-08 23:15).** Found in the
+  **prod runtime logs**: `Vercel Runtime Timeout Error: Task timed out after 60 seconds`, **on a
+  200**, for `createCheckoutSession` *and* `currentSubscription` *and* `workspaces.list` — Stripe
+  was never involved. `packages/db/src/client.ts` caps the pool at **`max: 1`**; `withUserLock`
+  opened a transaction on that one connection and then ran `fn()`'s queries against the **outer
+  db**, requesting a second connection the pool cannot free until the transaction commits — which
+  waits on `fn()`. **Self-deadlock**, hanging rather than erroring because postgres-js has no queue
+  timeout (`connect_timeout: 15` never fires; the TCP connect is fine, the *queue* waits). One
+  stuck request pins that warm instance's only connection, which is why unrelated procedures timed
+  out beside it. Fixed by handing `fn` a `LockedBillingStore` bound to the transaction; the fake
+  now **counts** outer-store calls under a lock instead of pretending they are free; regression
+  verified RED. Swept the other four `.transaction(` sites — all use `tx` correctly.
+  **Awaiting Pedro's live click to confirm.** Two earlier attempts fixed real but non-causal
+  defects, kept on their own merits:
+- ⚠️ **Superseded attempt 2** (`cb963df5`) — Stripe SDK's 80s default timeout above a 60s budget.
+- ⚠️ **Superseded attempt 1 (corrected 2026-08-08 22:50).**
   Pedro re-tested on the deployed fix (`dpl_EEs34Ru9…`, built 21:54 from `255e5887`) and it still
   hung. **Actual cause (`cb963df5`):** `createStripeClient` set **no timeout**, so the SDK used its
   default **80,000 ms with 2 retries** — a **240 s worst case against a 60 s function budget**,
