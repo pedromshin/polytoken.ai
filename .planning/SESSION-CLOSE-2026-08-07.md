@@ -11,6 +11,27 @@ Sauce backup taken: `sauce-2026-08-07-milestone-close` (tag pushed, bundle verif
 Three things changed after the body of this document was written. **The body below is preserved as
 the record of what was known at the time; where it disagrees with this section, this section wins.**
 
+> **⚠️ CORRECTION, 2026-08-08 22:50 local — point 1 below is WRONG and is kept only as the
+> record.** Pedro re-tested on the deployed fix (`dpl_EEs34Ru9…`, built 21:54 from `255e5887`,
+> which contains `5a8e4016`) and **it still hangs**. So §2's hypothesis is *disproven*, not merely
+> unconfirmed: the transaction-across-Stripe defect was real and worth fixing, but it was not the
+> cause.
+>
+> **The actual cause — `cb963df5`.** `createStripeClient` set **no timeout**, so the SDK used its
+> default of **80,000 ms with 2 network retries** — a **240 s worst case against a 60 s function
+> budget**. Verified empirically against the installed SDK (removing the config makes the new test
+> report `expected 80000 to be undefined`), not read from documentation. That makes the failure
+> **structural**: a stalled Stripe call *cannot* surface as an error, because the platform kills
+> the invocation long before the SDK would time out. The stream is cut with no error frame,
+> `httpBatchStreamLink` never settles the promise, neither `onSuccess` nor `onError` fires, and the
+> button reads "Starting…" forever. **`maxDuration = 60` made that window longer, not shorter.**
+> Now 10 s × 1 retry × 2 sequential calls = 40 s worst case, inside the budget, so a stall throws
+> where tRPC can serialise it into an error frame the UI can show.
+>
+> **This still does not explain why a Stripe call stalls.** It converts an invisible hang into a
+> diagnosable error — which is the thing that was missing every previous time we looked. Next
+> attempt should now produce a real toast; that message is the actual diagnosis.
+
 1. **🔴 The checkout hang is FIXED — `5a8e4016`.** §2's leading hypothesis was acted on rather than
    just filed. The defect was `createCheckoutSession` holding a `pg_advisory_xact_lock` **inside an
    open DB transaction across two Stripe round trips**. The lock now covers only the subscription

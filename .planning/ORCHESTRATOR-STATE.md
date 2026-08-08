@@ -25,7 +25,18 @@
 - **Highest-risk debt: CPF-live / CPF-06.** It is the only one on the **production merge path of
   the live mail receiver**, so it is the only one where being wrong corrupts real user data rather
   than merely failing to appear. Clear it first.
-- 🔴→✅ **The checkout hang is FIXED** (`5a8e4016`). `createCheckoutSession` held a
+- 🔴 **CHECKOUT HANG — still open; my first fix was NOT the cause (corrected 2026-08-08 22:50).**
+  Pedro re-tested on the deployed fix (`dpl_EEs34Ru9…`, built 21:54 from `255e5887`) and it still
+  hung. **Actual cause (`cb963df5`):** `createStripeClient` set **no timeout**, so the SDK used its
+  default **80,000 ms with 2 retries** — a **240 s worst case against a 60 s function budget**,
+  verified empirically against the installed SDK. A stalled Stripe call therefore *cannot* raise an
+  error: the platform kills the invocation first, the stream is cut with no error frame,
+  `httpBatchStreamLink` never settles, and the button says "Starting…" forever. `maxDuration = 60`
+  made the window **longer**. Now bounded to 40 s worst case, inside the budget, so a stall throws
+  a serialisable error. **Why Stripe stalls is still unknown** — the next attempt should surface a
+  real toast, and that message is the diagnosis. The commit below stands on its own merits but is
+  no longer credited with the fix:
+- ✅ **Lock-across-Stripe defect fixed** (`5a8e4016`). `createCheckoutSession` held a
   `pg_advisory_xact_lock` **inside an open DB transaction across two Stripe round trips**; a
   serverless timeout then killed the invocation, and because both clients use
   `httpBatchStreamLink` (HTTP 200 committed **before** procedures resolve) the stream was cut with
