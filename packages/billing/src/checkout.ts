@@ -139,6 +139,15 @@ async function createSessionFor(
     // errors for a Brazil-based seller going global.
     currency: "usd",
     adaptive_pricing: { enabled: true },
+    // EXPLICIT, not dynamic. Without this Stripe resolves payment methods from the
+    // dashboard's activated set, and on this account that set contains nothing
+    // compatible with USD — so every session create failed outright with
+    // "No valid payment method types for this Checkout Session" (a live 500 on
+    // 2026-08-08, invisible until the underlying error was actually logged).
+    // `card` is also the honest choice for mode: "subscription" — the Brazilian
+    // local methods this account has (pix, boleto) do not support recurring
+    // charges, so dynamic resolution could never have produced a working set here.
+    payment_method_types: ["card"],
     allow_promotion_codes: true,
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,

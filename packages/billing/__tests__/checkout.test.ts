@@ -132,6 +132,24 @@ describe("createCheckoutSession", () => {
     expect(customersUsed).toEqual(["cus_1", "cus_1"]);
   });
 
+  // Regression for the live 500 of 2026-08-08: Stripe refused every session with
+  // "No valid payment method types for this Checkout Session" because the account's
+  // activated methods contained nothing compatible with USD. Naming the method
+  // explicitly removes the dependency on dashboard state entirely.
+  it("names the payment method explicitly rather than relying on dashboard state", async () => {
+    const stripe = fakeStripe();
+    const { store } = makeFakeStore(null);
+
+    await createCheckoutSession({ stripe, store }, { userId: "u1", ...BASE });
+
+    const args = stripe.checkout.sessions.create.mock.calls[0]![0] as Record<string, unknown>;
+    expect(args.payment_method_types).toEqual(["card"]);
+    // card is the only one of this account's methods that supports recurring charges,
+    // so a subscription-mode session must not fall back to dynamic resolution.
+    expect(args.mode).toBe("subscription");
+    expect(args.currency).toBe("usd");
+  });
+
   it("keys the customer-create per user, so a retry cannot fork a second customer", async () => {
     const stripe = fakeStripe();
     const { store } = makeFakeStore(null);
