@@ -198,7 +198,9 @@ const setEnv = (name, value) => {
   } catch {
     /* absent is fine */
   }
-  execSync(`npx vercel env add ${name} production < ${tmp}`, { stdio: 'inherit', shell: true });
+  // execSync always runs through a shell; passing shell:true here would be read as a
+  // shell PATH and break the call. The `<` redirect is handled by cmd.exe / sh natively.
+  execSync(`npx vercel env add ${name} production < ${tmp}`, { stdio: 'inherit' });
   unlinkSync(tmp);
   console.log(`  set ${name}`);
 };
