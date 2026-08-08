@@ -33,6 +33,23 @@ export interface CheckoutSession {
   readonly url: string;
 }
 
+/**
+ * NEVER hold the per-user lock across a Stripe call.
+ *
+ * `withUserLock` is a `pg_advisory_xact_lock` inside an OPEN DB TRANSACTION
+ * (store.drizzle.ts). The original shape ran the whole guard → customer-create →
+ * session-create flow inside it, so one request pinned a pooled connection and a
+ * transaction across TWO network round trips to Stripe. On a serverless function
+ * with a bounded budget that is a hang: the platform kills the invocation, and
+ * because the client uses `httpBatchStreamLink` (HTTP 200 is committed BEFORE the
+ * procedures resolve) the stream is cut with no error frame — `onError` never
+ * fires, `isPending` never clears, and the Subscribe button reads "Starting…"
+ * forever. It also leaves no lock residue to find afterwards, because the dead
+ * connection rolls the transaction back.
+ *
+ * So the lock now covers only what it must: the read-modify-write of the
+ * subscription row. Stripe is called with nothing held.
+ */
 export async function createCheckoutSession(
   deps: CheckoutDeps,
   params: CheckoutParams,
@@ -42,17 +59,11 @@ export async function createCheckoutSession(
     throw new BillingError(`No Stripe price configured for tier "${params.tier}"`, "UNKNOWN_TIER");
   }
 
-  // Serialize concurrent checkouts for this user (a double-submit, two tabs).
-  // WITHOUT this, the duplicate-active guard and the customer-create are
-  // check-then-act: two concurrent calls both read no active sub / no customer
-  // and both create a Stripe customer + session. Holding a per-user lock makes
-  // the guard + reuse re-read committed state, so the second call sees the
-  // first's active guard (throws) or reuses the persisted customer.
-  return deps.store.withUserLock(params.userId, async () => {
+  // Phase 1 — DB only, under the lock: read committed state and run the
+  // duplicate-active guard. An active/trialing paid subscription must be changed
+  // through the customer portal, never by opening a second checkout.
+  const existingCustomerId = await deps.store.withUserLock(params.userId, async () => {
     const existing = await deps.store.getByUserId(params.userId);
-
-    // Duplicate-active guard: an active/trialing paid subscription must be
-    // changed through the customer portal, never by opening a second checkout.
     if (
       existing &&
       existing.tier !== "free" &&
@@ -62,25 +73,51 @@ export async function createCheckoutSession(
         `User "${params.userId}" already has an active subscription (${existing.tier})`,
       );
     }
+    return existing?.stripeCustomerId ?? null;
+  });
 
-    // Reuse or create the Stripe customer, persisting the id so the webhook can
-    // map customer -> user even if the subscription.created event lands first.
-    let customerId = existing?.stripeCustomerId ?? null;
-    if (!customerId) {
-      const customer = await deps.stripe.customers.create({
-        ...(params.email ? { email: params.email } : {}),
-        metadata: { userId: params.userId },
-      });
-      customerId = customer.id;
-      await deps.store.upsertByUserId(params.userId, { stripeCustomerId: customerId });
-    }
+  // Phase 2 — Stripe, with NO lock and NO transaction held.
+  const customerId = existingCustomerId ?? (await resolveCustomerId(deps, params));
 
-    return createSessionFor(deps, params, priceId, customerId);
+  return createSessionFor(deps, params, priceId, customerId);
+}
+
+/**
+ * Create the user's Stripe customer and persist the id, without ever holding the
+ * lock across the API call.
+ *
+ * Dropping the lock reopens the check-then-act window the lock used to close: two
+ * concurrent first-time checkouts (double-submit, two tabs) both read "no
+ * customer". Two mechanisms close it again, neither of which blocks on a network
+ * call while holding a transaction:
+ *
+ *  1. A per-user **idempotency key** — Stripe replays the first response for a
+ *     repeated key, so concurrent creates return the SAME customer rather than
+ *     two. (Keys age out after 24h, by which point the id is persisted and this
+ *     path no longer runs.)
+ *  2. A **re-read inside the lock** before persisting, so if a concurrent call
+ *     already committed a customer id, that one wins and is returned.
+ */
+async function resolveCustomerId(deps: CheckoutDeps, params: CheckoutParams): Promise<string> {
+  const customer = await deps.stripe.customers.create(
+    {
+      ...(params.email ? { email: params.email } : {}),
+      metadata: { userId: params.userId },
+    },
+    { idempotencyKey: `billing:customer:${params.userId}` },
+  );
+
+  // Persist so the webhook can map customer -> user even if the
+  // subscription.created event lands first.
+  return deps.store.withUserLock(params.userId, async () => {
+    const fresh = await deps.store.getByUserId(params.userId);
+    if (fresh?.stripeCustomerId) return fresh.stripeCustomerId;
+    await deps.store.upsertByUserId(params.userId, { stripeCustomerId: customer.id });
+    return customer.id;
   });
 }
 
-/** Create the Stripe Checkout Session once a customer id is resolved. Split out
- * so the whole guard→customer→session flow runs inside the per-user lock. */
+/** Create the Stripe Checkout Session once a customer id is resolved. */
 async function createSessionFor(
   deps: CheckoutDeps,
   params: CheckoutParams,
