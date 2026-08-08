@@ -38,6 +38,38 @@ import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure } from "../../trpc";
 import { countMonthlyChatTurnsUsed } from "../_chat-turn-usage";
 
+/**
+ * Server-side diagnostic log for a failed checkout. Mirrors the `logError` shape used across
+ * the genui/chat routers (stderr, one JSON object per line).
+ *
+ * Deliberately field-by-field rather than dumping the error: a Stripe error carries useful
+ * diagnostics (`type`, `code`, `statusCode`, `requestId`) that are safe to log, while a blind
+ * dump risks trailing request payloads into the log. The secret key is never part of the error
+ * object, and nothing here is returned to the client.
+ */
+function logCheckoutError(event: string, detail: unknown): void {
+  const e = detail as Partial<Record<string, unknown>> | null;
+  process.stderr.write(
+    JSON.stringify({
+      procedure: "billing.createCheckoutSession",
+      event,
+      detail:
+        detail instanceof Error
+          ? {
+              name: detail.name,
+              message: detail.message,
+              // Stripe-specific fields when present; undefined drops out of JSON.
+              type: e?.type,
+              code: e?.code,
+              statusCode: e?.statusCode,
+              requestId: e?.requestId,
+            }
+          : String(detail),
+      ts: new Date().toISOString(),
+    }) + "\n",
+  );
+}
+
 interface BillingConfig {
   readonly secretKey: string;
   readonly prices: TierPriceIds;
@@ -195,8 +227,17 @@ export const billingRouter = createTRPCRouter({
             message: "You already have an active subscription. Manage it from the billing portal.",
           });
         }
-        // Never leak Stripe internals to the client; the real error is logged upstream.
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not start checkout." });
+        // Never leak Stripe internals to the CLIENT — but the server must still be able to
+        // see them. This comment used to claim "the real error is logged upstream"; it was
+        // not. `onError` in the tRPC route only ever received this sanitized wrapper, so the
+        // underlying Stripe/DB error was discarded at the throw site and appeared NOWHERE.
+        // A live 500 on the checkout path was therefore undiagnosable from the logs.
+        logCheckoutError("checkout_failed", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Could not start checkout.",
+          cause: err, // preserve the chain for onError / future middleware
+        });
       }
     }),
 
