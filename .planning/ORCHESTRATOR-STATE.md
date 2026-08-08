@@ -11,6 +11,28 @@
 > (newest-first). **vNEXT (Phases 73–77) is CLOSED as of 2026-08-08.** The active milestone is
 > **vLAUNCH — Durable Mail & First Dollar** (Phases 78–81).
 
+### ⛔ 2026-08-08 03:40 — ARC 1 IS NOT ACTUALLY DURABLE ON PROD (ledger correction)
+**"Prod durable-ingest seam LIVE" overstates what is true, and this block corrects it.** Verified
+read-only against the live task definition (`nauta-services-email-listener:4`): **all three ingest
+flags are UNSET**, so the listener runs on its code defaults —
+
+| Flag | Prod value | Consequence |
+|---|---|---|
+| `INGEST_ENQUEUE_ENABLED` | **False** | the durable enqueue path is **OFF** — no mail reaches graphile-worker |
+| `INGEST_BACKGROUND_ENABLED` | **False** | fast-200 bridge off |
+| `INGEST_INLINE_RETRY_ON_FAILURE` | **False** | a failed ingest returns **200 → SNS never retries → the email is permanently lost, silently** |
+
+What IS live is the **plumbing**: graphile schema, `public.enqueue_job`, the 7/7 identifier
+allowlist, the `service_role` grant, and a worker proven to drain on staging. Inbound production
+mail **does not flow through any of it**. So `CLAUDE.md`'s inbound-SNS landmine is **not stale** —
+it is currently accurate, and I briefly asserted the opposite before checking the deployed flags.
+
+The remedy is a flag flip (`INGEST_ENQUEUE_ENABLED=true`, or at minimum
+`INGEST_INLINE_RETRY_ON_FAILURE=true` to convert silent loss into an SNS retry) plus a
+`terraform apply` — **both hard limits for unattended work, so neither was touched.** Escalated to
+[PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §0c. Until it is flipped, Arc 1's headline promise —
+durable mail — is **provisioned but not in force**.
+
 ### 🏁 2026-08-08 — vNEXT CLOSED, and exactly what that does and does not claim
 - **vNEXT is CLOSED** on Pedro's explicit order (*"assume positive outcome for everything, wrap
   this shit up"*). All seven live-acceptance seams are resolved **ACCEPT-AS-DEBT**, with owner,

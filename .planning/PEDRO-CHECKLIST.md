@@ -26,6 +26,27 @@ includes credentials that were actively USED (not just sitting in env), so rotat
 - Earlier: Supabase `sbp_…`, Vercel `vcp_…`, Stripe LIVE `rk_live_…` — rotate these too.
 None were committed to the repo (env/shell only). Rotation fully neutralizes the exposure.
 
+## 0c. ⛔ INBOUND MAIL IS STILL LOSING EMAILS SILENTLY — one flag flip away from fixed
+Verified 2026-08-08 against the live task def (`nauta-services-email-listener:4`): **all three
+ingest flags are unset**, so prod runs code defaults — `INGEST_ENQUEUE_ENABLED=False`,
+`INGEST_BACKGROUND_ENABLED=False`, `INGEST_INLINE_RETRY_ON_FAILURE=False`.
+
+**What that means:** the durable graphile-worker path is **off**. Inbound mail still runs the
+inline pipeline, and a pre-persist failure (S3 fetch / MIME parse / save) returns **200**, so SNS
+never retries and **the email is gone, permanently and silently.** The durable plumbing is all
+live — schema, `enqueue_job`, the 7/7 allowlist, the grant, a worker proven to drain on staging —
+but **production mail does not flow through any of it.**
+
+I did not touch this: a flag flip plus `terraform apply` are both hard limits for unattended work.
+
+- **Best fix:** set `INGEST_ENQUEUE_ENABLED=true` (turns on the durable path — a failed *enqueue*
+  returns 500, so SNS retries; the worker owns retries + dead-lettering from there).
+- **Minimum fix if you want a smaller step:** `INGEST_INLINE_RETRY_ON_FAILURE=true` converts silent
+  loss into an SNS retry, with no new runtime. Costs a retry storm risk on a *persistent* failure —
+  which is why it ships default-off.
+- This is **Arc 1's headline promise**. Until it is flipped, "durable mail" is provisioned but not
+  in force.
+
 ## 0b. Accepted debt from the vNEXT close (2026-08-08) — seven UNWITNESSED behaviours
 vNEXT was closed on 2026-08-08 with all seven live-acceptance seams resolved **ACCEPT-AS-DEBT**,
 not EXECUTED. Read that literally: the code is shipped and unit-proven, and **none of these seven
