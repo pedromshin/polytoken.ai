@@ -110,6 +110,29 @@ variable "ingest_enqueue_enabled_staging" {
   default     = false
 }
 
+# INGEST_INLINE_RETRY_ON_FAILURE's flip mechanism. Discovered 2026-08-08, and it is the SECOND
+# instance of the same defect as BTAP-07 below: the flag existed only as a settings.py default,
+# wired into NO .tf and no .yml, so it could never reach a deployed listener and was permanently
+# False in production. That matters more than the canvas flag did, because False is the setting
+# under which a failed inbound ingest returns 200, SNS never retries, and the email is lost
+# PERMANENTLY AND SILENTLY. "Just flip the safe flag" had nothing to invoke.
+#
+# This is the strictly-safer half of the Track 3a story and needs NO worker: it only changes what
+# happens when the INLINE path fails. Accepted cost, which is why it ships default-off: on a
+# PERSISTENT failure SNS will retry, so a systemic outage becomes a retry storm rather than silent
+# loss. Ingestion is idempotent by message id, so a retry of a TRANSIENT failure is safe.
+variable "ingest_inline_retry_on_failure_prod" {
+  description = "PRODUCTION listener: true adds INGEST_INLINE_RETRY_ON_FAILURE=true, so a failed inline ingest returns 500 and SNS retries instead of silently dropping the email. False (default) = entry omitted entirely, rendered task definition byte-identical, listener keeps its settings.py default False (silent-200 loss). Independent of the worker — safe to enable with no durable runtime present."
+  type        = bool
+  default     = false
+}
+
+variable "ingest_inline_retry_on_failure_staging" {
+  description = "STAGING listener equivalent of ingest_inline_retry_on_failure_prod. Same ship-dark posture: false (default) omits the entry entirely."
+  type        = bool
+  default     = false
+}
+
 # BTAP-07's flip mechanism. Discovered 2026-08-08: CANVAS_EMIT_TOOL_ENABLED existed only as a
 # settings.py default and was wired into NO .tf/.yml anywhere, so the env var never reached a
 # deployed listener and the flag was permanently False in every environment. The runsheet's

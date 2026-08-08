@@ -69,6 +69,13 @@ locals {
     production = var.canvas_emit_tool_enabled_prod
     staging    = var.canvas_emit_tool_enabled_staging
   }
+
+  # env key -> INGEST_INLINE_RETRY_ON_FAILURE (variables.tf). Same ship-dark posture.
+  # This is the ONLY anti-mail-loss control that does NOT require the worker.
+  ingest_inline_retry_on_failure = {
+    production = var.ingest_inline_retry_on_failure_prod
+    staging    = var.ingest_inline_retry_on_failure_staging
+  }
 }
 
 resource "aws_ecs_task_definition" "service" {
@@ -124,6 +131,15 @@ resource "aws_ecs_task_definition" "service" {
         # byte-identical, listener keeps its settings.py default (False).
         local.canvas_emit_tool_enabled[each.key] ? [
           { name = "CANVAS_EMIT_TOOL_ENABLED", value = "true" }
+        ] : [],
+        # INGEST_INLINE_RETRY_ON_FAILURE flip mechanism, added 2026-08-08 — the SECOND flag found
+        # wired nowhere in the infrastructure. Until now it could never reach a deployed listener,
+        # so prod ran the settings.py default False: a failed inline ingest returns 200, SNS never
+        # retries, and the email is lost permanently and silently. This arm is what makes the
+        # "stop losing mail" flip actually invokable, and unlike INGEST_ENQUEUE_ENABLED above it
+        # needs NO worker to be running. Same ship-dark posture: false contributes an empty list.
+        local.ingest_inline_retry_on_failure[each.key] ? [
+          { name = "INGEST_INLINE_RETRY_ON_FAILURE", value = "true" }
         ] : [],
       )
 
