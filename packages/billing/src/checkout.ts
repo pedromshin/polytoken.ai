@@ -79,7 +79,31 @@ export async function createCheckoutSession(
   // Phase 2 — Stripe, with NO lock and NO transaction held.
   const customerId = existingCustomerId ?? (await resolveCustomerId(deps, params));
 
-  return createSessionFor(deps, params, priceId, customerId);
+  try {
+    return await createSessionFor(deps, params, priceId, customerId);
+  } catch (err) {
+    // SELF-HEAL a stored customer id that Stripe no longer recognises.
+    //
+    // A persisted `stripeCustomerId` can go stale in ways that are nobody's fault at
+    // request time: the account's API key was switched (polytoken moved Stripe accounts
+    // on 2026-08-08 and every stored id belonged to the old one — customer ids are
+    // per-account), or the customer was deleted in the dashboard. Without this the user
+    // is permanently unable to check out, because the dead id is re-read from the DB on
+    // every attempt and fails identically forever. Retry ONCE with a freshly minted
+    // customer; anything else rethrows untouched.
+    if (!isMissingCustomerError(err, customerId)) throw err;
+    const repaired = await resolveCustomerId(deps, params, `repair:${customerId}`);
+    return createSessionFor(deps, params, priceId, repaired);
+  }
+}
+
+/** True when Stripe rejected the request because THIS customer id does not exist. */
+function isMissingCustomerError(err: unknown, customerId: string): boolean {
+  if (typeof err !== "object" || err === null) return false;
+  const e = err as { code?: unknown; message?: unknown };
+  // Stripe sets code "resource_missing"; the message names the offending id. Both are
+  // checked so a resource_missing about the PRICE never triggers a customer rebuild.
+  return e.code === "resource_missing" && String(e.message ?? "").includes(customerId);
 }
 
 /**
@@ -98,20 +122,28 @@ export async function createCheckoutSession(
  *  2. A **re-read inside the lock** before persisting, so if a concurrent call
  *     already committed a customer id, that one wins and is returned.
  */
-async function resolveCustomerId(deps: CheckoutDeps, params: CheckoutParams): Promise<string> {
+async function resolveCustomerId(
+  deps: CheckoutDeps,
+  params: CheckoutParams,
+  /** Discriminator for the repair path, so a rebuild is not served the dead customer
+   * back from the idempotency cache of the original create. */
+  scope?: string,
+): Promise<string> {
   const customer = await deps.stripe.customers.create(
     {
       ...(params.email ? { email: params.email } : {}),
       metadata: { userId: params.userId },
     },
-    { idempotencyKey: `billing:customer:${params.userId}` },
+    { idempotencyKey: `billing:customer:${params.userId}${scope ? `:${scope}` : ""}` },
   );
 
   // Persist so the webhook can map customer -> user even if the
   // subscription.created event lands first.
   return deps.store.withUserLock(params.userId, async (locked) => {
     const fresh = await locked.getByUserId(params.userId);
-    if (fresh?.stripeCustomerId) return fresh.stripeCustomerId;
+    // On the repair path the stored id is the DEAD one, so it must be overwritten;
+    // only trust a stored id when we are not repairing.
+    if (!scope && fresh?.stripeCustomerId) return fresh.stripeCustomerId;
     await locked.upsertByUserId(params.userId, { stripeCustomerId: customer.id });
     return customer.id;
   });

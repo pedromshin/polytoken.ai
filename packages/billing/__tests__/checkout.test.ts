@@ -150,6 +150,64 @@ describe("createCheckoutSession", () => {
     expect(args.currency).toBe("usd");
   });
 
+  // Live failure 2026-08-08 right after polytoken moved Stripe accounts: customer ids
+  // are per-account, so every stored id pointed at a customer the new account had never
+  // heard of. Without self-heal the user can never check out again — the dead id is
+  // re-read from the DB on every attempt and fails identically forever.
+  it("rebuilds a stored customer that Stripe no longer knows, and retries once", async () => {
+    const stripe = fakeStripe(() => "cus_fresh");
+    const { store, current } = makeFakeStore({
+      userId: "u1",
+      stripeCustomerId: "cus_dead",
+      stripeSubscriptionId: null,
+      tier: "free",
+      status: "canceled",
+      currentPeriodEnd: null,
+    });
+
+    stripe.checkout.sessions.create.mockImplementation(async (args: Record<string, unknown>) => {
+      if (args.customer === "cus_dead") {
+        throw Object.assign(new Error("No such customer: 'cus_dead'"), {
+          code: "resource_missing",
+        });
+      }
+      return { id: "cs_1", url: "https://checkout.stripe/cs_1" };
+    });
+
+    const result = await createCheckoutSession({ stripe, store }, { userId: "u1", ...BASE });
+
+    expect(result.url).toBe("https://checkout.stripe/cs_1");
+    // The dead id was replaced in storage, so the next attempt starts clean.
+    expect(current()?.stripeCustomerId).toBe("cus_fresh");
+    const used = stripe.checkout.sessions.create.mock.calls.map(
+      (c) => (c[0] as Record<string, unknown>).customer,
+    );
+    expect(used).toEqual(["cus_dead", "cus_fresh"]);
+  });
+
+  it("does not rebuild the customer for an unrelated Stripe failure", async () => {
+    const stripe = fakeStripe();
+    const { store } = makeFakeStore({
+      userId: "u1",
+      stripeCustomerId: "cus_existing",
+      stripeSubscriptionId: null,
+      tier: "free",
+      status: "canceled",
+      currentPeriodEnd: null,
+    });
+    // resource_missing, but about the PRICE — rebuilding the customer would be wrong
+    // and would mask the real misconfiguration.
+    stripe.checkout.sessions.create.mockRejectedValue(
+      Object.assign(new Error("No such price: 'price_pro'"), { code: "resource_missing" }),
+    );
+
+    await expect(
+      createCheckoutSession({ stripe, store }, { userId: "u1", ...BASE }),
+    ).rejects.toThrow(/no such price/i);
+    expect(stripe.customers.create).not.toHaveBeenCalled();
+    expect(stripe.checkout.sessions.create).toHaveBeenCalledOnce();
+  });
+
   it("keys the customer-create per user, so a retry cannot fork a second customer", async () => {
     const stripe = fakeStripe();
     const { store } = makeFakeStore(null);
