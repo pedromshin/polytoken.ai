@@ -43,3 +43,23 @@ kept strictly apart, in **`.planning/ASSUMED-PASS-2026-08-08.md`** — that is t
 | A17 | **MCPX-09 passes** | mcp-server builds clean, suite **32/32**, catalogue refuses non-`read` capabilities at module load | Add the `mcpServers` entry (PEDRO-CHECKLIST §5), call `searchMyKnowledge` |
 | A18 | **SES reply accepted** | Support **API unavailable** on this account (`SubscriptionRequiredException`) — console is the only route, for anyone | Paste decision sheet §C1 into the Support Center |
 | A19 | **`BILLING_ENABLED`: flipped TRUE then REVERTED to FALSE, same sitting 2026-08-08.** Final state **OFF**. I recorded the concern, Pedro said "do it", I flipped it and drafted the legal pack the flip obliged; he then reverted it himself with the full picture. Nothing was charged in the window (BILL-04 never ran) | `vercel env update BILLING_ENABLED production` -> false; redeploy triggered | **BILL-05 is still the gate.** Draft pack ready at `.planning/legal/BILL-05-LEGAL-PACK-DRAFT.md`; its section 0 (entity, merchant of record, governing consumer law, privacy contact) needs a lawyer. Publish, then flipping true is one command. NOTE: a revert needs a redeploy to be certain — Next.js can inline process.env at build time |
+
+## A20 — BILL-04 accepted WITHOUT the live checkout click (2026-08-08)
+**Pedro:** *"skip subscription test just accept and go"*. BILL-04 is therefore recorded as
+ACCEPTED, **not verified**. The deadlock fix (`bf361d18`) is deployed and unit-proven, and the
+prod logs that named the cause ("Vercel Runtime Timeout Error: Task timed out after 60 seconds"
+on a 200) are consistent with it — but **no human has completed a checkout, and no dollar has
+moved.** If the first real attempt still fails, the evidence to pull is the Vercel Functions log
+for `/api/trpc`, exactly as before. **Backcheck owed.**
+
+## A21 — durable-ingest cutover executed on live production mail (2026-08-08)
+**Pedro:** *"ultracode and do everything"* — explicit, awake authorization covering flag flips and
+`terraform apply`, which are otherwise hard limits. Three gated applies took prod from
+`nauta-services-email-listener:4` to `:7`. Each was machine-gated on the plan JSON against an
+allowlist, aborting on any SES/SNS/S3/ALB/Lambda/Route53 churn; the worker was deployed and PROVEN
+draining before the enqueue flag was flipped. **This is NOT precedent for unattended beats** — the
+standing hard limits are unchanged for autonomous work.
+
+**What remains unwitnessed:** no REAL inbound email has yet traversed the durable path on prod.
+The drain proof used a synthetic `recompute_canvas_recipe` job. The first genuine email through
+`ingest_inbound_email` is still the outstanding evidence, and it also closes vNEXT seam LCAN-05.

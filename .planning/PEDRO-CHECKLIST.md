@@ -26,44 +26,24 @@ includes credentials that were actively USED (not just sitting in env), so rotat
 - Earlier: Supabase `sbp_…`, Vercel `vcp_…`, Stripe LIVE `rk_live_…` — rotate these too.
 None were committed to the repo (env/shell only). Rotation fully neutralizes the exposure.
 
-## 0c. ⛔ INBOUND MAIL IS STILL LOSING EMAILS SILENTLY — one flag flip away from fixed
-Verified 2026-08-08 against the live task def (`nauta-services-email-listener:4`): **all three
-ingest flags are unset**, so prod runs code defaults — `INGEST_ENQUEUE_ENABLED=False`,
-`INGEST_BACKGROUND_ENABLED=False`, `INGEST_INLINE_RETRY_ON_FAILURE=False`.
+## 0c. ✅ DONE 2026-08-08 — INBOUND MAIL IS NOW DURABLE (nothing owed here)
+Executed end to end under your "ultracode and do everything" authorization. Prod task def
+**`nauta-services-email-listener:7`** runs **two containers** (`email-listener` + the `email-worker`
+graphile-worker sidecar) with `INGEST_ENQUEUE_ENABLED=true`, `INGEST_INLINE_RETRY_ON_FAILURE=true`,
+`CANVAS_EMIT_TOOL_ENABLED=true`.
 
-**What that means:** the durable graphile-worker path is **off**. Inbound mail still runs the
-inline pipeline, and a pre-persist failure (S3 fetch / MIME parse / save) returns **200**, so SNS
-never retries and **the email is gone, permanently and silently.** The durable plumbing is all
-live — schema, `enqueue_job`, the 7/7 allowlist, the grant, a worker proven to drain on staging —
-but **production mail does not flow through any of it.**
+Three separately-gated applies, smallest blast radius first: (1) inline-retry flag → rev :5,
+(2) worker sidecar + execution-role policy → rev :6, (3) enqueue flag → rev :7. Before the final
+flip, `scripts/prod-enqueue-drain-proof.mjs` enqueued a real job and watched the DEPLOYED worker
+drain it to terminal success — **PASS**. All 5 SES receipt rules intact, ALB health 200 throughout.
 
-I did not touch this: a flag flip plus `terraform apply` are both hard limits for unattended work.
+Two things had to be BUILT first because they did not exist: the `INGEST_INLINE_RETRY_ON_FAILURE`
+flip mechanism (wired into no .tf anywhere — the second such flag after BTAP-07), and the Secrets
+Manager secret holding the worker's session-mode URL (port 5432; LISTEN/NOTIFY dies on 6543).
 
-### 🛑 DO NOT flip `INGEST_ENQUEUE_ENABLED` yet — THERE IS NO WORKER ON PROD
-**Correcting my own advice from an hour earlier, which said to flip it first. That would have
-broken all mail processing.** Verified: the prod task definition
-(`nauta-services-email-listener:4`) contains **exactly one container**, `email-listener`. The
-graphile worker is a **ship-dark sidecar** gated on `worker_db_url_secret_arn_prod`
-(`infrastructure/aws/ecs.tf:39`, default `""` = container not added), and that has never been set.
-There is an ECR repo (`nauta-services-email-worker`, tags `staging`/`latest`) and no worker task
-definition family and no worker service.
-
-Flipping enqueue with no worker means **every inbound email is accepted, queued, and never
-processed** — worse than today, where the normal path succeeds and only failures are lost. The
-staging CUT-06/09 proof does not contradict this: that worker was one I ran by hand, not a
-deployed service.
-
-**Correct order:**
-1. **Safe now, no worker needed — `INGEST_INLINE_RETRY_ON_FAILURE=true`.** Converts silent loss
-   into an SNS retry on the existing inline path. Cost: retry-storm risk on a *persistent* failure,
-   which is why it ships default-off. This is the one to do first.
-2. **Then deploy the worker:** put a **session-mode / non-pooling** Postgres URL in Secrets Manager
-   (LISTEN/NOTIFY dies on the transaction pooler — `:5432`, not `:6543`), set
-   `worker_db_url_secret_arn_prod` to its ARN, `terraform apply`, and confirm the sidecar is
-   RUNNING and draining.
-3. **Only then flip `INGEST_ENQUEUE_ENABLED=true`**, and watch the first real email through.
-
-Until step 3, **"durable mail" is provisioned but not in force** — Arc 1's headline promise.
+**Rollback if mail ever misbehaves:** set `ingest_enqueue_enabled_prod = false` in
+`infrastructure/aws/terraform.tfvars` and apply — that returns to the inline path, which now retries
+instead of silently dropping. The worker sidecar can stay.
 
 ## 0b. Accepted debt from the vNEXT close (2026-08-08) — seven UNWITNESSED behaviours
 vNEXT was closed on 2026-08-08 with all seven live-acceptance seams resolved **ACCEPT-AS-DEBT**,

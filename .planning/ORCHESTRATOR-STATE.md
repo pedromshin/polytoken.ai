@@ -11,7 +11,43 @@
 > (newest-first). **vNEXT (Phases 73–77) is CLOSED as of 2026-08-08.** The active milestone is
 > **vLAUNCH — Durable Mail & First Dollar** (Phases 78–81).
 
-### ⛔ 2026-08-08 03:40 — ARC 1 IS NOT ACTUALLY DURABLE ON PROD (ledger correction)
+### ✅ 2026-08-08 — ARC 1 IS DONE. INBOUND MAIL IS DURABLE ON PRODUCTION.
+Executed under Pedro's explicit awake authorization (*"ultracode and do everything"*). Prod task def
+**`nauta-services-email-listener:7`** now runs **two containers** — `email-listener` + the
+`email-worker` graphile-worker sidecar — with `INGEST_ENQUEUE_ENABLED=true`,
+`INGEST_INLINE_RETRY_ON_FAILURE=true`, `CANVAS_EMIT_TOOL_ENABLED=true`. Inbound SNS enqueues a
+durable pointer job; a failed enqueue returns 500 so SNS retries; the worker owns retries and
+dead-lettering. **The silent-mail-loss landmine is closed.**
+
+Done in three separately-gated applies, smallest blast radius first:
+
+| # | Change | Result |
+|---|---|---|
+| 1 | `INGEST_INLINE_RETRY_ON_FAILURE=true` (rev **:5**) | silent loss → SNS retry, needed no worker |
+| 2 | worker sidecar + execution-role policy (rev **:6**) | `email-worker` **RUNNING**, log: *"Worker connected and looking for jobs"* with `ingest_inbound_email` registered |
+| 3 | `INGEST_ENQUEUE_ENABLED=true` (rev **:7**) | durable path **ON** |
+
+**Two things had to be built first, both missing:**
+- `INGEST_INLINE_RETRY_ON_FAILURE` was wired into **no `.tf` and no `.yml`** — the second flag this
+  week found with no flip mechanism (after BTAP-07). Built ship-dark (`c2c76091`); `terraform plan`
+  with it defaulted off returned **"No changes"**, proving inert.
+- The Secrets Manager secret for the worker's **session-mode** URL (port **5432** — LISTEN/NOTIFY
+  dies on the 6543 transaction pooler).
+
+**Proof before the flip, not after:** `scripts/prod-enqueue-drain-proof.mjs` enqueued a real job on
+prod and watched the **deployed** worker drain it to terminal success → **PASS**. Its first run
+returned a handler error (`recipe_id` vs `recipeId`), which itself proved round-trip execution.
+
+**Safety that held:** every apply was gated by a machine-checked plan-JSON allowlist that aborts on
+any `aws_ses_*`/`aws_sns_*`/`aws_s3_bucket`/`aws_lb*`/`aws_lambda*`/`aws_route53*` churn. All three
+plans touched only the task def, the service, and once the execution-role policy. **All 5 SES
+receipt rules intact; ALB health 200 after each.** The execution-role policy was applied FIRST with
+`-target` so no task could start unable to read its secret (`essential=false` does not cover that).
+
+Also corrected in `CLAUDE.md`: **remote Terraform state IS live** (S3 backend active, 68 resources).
+The "no remote backend, never apply" note was stale — and was why applies looked forbidden for weeks.
+
+### ⛔ 2026-08-08 03:40 — superseded by the block above (kept as the record)
 **"Prod durable-ingest seam LIVE" overstates what is true, and this block corrects it.** Verified
 read-only against the live task definition (`nauta-services-email-listener:4`): **all three ingest
 flags are UNSET**, so the listener runs on its code defaults —
