@@ -30,7 +30,21 @@ export interface BillingSubscription {
 /** Fields that may be patched on a subscription row (userId is the key, never patched). */
 export type BillingSubscriptionPatch = Partial<Omit<BillingSubscription, "userId">>;
 
-export interface BillingStore {
+/**
+ * The subscription-row operations, scoped to a single connection.
+ *
+ * `withUserLock` hands one of these to its callback so every query inside the
+ * critical section runs on the SAME connection that holds the lock. The lock
+ * methods are deliberately absent: nesting a lock inside a lock would be the
+ * same deadlock this type exists to prevent.
+ */
+export interface LockedBillingStore {
+  getByUserId(userId: string): Promise<BillingSubscription | null>;
+  getByCustomerId(customerId: string): Promise<BillingSubscription | null>;
+  upsertByUserId(userId: string, patch: BillingSubscriptionPatch): Promise<void>;
+}
+
+export interface BillingStore extends LockedBillingStore {
   /** The user's subscription row, or null if they have none yet. */
   getByUserId(userId: string): Promise<BillingSubscription | null>;
 
@@ -68,8 +82,18 @@ export interface BillingStore {
    * inside the critical section, so two concurrent checkouts cannot both pass
    * the guard or both create a Stripe customer. Implemented with a
    * transaction-scoped Postgres advisory lock in production.
+   *
+   * ⚠️ `fn` MUST issue its reads/writes through the {@link LockedBillingStore}
+   * it is handed, never through the outer store. The production lock is a real
+   * DB transaction, and on Vercel the connection pool is capped at ONE
+   * (`packages/db/src/client.ts` `max: 1`). A query sent to the outer store from
+   * inside the lock asks that pool for a SECOND connection, which cannot be
+   * granted until the transaction commits — and the transaction cannot commit
+   * until `fn` returns. That is a self-deadlock, and postgres-js has no queue
+   * timeout, so it hangs until the serverless function is killed. It presents as
+   * a request that never returns rather than an error.
    */
-  withUserLock<T>(userId: string, fn: () => Promise<T>): Promise<T>;
+  withUserLock<T>(userId: string, fn: (locked: LockedBillingStore) => Promise<T>): Promise<T>;
 
   // --- webhook idempotency (stripe_webhook_events dedupe) ---
 

@@ -15,7 +15,7 @@ import { eq, sql } from "drizzle-orm";
 import { StripeWebhookEvents, Subscriptions } from "@polytoken/db/schema";
 import type { OwnershipDb } from "@polytoken/db/ownership";
 
-import type { BillingStore, BillingSubscription } from "./store";
+import type { BillingStore, BillingSubscription, LockedBillingStore } from "./store";
 import { asKnownTier } from "./tiers";
 
 function rowToSubscription(row: typeof Subscriptions.$inferSelect): BillingSubscription {
@@ -29,10 +29,22 @@ function rowToSubscription(row: typeof Subscriptions.$inferSelect): BillingSubsc
   };
 }
 
-export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
+/**
+ * The row operations, built over ANY runner — the pool-backed `db` or a
+ * transaction handle.
+ *
+ * This exists so `withUserLock` can hand its callback a store bound to the
+ * transaction's own connection. On Vercel the pool is capped at ONE connection
+ * (`packages/db/src/client.ts` `max: 1`); a query issued against the outer `db`
+ * from inside an open transaction waits for a second connection that cannot be
+ * freed until that transaction commits, which cannot happen until the query
+ * returns. Self-deadlock — and it hangs rather than erroring, because
+ * postgres-js has no queue timeout.
+ */
+function rowOps(runner: OwnershipDb): LockedBillingStore {
   return {
     async getByUserId(userId) {
-      const rows = await db
+      const rows = await runner
         .select()
         .from(Subscriptions)
         .where(eq(Subscriptions.userId, userId))
@@ -41,7 +53,7 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
     },
 
     async getByCustomerId(customerId) {
-      const rows = await db
+      const rows = await runner
         .select()
         .from(Subscriptions)
         .where(eq(Subscriptions.stripeCustomerId, customerId))
@@ -51,7 +63,7 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
 
     async upsertByUserId(userId, patch) {
       const now = new Date();
-      await db
+      await runner
         .insert(Subscriptions)
         .values({
           userId,
@@ -82,6 +94,12 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
           },
         });
     },
+  };
+}
+
+export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
+  return {
+    ...rowOps(db),
 
     async applyOrderedSync(userId, patch, eventAt) {
       // Single conditional upsert: apply the patch ONLY when this event is not
@@ -127,11 +145,18 @@ export function createDrizzleBillingStore(db: OwnershipDb): BillingStore {
       // Serialize concurrent billing mutations for one user with a
       // transaction-scoped advisory lock (auto-released on commit/rollback, so
       // it survives connection pooling — the whole txn is one connection). The
-      // key is stable per user; `fn` runs its own queries on the outer db, but a
-      // second withUserLock for the same user blocks until this txn commits.
+      // key is stable per user; a second withUserLock for the same user blocks
+      // until this txn commits.
+      //
+      // `fn` is handed a store bound to `tx`, NOT the outer db. That is
+      // load-bearing, not stylistic: on Vercel the pool is capped at ONE
+      // connection, so a query issued against the outer db here would wait for a
+      // second connection that only frees when this transaction commits — which
+      // waits on `fn`. Self-deadlock, and it HANGS rather than erroring, because
+      // postgres-js has no queue timeout. That was the checkout hang.
       return db.transaction(async (tx) => {
         await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtext(${`billing:user:${userId}`}))`);
-        return fn();
+        return fn(rowOps(tx as unknown as OwnershipDb));
       });
     },
 

@@ -145,14 +145,27 @@ describe("createCheckoutSession", () => {
   it("runs the duplicate-active guard inside the lock (re-reads committed state)", async () => {
     const stripe = fakeStripe();
     const { store } = makeFakeStore(null);
-    const getSpy = vi.spyOn(store, "getByUserId");
-    const lockSpy = vi.spyOn(store, "withUserLock");
+
+    // Spy on the LOCKED store the callback is handed — the guard reads through
+    // that, not through the outer store (see the deadlock note below).
+    const readsInsideLock: string[] = [];
+    const realLock = store.withUserLock.bind(store);
+    const lockSpy = vi.spyOn(store, "withUserLock").mockImplementation((userId, fn) =>
+      realLock(userId, (locked) =>
+        fn({
+          ...locked,
+          getByUserId: (id) => {
+            readsInsideLock.push(id);
+            return locked.getByUserId(id);
+          },
+        }),
+      ),
+    );
 
     await createCheckoutSession({ stripe, store }, { userId: "u1", ...BASE });
 
-    // The guard's read happened, and it happened through the lock wrapper.
-    expect(getSpy).toHaveBeenCalledWith("u1");
-    expect(lockSpy.mock.invocationCallOrder[0]).toBeLessThan(getSpy.mock.invocationCallOrder[0]!);
+    expect(lockSpy).toHaveBeenCalled();
+    expect(readsInsideLock).toContain("u1");
   });
 
   // The checkout-hang regression. withUserLock is pg_advisory_xact_lock inside an
@@ -165,10 +178,10 @@ describe("createCheckoutSession", () => {
     const realLock = store.withUserLock.bind(store);
     let held = 0;
     vi.spyOn(store, "withUserLock").mockImplementation((userId, fn) =>
-      realLock(userId, async () => {
+      realLock(userId, async (locked) => {
         held += 1;
         try {
-          return await fn();
+          return await fn(locked);
         } finally {
           held -= 1;
         }
@@ -189,6 +202,22 @@ describe("createCheckoutSession", () => {
     await createCheckoutSession({ stripe, store }, { userId: "u1", email: "u1@example.com", ...BASE });
 
     expect(underLock).toEqual([]);
+  });
+
+  // The REAL checkout hang, found in prod logs 2026-08-08 ("Vercel Runtime
+  // Timeout Error: Task timed out after 60 seconds" on a 200 response).
+  // withUserLock is a transaction, and on Vercel the pool holds ONE connection
+  // (packages/db/src/client.ts `max: 1`). A row query issued against the OUTER
+  // store from inside the lock waits for a second connection that only frees
+  // when the transaction commits — which waits on that query. Self-deadlock, and
+  // postgres-js has no queue timeout, so it hangs rather than erroring.
+  it("issues every in-lock query through the locked store, never the outer one", async () => {
+    const stripe = fakeStripe();
+    const { store, outerCallsUnderLock } = makeFakeStore(null);
+
+    await createCheckoutSession({ stripe, store }, { userId: "u1", email: "u1@example.com", ...BASE });
+
+    expect(outerCallsUnderLock()).toEqual([]);
   });
 
   it("rejects a tier with no configured price", async () => {

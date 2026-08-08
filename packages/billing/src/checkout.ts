@@ -62,8 +62,8 @@ export async function createCheckoutSession(
   // Phase 1 — DB only, under the lock: read committed state and run the
   // duplicate-active guard. An active/trialing paid subscription must be changed
   // through the customer portal, never by opening a second checkout.
-  const existingCustomerId = await deps.store.withUserLock(params.userId, async () => {
-    const existing = await deps.store.getByUserId(params.userId);
+  const existingCustomerId = await deps.store.withUserLock(params.userId, async (locked) => {
+    const existing = await locked.getByUserId(params.userId);
     if (
       existing &&
       existing.tier !== "free" &&
@@ -109,10 +109,10 @@ async function resolveCustomerId(deps: CheckoutDeps, params: CheckoutParams): Pr
 
   // Persist so the webhook can map customer -> user even if the
   // subscription.created event lands first.
-  return deps.store.withUserLock(params.userId, async () => {
-    const fresh = await deps.store.getByUserId(params.userId);
+  return deps.store.withUserLock(params.userId, async (locked) => {
+    const fresh = await locked.getByUserId(params.userId);
     if (fresh?.stripeCustomerId) return fresh.stripeCustomerId;
-    await deps.store.upsertByUserId(params.userId, { stripeCustomerId: customer.id });
+    await locked.upsertByUserId(params.userId, { stripeCustomerId: customer.id });
     return customer.id;
   });
 }
