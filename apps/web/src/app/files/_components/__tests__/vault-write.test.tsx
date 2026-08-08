@@ -16,6 +16,8 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { VAULT_MAX_UPLOAD_BYTES } from "../../../../../../../packages/api-client/src/router/files/storage-adapter";
+
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // ---------------------------------------------------------------------------
@@ -597,7 +599,10 @@ describe("the upload tray", () => {
     mount();
 
     const huge = new File(["x"], "huge.bin");
-    Object.defineProperty(huge, "size", { value: 100 * 1024 * 1024 + 1 });
+    // Derived from the constant, never restated. This assertion used to hardcode
+    // "100 MB" and went red the moment the real cap moved — which is the very
+    // drift VAULT_MAX_UPLOAD_BYTES's "DEFINED ONCE" comment exists to prevent.
+    Object.defineProperty(huge, "size", { value: VAULT_MAX_UPLOAD_BYTES + 1 });
     Object.defineProperty(huge, "type", { value: "application/octet-stream" });
 
     await act(async () => {
@@ -605,9 +610,9 @@ describe("the upload tray", () => {
     });
 
     // A courtesy, not the control — the server enforces it regardless. The
-    // point is the user is told BEFORE a 100MB transfer, not after one.
+    // point is the user is told BEFORE the whole transfer, not after one.
     expect(requestUploadMutateAsync).not.toHaveBeenCalled();
-    expect(container.textContent).toContain("100 MB limit");
+    expect(container.textContent).toContain(`${VAULT_MAX_UPLOAD_BYTES / (1024 * 1024)} MB limit`);
   });
 
   it("a failed row offers RETRY, and retry re-runs the whole funnel", async () => {

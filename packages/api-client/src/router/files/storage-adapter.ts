@@ -46,15 +46,25 @@ import {
 } from "./vault-keys";
 
 /**
- * The upload cap — 100MB. DEFINED ONCE, HERE.
+ * The upload cap — 50MB. DEFINED ONCE, HERE.
  *
  * The bucket's own `fileSizeLimit` (SCHEMA-REQUEST.md) and Plan 04's
  * client-side pre-check both cite this constant rather than restating the
  * number: three copies of one bound are three chances to disagree, and the
- * disagreement always surfaces as a user watching a 100MB upload run to
- * completion and then get rejected by the bucket.
+ * disagreement always surfaces as a user watching an upload run to completion
+ * and then get rejected by the bucket.
+ *
+ * LOWERED from 100MB on 2026-08-08. That failure was not hypothetical — it was
+ * live on prod. Creating the `user-files` bucket with an explicit 100MB limit
+ * was REFUSED (`EntityTooLarge`), which proves the project-wide storage limit
+ * sits below 100MB; the bucket was therefore created with no explicit limit and
+ * silently inherited that unknown-but-smaller global. 50MB is Supabase's
+ * documented project default and is the value the bucket should be PINNED to
+ * explicitly (`scripts/prod-diagnose-live-bugs.mjs --apply`), so this stops
+ * being an inherited value nobody can read back. Raising the app cap again means
+ * raising the project limit FIRST and pinning the bucket to match.
  */
-export const VAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+export const VAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 
 /**
  * The per-user LIVE-vault storage quota — 5GB. DEFINED ONCE, HERE (DR-04).

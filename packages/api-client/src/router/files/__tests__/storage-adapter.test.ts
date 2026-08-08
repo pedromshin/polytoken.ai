@@ -794,10 +794,19 @@ describe("folderSizeRollup (DR-04, TM-04 substrate)", () => {
 });
 
 describe("VAULT_MAX_UPLOAD_BYTES", () => {
-  it("is 100MB, defined ONCE here — the bucket limit and the client pre-check both cite it", () => {
+  it("is 50MB, defined ONCE here — the bucket limit and the client pre-check both cite it", () => {
     // Three copies of one number is three chances to disagree. The
     // SCHEMA-REQUEST's fileSizeLimit and Plan 04's client pre-check both
     // point at this constant rather than restating it.
-    expect(VAULT_MAX_UPLOAD_BYTES).toBe(100 * 1024 * 1024);
+    expect(VAULT_MAX_UPLOAD_BYTES).toBe(50 * 1024 * 1024);
+  });
+
+  it("does not exceed the prod project storage limit", () => {
+    // Prod's project-wide limit is below 100MB — proved by the `user-files`
+    // bucket create at an explicit 100MB being refused EntityTooLarge. An app
+    // cap above the storage cap is accepted here and rejected by the bucket at
+    // the END of the upload, after the user has waited out the whole transfer.
+    const PROD_PROJECT_LIMIT_BYTES = 50 * 1024 * 1024;
+    expect(VAULT_MAX_UPLOAD_BYTES).toBeLessThanOrEqual(PROD_PROJECT_LIMIT_BYTES);
   });
 });

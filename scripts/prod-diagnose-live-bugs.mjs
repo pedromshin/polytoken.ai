@@ -39,10 +39,12 @@ const REPO = 'c:/Users/pc/Desktop/nauta.services.email-listener';
 const PROD_REF = 'dazyccjijdahxyciptkp';
 const COMPAT = 'uselibpqcompat=true&sslmode=require';
 const BUCKET = 'user-files';
-// Mirrors VAULT_MAX_UPLOAD_BYTES (storage-adapter.ts:57). That file insists the bound is
+// Mirrors VAULT_MAX_UPLOAD_BYTES (storage-adapter.ts). That file insists the bound is
 // "DEFINED ONCE" — this script cannot import from the TS package, so it restates the value
-// and then VERIFIES the created bucket against it rather than trusting they match.
-const VAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+// and then VERIFIES the bucket against it rather than trusting they match.
+// 50MB since 2026-08-08: the explicit 100MB create was refused EntityTooLarge, proving the
+// project-wide limit is lower, so the app cap was lowered to Supabase's documented default.
+const VAULT_MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const APPLY = process.argv.includes('--apply');
 
 const require = createRequire(`${REPO}/package.json`);
@@ -123,6 +125,30 @@ if (!serviceKey) {
     if (found) {
       console.log(`PASS: '${BUCKET}' exists — public=${found.public}, fileSizeLimit=${found.file_size_limit}`);
       if (found.public) console.log("  ⚠ public=true DEFEATS the vault's entire tenancy argument (SCHEMA-REQUEST.md). Must be false.");
+
+      // PIN the limit. A null here means the bucket inherits the project global —
+      // a number nobody can read back through this API, so the app cap can never
+      // be shown to agree with it. Writing the limit explicitly turns an
+      // unverifiable inherited bound into a checkable one.
+      if (found.file_size_limit !== VAULT_MAX_UPLOAD_BYTES && APPLY) {
+        const put = await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET}`, {
+          method: 'PUT',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ public: false, file_size_limit: VAULT_MAX_UPLOAD_BYTES, allowed_mime_types: null }),
+        });
+        const putBody = await put.text();
+        if (!put.ok) {
+          console.log(`  ⚠ PIN FAILED: HTTP ${put.status} ${putBody.slice(0, 200)}`);
+          console.log('    EntityTooLarge here means the project global is below the app cap —');
+          console.log('    raise it in Supabase → Storage → Settings, or lower the app cap further.');
+        } else {
+          const after = await (await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET}`, { headers })).json();
+          console.log(`  PINNED file_size_limit -> ${after.file_size_limit}`);
+          reportBound(after.file_size_limit); // read back; never trust the write
+        }
+      } else {
+        reportBound(found.file_size_limit);
+      }
     } else if (!APPLY) {
       console.log(`FAIL: '${BUCKET}' MISSING — this is the requestUpload 500. Re-run with --apply.`);
     } else {
