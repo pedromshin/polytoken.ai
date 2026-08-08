@@ -8,6 +8,22 @@ Facts below are sourced from `docs/RUN-LOCAL.md` (canonical local-stack doc — 
 - **SES may be in sandbox** (`ProductionAccessEnabled=False`) — outbound only reaches verified identities, so any multi-user outbound-mail feature is blocked on AWS production-access approval regardless of code.
 - **Inbound SNS handler swallows failures** (`apps/email-listener/.../sns_inbound.py` returns 200 on any exception) — a failed ingest silently, permanently loses the email today. The graphile-worker durable runtime (Track 3a in the master plan) is the fix.
 
+## ⚠️ DB landmine — never query the outer `db` inside a transaction
+On Vercel the pool is capped at **one connection** (`packages/db/src/client.ts`, `max: 1`). A
+transaction holds that connection, so any query issued against the outer `db` from inside a
+`db.transaction(...)` callback waits for a second connection that cannot be freed until the
+transaction commits — which waits on the query. **Self-deadlock.** It does not error: postgres-js
+has no queue timeout, so the request hangs until the platform kills the function (60s), returning
+**HTTP 200 with no error frame**. With `httpBatchStreamLink` the client promise never settles, so
+the UI shows a permanent pending state and no toast. One stuck request also pins that warm
+instance's only connection, so unrelated procedures time out beside it.
+
+**Rule:** inside `db.transaction(async (tx) => …)`, use **`tx` for every query**. If you pass a
+callback out of the transaction, hand it a `tx`-bound store (see `withUserLock` /
+`LockedBillingStore` in `packages/billing/src/store.drizzle.ts`). **Unit tests cannot catch this** —
+an in-memory fake has an imaginary unbounded pool; make the fake *count* outer-store calls made
+under a lock instead. Cost this: three wrong fixes and a night of a blocked checkout (`bf361d18`).
+
 ## Package management
 - **npm workspaces, NOT pnpm.** Root `package.json` `workspaces: ["packages/*", "apps/web", "apps/daemon"]`. `pnpm install` pollutes the tree — always `npm`.
 - `apps/email-listener` is Python managed by **uv** (not pip/poetry): `uv run pytest`, `uv run ruff`, `uv run mypy app`. Root scripts wrap these (`npm run test|lint|typecheck|check`).
