@@ -19,12 +19,18 @@
 // database, never kills a session, never writes a row. Killing a stuck backend is left to
 // a human because it aborts whatever that transaction was doing.
 //
-// USAGE (from repo root):
-//   SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/prod-diagnose-live-bugs.mjs
-//   SUPABASE_SERVICE_ROLE_KEY=<key> node scripts/prod-diagnose-live-bugs.mjs --apply
+// USAGE (from repo root) — the key is READ FROM A FILE, never typed on a command line.
+// Pasting a service_role key into a shell puts it in history, in the process list, and in
+// any transcript; that already happened once. Pull it into a gitignored file instead:
 //
-// Get the key with:  vercel env pull .env.vercel.production --environment production
-// (it lives in Vercel, not in .env.production).
+//   vercel env pull .env.vercel.production --environment production
+//   node scripts/prod-diagnose-live-bugs.mjs
+//   node scripts/prod-diagnose-live-bugs.mjs --apply
+//
+// It reads SUPABASE_SERVICE_ROLE_KEY from (in order): the environment, .env.vercel.production,
+// then .env.production. If you must pass it by hand in PowerShell, note there is no inline
+// `VAR=x cmd` prefix — use `$env:SUPABASE_SERVICE_ROLE_KEY = '...'` on its own line first,
+// and `$env:SUPABASE_SERVICE_ROLE_KEY = $null` after.
 
 import { createRequire } from 'node:module';
 import { readFileSync } from 'node:fs';
@@ -33,19 +39,37 @@ const REPO = 'c:/Users/pc/Desktop/nauta.services.email-listener';
 const PROD_REF = 'dazyccjijdahxyciptkp';
 const COMPAT = 'uselibpqcompat=true&sslmode=require';
 const BUCKET = 'user-files';
+// Mirrors VAULT_MAX_UPLOAD_BYTES (storage-adapter.ts:57). That file insists the bound is
+// "DEFINED ONCE" — this script cannot import from the TS package, so it restates the value
+// and then VERIFIES the created bucket against it rather than trusting they match.
+const VAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 const APPLY = process.argv.includes('--apply');
 
 const require = createRequire(`${REPO}/package.json`);
 const postgres = require('postgres');
 
-const env = {};
-for (const l of readFileSync(`${REPO}/.env.production`, 'utf8').split(/\r?\n/)) {
-  const m = l.match(/^([A-Za-z_0-9]+)=(.*)$/);
-  if (m) env[m[1]] = m[2].replace(/^"|"$/g, '');
-}
+const parseEnvFile = (path) => {
+  const out = {};
+  try {
+    for (const l of readFileSync(path, 'utf8').split(/\r?\n/)) {
+      const m = l.match(/^([A-Za-z_0-9]+)=(.*)$/);
+      if (m) out[m[1]] = m[2].replace(/^"|"$/g, '');
+    }
+  } catch {
+    /* absent file is fine — this is a lookup chain, not a requirement */
+  }
+  return out;
+};
 
-const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const env = parseEnvFile(`${REPO}/.env.production`);
+const vercelEnv = parseEnvFile(`${REPO}/.env.vercel.production`);
+
+const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL ?? vercelEnv.NEXT_PUBLIC_SUPABASE_URL;
+// Lookup chain, so the key never has to be typed: env -> pulled Vercel file -> .env.production.
+const serviceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ??
+  vercelEnv.SUPABASE_SERVICE_ROLE_KEY ??
+  env.SUPABASE_SERVICE_ROLE_KEY;
 
 console.log(`mode: ${APPLY ? 'APPLY (bucket creation only)' : 'READ-ONLY'}\n`);
 
@@ -72,19 +96,49 @@ if (!serviceKey) {
       console.log(`FAIL: '${BUCKET}' MISSING — this is the requestUpload 500. Re-run with --apply.`);
     } else {
       // Spec is verbatim from .planning/phases/66-files-vault/SCHEMA-REQUEST.md.
-      const create = await fetch(`${supabaseUrl}/storage/v1/bucket`, {
-        method: 'POST',
-        headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          id: BUCKET,
-          name: BUCKET,
-          public: false,              // never true — see SCHEMA-REQUEST.md
-          file_size_limit: 104857600, // 100 MB
-          allowed_mime_types: null,   // unrestricted
-        }),
-      });
-      const body = await create.text();
-      console.log(create.ok ? `CREATED '${BUCKET}' (private, 100MB limit)` : `FAIL: create -> HTTP ${create.status} ${body.slice(0, 200)}`);
+      // The 100MB request can be REFUSED (413 EntityTooLarge) when the project's own
+      // global storage limit is lower than the bucket limit being asked for — that is a
+      // plan-level cap, not a bug in the request. In that case fall back to the project
+      // default and READ BACK what we actually got, because storage-adapter.ts:48-57 is
+      // explicit that a bucket limit disagreeing with VAULT_MAX_UPLOAD_BYTES surfaces as
+      // "a user watching a 100MB upload run to completion and then get rejected".
+      const mk = (extra) =>
+        fetch(`${supabaseUrl}/storage/v1/bucket`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: BUCKET,
+            name: BUCKET,
+            public: false, // never true — see SCHEMA-REQUEST.md
+            allowed_mime_types: null, // unrestricted
+            ...extra,
+          }),
+        });
+
+      let create = await mk({ file_size_limit: VAULT_MAX_UPLOAD_BYTES });
+      let body = await create.text();
+      if (!create.ok && /EntityTooLarge|too large/i.test(body)) {
+        console.log("  project cap is below 100MB — retrying at the project default…");
+        create = await mk({});
+        body = await create.text();
+      }
+
+      if (!create.ok) {
+        console.log(`FAIL: create -> HTTP ${create.status} ${body.slice(0, 200)}`);
+      } else {
+        const after = await (await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET}`, { headers })).json();
+        const limit = after.file_size_limit;
+        console.log(`CREATED '${BUCKET}' — public=${after.public}, file_size_limit=${limit ?? '(project default)'}`);
+        if (typeof limit === 'number' && limit < VAULT_MAX_UPLOAD_BYTES) {
+          console.log('');
+          console.log(`  ⚠ MISMATCH: bucket allows ${(limit / 1048576).toFixed(0)}MB but VAULT_MAX_UPLOAD_BYTES is 100MB.`);
+          console.log('    storage-adapter.ts:48-57 names this exact failure — the app accepts the file,');
+          console.log('    the user waits out the whole upload, and the BUCKET rejects it at the end.');
+          console.log('    Close it one of two ways:');
+          console.log('      (a) raise the project global storage limit (Supabase → Storage → Settings), or');
+          console.log(`      (b) lower VAULT_MAX_UPLOAD_BYTES to ${limit} so all three bounds agree.`);
+        }
+      }
     }
   }
 }
