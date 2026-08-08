@@ -101,3 +101,5 @@ apps/daemon/\\tmp\\daemon-tools-*
 
 # Phase 77 MCP server runtime bundle output
 /apps/mcp-server/dist/
+.env.vercel.*
+.env.production.local
