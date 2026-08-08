@@ -73,6 +73,37 @@ const serviceKey =
 
 console.log(`mode: ${APPLY ? 'APPLY (bucket creation only)' : 'READ-ONLY'}\n`);
 
+const MB = 1048576;
+
+/**
+ * Report the bucket's effective upload bound against VAULT_MAX_UPLOAD_BYTES.
+ *
+ * Three cases, and the middle one is the trap: `null` means the bucket inherits the
+ * PROJECT-level limit, which this API does not expose. Silence there would claim a bound
+ * was checked when it was not — the failure storage-adapter.ts:48-57 describes, where a
+ * user watches a 100MB upload finish and the bucket rejects it at the very end.
+ */
+function reportBound(limit) {
+  console.log('');
+  if (typeof limit === 'number' && limit >= VAULT_MAX_UPLOAD_BYTES) {
+    console.log(`  bound OK: bucket ${(limit / MB).toFixed(0)}MB >= app ${(VAULT_MAX_UPLOAD_BYTES / MB).toFixed(0)}MB.`);
+    return;
+  }
+  if (typeof limit === 'number') {
+    console.log(`  ⚠ MISMATCH: bucket allows ${(limit / MB).toFixed(0)}MB, app allows ${(VAULT_MAX_UPLOAD_BYTES / MB).toFixed(0)}MB.`);
+  } else {
+    console.log('  ⚠ UNVERIFIED BOUND: the bucket has no explicit file_size_limit, so it inherits the');
+    console.log('    PROJECT global — which this API does not expose. If the explicit 100MB create was');
+    console.log('    refused (EntityTooLarge), that global is BELOW the app cap by definition.');
+  }
+  console.log('    storage-adapter.ts:48-57 names this failure: the app accepts the file, the user');
+  console.log('    waits out the whole upload, and the BUCKET rejects it at the end.');
+  console.log('    Read the real number: Supabase → Storage → Settings → "Upload file size limit".');
+  console.log('    Then close the gap either way:');
+  console.log('      (a) raise the project global limit to 100MB (may need a paid plan), or');
+  console.log('      (b) lower VAULT_MAX_UPLOAD_BYTES (storage-adapter.ts:57) to match it.');
+}
+
 // ---------------------------------------------------------------- BUG 1: the bucket
 console.log('=== BUG 1 — storage bucket ===');
 if (!serviceKey) {
@@ -129,15 +160,11 @@ if (!serviceKey) {
         const after = await (await fetch(`${supabaseUrl}/storage/v1/bucket/${BUCKET}`, { headers })).json();
         const limit = after.file_size_limit;
         console.log(`CREATED '${BUCKET}' — public=${after.public}, file_size_limit=${limit ?? '(project default)'}`);
-        if (typeof limit === 'number' && limit < VAULT_MAX_UPLOAD_BYTES) {
-          console.log('');
-          console.log(`  ⚠ MISMATCH: bucket allows ${(limit / 1048576).toFixed(0)}MB but VAULT_MAX_UPLOAD_BYTES is 100MB.`);
-          console.log('    storage-adapter.ts:48-57 names this exact failure — the app accepts the file,');
-          console.log('    the user waits out the whole upload, and the BUCKET rejects it at the end.');
-          console.log('    Close it one of two ways:');
-          console.log('      (a) raise the project global storage limit (Supabase → Storage → Settings), or');
-          console.log(`      (b) lower VAULT_MAX_UPLOAD_BYTES to ${limit} so all three bounds agree.`);
-        }
+        // A null limit is NOT "fine" — it means the bucket inherits the PROJECT global,
+        // which is unknown here and is provably below 100MB whenever the explicit
+        // 100MB create was refused. Treating null as a pass is how a verifier reports
+        // green on a bound it never checked.
+        reportBound(limit);
       }
     }
   }
