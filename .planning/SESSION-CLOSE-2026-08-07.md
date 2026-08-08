@@ -32,10 +32,36 @@ permanently-pending button means the request never returns — a hang, not an er
 - **Ruled out:** lingering advisory lock (two snapshots: 0 idle-in-transaction, 0 blocked queries,
   0 advisory locks) · Stripe key write scope (`POST /v1/customers` succeeded) · stale build
   (the serving deployment was built after `BILLING_ENABLED` went true).
-- **Still suspect:** the Stripe call inside the transaction, or a Vercel function timeout.
-- **To catch it:** click Subscribe and, *while the button still reads "Starting…"*, run
-  `pwsh -File scripts/prod-diagnose-live-bugs.ps1` from a second terminal. The snapshot only sees
-  the instant it runs — that is why both earlier runs were clean.
+- **LEADING HYPOTHESIS (added 2026-08-08, from static analysis — fits every observation):**
+  **the function is killed mid-stream and the client promise never settles.**
+  1. Both clients use **`httpBatchStreamLink`** (`src/trpc/react.tsx:6`,
+     `files/_lib/vault-api.tsx:109`), which commits **HTTP 200 before procedures resolve**.
+  2. `api/trpc/[trpc]/route.ts` sets **no `maxDuration` and no `runtime`** — it inherits Vercel's
+     default (10s Hobby / 15s Pro).
+  3. `createCheckoutSession` does a DB transaction + advisory lock + **two Stripe round trips**
+     (customer reuse-or-create, then session create) inside one request. On a cold start that can
+     exceed the default budget.
+  4. When Vercel kills the function the stream is cut **without an error frame**, so `onError`
+     never fires, `isPending` never clears, and the button says "Starting…" forever.
+
+  This explains all four otherwise-odd facts: no error toast, permanent pending, **no DB lock
+  residue** (the connection died, so the transaction rolled back — which is why both lock
+  snapshots were clean), and `files.requestUpload` returning a *clean* 500 in 2062ms because it
+  failed fast, inside the budget.
+
+- **The check that would confirm it:** Vercel dashboard → Functions → that invocation, or
+  `vercel logs`, looking for a **timeout / "Task timed out"** on `/api/trpc`. The route's
+  `onError` logs to `console.error`, so a genuine thrown error WOULD appear — its absence
+  alongside a killed invocation is the signature.
+- **Two candidate fixes, once confirmed** (not applied — a speculative change to a live payment
+  path, unattended, is not worth the risk):
+  (a) `export const maxDuration = 60` on the tRPC route, so the work has a real budget; and/or
+  (b) move the Stripe calls **outside** the DB transaction — the advisory lock only needs to cover
+      the read-modify-write of the subscription row, not two network round trips.
+  (b) is the better fix: holding a per-user lock across an external API call is the actual defect,
+  and it also removes the cold-start sensitivity.
+- **Fallback if the logs are inconclusive:** click Subscribe and, *while the button still reads
+  "Starting…"*, run `pwsh -File scripts/prod-diagnose-live-bugs.ps1` from a second terminal.
 - **This blocks BILL-04**, and therefore the first dollar.
 
 ### 🟠 GAP — vault upload bound is unverified and probably wrong
