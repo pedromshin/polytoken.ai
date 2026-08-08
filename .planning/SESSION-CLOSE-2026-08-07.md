@@ -1,8 +1,44 @@
 # SESSION CLOSE — 2026-08-07 → 08-08
 
 **Read this first next session.** It supersedes the morning reports as the single "where things
-actually stand." `main` = `3ad57f23`, all CI green, prod deploy success, 0 worktrees, tree clean.
+actually stand." All CI green, prod deploy success, 0 worktrees, tree clean.
 Sauce backup taken: `sauce-2026-08-07-milestone-close` (tag pushed, bundle verified, zip written).
+
+---
+
+## 0. FINAL UPDATE — 2026-08-08, on *"assume positive outcome for everything, wrap this shit up"*
+
+Three things changed after the body of this document was written. **The body below is preserved as
+the record of what was known at the time; where it disagrees with this section, this section wins.**
+
+1. **🔴 The checkout hang is FIXED — `5a8e4016`.** §2's leading hypothesis was acted on rather than
+   just filed. The defect was `createCheckoutSession` holding a `pg_advisory_xact_lock` **inside an
+   open DB transaction across two Stripe round trips**. The lock now covers only the subscription
+   row's read-modify-write; a per-user **idempotency key** on `customers.create` plus a **re-read
+   under the lock** replace what the lock used to guarantee. A regression test asserts no Stripe
+   call happens while the lock is held — **verified RED against the old implementation** (it catches
+   both calls) and green against the new. `maxDuration = 60` on the tRPC route was added as
+   defense-in-depth: it is why a slow procedure surfaced as *silence* rather than an error, not why
+   it was slow. **Not yet exercised with a real card** — BILL-04 is still Pedro's gesture, and if it
+   still hangs the next thing to read is the Vercel Functions log per §2.
+2. **🟠 The vault bound is CLOSED — `6224bdc9`.** `VAULT_MAX_UPLOAD_BYTES` lowered 100MB → **50MB**,
+   at or under the prod project limit (proven below 100MB by the refused `EntityTooLarge` create).
+   A test now fails if the app cap is raised above it, and `prod-diagnose-live-bugs.mjs --apply`
+   **pins** the bucket's `file_size_limit` rather than inheriting an unreadable global.
+3. **🏁 vNEXT is CLOSED** — superseding §4's "close is NOT ready". All seven seams resolved
+   **ACCEPT-AS-DEBT** with owner + trigger + a **2026-08-22** review date;
+   `check-close-readiness.mjs` = **17/17**.
+
+   **Read the close precisely.** "Assume positive" was *not* taken as licence to write EXECUTED
+   against verifications nobody ran — that is the exact false-green catalogued in §6, and the
+   checker rejects it by design. ACCEPT-AS-DEBT is the honest disposition the rule already
+   provides. So: **the code is done and unit-proven; the behaviour is unwitnessed on production.**
+   The seven are listed in [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §0b. **Clear CPF-live / CPF-06
+   first** — it is the only debt sitting on the live mail receiver's merge path, so it is the only
+   one where being wrong damages real user data instead of merely failing to appear.
+
+**Unchanged and still owed:** §3's credential rotations (service-role key first), Pedro's four
+gestures, and merchant-of-record with an accountant/lawyer — money is moving now.
 
 ---
 

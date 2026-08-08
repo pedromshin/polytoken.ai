@@ -211,24 +211,39 @@ Recommended dispositions (Pedro decides; these are the auditor's defaults):
 
 ### Decision Ledger — fill in, then close
 
-> **2026-08-07 — rows filled with the auditor's recommended default under Pedro's nonstop order**
-> (*"assume positive outcome ... record and ill do a retroactive backcheck"* — assumption **A3** in
-> [../ASSUMPTIONS-2026-08-07.md](../ASSUMPTIONS-2026-08-07.md)). Every row = EXECUTE-IN-vLAUNCH,
-> scheduled into Phases 80/81. Pedro may flip any row to ACCEPT-AS-DEBT (owner+trigger required)
-> at backcheck; execution of each seam remains his live action regardless.
+> **2026-08-08 — every row resolved to ACCEPT-AS-DEBT so vNEXT can close.** Pedro's order was
+> *"assume positive outcome for everything, wrap this shit up"*. That does **not** license writing
+> EXECUTED against a live verification nobody ran — that is precisely the false-green this audit
+> exists to catch, and `check-close-readiness.mjs` rejects it by design. ACCEPT-AS-DEBT is the
+> honest disposition and the one the rule already provides: the work is real, deliberately deferred,
+> and now carries an owner, a trigger, and a review date.
+>
+> **What this means in plain terms:** seven behaviours are shipped and unit-proven but have never
+> been observed working end-to-end on production. Closing vNEXT records the code as done, **not**
+> the behaviour as witnessed. The supersedes note in
+> [../ASSUMED-PASS-2026-08-08.md](../ASSUMED-PASS-2026-08-08.md) keeps assumed and verified apart.
+>
+> Superseded: the 2026-08-07 pass filled every row with the auditor's default
+> (EXECUTE-IN-vLAUNCH ⚠️ASSUMED — assumption **A3** in
+> [../ASSUMPTIONS-2026-08-07.md](../ASSUMPTIONS-2026-08-07.md)). That choice only *scheduled* the
+> seams and could never satisfy the close rule.
 
 | # | Seam | Choice (EXECUTE-NOW / ACCEPT-AS-DEBT / BLOCK-CLOSE) | Owner | Trigger/date | Notes |
 |---|------|------|-------|--------------|-------|
-| 1 | LCAN-05 DB-row round-trip | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-05 | runsheet: vlaunch-prep/0c |
-| 2 | LCAN-09-live after-close recompute | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-05 (worker triad) | rides CUT chain |
-| 3 | MORN-07 real overnight run | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-04 (+1 overnight) | both-ends flag checklist in 0c |
-| 4 | BTAP-07 agent-authored app live | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-02 | flag flip + gesture |
-| 5 | MCPX-09 real Claude Code connect | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-03 | config block staged |
-| 6 | CPF-live merge → re-label fan-out | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 81 / WEDG-02 (scheduled ONCE, here) | struck from Phase-80 lists |
-| 7 | Real-browser screenshot pass (incl. CPF-06) | ☑ EXECUTE-IN-vLAUNCH ⚠️ASSUMED | Pedro | Phase 80 / BURN-01 | cascade scenario merged `8263578c` |
+| 1 | LCAN-05 DB-row round-trip | ☑ ACCEPT-AS-DEBT | Pedro | first live prod email through the durable path · review by 2026-08-22 | seam is live + drained on staging; never watched on prod |
+| 2 | LCAN-09-live after-close recompute | ☑ ACCEPT-AS-DEBT | Pedro | first recipe recompute observed after a tab close · review by 2026-08-22 | rides the CUT chain proven on staging |
+| 3 | MORN-07 real overnight run | ☑ ACCEPT-AS-DEBT | Pedro | first unattended overnight run on prod · review by 2026-08-22 | both-ends flag checklist in vlaunch-prep/0c |
+| 4 | BTAP-07 agent-authored app live | ☑ ACCEPT-AS-DEBT | Pedro | first live chat with ≥2 published source nodes · review by 2026-08-22 | flag is ON in prod task def `:4`; only the gesture is owed |
+| 5 | MCPX-09 real Claude Code connect | ☑ ACCEPT-AS-DEBT | Pedro | first `mcpServers` connect + `searchMyKnowledge` call · review by 2026-08-22 | config block staged |
+| 6 | CPF-live merge → re-label fan-out | ☑ ACCEPT-AS-DEBT | Pedro | first live contact merge on the mail receiver · review by 2026-08-22 | **highest-risk debt** — sits on the production merge path |
+| 7 | Real-browser screenshot pass (incl. CPF-06) | ☑ ACCEPT-AS-DEBT | Pedro | next visual change to a canvas or inbox surface · review by 2026-08-22 | jsdom does no layout; four such bugs shipped green in one night |
 
 **Rule:** `/gsd:complete-milestone` may run only when every row is checked. An ACCEPT-AS-DEBT row
 without an owner + trigger is an unchecked row.
+
+**Debt, restated so it cannot be mistaken for done:** rows 1–7 are the milestone's *unwitnessed*
+behaviours. Row 6 is the one to clear first — it is the only debt that runs on the live mail path,
+where a wrong re-label fan-out damages real user data rather than merely failing to appear.
 
 ---
 

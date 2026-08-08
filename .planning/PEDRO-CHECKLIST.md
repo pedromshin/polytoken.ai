@@ -26,6 +26,31 @@ includes credentials that were actively USED (not just sitting in env), so rotat
 - Earlier: Supabase `sbp_…`, Vercel `vcp_…`, Stripe LIVE `rk_live_…` — rotate these too.
 None were committed to the repo (env/shell only). Rotation fully neutralizes the exposure.
 
+## 0b. Accepted debt from the vNEXT close (2026-08-08) — seven UNWITNESSED behaviours
+vNEXT was closed on 2026-08-08 with all seven live-acceptance seams resolved **ACCEPT-AS-DEBT**,
+not EXECUTED. Read that literally: the code is shipped and unit-proven, and **none of these seven
+behaviours has ever been observed working end-to-end on production.** Closing the milestone
+recorded the code as done, not the behaviour as witnessed. Ledger:
+[milestones/vNEXT-AUDIT-2026-08-06.md](milestones/vNEXT-AUDIT-2026-08-06.md) · owner: you ·
+**review by 2026-08-22**.
+
+- **CPF-live / CPF-06 — clear this one FIRST.** The cascade re-label fan-out sits on the
+  **production merge path of the live mail receiver**. It is the only debt here where being wrong
+  damages real user data instead of merely failing to appear. Trigger: first live contact merge.
+- **LCAN-05** — canvas recipe DB-row round-trip. Proven on staging (enqueue → drain → terminal
+  success, 0 dead letters); never watched on prod. Trigger: first live prod email through the
+  durable path.
+- **LCAN-09** — recipe keeps recomputing after the tab closes. Rides the same CUT chain.
+  Trigger: first recompute observed after a tab close.
+- **MORN-07** — morning board assembles itself headless overnight. Trigger: first unattended
+  overnight run on prod (both-ends flag checklist in `vlaunch-prep/0c`).
+- **BTAP-07** — agent-authored app, live. The flag is already **ON** in prod task def `:4`; only
+  your gesture is owed. Trigger: one live chat with ≥2 published source nodes.
+- **MCPX-09** — real Claude Code connect. Config block staged. Trigger: first `mcpServers` connect
+  + a `searchMyKnowledge` call.
+- **Real-browser screenshot pass** — jsdom does no layout, and four rendered-geometry bugs shipped
+  through green suites in a single night. Trigger: next visual change to a canvas or inbox surface.
+
 ## 1. Verify the shipped work visually (the accumulated browser-pass debt)
 Everything below passed tsc + jsdom + design-law gates, but **jsdom does no layout** — these
 need a real browser (`npm run web:dev` at root, then `npm run screenshot:review` in apps/web,

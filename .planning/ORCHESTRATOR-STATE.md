@@ -6,12 +6,48 @@
 > the RESUME PROTOCOL below. Strategic `/compact` is safe at any batch boundary — this file + pushed
 > branches hold all durable state, so nothing critical lives only in chat.
 
-## ⭐ CURRENT — 2026-08-06 · tonight part 2 (live-infra session) · `main` (pushed; prod deploys green)
+## ⭐ CURRENT — 2026-08-08 · vNEXT CLOSED · `main` (pushed; prod deploys green)
 > **This block is the live "where are we."** Everything below is chronological history
-> (newest-first). vNEXT (Phases 73–77) stays **CODE-COMPLETE** (block below); tonight part 2
-> closed the prod DB outage, landed Track 1 for real, provisioned Track 3a dark, and put the
-> milestone code LIVE on prod ECS. Remaining work = Pedro-gated enable/live seams (see the ⛔
-> bullet + STATE.md Next Actions).
+> (newest-first). **vNEXT (Phases 73–77) is CLOSED as of 2026-08-08.** The active milestone is
+> **vLAUNCH — Durable Mail & First Dollar** (Phases 78–81).
+
+### 🏁 2026-08-08 — vNEXT CLOSED, and exactly what that does and does not claim
+- **vNEXT is CLOSED** on Pedro's explicit order (*"assume positive outcome for everything, wrap
+  this shit up"*). All seven live-acceptance seams are resolved **ACCEPT-AS-DEBT**, with owner,
+  trigger and a 2026-08-22 review date — ledger:
+  [milestones/vNEXT-AUDIT-2026-08-06.md](milestones/vNEXT-AUDIT-2026-08-06.md), copied into
+  [PEDRO-CHECKLIST.md](PEDRO-CHECKLIST.md) §0b. `scripts/check-close-readiness.mjs` = **17/17**.
+- **What the close claims:** the code is written, merged, and unit-proven. **What it does NOT
+  claim:** that any of the seven behaviours has been seen working end-to-end on production. They
+  have not. "Assume positive" was not read as licence to write EXECUTED against a verification
+  nobody ran — that is the false-green this session kept finding, and the readiness checker
+  rejects it by design. ACCEPT-AS-DEBT is the honest disposition, and it is time-bound.
+- **Highest-risk debt: CPF-live / CPF-06.** It is the only one on the **production merge path of
+  the live mail receiver**, so it is the only one where being wrong corrupts real user data rather
+  than merely failing to appear. Clear it first.
+- 🔴→✅ **The checkout hang is FIXED** (`5a8e4016`). `createCheckoutSession` held a
+  `pg_advisory_xact_lock` **inside an open DB transaction across two Stripe round trips**; a
+  serverless timeout then killed the invocation, and because both clients use
+  `httpBatchStreamLink` (HTTP 200 committed **before** procedures resolve) the stream was cut with
+  no error frame — hence no toast, permanent "Starting…", and **clean lock snapshots** (the dead
+  connection rolled the transaction back, so there was never residue to find). The lock now covers
+  only the subscription row's read-modify-write; Stripe is called with nothing held; a per-user
+  idempotency key + a re-read under the lock replace what the lock used to guarantee. Regression
+  test verified **RED against the old code** and green against the new. `maxDuration=60` on the
+  tRPC route is defense-in-depth, not the fix. **Not yet exercised with a real card** — BILL-04
+  remains Pedro's gesture.
+- 🟠→✅ **The vault upload bound is CLOSED** (`6224bdc9`). `VAULT_MAX_UPLOAD_BYTES` lowered
+  100MB → **50MB** to sit at or under the prod project storage limit (proven below 100MB by the
+  explicit-100MB bucket create being refused `EntityTooLarge`). A test now fails if the app cap is
+  raised above it, and `prod-diagnose-live-bugs.mjs --apply` **pins** the bucket's `file_size_limit`
+  explicitly instead of inheriting a global nobody can read back.
+- **Still owed and unchanged:** 🔑 rotate the Supabase `service_role` key first (RLS bypass on
+  every table for every tenant, expires 2096), then the Stripe `rk_live_` and the GitHub token;
+  Pedro's four gestures; merchant-of-record with an accountant/lawyer (money is moving).
+
+### 2026-08-06 · tonight part 2 (live-infra session)
+> Closed the prod DB outage, landed Track 1 for real, provisioned Track 3a dark, and put the
+> milestone code LIVE on prod ECS.
 
 ### 💳 2026-08-08 — BILLING IS LIVE · LEGAL PAGES PUBLIC · BTAP-07 MECHANISM BUILT
 > **Standing-order note:** the actions in this block cross the usual hard limits (Stripe, flag
